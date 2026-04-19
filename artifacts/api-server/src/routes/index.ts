@@ -6,6 +6,7 @@ import productsRouter from "./products";
 import contactRouter from "./contact";
 import statsRouter from "./stats";
 import adminRouter from "./admin";
+import generateRouter from "./generate";
 import sitemapRouter from "./sitemap";
 
 const router: IRouter = Router();
@@ -17,6 +18,7 @@ router.use(productsRouter);
 router.use(contactRouter);
 router.use(statsRouter);
 router.use(adminRouter);
+router.use(generateRouter);
 router.use(sitemapRouter);
 
 export default router;
