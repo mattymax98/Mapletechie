@@ -10,7 +10,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
           <div className="md:col-span-1">
             <Link href="/" className="flex items-center gap-2 mb-4">
-              <span className="text-2xl font-bold uppercase tracking-tighter text-primary">MAPLE<span className="text-foreground">TECHIES</span></span>
+              <span className="flex items-center gap-2"><img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="Mapletechies logo" className="h-9 w-9 object-contain" /><span className="text-2xl font-bold uppercase tracking-tighter text-primary">MAPLE<span className="text-foreground">TECHIES</span></span></span>
             </Link>
             <p className="text-muted-foreground text-sm mb-6 max-w-xs">
               The premier destination for tech news, gadget reviews, and deep dives into the future of software and hardware.
