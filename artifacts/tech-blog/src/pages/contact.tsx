@@ -78,7 +78,7 @@ export default function Contact() {
               </div>
               <div>
                 <h3 className="font-bold uppercase tracking-wider text-sm mb-1">Editorial</h3>
-                <p className="text-muted-foreground">tips@mapletechies.com</p>
+                <p className="text-muted-foreground">tips@mapletechie.com</p>
                 <p className="text-muted-foreground text-sm mt-1">For leaks, tips, and story ideas.</p>
               </div>
             </div>
@@ -89,7 +89,7 @@ export default function Contact() {
               </div>
               <div>
                 <h3 className="font-bold uppercase tracking-wider text-sm mb-1">Advertising</h3>
-                <p className="text-muted-foreground">ads@mapletechies.com</p>
+                <p className="text-muted-foreground">ads@mapletechie.com</p>
                 <p className="text-muted-foreground text-sm mt-1">Partner with us to reach tech enthusiasts.</p>
               </div>
             </div>
