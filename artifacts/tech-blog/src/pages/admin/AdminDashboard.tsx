@@ -4,7 +4,7 @@ import { useAdmin } from "@/context/AdminContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlusCircle, Pencil, Trash2, LogOut, Eye, ExternalLink } from "lucide-react";
+import { PlusCircle, Pencil, Trash2, LogOut, Eye, ExternalLink, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -65,12 +65,20 @@ export default function AdminDashboard() {
               {posts?.length ?? 0} posts total
             </p>
           </div>
-          <Link href="/admin/posts/new">
-            <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2">
-              <PlusCircle className="w-4 h-4" />
-              New Post
-            </Button>
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/admin/generate">
+              <Button variant="outline" className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10 hover:text-orange-300 gap-2">
+                <Sparkles className="w-4 h-4" />
+                Generate with AI
+              </Button>
+            </Link>
+            <Link href="/admin/posts/new">
+              <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2">
+                <PlusCircle className="w-4 h-4" />
+                New Post
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {isLoading ? (

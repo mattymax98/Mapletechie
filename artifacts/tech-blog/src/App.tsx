@@ -18,6 +18,7 @@ import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminNewPost from "@/pages/admin/AdminNewPost";
 import AdminEditPost from "@/pages/admin/AdminEditPost";
+import AdminGenerate from "@/pages/admin/AdminGenerate";
 import { AdminProvider } from "@/context/AdminContext";
 import { AdminGuard } from "@/components/AdminGuard";
 
@@ -34,6 +35,9 @@ function Router() {
     <Switch>
       {/* Admin routes — no Layout wrapper */}
       <Route path="/admin/login" component={AdminLogin} />
+      <Route path="/admin/generate">
+        <AdminGuard><AdminGenerate /></AdminGuard>
+      </Route>
       <Route path="/admin/posts/new">
         <AdminGuard><AdminNewPost /></AdminGuard>
       </Route>
