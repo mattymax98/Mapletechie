@@ -23,6 +23,11 @@ export function Navbar() {
       <div className="container mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center gap-2">
+            <img
+              src={`${import.meta.env.BASE_URL}logo-icon.png`}
+              alt="Mapletechies logo"
+              className="h-8 w-8 object-contain"
+            />
             <span className="text-xl font-bold uppercase tracking-tighter text-primary">MAPLE<span className="text-foreground">TECHIES</span></span>
           </Link>
           
