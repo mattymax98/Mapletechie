@@ -50,7 +50,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     excerpt: "",
     content: "",
     category: "",
-    author: "",
+    author: "Matthew Mbaka",
     coverImage: "",
     readTime: 5,
     isFeatured: false,
