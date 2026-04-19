@@ -148,18 +148,18 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     if (!form.category) return setError("Category is required.");
     if (!form.author.trim()) return setError("Author is required.");
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       title: form.title.trim(),
       slug: form.slug.trim(),
-      excerpt: form.excerpt.trim() || null,
       content: form.content.trim(),
       category: form.category,
       author: form.author.trim(),
-      coverImage: form.coverImage.trim() || null,
       readTime: form.readTime,
       isFeatured: form.isFeatured,
       publishedAt: new Date().toISOString(),
     };
+    if (form.excerpt.trim()) payload.excerpt = form.excerpt.trim();
+    if (form.coverImage.trim()) payload.coverImage = form.coverImage.trim();
 
     if (isEditing && postId) {
       updateMutation.mutate({ id: postId, data: payload });
