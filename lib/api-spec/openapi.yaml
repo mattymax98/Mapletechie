@@ -105,6 +105,44 @@ paths:
                 $ref: "#/components/schemas/Post"
         "404":
           description: Not found
+    put:
+      operationId: updatePost
+      tags: [posts]
+      summary: Update a blog post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePostInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "404":
+          description: Not found
+    delete:
+      operationId: deletePost
+      tags: [posts]
+      summary: Delete a blog post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
 
   /posts/slug/{slug}:
     get:
@@ -286,6 +324,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/SiteSummary"
 
+  /admin/verify:
+    post:
+      operationId: adminVerify
+      tags: [admin]
+      summary: Verify admin password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyAdminBody"
+      responses:
+        "200":
+          description: Verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifyAdminResponse"
+        "401":
+          description: Unauthorized
+
 components:
   schemas:
     HealthStatus:
@@ -382,6 +441,56 @@ components:
         - category
         - author
         - readTime
+
+    UpdatePostInput:
+      type: object
+      properties:
+        title:
+          type: string
+        slug:
+          type: string
+        excerpt:
+          type: string
+        content:
+          type: string
+        coverImage:
+          type: string
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        author:
+          type: string
+        authorAvatar:
+          type: string
+        readTime:
+          type: integer
+        isFeatured:
+          type: boolean
+        publishedAt:
+          type: string
+          format: date-time
+
+    VerifyAdminBody:
+      type: object
+      properties:
+        password:
+          type: string
+      required:
+        - password
+
+    VerifyAdminResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+        - message
 
     Category:
       type: object

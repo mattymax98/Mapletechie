@@ -1,4 +1,5 @@
 import { useGetFeaturedPosts, useGetLatestPosts, useGetTrendingPosts, useGetSiteSummary, useGetFeaturedProducts } from "@workspace/api-client-react";
+import { SEO } from "@/components/SEO";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { ArrowRight, Clock, Eye, TrendingUp, BarChart3 } from "lucide-react";
@@ -19,6 +20,7 @@ export default function Home() {
 
   return (
     <div className="w-full">
+      <SEO />
       {/* Site Stats Banner */}
       {stats && (
         <div className="bg-primary text-primary-foreground py-2 px-4 text-xs font-bold uppercase tracking-widest overflow-hidden relative">

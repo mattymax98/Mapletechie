@@ -17,3 +17,6 @@ export * from "./newPostInput";
 export * from "./post";
 export * from "./product";
 export * from "./siteSummary";
+export * from "./updatePostInput";
+export * from "./verifyAdminBody";
+export * from "./verifyAdminResponse";

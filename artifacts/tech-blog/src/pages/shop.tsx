@@ -1,4 +1,5 @@
 import { useListProducts, useListCategories } from "@workspace/api-client-react";
+import { SEO } from "@/components/SEO";
 import { Link, useSearch } from "wouter";
 import { Star, ExternalLink, Filter } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,11 @@ export default function Shop() {
 
   return (
     <div className="container mx-auto px-4 md:px-6 py-10">
+      <SEO
+        title="Shop — Tech Gear & Deals"
+        description="Curated tech products, gadgets, and software recommended by the Mapletechie team. Support us by shopping through our affiliate links."
+        url="/shop"
+      />
       <div className="mb-12 border-b border-border pb-10 text-center max-w-3xl mx-auto">
         <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tight mb-6">Tech Gear & Deals</h1>
         <p className="text-xl text-muted-foreground">

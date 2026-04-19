@@ -1,4 +1,5 @@
 import { useSubmitContact } from "@workspace/api-client-react";
+import { SEO } from "@/components/SEO";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -55,6 +56,11 @@ export default function Contact() {
 
   return (
     <div className="container mx-auto px-4 md:px-6 py-12 md:py-20">
+      <SEO
+        title="Contact Us"
+        description="Get in touch with the Mapletechie team. Send us your tips, stories, or advertising inquiries."
+        url="/contact"
+      />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 max-w-6xl mx-auto">
         
         {/* Left Side - Info */}

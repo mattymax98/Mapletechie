@@ -5,6 +5,8 @@ import categoriesRouter from "./categories";
 import productsRouter from "./products";
 import contactRouter from "./contact";
 import statsRouter from "./stats";
+import adminRouter from "./admin";
+import sitemapRouter from "./sitemap";
 
 const router: IRouter = Router();
 
@@ -14,5 +16,7 @@ router.use(categoriesRouter);
 router.use(productsRouter);
 router.use(contactRouter);
 router.use(statsRouter);
+router.use(adminRouter);
+router.use(sitemapRouter);
 
 export default router;

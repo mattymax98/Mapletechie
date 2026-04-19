@@ -88,6 +88,53 @@ export const GetPostResponse = zod.object({
 });
 
 /**
+ * @summary Update a blog post
+ */
+export const UpdatePostParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdatePostBody = zod.object({
+  title: zod.string().optional(),
+  slug: zod.string().optional(),
+  excerpt: zod.string().optional(),
+  content: zod.string().optional(),
+  coverImage: zod.string().optional(),
+  category: zod.string().optional(),
+  tags: zod.array(zod.string()).optional(),
+  author: zod.string().optional(),
+  authorAvatar: zod.string().optional(),
+  readTime: zod.number().optional(),
+  isFeatured: zod.boolean().optional(),
+  publishedAt: zod.coerce.date().optional(),
+});
+
+export const UpdatePostResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  slug: zod.string(),
+  excerpt: zod.string(),
+  content: zod.string(),
+  coverImage: zod.string().optional(),
+  category: zod.string(),
+  tags: zod.array(zod.string()).optional(),
+  author: zod.string(),
+  authorAvatar: zod.string().optional(),
+  readTime: zod.number(),
+  viewCount: zod.number(),
+  isFeatured: zod.boolean(),
+  publishedAt: zod.coerce.date(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a blog post
+ */
+export const DeletePostParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
  * @summary Get a post by slug
  */
 export const GetPostBySlugParams = zod.object({
@@ -290,4 +337,16 @@ export const GetSiteSummaryResponse = zod.object({
   totalCategories: zod.number(),
   totalProducts: zod.number(),
   totalViews: zod.number(),
+});
+
+/**
+ * @summary Verify admin password
+ */
+export const AdminVerifyBody = zod.object({
+  password: zod.string(),
+});
+
+export const AdminVerifyResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string(),
 });

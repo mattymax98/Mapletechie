@@ -1,13 +1,15 @@
 import { Router } from "express";
 import { db, postsTable } from "@workspace/db";
-import { eq, desc, ilike, sql } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import {
   ListPostsQueryParams,
   CreatePostBody,
   GetPostParams,
   GetPostBySlugParams,
   GetLatestPostsQueryParams,
+  UpdatePostBody,
 } from "@workspace/api-zod";
+import { adminAuth } from "../middlewares/adminAuth";
 
 const router = Router();
 
@@ -18,8 +20,6 @@ router.get("/posts", async (req, res): Promise<void> => {
     return;
   }
   const { category, limit = 20, offset = 0 } = parsed.data;
-
-  let query = db.select().from(postsTable).orderBy(desc(postsTable.publishedAt));
 
   const posts = await db
     .select()
@@ -32,7 +32,7 @@ router.get("/posts", async (req, res): Promise<void> => {
   res.json(posts);
 });
 
-router.post("/posts", async (req, res): Promise<void> => {
+router.post("/posts", adminAuth, async (req, res): Promise<void> => {
   const parsed = CreatePostBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -87,6 +87,39 @@ router.get("/posts/slug/:slug", async (req, res): Promise<void> => {
     return;
   }
   res.json(post);
+});
+
+router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const parsed = UpdatePostBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const [updated] = await db
+    .update(postsTable)
+    .set(parsed.data)
+    .where(eq(postsTable.id, id))
+    .returning();
+  if (!updated) {
+    res.status(404).json({ error: "Post not found" });
+    return;
+  }
+  res.json(updated);
+});
+
+router.delete("/posts/:id", adminAuth, async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  await db.delete(postsTable).where(eq(postsTable.id, id));
+  res.status(204).send();
 });
 
 router.get("/posts/:id", async (req, res): Promise<void> => {
