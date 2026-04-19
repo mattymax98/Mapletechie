@@ -76,6 +76,32 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     }
   }, [existingPost]);
 
+  // Hydrate from AI draft if present (when navigating from AI Generator)
+  useEffect(() => {
+    if (isEditing) return;
+    const raw = sessionStorage.getItem("ai-draft");
+    if (!raw) return;
+    try {
+      const d = JSON.parse(raw);
+      setForm((f) => ({
+        ...f,
+        title: d.title ?? f.title,
+        slug: d.slug ?? f.slug,
+        excerpt: d.excerpt ?? f.excerpt,
+        content: d.content ?? f.content,
+        category: d.category ?? f.category,
+        author: d.author ?? f.author,
+        coverImage: d.coverImage ?? f.coverImage,
+        readTime: typeof d.readTime === "number" ? d.readTime : f.readTime,
+      }));
+      setAutoSlug(false);
+    } catch {
+      // ignore
+    } finally {
+      sessionStorage.removeItem("ai-draft");
+    }
+  }, [isEditing]);
+
   const handleTitleChange = (value: string) => {
     setForm((f) => ({
       ...f,
