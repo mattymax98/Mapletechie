@@ -21,19 +21,6 @@ export default function Home() {
   return (
     <div className="w-full">
       <SEO />
-      {/* Site Stats Banner */}
-      {stats && (
-        <div className="bg-primary text-primary-foreground py-2 px-4 text-xs font-bold uppercase tracking-widest overflow-hidden relative">
-          <div className="container mx-auto flex justify-between items-center whitespace-nowrap overflow-x-auto gap-8 no-scrollbar">
-            <span className="flex items-center gap-2"><BarChart3 className="h-3 w-3" /> Network Stats</span>
-            <span>Total Posts: {stats.totalPosts.toLocaleString()}</span>
-            <span>Total Views: {stats.totalViews.toLocaleString()}</span>
-            <span>Categories: {stats.totalCategories.toLocaleString()}</span>
-            <span>Products Reviewed: {stats.totalProducts.toLocaleString()}</span>
-          </div>
-        </div>
-      )}
-
       <div className="container mx-auto px-4 md:px-6 py-8">
         {/* Hero Section */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-16">
