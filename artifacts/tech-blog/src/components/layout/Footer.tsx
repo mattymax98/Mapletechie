@@ -10,7 +10,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
           <div className="md:col-span-1">
             <Link href="/" className="flex items-center gap-2 mb-4">
-              <span className="text-2xl font-bold uppercase tracking-tighter text-primary">TECH<span className="text-foreground">PULSE</span></span>
+              <span className="text-2xl font-bold uppercase tracking-tighter text-primary">MAPLE<span className="text-foreground">TECHIES</span></span>
             </Link>
             <p className="text-muted-foreground text-sm mb-6 max-w-xs">
               The premier destination for tech news, gadget reviews, and deep dives into the future of software and hardware.
@@ -54,7 +54,7 @@ export function Footer() {
         </div>
         
         <div className="mt-12 pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between text-xs text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} TechPulse Media. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Mapletechies Media. All rights reserved.</p>
           <div className="flex gap-4 mt-4 md:mt-0">
             <a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a>
             <a href="#" className="hover:text-foreground transition-colors">Terms of Service</a>

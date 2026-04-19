@@ -23,7 +23,7 @@ export function Navbar() {
       <div className="container mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center gap-2">
-            <span className="text-xl font-bold uppercase tracking-tighter text-primary">TECH<span className="text-foreground">PULSE</span></span>
+            <span className="text-xl font-bold uppercase tracking-tighter text-primary">MAPLE<span className="text-foreground">TECHIES</span></span>
           </Link>
           
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
