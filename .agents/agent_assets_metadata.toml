@@ -90,3 +90,15 @@ id = "1TM0LBozxJyIOB3RUav_D"
 uri = "file://artifacts/tech-blog/public/covers/quantum.png"
 type = "image"
 title = "quantum cover"
+
+[[generated]]
+id = "ACuv9jgwrJPJmwbByDFcM"
+uri = "file://artifacts/tech-blog/public/logo-icon-raw.png"
+type = "image"
+title = "Logo icon"
+
+[[generated]]
+id = "LEl2gK7djP3B7N_zBLiG1"
+uri = "file://artifacts/tech-blog/public/logo-favicon-raw.png"
+type = "image"
+title = "Favicon"
