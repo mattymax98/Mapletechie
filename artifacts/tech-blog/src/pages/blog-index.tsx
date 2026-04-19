@@ -1,4 +1,5 @@
 import { useListPosts, useListCategories } from "@workspace/api-client-react";
+import { SEO } from "@/components/SEO";
 import { Link, useSearch } from "wouter";
 import { format } from "date-fns";
 import { Search, Clock } from "lucide-react";
@@ -29,6 +30,11 @@ export default function BlogIndex() {
 
   return (
     <div className="container mx-auto px-4 md:px-6 py-10">
+      <SEO
+        title="Blog"
+        description="Latest tech news, gadget reviews, AI breakthroughs, and cybersecurity coverage from the Mapletechie team."
+        url="/blog"
+      />
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 border-b border-border pb-6">
         <div>
           <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight mb-4">Latest News</h1>

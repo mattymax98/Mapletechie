@@ -29,3 +29,8 @@ externalPort = 80
 [[ports]]
 localPort = 26015
 externalPort = 3000
+
+[userenv]
+
+[userenv.shared]
+ADMIN_PASSWORD = "Maple2025!Admin"

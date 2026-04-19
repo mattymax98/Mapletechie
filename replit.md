@@ -2,7 +2,7 @@
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Contains a tech blog website (TechPulse) with a React frontend and Express API backend.
+pnpm workspace monorepo using TypeScript. Contains "Mapletechie" (mapletechie.com) — a tech blog website inspired by The Verge and TechCrunch, with a React frontend and Express API backend.
 
 ## Stack
 
@@ -17,42 +17,54 @@ pnpm workspace monorepo using TypeScript. Contains a tech blog website (TechPuls
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
 - **UI**: Tailwind CSS, shadcn/ui, framer-motion
+- **SEO**: react-helmet-async (Open Graph, Twitter Cards, JSON-LD ready)
 
 ## Artifacts
 
 ### Tech Blog (`artifacts/tech-blog`)
 - Preview path: `/`
-- Full tech blog site inspired by The Verge and TechCrunch
-- Pages: Home, Blog, Blog Post, Shop, Contact, Category
+- Full tech blog site: Mapletechie (mapletechie.com)
+- Pages: Home, Blog, Blog Post, Shop, Contact, Category, Admin
+- SEO: react-helmet-async applied to all pages (title, description, OG tags, Twitter cards)
+- Admin panel at `/admin` (password-protected, no Layout wrapper)
+- `public/robots.txt` included; sitemap.xml served dynamically from API
 
 ### API Server (`artifacts/api-server`)
 - Preview path: `/api`
 - Express 5 REST API
-- Routes: posts, categories, products, contact, stats
+- Routes: posts (CRUD), categories, products, contact, stats, admin verify, sitemap.xml
+- Admin auth: `Authorization: Bearer <ADMIN_PASSWORD>` header required for POST/PUT/DELETE on posts
 
 ## Database Schema
 
-- `posts` — blog articles with categories, tags, authors, view counts
-- `categories` — blog categories with post counts and colors
-- `products` — affiliate products with pricing, ratings, badges
-- `contacts` — contact form submissions
+Tables: `posts`, `categories`, `products`, `contact_submissions`
 
-## Key Commands
+Seeded with: 6 posts, 6 categories, 6 products.
 
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- `pnpm --filter @workspace/api-server run dev` — run API server locally
-- `pnpm --filter @workspace/tech-blog run dev` — run frontend locally
+## Admin Panel
 
-## Features
+- URL: `/admin` (redirects to `/admin/login` if not logged in)
+- Password: set in `ADMIN_PASSWORD` environment variable (default: `Maple2025!Admin`)
+- Capabilities: create, edit, delete posts; mark featured; set category, author, cover image, read time
 
-- Blog section with categories, tags, author info, read time
-- Contact form (submissions stored in DB)
-- Shop/Products section for affiliate products
-- Dark editorial design (TechPulse brand)
-- Fully responsive — mobile, tablet, desktop
-- Stats banner, trending posts, featured hero posts
+## SEO Setup
 
-See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+- `SEO` component: `artifacts/tech-blog/src/components/SEO.tsx`
+- Applied to: Home, Blog Index, Blog Post, Shop, Contact pages
+- Dynamic sitemap: `GET /api/sitemap.xml`
+- robots.txt: `artifacts/tech-blog/public/robots.txt` (points sitemap to mapletechie.com)
+- Site domain constant in SEO.tsx: update `SITE_URL` when deploying
+
+## API Spec
+
+Located at `lib/api-spec/openapi.yaml`. Run codegen with:
+```
+pnpm --filter @workspace/api-spec run codegen
+```
+
+## Key Environment Variables
+
+- `DATABASE_URL` — PostgreSQL connection string (auto-managed by Replit)
+- `SESSION_SECRET` — Session secret (set in Replit Secrets)
+- `ADMIN_PASSWORD` — Admin panel password (set as env var; change from default in Replit Secrets)
+- `SITE_DOMAIN` — Used in sitemap.xml generation (default: `https://mapletechie.com`)

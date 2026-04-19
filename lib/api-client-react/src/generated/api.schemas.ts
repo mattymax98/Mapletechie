@@ -41,6 +41,30 @@ export interface NewPostInput {
   isFeatured?: boolean;
 }
 
+export interface UpdatePostInput {
+  title?: string;
+  slug?: string;
+  excerpt?: string;
+  content?: string;
+  coverImage?: string;
+  category?: string;
+  tags?: string[];
+  author?: string;
+  authorAvatar?: string;
+  readTime?: number;
+  isFeatured?: boolean;
+  publishedAt?: string;
+}
+
+export interface VerifyAdminBody {
+  password: string;
+}
+
+export interface VerifyAdminResponse {
+  success: boolean;
+  message: string;
+}
+
 export interface Category {
   id: number;
   name: string;

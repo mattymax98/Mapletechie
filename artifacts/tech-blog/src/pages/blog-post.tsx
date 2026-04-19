@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { SEO } from "@/components/SEO";
 
 export default function BlogPost() {
   const params = useParams<{ slug: string }>();
@@ -44,6 +45,16 @@ export default function BlogPost() {
 
   return (
     <article className="w-full">
+      <SEO
+        title={post.title}
+        description={post.excerpt ?? undefined}
+        image={post.coverImage ?? undefined}
+        url={`/blog/${post.slug}`}
+        type="article"
+        publishedTime={post.publishedAt ?? undefined}
+        author={post.author ?? undefined}
+        keywords={post.category ? [post.category, "tech", "technology"] : ["tech", "technology"]}
+      />
       {/* Header */}
       <header className="container mx-auto px-4 md:px-6 py-10 md:py-16 max-w-4xl">
         <div className="flex items-center gap-3 mb-6">

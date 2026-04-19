@@ -28,6 +28,9 @@ import type {
   Post,
   Product,
   SiteSummary,
+  UpdatePostInput,
+  VerifyAdminBody,
+  VerifyAdminResponse,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -370,6 +373,177 @@ export function useGetPost<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Update a blog post
+ */
+export const getUpdatePostUrl = (id: number) => {
+  return `/api/posts/${id}`;
+};
+
+export const updatePost = async (
+  id: number,
+  updatePostInput: UpdatePostInput,
+  options?: RequestInit,
+): Promise<Post> => {
+  return customFetch<Post>(getUpdatePostUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updatePostInput),
+  });
+};
+
+export const getUpdatePostMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePost>>,
+    TError,
+    { id: number; data: BodyType<UpdatePostInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updatePost>>,
+  TError,
+  { id: number; data: BodyType<UpdatePostInput> },
+  TContext
+> => {
+  const mutationKey = ["updatePost"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updatePost>>,
+    { id: number; data: BodyType<UpdatePostInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updatePost(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdatePostMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updatePost>>
+>;
+export type UpdatePostMutationBody = BodyType<UpdatePostInput>;
+export type UpdatePostMutationError = ErrorType<void>;
+
+/**
+ * @summary Update a blog post
+ */
+export const useUpdatePost = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePost>>,
+    TError,
+    { id: number; data: BodyType<UpdatePostInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updatePost>>,
+  TError,
+  { id: number; data: BodyType<UpdatePostInput> },
+  TContext
+> => {
+  return useMutation(getUpdatePostMutationOptions(options));
+};
+
+/**
+ * @summary Delete a blog post
+ */
+export const getDeletePostUrl = (id: number) => {
+  return `/api/posts/${id}`;
+};
+
+export const deletePost = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeletePostUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeletePostMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deletePost>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deletePost>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deletePost"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deletePost>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deletePost(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeletePostMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePost>>
+>;
+
+export type DeletePostMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a blog post
+ */
+export const useDeletePost = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deletePost>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deletePost>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeletePostMutationOptions(options));
+};
 
 /**
  * @summary Get a post by slug
@@ -1193,3 +1367,89 @@ export function useGetSiteSummary<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Verify admin password
+ */
+export const getAdminVerifyUrl = () => {
+  return `/api/admin/verify`;
+};
+
+export const adminVerify = async (
+  verifyAdminBody: VerifyAdminBody,
+  options?: RequestInit,
+): Promise<VerifyAdminResponse> => {
+  return customFetch<VerifyAdminResponse>(getAdminVerifyUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(verifyAdminBody),
+  });
+};
+
+export const getAdminVerifyMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminVerify>>,
+    TError,
+    { data: BodyType<VerifyAdminBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminVerify>>,
+  TError,
+  { data: BodyType<VerifyAdminBody> },
+  TContext
+> => {
+  const mutationKey = ["adminVerify"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminVerify>>,
+    { data: BodyType<VerifyAdminBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminVerify(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminVerifyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminVerify>>
+>;
+export type AdminVerifyMutationBody = BodyType<VerifyAdminBody>;
+export type AdminVerifyMutationError = ErrorType<void>;
+
+/**
+ * @summary Verify admin password
+ */
+export const useAdminVerify = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminVerify>>,
+    TError,
+    { data: BodyType<VerifyAdminBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminVerify>>,
+  TError,
+  { data: BodyType<VerifyAdminBody> },
+  TContext
+> => {
+  return useMutation(getAdminVerifyMutationOptions(options));
+};
