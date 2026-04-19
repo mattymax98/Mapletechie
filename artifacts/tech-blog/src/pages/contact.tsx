@@ -68,7 +68,7 @@ export default function Contact() {
           </h1>
           <p className="text-xl text-muted-foreground font-serif leading-relaxed mb-10 border-l-4 border-primary pl-6">
             Have a tip about a new startup? Want to submit a guest editorial? 
-            Or maybe you're interested in advertising with TechPulse. Drop us a line.
+            Or maybe you're interested in advertising with Mapletechies. Drop us a line.
           </p>
 
           <div className="space-y-8 mt-12">
@@ -78,7 +78,7 @@ export default function Contact() {
               </div>
               <div>
                 <h3 className="font-bold uppercase tracking-wider text-sm mb-1">Editorial</h3>
-                <p className="text-muted-foreground">tips@techpulse.media</p>
+                <p className="text-muted-foreground">tips@mapletechies.com</p>
                 <p className="text-muted-foreground text-sm mt-1">For leaks, tips, and story ideas.</p>
               </div>
             </div>
@@ -89,7 +89,7 @@ export default function Contact() {
               </div>
               <div>
                 <h3 className="font-bold uppercase tracking-wider text-sm mb-1">Advertising</h3>
-                <p className="text-muted-foreground">ads@techpulse.media</p>
+                <p className="text-muted-foreground">ads@mapletechies.com</p>
                 <p className="text-muted-foreground text-sm mt-1">Partner with us to reach tech enthusiasts.</p>
               </div>
             </div>
