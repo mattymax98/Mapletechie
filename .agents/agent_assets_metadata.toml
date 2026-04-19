@@ -1,0 +1,38 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "gox9I9_GA3rkuoXJoU_me"
+uri = "file://artifacts/tech-blog/public/images/hero-post.png"
+type = "image"
+title = "Tech futuristic setup"
+
+[[generated]]
+id = "PmsZTvyDWlMpm6oa9Qduh"
+uri = "file://artifacts/tech-blog/public/images/post-1.png"
+type = "image"
+title = "Abstract software code"
+
+[[generated]]
+id = "7QINfbkCuZvh-w_dHZMtt"
+uri = "file://artifacts/tech-blog/public/images/post-2.png"
+type = "image"
+title = "Modern tech gadget"
+
+[[generated]]
+id = "KNxzcQAg3HSnaD6wWr3w4"
+uri = "file://artifacts/tech-blog/public/images/product-1.png"
+type = "image"
+title = "Mechanical keyboard product"
+
+[[generated]]
+id = "yMwyvB7qEKlZ5XVCyAjg5"
+uri = "file://artifacts/tech-blog/public/images/product-2.png"
+type = "image"
+title = "VR headset product"
+
+[[generated]]
+id = "-MCrtX1oTlBRsQYjKcLNY"
+uri = "file://artifacts/tech-blog/public/images/product-3.png"
+type = "image"
+title = "Smart watch product"
