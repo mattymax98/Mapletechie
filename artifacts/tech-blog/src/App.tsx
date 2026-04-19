@@ -13,6 +13,7 @@ import BlogPost from "@/pages/blog-post";
 import Shop from "@/pages/shop";
 import Contact from "@/pages/contact";
 import CategoryIndex from "@/pages/category-index";
+import About from "@/pages/about";
 import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminNewPost from "@/pages/admin/AdminNewPost";
@@ -52,6 +53,7 @@ function Router() {
             <Route path="/blog/:slug" component={BlogPost} />
             <Route path="/shop" component={Shop} />
             <Route path="/contact" component={Contact} />
+            <Route path="/about" component={About} />
             <Route path="/category/:slug" component={CategoryIndex} />
             <Route component={NotFound} />
           </Switch>

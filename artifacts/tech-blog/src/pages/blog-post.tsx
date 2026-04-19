@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { SEO } from "@/components/SEO";
+import { AuthorBio } from "@/components/AuthorBio";
 
 export default function BlogPost() {
   const params = useParams<{ slug: string }>();
@@ -136,6 +137,11 @@ export default function BlogPost() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Author Bio */}
+      <div className="container mx-auto px-4 md:px-6 max-w-4xl pb-10">
+        <AuthorBio />
       </div>
 
       {/* Related Posts */}
