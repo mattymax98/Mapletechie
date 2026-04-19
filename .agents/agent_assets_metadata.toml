@@ -36,3 +36,57 @@ id = "-MCrtX1oTlBRsQYjKcLNY"
 uri = "file://artifacts/tech-blog/public/images/product-3.png"
 type = "image"
 title = "Smart watch product"
+
+[[generated]]
+id = "tq8mpnvbIMH0XH4Ccb040"
+uri = "file://artifacts/tech-blog/public/author-matthew.png"
+type = "image"
+title = "matthew headshot"
+
+[[generated]]
+id = "MWrffdz1LhWUp6f_3E_TF"
+uri = "file://artifacts/tech-blog/public/covers/ai-trends.png"
+type = "image"
+title = "ai trends cover"
+
+[[generated]]
+id = "qFedqtPhYuG_Y9jcm4xYU"
+uri = "file://artifacts/tech-blog/public/covers/ev-future.png"
+type = "image"
+title = "ev future cover"
+
+[[generated]]
+id = "v0ymfX8A8xZMYSy39Dr1b"
+uri = "file://artifacts/tech-blog/public/covers/cybersecurity.png"
+type = "image"
+title = "cybersecurity cover"
+
+[[generated]]
+id = "awUlHk3RNlwXWbk79UVhD"
+uri = "file://artifacts/tech-blog/public/covers/gadgets.png"
+type = "image"
+title = "gadgets cover"
+
+[[generated]]
+id = "z1IxmKLS32O10tHqIXBsW"
+uri = "file://artifacts/tech-blog/public/covers/software.png"
+type = "image"
+title = "software cover"
+
+[[generated]]
+id = "BPVB5kXxCHNM5dAX3IVl6"
+uri = "file://artifacts/tech-blog/public/covers/gear-review.png"
+type = "image"
+title = "gear review cover"
+
+[[generated]]
+id = "OThe_B3OFi_j77kXAeU6B"
+uri = "file://artifacts/tech-blog/public/covers/tech-business.png"
+type = "image"
+title = "tech business cover"
+
+[[generated]]
+id = "1TM0LBozxJyIOB3RUav_D"
+uri = "file://artifacts/tech-blog/public/covers/quantum.png"
+type = "image"
+title = "quantum cover"
