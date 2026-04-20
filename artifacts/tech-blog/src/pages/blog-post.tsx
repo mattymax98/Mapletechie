@@ -175,7 +175,7 @@ export default function BlogPost() {
       {/* Cover Image */}
       <div className="w-full max-w-6xl mx-auto px-4 md:px-6 mb-12">
         <div className="aspect-video w-full bg-muted border border-border">
-          <img 
+          <img loading="lazy" decoding="async" 
             src={post.coverImage || "/images/hero-post.png"} 
             alt={post.title} 
             className="w-full h-full object-cover"
@@ -221,7 +221,7 @@ export default function BlogPost() {
             {relatedPosts?.filter(p => p.id !== post.id).slice(0, 3).map((rp, idx) => (
               <Link key={rp.id} href={`/blog/${rp.slug}`} className="group flex flex-col gap-4">
                 <div className="overflow-hidden border border-border aspect-video bg-muted relative">
-                  <img 
+                  <img loading="lazy" decoding="async" 
                     src={rp.coverImage || `/images/post-${(idx % 2) + 1}.png`} 
                     alt={rp.title} 
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"

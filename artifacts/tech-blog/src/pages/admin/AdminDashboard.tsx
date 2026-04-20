@@ -4,7 +4,7 @@ import { useAdmin } from "@/context/AdminContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlusCircle, Pencil, Trash2, LogOut, Eye, ExternalLink, Sparkles, Users, User as UserIcon, CheckCircle2 } from "lucide-react";
+import { PlusCircle, Pencil, Trash2, LogOut, Eye, ExternalLink, Sparkles, Users, User as UserIcon, CheckCircle2, ShoppingBag } from "lucide-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -64,6 +64,14 @@ export default function AdminDashboard() {
                 <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
                   <Users className="w-4 h-4" />
                   <span className="hidden sm:inline">Editors</span>
+                </Button>
+              </Link>
+            )}
+            {isAdmin && (
+              <Link href="/admin/products">
+                <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
+                  <ShoppingBag className="w-4 h-4" />
+                  <span className="hidden sm:inline">Shop</span>
                 </Button>
               </Link>
             )}

@@ -310,6 +310,10 @@ export const ListProductsResponseItem = zod.object({
   description: zod.string(),
   price: zod.number(),
   originalPrice: zod.number().optional(),
+  currency: zod
+    .string()
+    .optional()
+    .describe("ISO 4217 currency code (defaults to CAD)"),
   affiliateUrl: zod.string(),
   imageUrl: zod.string().optional(),
   category: zod.string(),
@@ -334,6 +338,10 @@ export const GetProductResponse = zod.object({
   description: zod.string(),
   price: zod.number(),
   originalPrice: zod.number().optional(),
+  currency: zod
+    .string()
+    .optional()
+    .describe("ISO 4217 currency code (defaults to CAD)"),
   affiliateUrl: zod.string(),
   imageUrl: zod.string().optional(),
   category: zod.string(),
@@ -353,6 +361,10 @@ export const GetFeaturedProductsResponseItem = zod.object({
   description: zod.string(),
   price: zod.number(),
   originalPrice: zod.number().optional(),
+  currency: zod
+    .string()
+    .optional()
+    .describe("ISO 4217 currency code (defaults to CAD)"),
   affiliateUrl: zod.string(),
   imageUrl: zod.string().optional(),
   category: zod.string(),

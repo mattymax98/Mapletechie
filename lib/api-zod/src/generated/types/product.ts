@@ -12,6 +12,8 @@ export interface Product {
   description: string;
   price: number;
   originalPrice?: number;
+  /** ISO 4217 currency code (defaults to CAD) */
+  currency?: string;
   affiliateUrl: string;
   imageUrl?: string;
   category: string;
