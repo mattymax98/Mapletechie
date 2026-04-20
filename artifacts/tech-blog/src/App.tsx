@@ -22,6 +22,12 @@ import AdminGenerate from "@/pages/admin/AdminGenerate";
 import AdminUsers from "@/pages/admin/AdminUsers";
 import AdminProfile from "@/pages/admin/AdminProfile";
 import AdminProducts from "@/pages/admin/AdminProducts";
+import AdminInbox from "@/pages/admin/AdminInbox";
+import AdminJobs from "@/pages/admin/AdminJobs";
+import Careers from "@/pages/careers";
+import CareerDetail from "@/pages/career-detail";
+import Advertise from "@/pages/advertise";
+import Reviews from "@/pages/reviews";
 import { AdminProvider } from "@/context/AdminContext";
 import { AdminGuard } from "@/components/AdminGuard";
 
@@ -50,6 +56,12 @@ function Router() {
       <Route path="/admin/products">
         <AdminGuard><AdminProducts /></AdminGuard>
       </Route>
+      <Route path="/admin/inbox">
+        <AdminGuard><AdminInbox /></AdminGuard>
+      </Route>
+      <Route path="/admin/jobs">
+        <AdminGuard><AdminJobs /></AdminGuard>
+      </Route>
       <Route path="/admin/posts/new">
         <AdminGuard><AdminNewPost /></AdminGuard>
       </Route>
@@ -70,6 +82,10 @@ function Router() {
             <Route path="/shop" component={Shop} />
             <Route path="/contact" component={Contact} />
             <Route path="/about" component={About} />
+            <Route path="/careers" component={Careers} />
+            <Route path="/careers/:slug" component={CareerDetail} />
+            <Route path="/advertise" component={Advertise} />
+            <Route path="/reviews" component={Reviews} />
             <Route path="/category/:slug" component={CategoryIndex} />
             <Route component={NotFound} />
           </Switch>

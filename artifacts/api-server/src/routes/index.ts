@@ -9,6 +9,9 @@ import adminRouter from "./admin";
 import generateRouter from "./generate";
 import sitemapRouter from "./sitemap";
 import storageRouter from "./storage";
+import jobsRouter from "./jobs";
+import reviewsRouter from "./reviews";
+import advertiseRouter from "./advertise";
 
 const router: IRouter = Router();
 
@@ -22,5 +25,8 @@ router.use(adminRouter);
 router.use(generateRouter);
 router.use(sitemapRouter);
 router.use(storageRouter);
+router.use(jobsRouter);
+router.use(reviewsRouter);
+router.use(advertiseRouter);
 
 export default router;

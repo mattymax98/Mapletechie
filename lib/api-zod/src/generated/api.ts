@@ -673,3 +673,298 @@ export const GetPublicObjectParams = zod.object({
 export const GetStorageObjectParams = zod.object({
   objectPath: zod.coerce.string(),
 });
+
+/**
+ * @summary List active job postings
+ */
+export const ListJobsResponseItem = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  title: zod.string(),
+  department: zod.string(),
+  location: zod.string(),
+  employmentType: zod.string(),
+  compensation: zod.string().nullish(),
+  summary: zod.string(),
+  description: zod.string(),
+  responsibilities: zod.string(),
+  requirements: zod.string(),
+  niceToHaves: zod.string().nullish(),
+  applyEmail: zod.string().nullish(),
+  isActive: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListJobsResponse = zod.array(ListJobsResponseItem);
+
+/**
+ * @summary Get a single job posting by slug
+ */
+export const GetJobBySlugParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const GetJobBySlugResponse = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  title: zod.string(),
+  department: zod.string(),
+  location: zod.string(),
+  employmentType: zod.string(),
+  compensation: zod.string().nullish(),
+  summary: zod.string(),
+  description: zod.string(),
+  responsibilities: zod.string(),
+  requirements: zod.string(),
+  niceToHaves: zod.string().nullish(),
+  applyEmail: zod.string().nullish(),
+  isActive: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Submit an application for a job
+ */
+export const SubmitApplicationParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const SubmitApplicationBody = zod.object({
+  name: zod.string(),
+  email: zod.string(),
+  phone: zod.string().nullish(),
+  resumeUrl: zod.string().nullish(),
+  portfolioUrl: zod.string().nullish(),
+  coverLetter: zod.string(),
+});
+
+export const SubmitApplicationResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string(),
+});
+
+/**
+ * @summary List approved reviews
+ */
+export const ListReviewsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  email: zod.string(),
+  rating: zod.number(),
+  title: zod.string(),
+  body: zod.string(),
+  postSlug: zod.string().nullish(),
+  status: zod.string(),
+  createdAt: zod.coerce.date(),
+});
+export const ListReviewsResponse = zod.array(ListReviewsResponseItem);
+
+/**
+ * @summary Submit a reader review
+ */
+export const SubmitReviewBody = zod.object({
+  name: zod.string(),
+  email: zod.string(),
+  rating: zod.number(),
+  title: zod.string(),
+  body: zod.string(),
+  postSlug: zod.string().nullish(),
+});
+
+export const SubmitReviewResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string(),
+});
+
+/**
+ * @summary Submit an advertising inquiry
+ */
+export const SubmitAdInquiryBody = zod.object({
+  companyName: zod.string(),
+  contactName: zod.string(),
+  email: zod.string(),
+  website: zod.string().nullish(),
+  adType: zod.string(),
+  budget: zod.string().nullish(),
+  message: zod.string(),
+  creativeUrl: zod.string().nullish(),
+});
+
+export const SubmitAdInquiryResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string(),
+});
+
+/**
+ * @summary List all jobs (admin)
+ */
+export const AdminListJobsResponseItem = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  title: zod.string(),
+  department: zod.string(),
+  location: zod.string(),
+  employmentType: zod.string(),
+  compensation: zod.string().nullish(),
+  summary: zod.string(),
+  description: zod.string(),
+  responsibilities: zod.string(),
+  requirements: zod.string(),
+  niceToHaves: zod.string().nullish(),
+  applyEmail: zod.string().nullish(),
+  isActive: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const AdminListJobsResponse = zod.array(AdminListJobsResponseItem);
+
+/**
+ * @summary Create job
+ */
+export const AdminCreateJobBody = zod.object({
+  slug: zod.string(),
+  title: zod.string(),
+  department: zod.string(),
+  location: zod.string(),
+  employmentType: zod.string(),
+  compensation: zod.string().nullish(),
+  summary: zod.string(),
+  description: zod.string(),
+  responsibilities: zod.string(),
+  requirements: zod.string(),
+  niceToHaves: zod.string().nullish(),
+  applyEmail: zod.string().nullish(),
+  isActive: zod.boolean().optional(),
+});
+
+export const AdminUpdateJobParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateJobBody = zod.object({
+  slug: zod.string(),
+  title: zod.string(),
+  department: zod.string(),
+  location: zod.string(),
+  employmentType: zod.string(),
+  compensation: zod.string().nullish(),
+  summary: zod.string(),
+  description: zod.string(),
+  responsibilities: zod.string(),
+  requirements: zod.string(),
+  niceToHaves: zod.string().nullish(),
+  applyEmail: zod.string().nullish(),
+  isActive: zod.boolean().optional(),
+});
+
+export const AdminUpdateJobResponse = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  title: zod.string(),
+  department: zod.string(),
+  location: zod.string(),
+  employmentType: zod.string(),
+  compensation: zod.string().nullish(),
+  summary: zod.string(),
+  description: zod.string(),
+  responsibilities: zod.string(),
+  requirements: zod.string(),
+  niceToHaves: zod.string().nullish(),
+  applyEmail: zod.string().nullish(),
+  isActive: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+export const AdminDeleteJobParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminListApplicationsResponseItem = zod.object({
+  id: zod.number(),
+  jobId: zod.number(),
+  name: zod.string(),
+  email: zod.string(),
+  phone: zod.string().nullish(),
+  resumeUrl: zod.string().nullish(),
+  portfolioUrl: zod.string().nullish(),
+  coverLetter: zod.string(),
+  status: zod.string(),
+  createdAt: zod.coerce.date(),
+});
+export const AdminListApplicationsResponse = zod.array(
+  AdminListApplicationsResponseItem,
+);
+
+export const AdminDeleteApplicationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminListReviewsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  email: zod.string(),
+  rating: zod.number(),
+  title: zod.string(),
+  body: zod.string(),
+  postSlug: zod.string().nullish(),
+  status: zod.string(),
+  createdAt: zod.coerce.date(),
+});
+export const AdminListReviewsResponse = zod.array(AdminListReviewsResponseItem);
+
+export const AdminUpdateReviewStatusParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateReviewStatusBody = zod.object({
+  status: zod.string(),
+});
+
+export const AdminUpdateReviewStatusResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  email: zod.string(),
+  rating: zod.number(),
+  title: zod.string(),
+  body: zod.string(),
+  postSlug: zod.string().nullish(),
+  status: zod.string(),
+  createdAt: zod.coerce.date(),
+});
+
+export const AdminDeleteReviewParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminListAdInquiriesResponseItem = zod.object({
+  id: zod.number(),
+  companyName: zod.string(),
+  contactName: zod.string(),
+  email: zod.string(),
+  website: zod.string().nullish(),
+  adType: zod.string(),
+  budget: zod.string().nullish(),
+  message: zod.string(),
+  creativeUrl: zod.string().nullish(),
+  status: zod.string(),
+  createdAt: zod.coerce.date(),
+});
+export const AdminListAdInquiriesResponse = zod.array(
+  AdminListAdInquiriesResponseItem,
+);
+
+export const AdminDeleteAdInquiryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Counts of new submissions across inbox types
+ */
+export const AdminGetInboxCountsResponse = zod.object({
+  applications: zod.number(),
+  reviews: zod.number(),
+  adInquiries: zod.number(),
+  contacts: zod.number(),
+});
