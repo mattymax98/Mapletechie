@@ -4,7 +4,7 @@ import { useAdmin } from "@/context/AdminContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlusCircle, Pencil, Trash2, LogOut, Eye, ExternalLink, Sparkles, Users, User as UserIcon, CheckCircle2, ShoppingBag, Inbox, Briefcase, Mail } from "lucide-react";
+import { PlusCircle, Pencil, Trash2, LogOut, Eye, ExternalLink, Sparkles, Users, User as UserIcon, CheckCircle2, ShoppingBag, Inbox, Briefcase, Mail, ClipboardList } from "lucide-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -44,21 +44,18 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-black text-white">
       <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-baseline gap-2.5 leading-none">
-            <span className="text-xl font-bold tracking-tight">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
+          <div className="flex items-baseline gap-2 leading-none whitespace-nowrap shrink-0">
+            <span className="text-lg sm:text-xl font-bold tracking-tight">
               <span className="text-orange-500">MAPLE</span>TECHIE
             </span>
-            <span className="text-zinc-500 text-xl font-light">/</span>
-            <span className="text-zinc-300 text-base font-medium tracking-tight">Admin</span>
-            {user && (
-              <span className="text-zinc-400 text-xs ml-3 hidden sm:inline">
-                Signed in as <span className="text-orange-400 font-medium">{user.displayName}</span>
-                {isAdmin && <Badge className="ml-2 bg-orange-500/20 text-orange-400 border-orange-500/30 text-[10px]">ADMIN</Badge>}
-              </span>
+            <span className="text-zinc-500 text-lg font-light">/</span>
+            <span className="text-zinc-300 text-sm sm:text-base font-medium tracking-tight">Admin</span>
+            {user && isAdmin && (
+              <Badge className="ml-2 bg-orange-500/20 text-orange-400 border-orange-500/30 text-[10px] hidden md:inline-flex">ADMIN</Badge>
             )}
           </div>
-          <div className="flex items-center gap-1 sm:gap-3">
+          <div className="flex items-center gap-0.5 sm:gap-1 overflow-x-auto">
             <Link href="/admin/profile">
               <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
                 <UserIcon className="w-4 h-4" />
@@ -101,7 +98,15 @@ export default function AdminDashboard() {
               <Link href="/admin/newsletter">
                 <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
                   <Mail className="w-4 h-4" />
-                  <span className="hidden sm:inline">Newsletter</span>
+                  <span className="hidden lg:inline">Newsletter</span>
+                </Button>
+              </Link>
+            )}
+            {isAdmin && (
+              <Link href="/admin/audit">
+                <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
+                  <ClipboardList className="w-4 h-4" />
+                  <span className="hidden lg:inline">Activity</span>
                 </Button>
               </Link>
             )}

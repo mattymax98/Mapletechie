@@ -808,6 +808,112 @@ paths:
               schema:
                 $ref: "#/components/schemas/SubmissionResponse"
 
+  /comments:
+    get:
+      operationId: listComments
+      tags: [comments]
+      summary: List approved comments for a post
+      parameters:
+        - name: postSlug
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Comment"
+    post:
+      operationId: submitComment
+      tags: [comments]
+      summary: Submit a comment for moderation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewCommentInput"
+      responses:
+        "200":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmissionResponse"
+
+  /admin/comments:
+    get:
+      operationId: adminListComments
+      tags: [admin]
+      summary: List all comments (admin)
+      responses:
+        "200":
+          description: Comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Comment"
+
+  /admin/comments/{id}:
+    patch:
+      operationId: adminUpdateCommentStatus
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommentStatusUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+    delete:
+      operationId: adminDeleteComment
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  /admin/audit-logs:
+    get:
+      operationId: adminListAuditLogs
+      tags: [admin]
+      summary: List recent audit log entries
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Audit logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLog"
+
   /admin/jobs:
     get:
       operationId: adminListJobs
@@ -1656,12 +1762,12 @@ components:
         name: { type: string }
         email: { type: string }
         rating: { type: integer }
-        title: { type: string }
+        title: { type: string, nullable: true }
         body: { type: string }
         postSlug: { type: string, nullable: true }
         status: { type: string }
         createdAt: { type: string, format: date-time }
-      required: [id, name, email, rating, title, body, status, createdAt]
+      required: [id, name, email, rating, body, status, createdAt]
 
     ReviewBody:
       type: object
@@ -1669,10 +1775,10 @@ components:
         name: { type: string }
         email: { type: string }
         rating: { type: integer }
-        title: { type: string }
+        title: { type: string, nullable: true }
         body: { type: string }
         postSlug: { type: string, nullable: true }
-      required: [name, email, rating, title, body]
+      required: [name, email, rating, body]
 
     AdInquiry:
       type: object
@@ -1717,7 +1823,50 @@ components:
         reviews: { type: integer }
         adInquiries: { type: integer }
         contacts: { type: integer }
-      required: [applications, reviews, adInquiries, contacts]
+        comments: { type: integer }
+      required: [applications, reviews, adInquiries, contacts, comments]
+
+    Comment:
+      type: object
+      properties:
+        id: { type: integer }
+        postSlug: { type: string }
+        name: { type: string }
+        email: { type: string, nullable: true }
+        body: { type: string }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, postSlug, name, body, status, createdAt]
+
+    NewCommentInput:
+      type: object
+      properties:
+        postSlug: { type: string }
+        name: { type: string }
+        email: { type: string }
+        body: { type: string }
+      required: [postSlug, name, body]
+
+    CommentStatusUpdate:
+      type: object
+      properties:
+        status: { type: string, enum: [approved, rejected, pending] }
+      required: [status]
+
+    AuditLog:
+      type: object
+      properties:
+        id: { type: integer }
+        userId: { type: integer, nullable: true }
+        username: { type: string, nullable: true }
+        action: { type: string }
+        entityType: { type: string, nullable: true }
+        entityId: { type: string, nullable: true }
+        summary: { type: string, nullable: true }
+        ip: { type: string, nullable: true }
+        userAgent: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+      required: [id, action, createdAt]
 
     ReviewStatusUpdate:
       type: object

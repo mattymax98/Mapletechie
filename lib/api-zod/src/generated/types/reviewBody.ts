@@ -10,7 +10,7 @@ export interface ReviewBody {
   name: string;
   email: string;
   rating: number;
-  title: string;
+  title?: string | null;
   body: string;
   postSlug?: string | null;
 }

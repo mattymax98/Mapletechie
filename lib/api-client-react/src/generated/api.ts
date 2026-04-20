@@ -19,11 +19,15 @@ import type {
 import type {
   AdInquiry,
   AdInquiryBody,
+  AdminListAuditLogsParams,
   AdminLogout200,
   Application,
   ApplicationBody,
+  AuditLog,
   AuthorProfile,
   Category,
+  Comment,
+  CommentStatusUpdate,
   ContactFormBody,
   ContactResponse,
   GetLatestPostsParams,
@@ -31,10 +35,12 @@ import type {
   InboxCounts,
   Job,
   JobInput,
+  ListCommentsParams,
   ListPostsParams,
   ListProductsParams,
   LoginBody,
   LoginResponse,
+  NewCommentInput,
   NewPostInput,
   NewUserInput,
   NewsletterActionResponse,
@@ -3600,6 +3606,518 @@ export const useSubmitAdInquiry = <
 > => {
   return useMutation(getSubmitAdInquiryMutationOptions(options));
 };
+
+/**
+ * @summary List approved comments for a post
+ */
+export const getListCommentsUrl = (params: ListCommentsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/comments?${stringifiedParams}`
+    : `/api/comments`;
+};
+
+export const listComments = async (
+  params: ListCommentsParams,
+  options?: RequestInit,
+): Promise<Comment[]> => {
+  return customFetch<Comment[]>(getListCommentsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCommentsQueryKey = (params?: ListCommentsParams) => {
+  return [`/api/comments`, ...(params ? [params] : [])] as const;
+};
+
+export const getListCommentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listComments>>,
+  TError = ErrorType<unknown>,
+>(
+  params: ListCommentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listComments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCommentsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listComments>>> = ({
+    signal,
+  }) => listComments(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listComments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCommentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listComments>>
+>;
+export type ListCommentsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List approved comments for a post
+ */
+
+export function useListComments<
+  TData = Awaited<ReturnType<typeof listComments>>,
+  TError = ErrorType<unknown>,
+>(
+  params: ListCommentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listComments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCommentsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Submit a comment for moderation
+ */
+export const getSubmitCommentUrl = () => {
+  return `/api/comments`;
+};
+
+export const submitComment = async (
+  newCommentInput: NewCommentInput,
+  options?: RequestInit,
+): Promise<SubmissionResponse> => {
+  return customFetch<SubmissionResponse>(getSubmitCommentUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(newCommentInput),
+  });
+};
+
+export const getSubmitCommentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitComment>>,
+    TError,
+    { data: BodyType<NewCommentInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitComment>>,
+  TError,
+  { data: BodyType<NewCommentInput> },
+  TContext
+> => {
+  const mutationKey = ["submitComment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitComment>>,
+    { data: BodyType<NewCommentInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return submitComment(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitCommentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitComment>>
+>;
+export type SubmitCommentMutationBody = BodyType<NewCommentInput>;
+export type SubmitCommentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Submit a comment for moderation
+ */
+export const useSubmitComment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitComment>>,
+    TError,
+    { data: BodyType<NewCommentInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitComment>>,
+  TError,
+  { data: BodyType<NewCommentInput> },
+  TContext
+> => {
+  return useMutation(getSubmitCommentMutationOptions(options));
+};
+
+/**
+ * @summary List all comments (admin)
+ */
+export const getAdminListCommentsUrl = () => {
+  return `/api/admin/comments`;
+};
+
+export const adminListComments = async (
+  options?: RequestInit,
+): Promise<Comment[]> => {
+  return customFetch<Comment[]>(getAdminListCommentsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListCommentsQueryKey = () => {
+  return [`/api/admin/comments`] as const;
+};
+
+export const getAdminListCommentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListComments>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListComments>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminListCommentsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListComments>>
+  > = ({ signal }) => adminListComments({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListComments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListCommentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListComments>>
+>;
+export type AdminListCommentsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all comments (admin)
+ */
+
+export function useAdminListComments<
+  TData = Awaited<ReturnType<typeof adminListComments>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListComments>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListCommentsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getAdminUpdateCommentStatusUrl = (id: number) => {
+  return `/api/admin/comments/${id}`;
+};
+
+export const adminUpdateCommentStatus = async (
+  id: number,
+  commentStatusUpdate: CommentStatusUpdate,
+  options?: RequestInit,
+): Promise<Comment> => {
+  return customFetch<Comment>(getAdminUpdateCommentStatusUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(commentStatusUpdate),
+  });
+};
+
+export const getAdminUpdateCommentStatusMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateCommentStatus>>,
+    TError,
+    { id: number; data: BodyType<CommentStatusUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateCommentStatus>>,
+  TError,
+  { id: number; data: BodyType<CommentStatusUpdate> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateCommentStatus"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateCommentStatus>>,
+    { id: number; data: BodyType<CommentStatusUpdate> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminUpdateCommentStatus(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateCommentStatusMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateCommentStatus>>
+>;
+export type AdminUpdateCommentStatusMutationBody =
+  BodyType<CommentStatusUpdate>;
+export type AdminUpdateCommentStatusMutationError = ErrorType<unknown>;
+
+export const useAdminUpdateCommentStatus = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateCommentStatus>>,
+    TError,
+    { id: number; data: BodyType<CommentStatusUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateCommentStatus>>,
+  TError,
+  { id: number; data: BodyType<CommentStatusUpdate> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateCommentStatusMutationOptions(options));
+};
+
+export const getAdminDeleteCommentUrl = (id: number) => {
+  return `/api/admin/comments/${id}`;
+};
+
+export const adminDeleteComment = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getAdminDeleteCommentUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getAdminDeleteCommentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteComment>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeleteComment>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDeleteComment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeleteComment>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDeleteComment(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeleteCommentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeleteComment>>
+>;
+
+export type AdminDeleteCommentMutationError = ErrorType<unknown>;
+
+export const useAdminDeleteComment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteComment>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeleteComment>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDeleteCommentMutationOptions(options));
+};
+
+/**
+ * @summary List recent audit log entries
+ */
+export const getAdminListAuditLogsUrl = (params?: AdminListAuditLogsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/audit-logs?${stringifiedParams}`
+    : `/api/admin/audit-logs`;
+};
+
+export const adminListAuditLogs = async (
+  params?: AdminListAuditLogsParams,
+  options?: RequestInit,
+): Promise<AuditLog[]> => {
+  return customFetch<AuditLog[]>(getAdminListAuditLogsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListAuditLogsQueryKey = (
+  params?: AdminListAuditLogsParams,
+) => {
+  return [`/api/admin/audit-logs`, ...(params ? [params] : [])] as const;
+};
+
+export const getAdminListAuditLogsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListAuditLogs>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: AdminListAuditLogsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListAuditLogs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListAuditLogsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListAuditLogs>>
+  > = ({ signal }) => adminListAuditLogs(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListAuditLogs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListAuditLogsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListAuditLogs>>
+>;
+export type AdminListAuditLogsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List recent audit log entries
+ */
+
+export function useAdminListAuditLogs<
+  TData = Awaited<ReturnType<typeof adminListAuditLogs>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: AdminListAuditLogsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListAuditLogs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListAuditLogsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary List all jobs (admin)

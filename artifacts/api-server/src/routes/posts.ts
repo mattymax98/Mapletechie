@@ -8,6 +8,7 @@ import {
   GetLatestPostsQueryParams,
 } from "@workspace/api-zod";
 import { adminAuth } from "../middlewares/adminAuth";
+import { writeAuditLog } from "../lib/audit";
 import sanitizeHtml from "sanitize-html";
 
 const router = Router();
@@ -158,6 +159,12 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
   };
 
   const [post] = await db.insert(postsTable).values(values).returning();
+  await writeAuditLog(req, {
+    action: "post.create",
+    entityType: "post",
+    entityId: post.id,
+    summary: `Created post "${post.title}" (${post.status})`,
+  });
   res.status(201).json(post);
 });
 
@@ -286,6 +293,12 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     .set(update)
     .where(eq(postsTable.id, id))
     .returning();
+  await writeAuditLog(req, {
+    action: "post.update",
+    entityType: "post",
+    entityId: updated.id,
+    summary: `Updated post "${updated.title}"`,
+  });
   res.json(updated);
 });
 
@@ -309,6 +322,12 @@ router.delete("/posts/:id", adminAuth, async (req, res): Promise<void> => {
   }
 
   await db.delete(postsTable).where(eq(postsTable.id, id));
+  await writeAuditLog(req, {
+    action: "post.delete",
+    entityType: "post",
+    entityId: id,
+    summary: `Deleted post "${existing.title}"`,
+  });
   res.status(204).send();
 });
 
