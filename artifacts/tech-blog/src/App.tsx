@@ -29,6 +29,8 @@ import CareerDetail from "@/pages/career-detail";
 import Advertise from "@/pages/advertise";
 import Reviews from "@/pages/reviews";
 import SearchPage from "@/pages/search";
+import Privacy from "@/pages/privacy";
+import Terms from "@/pages/terms";
 import { AdminProvider } from "@/context/AdminContext";
 import { AdminGuard } from "@/components/AdminGuard";
 
@@ -88,6 +90,8 @@ function Router() {
             <Route path="/advertise" component={Advertise} />
             <Route path="/reviews" component={Reviews} />
             <Route path="/search" component={SearchPage} />
+            <Route path="/privacy" component={Privacy} />
+            <Route path="/terms" component={Terms} />
             <Route path="/category/:slug" component={CategoryIndex} />
             <Route component={NotFound} />
           </Switch>
