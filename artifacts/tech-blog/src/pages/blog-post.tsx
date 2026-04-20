@@ -1,7 +1,7 @@
 import { useGetPostBySlug, useGetLatestPosts, useGetAuthor } from "@workspace/api-client-react";
 import { Link, useParams } from "wouter";
 import { format } from "date-fns";
-import { Clock, Eye, Share2, Facebook, Twitter, Linkedin } from "lucide-react";
+import { Clock, Eye, Share2, Twitter, Linkedin, Instagram, Github, Globe } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -93,51 +93,7 @@ export default function BlogPost() {
           />
           
           <div className="flex gap-2">
-            <Button
-              asChild
-              variant="outline"
-              size="icon"
-              className="rounded-none border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
-              title="Share on X / Twitter"
-            >
-              <a
-                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(post.title)}&url=${encodeURIComponent(`https://mapletechie.com/blog/${post.slug}`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Twitter className="h-4 w-4" />
-              </a>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              size="icon"
-              className="rounded-none border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
-              title="Share on Facebook"
-            >
-              <a
-                href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`https://mapletechie.com/blog/${post.slug}`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Facebook className="h-4 w-4" />
-              </a>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              size="icon"
-              className="rounded-none border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
-              title="Share on LinkedIn"
-            >
-              <a
-                href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`https://mapletechie.com/blog/${post.slug}`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Linkedin className="h-4 w-4" />
-              </a>
-            </Button>
+            <AuthorSocials authorId={post.authorId} />
             <Button
               variant="outline"
               size="icon"
@@ -229,6 +185,39 @@ export default function BlogPost() {
         </div>
       </div>
     </article>
+  );
+}
+
+function AuthorSocials({ authorId }: { authorId?: number }) {
+  const { data: author } = useGetAuthor(authorId ?? 0, {
+    query: { enabled: !!authorId },
+  });
+  if (!author) return null;
+  const links: { url?: string; Icon: typeof Twitter; title: string }[] = [
+    { url: author.twitterUrl, Icon: Twitter, title: "Twitter / X" },
+    { url: author.linkedinUrl, Icon: Linkedin, title: "LinkedIn" },
+    { url: author.instagramUrl, Icon: Instagram, title: "Instagram" },
+    { url: author.githubUrl, Icon: Github, title: "GitHub" },
+    { url: author.websiteUrl, Icon: Globe, title: "Website" },
+  ].filter((l): l is { url: string; Icon: typeof Twitter; title: string } => !!l.url && l.url.trim() !== "");
+  if (links.length === 0) return null;
+  return (
+    <>
+      {links.map(({ url, Icon, title }) => (
+        <Button
+          key={title}
+          asChild
+          variant="outline"
+          size="icon"
+          className="rounded-none border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+          title={`${author.displayName} on ${title}`}
+        >
+          <a href={url} target="_blank" rel="noopener noreferrer">
+            <Icon className="h-4 w-4" />
+          </a>
+        </Button>
+      ))}
+    </>
   );
 }
 
