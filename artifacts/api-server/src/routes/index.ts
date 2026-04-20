@@ -8,6 +8,7 @@ import statsRouter from "./stats";
 import adminRouter from "./admin";
 import generateRouter from "./generate";
 import sitemapRouter from "./sitemap";
+import storageRouter from "./storage";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(statsRouter);
 router.use(adminRouter);
 router.use(generateRouter);
 router.use(sitemapRouter);
+router.use(storageRouter);
 
 export default router;

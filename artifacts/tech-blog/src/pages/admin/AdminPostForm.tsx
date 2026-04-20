@@ -32,6 +32,7 @@ import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RichTextEditor } from "@/components/RichTextEditor";
+import { ImageUploadField } from "@/components/ImageUploadField";
 
 interface AdminPostFormProps {
   postId?: number;
@@ -351,19 +352,12 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
             </div>
 
             <div className="md:col-span-2 space-y-2">
-              <Label className="text-zinc-300">Cover Image URL</Label>
-              <Input
+              <Label className="text-zinc-300">Cover Image</Label>
+              <ImageUploadField
                 value={form.coverImage}
-                onChange={(e) => setForm((f) => ({ ...f, coverImage: e.target.value }))}
-                placeholder="https://..."
-                className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500"
+                onChange={(url) => setForm((f) => ({ ...f, coverImage: url }))}
+                helpText="Upload from your device or paste a URL. Recommended: 1200×630."
               />
-              {form.coverImage && (
-                <div className="mt-2 border border-zinc-800 rounded overflow-hidden bg-zinc-950">
-                  <img src={form.coverImage} alt="Cover preview" className="w-full max-h-48 object-cover" />
-                </div>
-              )}
-              <p className="text-xs text-zinc-500">Paste any image URL. Leave blank to skip.</p>
             </div>
 
             <div className="md:col-span-2 space-y-2">
@@ -473,21 +467,12 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-zinc-300">Social Share Image URL</Label>
-                    <Input
+                    <Label className="text-zinc-300">Social Share Image</Label>
+                    <ImageUploadField
                       value={form.ogImage}
-                      onChange={(e) => setForm((f) => ({ ...f, ogImage: e.target.value }))}
-                      placeholder="Leave blank to use the cover image"
-                      className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500"
+                      onChange={(url) => setForm((f) => ({ ...f, ogImage: url }))}
+                      helpText="Used when this post is shared on X, Facebook, or LinkedIn. Leave blank to fall back to the cover image. Recommended: 1200×630."
                     />
-                    {form.ogImage && (
-                      <div className="mt-2 border border-zinc-800 rounded overflow-hidden bg-zinc-950">
-                        <img src={form.ogImage} alt="Social preview" className="w-full max-h-48 object-cover" />
-                      </div>
-                    )}
-                    <p className="text-xs text-zinc-500">
-                      The image that appears when you share this post on X, Facebook, or LinkedIn. Recommended: 1200×630.
-                    </p>
                   </div>
                 </div>
               )}

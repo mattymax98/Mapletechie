@@ -5,7 +5,8 @@ import Image from "@tiptap/extension-image";
 import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
 import TextAlign from "@tiptap/extension-text-align";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { uploadImage } from "@/lib/uploadImage";
 import {
   Bold,
   Italic,
@@ -68,6 +69,9 @@ function Divider() {
 }
 
 function Toolbar({ editor }: { editor: Editor }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
   const promptForLink = () => {
     const previous = editor.getAttributes("link").href;
     const url = window.prompt("Enter URL (leave blank to remove link)", previous ?? "");
@@ -80,10 +84,25 @@ function Toolbar({ editor }: { editor: Editor }) {
     editor.chain().focus().extendMarkRange("link").setLink({ href: safe }).run();
   };
 
-  const promptForImage = () => {
+  const promptForImageUrl = () => {
     const url = window.prompt("Paste image URL");
     if (!url) return;
     editor.chain().focus().setImage({ src: url, alt: "" }).run();
+  };
+
+  const onPickImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const { url } = await uploadImage(file);
+      editor.chain().focus().setImage({ src: url, alt: file.name }).run();
+    } catch (err: any) {
+      alert(err?.message ?? "Image upload failed.");
+    } finally {
+      setUploadingImage(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
   };
 
   return (
@@ -142,8 +161,22 @@ function Toolbar({ editor }: { editor: Editor }) {
       <ToolbarButton title="Insert / edit link" onClick={promptForLink} active={editor.isActive("link")}>
         <LinkIcon className="w-4 h-4" />
       </ToolbarButton>
-      <ToolbarButton title="Insert image (URL)" onClick={promptForImage}>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        onChange={onPickImageFile}
+        className="hidden"
+      />
+      <ToolbarButton
+        title={uploadingImage ? "Uploading image..." : "Upload image from device"}
+        onClick={() => fileRef.current?.click()}
+        disabled={uploadingImage}
+      >
         <ImageIcon className="w-4 h-4" />
+      </ToolbarButton>
+      <ToolbarButton title="Insert image by URL" onClick={promptForImageUrl}>
+        <LinkIcon className="w-4 h-4 -ml-1" />
       </ToolbarButton>
 
       <Divider />
