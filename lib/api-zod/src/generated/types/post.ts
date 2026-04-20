@@ -19,6 +19,10 @@ export interface Post {
   authorAvatar?: string;
   authorId?: number;
   status: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string[];
+  ogImage?: string;
   readTime: number;
   viewCount: number;
   isFeatured: boolean;

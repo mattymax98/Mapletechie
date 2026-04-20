@@ -19,5 +19,9 @@ export interface UpdatePostInput {
   readTime?: number;
   isFeatured?: boolean;
   status?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string[];
+  ogImage?: string;
   publishedAt?: Date;
 }

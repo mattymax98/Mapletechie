@@ -8,8 +8,54 @@ import {
   GetLatestPostsQueryParams,
 } from "@workspace/api-zod";
 import { adminAuth } from "../middlewares/adminAuth";
+import sanitizeHtml from "sanitize-html";
 
 const router = Router();
+
+// Sanitize rich text HTML produced by the TipTap editor.
+// Allow the formatting tags TipTap can produce; strip <script>, event handlers,
+// inline styles, and javascript: URLs to prevent stored XSS.
+function cleanHtml(input: unknown): string {
+  if (typeof input !== "string") return "";
+  return sanitizeHtml(input, {
+    allowedTags: [
+      "p", "br", "hr",
+      "h1", "h2", "h3", "h4", "h5", "h6",
+      "strong", "b", "em", "i", "u", "s", "strike", "sub", "sup",
+      "ul", "ol", "li",
+      "blockquote",
+      "code", "pre",
+      "a",
+      "img",
+      "span", "div",
+      "table", "thead", "tbody", "tr", "th", "td",
+    ],
+    allowedAttributes: {
+      a: ["href", "title", "target", "rel"],
+      img: ["src", "alt", "title", "width", "height"],
+      "*": ["class"],
+    },
+    allowedSchemes: ["http", "https", "mailto"],
+    allowedSchemesByTag: { img: ["http", "https"] },
+    transformTags: {
+      a: (tagName, attribs) => ({
+        tagName: "a",
+        attribs: {
+          ...attribs,
+          rel: "noopener noreferrer nofollow",
+          target: attribs.target === "_self" ? "_self" : "_blank",
+        },
+      }),
+    },
+  });
+}
+
+function cleanText(input: unknown): string | null {
+  if (typeof input !== "string") return null;
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  return sanitizeHtml(trimmed, { allowedTags: [], allowedAttributes: {} });
+}
 
 router.get("/posts", async (req, res): Promise<void> => {
   const parsed = ListPostsQueryParams.safeParse(req.query);
@@ -79,7 +125,7 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     title: String(body.title).trim(),
     slug: String(body.slug).trim(),
     excerpt: typeof body.excerpt === "string" && body.excerpt.trim() ? body.excerpt.trim() : "",
-    content: String(body.content),
+    content: cleanHtml(body.content),
     coverImage: body.coverImage ?? null,
     category: String(body.category),
     tags: Array.isArray(body.tags) ? body.tags : [],
@@ -89,6 +135,12 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     readTime: typeof body.readTime === "number" ? body.readTime : 5,
     isFeatured: !!body.isFeatured,
     status,
+    seoTitle: cleanText(body.seoTitle),
+    seoDescription: cleanText(body.seoDescription),
+    seoKeywords: Array.isArray(body.seoKeywords)
+      ? body.seoKeywords.map((k: unknown) => cleanText(k)).filter((k): k is string => !!k)
+      : [],
+    ogImage: body.ogImage ?? null,
     publishedAt: body.publishedAt ? new Date(body.publishedAt) : new Date(),
   };
 
@@ -178,11 +230,26 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     "isFeatured",
     "publishedAt",
     "status",
+    "seoTitle",
+    "seoDescription",
+    "seoKeywords",
+    "ogImage",
   ] as const;
 
   const update: Record<string, unknown> = {};
   for (const k of allowed) {
-    if (k in body) update[k] = body[k];
+    if (!(k in body)) continue;
+    if (k === "content") {
+      update[k] = cleanHtml(body[k]);
+    } else if (k === "seoTitle" || k === "seoDescription") {
+      update[k] = cleanText(body[k]);
+    } else if (k === "seoKeywords") {
+      update[k] = Array.isArray(body[k])
+        ? body[k].map((v: unknown) => cleanText(v)).filter((v: unknown): v is string => !!v)
+        : [];
+    } else {
+      update[k] = body[k];
+    }
   }
 
   // Editors without canPublishDirectly cannot publish; force back to draft
