@@ -6,11 +6,11 @@ import { writeAuditLog } from "../lib/audit";
 
 const router = Router();
 
-// Public: list approved comments for a given post slug
-router.get("/posts/:slug/comments", async (req, res): Promise<void> => {
-  const slug = String(req.params.slug || "").trim().toLowerCase();
+// Public: list approved comments for a given post slug (?postSlug=...)
+router.get("/comments", async (req, res): Promise<void> => {
+  const slug = String(req.query.postSlug || "").trim().toLowerCase();
   if (!slug) {
-    res.status(400).json({ error: "Slug required" });
+    res.status(400).json({ error: "postSlug required" });
     return;
   }
   const rows = await db
@@ -18,19 +18,22 @@ router.get("/posts/:slug/comments", async (req, res): Promise<void> => {
       id: commentsTable.id,
       postSlug: commentsTable.postSlug,
       name: commentsTable.name,
+      email: commentsTable.email,
       body: commentsTable.body,
+      status: commentsTable.status,
       createdAt: commentsTable.createdAt,
     })
     .from(commentsTable)
     .where(and(eq(commentsTable.postSlug, slug), eq(commentsTable.status, "approved")))
     .orderBy(desc(commentsTable.createdAt));
-  res.json(rows);
+  // Hide email in public response
+  res.json(rows.map((r) => ({ ...r, email: null })));
 });
 
 // Public: submit a new comment (pending approval)
-router.post("/posts/:slug/comments", async (req, res): Promise<void> => {
-  const slug = String(req.params.slug || "").trim().toLowerCase();
+router.post("/comments", async (req, res): Promise<void> => {
   const body = req.body || {};
+  const slug = String(body.postSlug || "").trim().toLowerCase();
   const name = String(body.name || "").trim();
   const email = String(body.email || "").trim();
   const text = String(body.body || "").trim();

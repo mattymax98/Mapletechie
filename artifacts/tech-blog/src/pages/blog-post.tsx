@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { SEO } from "@/components/SEO";
 import { AuthorBio } from "@/components/AuthorBio";
+import { CommentsSection } from "@/components/CommentsSection";
 
 export default function BlogPost() {
   const params = useParams<{ slug: string }>();
@@ -157,6 +158,9 @@ export default function BlogPost() {
           fallbackAvatar={post.authorAvatar}
         />
       </div>
+
+      {/* Comments */}
+      <CommentsSection postSlug={post.slug} />
 
       {/* Related Posts */}
       <div className="bg-card border-t border-border py-20">
