@@ -38,3 +38,9 @@ externalPort = 3000
 
 [userenv.shared]
 ADMIN_PASSWORD = "Maple2025!Admin"
+
+[userenv.development]
+RESEND_API_KEY = "re_CUAbHeVf_C1svmZSZMJUDJmBT9Rv3iKJ6"
+
+[userenv.production]
+RESEND_API_KEY = "re_CUAbHeVf_C1svmZSZMJUDJmBT9Rv3iKJ6"
