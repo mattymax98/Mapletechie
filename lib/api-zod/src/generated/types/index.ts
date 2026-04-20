@@ -26,5 +26,7 @@ export * from "./siteSummary";
 export * from "./updateMeInput";
 export * from "./updatePostInput";
 export * from "./updateUserInput";
+export * from "./uploadUrlRequest";
+export * from "./uploadUrlResponse";
 export * from "./verifyAdminBody";
 export * from "./verifyAdminResponse";

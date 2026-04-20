@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
+import { ImageUploadField } from "@/components/ImageUploadField";
 import {
   useListUsers,
   useCreateUser,
@@ -256,16 +257,13 @@ export default function AdminUsers() {
                 />
               </div>
               <div className="space-y-2 col-span-2">
-                <Label>Profile Picture URL</Label>
-                <Input
+                <Label>Profile Picture</Label>
+                <ImageUploadField
                   value={form.avatarUrl}
-                  onChange={(e) => setForm({ ...form, avatarUrl: e.target.value })}
-                  placeholder="https://..."
-                  className="bg-zinc-800 border-zinc-700"
+                  onChange={(url) => setForm({ ...form, avatarUrl: url })}
+                  variant="avatar"
+                  helpText="Upload a square photo or paste an image URL."
                 />
-                {form.avatarUrl && (
-                  <img src={form.avatarUrl} alt="" className="w-16 h-16 rounded-full object-cover border border-zinc-700 mt-2" />
-                )}
               </div>
               <div className="space-y-2 col-span-2">
                 <Label>Bio</Label>
