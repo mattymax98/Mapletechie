@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, reviewsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
-import { adminAuth, requireRole } from "../middlewares/adminAuth";
+import { adminAuth, requirePermission } from "../middlewares/adminAuth";
 
 const router = Router();
 
@@ -37,12 +37,12 @@ router.post("/reviews", async (req, res): Promise<void> => {
   res.json({ success: true, message: "Thanks for your review! It'll appear after a quick check." });
 });
 
-router.get("/admin/reviews", adminAuth, requireRole("admin"), async (_req, res): Promise<void> => {
+router.get("/admin/reviews", adminAuth, requirePermission("inbox"), async (_req, res): Promise<void> => {
   const reviews = await db.select().from(reviewsTable).orderBy(desc(reviewsTable.createdAt));
   res.json(reviews);
 });
 
-router.patch("/admin/reviews/:id", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+router.patch("/admin/reviews/:id", adminAuth, requirePermission("inbox"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const status = String(req.body?.status || "");
@@ -55,7 +55,7 @@ router.patch("/admin/reviews/:id", adminAuth, requireRole("admin"), async (req, 
   res.json(updated);
 });
 
-router.delete("/admin/reviews/:id", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+router.delete("/admin/reviews/:id", adminAuth, requirePermission("inbox"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   await db.delete(reviewsTable).where(eq(reviewsTable.id, id));

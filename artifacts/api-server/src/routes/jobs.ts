@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, jobsTable, applicationsTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
-import { adminAuth, requireRole } from "../middlewares/adminAuth";
+import { adminAuth, requirePermission } from "../middlewares/adminAuth";
 
 const router = Router();
 
@@ -77,12 +77,12 @@ router.post("/jobs/:slug/apply", async (req, res): Promise<void> => {
 });
 
 // Admin
-router.get("/admin/jobs", adminAuth, requireRole("admin"), async (_req, res): Promise<void> => {
+router.get("/admin/jobs", adminAuth, requirePermission("jobs"), async (_req, res): Promise<void> => {
   const jobs = await db.select().from(jobsTable).orderBy(desc(jobsTable.createdAt));
   res.json(jobs);
 });
 
-router.post("/admin/jobs", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+router.post("/admin/jobs", adminAuth, requirePermission("jobs"), async (req, res): Promise<void> => {
   try {
     const data = sanitizeJob(req.body);
     if (!data.title || !data.summary || !data.description) {
@@ -96,7 +96,7 @@ router.post("/admin/jobs", adminAuth, requireRole("admin"), async (req, res): Pr
   }
 });
 
-router.put("/admin/jobs/:id", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+router.put("/admin/jobs/:id", adminAuth, requirePermission("jobs"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const data = sanitizeJob(req.body);
@@ -105,19 +105,19 @@ router.put("/admin/jobs/:id", adminAuth, requireRole("admin"), async (req, res):
   res.json(updated);
 });
 
-router.delete("/admin/jobs/:id", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+router.delete("/admin/jobs/:id", adminAuth, requirePermission("jobs"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   await db.delete(jobsTable).where(eq(jobsTable.id, id));
   res.status(204).end();
 });
 
-router.get("/admin/applications", adminAuth, requireRole("admin"), async (_req, res): Promise<void> => {
+router.get("/admin/applications", adminAuth, requirePermission("jobs"), async (_req, res): Promise<void> => {
   const apps = await db.select().from(applicationsTable).orderBy(desc(applicationsTable.createdAt));
   res.json(apps);
 });
 
-router.delete("/admin/applications/:id", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+router.delete("/admin/applications/:id", adminAuth, requirePermission("jobs"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   await db.delete(applicationsTable).where(eq(applicationsTable.id, id));

@@ -34,6 +34,10 @@ interface UserRow {
   websiteUrl?: string;
   role: string;
   canPublishDirectly: boolean;
+  canManageShop?: boolean;
+  canManageJobs?: boolean;
+  canViewInbox?: boolean;
+  canManageEditors?: boolean;
   isActive: boolean;
 }
 
@@ -51,6 +55,10 @@ const emptyForm = {
   websiteUrl: "",
   role: "editor",
   canPublishDirectly: false,
+  canManageShop: false,
+  canManageJobs: false,
+  canViewInbox: false,
+  canManageEditors: false,
   isActive: true,
 };
 
@@ -109,6 +117,10 @@ export default function AdminUsers() {
       websiteUrl: u.websiteUrl ?? "",
       role: u.role,
       canPublishDirectly: u.canPublishDirectly,
+      canManageShop: !!u.canManageShop,
+      canManageJobs: !!u.canManageJobs,
+      canViewInbox: !!u.canViewInbox,
+      canManageEditors: !!u.canManageEditors,
       isActive: u.isActive,
     });
     setError("");
@@ -292,6 +304,38 @@ export default function AdminUsers() {
                 />
               </div>
 
+              {me?.role === "admin" && editing?.role !== "admin" && (
+                <div className="col-span-2 space-y-2">
+                  <Label className="text-orange-400 text-xs uppercase tracking-wider font-bold">Admin Permissions</Label>
+                  <p className="text-xs text-zinc-500">Grant this editor access to specific admin areas. They will never be able to modify your admin account.</p>
+
+                  <PermissionToggle
+                    label="Manage the Shop"
+                    desc="Add, edit, and remove affiliate products."
+                    checked={form.canManageShop}
+                    onChange={(v) => setForm({ ...form, canManageShop: v })}
+                  />
+                  <PermissionToggle
+                    label="Manage Jobs & Applications"
+                    desc="Post and edit job listings; view applicants."
+                    checked={form.canManageJobs}
+                    onChange={(v) => setForm({ ...form, canManageJobs: v })}
+                  />
+                  <PermissionToggle
+                    label="View the Inbox"
+                    desc="Read reviews, ad inquiries, and contact messages."
+                    checked={form.canViewInbox}
+                    onChange={(v) => setForm({ ...form, canViewInbox: v })}
+                  />
+                  <PermissionToggle
+                    label="Manage Editors"
+                    desc="Add or remove other editors. Cannot modify your admin account."
+                    checked={form.canManageEditors}
+                    onChange={(v) => setForm({ ...form, canManageEditors: v })}
+                  />
+                </div>
+              )}
+
               {!creating && editing?.id !== me?.id && (
                 <div className="col-span-2 flex items-center justify-between p-3 bg-zinc-800 rounded border border-zinc-700">
                   <div>
@@ -314,6 +358,28 @@ export default function AdminUsers() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function PermissionToggle({
+  label,
+  desc,
+  checked,
+  onChange,
+}: {
+  label: string;
+  desc: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between p-3 bg-zinc-800 rounded border border-zinc-700">
+      <div className="pr-3">
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-xs text-zinc-400">{desc}</p>
+      </div>
+      <Switch checked={checked} onCheckedChange={onChange} />
     </div>
   );
 }
