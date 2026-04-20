@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, postsTable } from "@workspace/db";
+import { db, postsTable, usersTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 import {
   ListPostsQueryParams,
@@ -121,6 +121,19 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     status = "draft";
   }
 
+  // If an admin assigns a different author by id, look that user up and use their data.
+  let assignedAuthorName = user ? user.displayName : (body.author ?? "Mapletechie");
+  let assignedAuthorAvatar: string | null = user ? user.avatarUrl ?? null : (body.authorAvatar ?? null);
+  let assignedAuthorId: number | null = user ? user.id : (body.authorId ?? null);
+  if (user?.role === "admin" && typeof body.authorId === "number" && body.authorId !== user.id) {
+    const [other] = await db.select().from(usersTable).where(eq(usersTable.id, body.authorId));
+    if (other && other.isActive) {
+      assignedAuthorName = other.displayName;
+      assignedAuthorAvatar = other.avatarUrl ?? null;
+      assignedAuthorId = other.id;
+    }
+  }
+
   const values = {
     title: String(body.title).trim(),
     slug: String(body.slug).trim(),
@@ -129,9 +142,9 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     coverImage: body.coverImage ?? null,
     category: String(body.category),
     tags: Array.isArray(body.tags) ? body.tags : [],
-    author: user ? user.displayName : (body.author ?? "Mapletechie"),
-    authorAvatar: user ? user.avatarUrl : (body.authorAvatar ?? null),
-    authorId: user ? user.id : (body.authorId ?? null),
+    author: assignedAuthorName,
+    authorAvatar: assignedAuthorAvatar,
+    authorId: assignedAuthorId,
     readTime: typeof body.readTime === "number" ? body.readTime : 5,
     isFeatured: !!body.isFeatured,
     status,

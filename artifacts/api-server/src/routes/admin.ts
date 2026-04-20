@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, usersTable, type User } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   hashPassword,
   verifyPassword,
@@ -227,6 +227,53 @@ router.delete("/admin/users/:id", adminAuth, requireRole("admin"), async (req, r
   }
   await db.delete(usersTable).where(eq(usersTable.id, id));
   res.status(204).send();
+});
+
+// Public list of editors (used to populate the Author dropdown when writing posts)
+router.get("/editors", async (_req, res): Promise<void> => {
+  const users = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.isActive, true))
+    .orderBy(usersTable.id);
+  res.json(
+    users.map((u) => ({
+      id: u.id,
+      displayName: u.displayName,
+      bio: u.bio,
+      avatarUrl: u.avatarUrl,
+      twitterUrl: u.twitterUrl,
+      linkedinUrl: u.linkedinUrl,
+      instagramUrl: u.instagramUrl,
+      githubUrl: u.githubUrl,
+      websiteUrl: u.websiteUrl,
+    }))
+  );
+});
+
+// Public: founding/featured editor (first active admin)
+router.get("/editors/featured", async (_req, res): Promise<void> => {
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(and(eq(usersTable.isActive, true), eq(usersTable.role, "admin")))
+    .orderBy(usersTable.id)
+    .limit(1);
+  if (!user) {
+    res.status(404).json({ error: "No editor found" });
+    return;
+  }
+  res.json({
+    id: user.id,
+    displayName: user.displayName,
+    bio: user.bio,
+    avatarUrl: user.avatarUrl,
+    twitterUrl: user.twitterUrl,
+    linkedinUrl: user.linkedinUrl,
+    instagramUrl: user.instagramUrl,
+    githubUrl: user.githubUrl,
+    websiteUrl: user.websiteUrl,
+  });
 });
 
 // Public author endpoint (used by blog post page to show real author bio)

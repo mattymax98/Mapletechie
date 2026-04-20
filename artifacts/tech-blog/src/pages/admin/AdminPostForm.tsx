@@ -5,6 +5,7 @@ import {
   useUpdatePost,
   useGetPost,
   useListCategories,
+  useListEditors,
 } from "@workspace/api-client-react";
 import { useAdmin } from "@/context/AdminContext";
 import { Button } from "@/components/ui/button";
@@ -71,6 +72,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   const queryClient = useQueryClient();
   const { user } = useAdmin();
   const { data: categories } = useListCategories();
+  const { data: editors } = useListEditors();
 
   const { data: existingPost, isLoading: loadingPost } = useGetPost(postId ?? 0, {
     query: { enabled: isEditing },
@@ -85,6 +87,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     content: "",
     category: "",
     author: user?.displayName ?? "",
+    authorId: user?.id ?? 0,
     coverImage: "",
     readTime: 5,
     isFeatured: false,
@@ -110,6 +113,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
         content: ep.content ?? "",
         category: ep.category ?? "",
         author: ep.author ?? "",
+        authorId: ep.authorId ?? 0,
         coverImage: ep.coverImage ?? "",
         readTime: ep.readTime ?? 5,
         isFeatured: ep.isFeatured ?? false,
@@ -216,6 +220,10 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     if (form.excerpt.trim()) payload.excerpt = form.excerpt.trim();
     if (form.coverImage.trim()) payload.coverImage = form.coverImage.trim();
 
+    const existingAuthorId = (existingPost as any)?.authorId ?? null;
+    if (user?.role === "admin" && form.authorId && (!isEditing || form.authorId !== existingAuthorId)) {
+      payload.authorId = form.authorId;
+    }
     if (!isEditing) {
       payload.author = form.author.trim() || user?.displayName || "Mapletechie";
       if (!statusOverride) payload.publishedAt = new Date().toISOString();
@@ -326,15 +334,35 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
 
             <div className="space-y-2">
               <Label className="text-zinc-300">
-                Author {user?.role !== "admin" && <span className="text-zinc-500 text-xs">(your name)</span>}
+                Author {user?.role !== "admin" && <span className="text-zinc-500 text-xs">(you)</span>}
               </Label>
-              <Input
-                value={form.author}
-                onChange={(e) => setForm((f) => ({ ...f, author: e.target.value }))}
-                placeholder="Author name"
-                disabled={user?.role !== "admin"}
-                className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500 disabled:opacity-70"
-              />
+              {user?.role === "admin" ? (
+                <Select
+                  value={form.authorId ? String(form.authorId) : ""}
+                  onValueChange={(v) => {
+                    const id = Number(v);
+                    const ed = editors?.find((e) => e.id === id);
+                    setForm((f) => ({ ...f, authorId: id, author: ed?.displayName ?? f.author }));
+                  }}
+                >
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white">
+                    <SelectValue placeholder="Choose an editor" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
+                    {editors?.map((e) => (
+                      <SelectItem key={e.id} value={String(e.id)}>
+                        {e.displayName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  value={user?.displayName ?? ""}
+                  disabled
+                  className="bg-zinc-900 border-zinc-700 text-white disabled:opacity-70"
+                />
+              )}
             </div>
 
             <div className="space-y-2">

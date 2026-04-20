@@ -520,6 +520,36 @@ paths:
         "404":
           description: Not found
 
+  /editors:
+    get:
+      operationId: listEditors
+      tags: [posts]
+      summary: List all active editors (public)
+      responses:
+        "200":
+          description: Editors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuthorProfile"
+
+  /editors/featured:
+    get:
+      operationId: getFeaturedEditor
+      tags: [posts]
+      summary: Get the founding/featured editor (public)
+      responses:
+        "200":
+          description: Featured editor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorProfile"
+        "404":
+          description: Not found
+
   /storage/uploads/request-url:
     post:
       tags: [Storage]
@@ -1000,6 +1030,8 @@ components:
           type: string
         authorAvatar:
           type: string
+        authorId:
+          type: integer
         readTime:
           type: integer
         isFeatured:
@@ -1045,6 +1077,8 @@ components:
           type: string
         authorAvatar:
           type: string
+        authorId:
+          type: integer
         readTime:
           type: integer
         isFeatured:
