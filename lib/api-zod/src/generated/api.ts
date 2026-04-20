@@ -874,7 +874,7 @@ export const ListReviewsResponseItem = zod.object({
   name: zod.string(),
   email: zod.string(),
   rating: zod.number(),
-  title: zod.string(),
+  title: zod.string().nullish(),
   body: zod.string(),
   postSlug: zod.string().nullish(),
   status: zod.string(),
@@ -889,7 +889,7 @@ export const SubmitReviewBody = zod.object({
   name: zod.string(),
   email: zod.string(),
   rating: zod.number(),
-  title: zod.string(),
+  title: zod.string().nullish(),
   body: zod.string(),
   postSlug: zod.string().nullish(),
 });
@@ -917,6 +917,100 @@ export const SubmitAdInquiryResponse = zod.object({
   success: zod.boolean(),
   message: zod.string(),
 });
+
+/**
+ * @summary List approved comments for a post
+ */
+export const ListCommentsQueryParams = zod.object({
+  postSlug: zod.coerce.string(),
+});
+
+export const ListCommentsResponseItem = zod.object({
+  id: zod.number(),
+  postSlug: zod.string(),
+  name: zod.string(),
+  email: zod.string().nullish(),
+  body: zod.string(),
+  status: zod.string(),
+  createdAt: zod.coerce.date(),
+});
+export const ListCommentsResponse = zod.array(ListCommentsResponseItem);
+
+/**
+ * @summary Submit a comment for moderation
+ */
+export const SubmitCommentBody = zod.object({
+  postSlug: zod.string(),
+  name: zod.string(),
+  email: zod.string().optional(),
+  body: zod.string(),
+});
+
+export const SubmitCommentResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string(),
+});
+
+/**
+ * @summary List all comments (admin)
+ */
+export const AdminListCommentsResponseItem = zod.object({
+  id: zod.number(),
+  postSlug: zod.string(),
+  name: zod.string(),
+  email: zod.string().nullish(),
+  body: zod.string(),
+  status: zod.string(),
+  createdAt: zod.coerce.date(),
+});
+export const AdminListCommentsResponse = zod.array(
+  AdminListCommentsResponseItem,
+);
+
+export const AdminUpdateCommentStatusParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateCommentStatusBody = zod.object({
+  status: zod.enum(["approved", "rejected", "pending"]),
+});
+
+export const AdminUpdateCommentStatusResponse = zod.object({
+  id: zod.number(),
+  postSlug: zod.string(),
+  name: zod.string(),
+  email: zod.string().nullish(),
+  body: zod.string(),
+  status: zod.string(),
+  createdAt: zod.coerce.date(),
+});
+
+export const AdminDeleteCommentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary List recent audit log entries
+ */
+export const AdminListAuditLogsQueryParams = zod.object({
+  limit: zod.coerce.number().optional(),
+});
+
+export const AdminListAuditLogsResponseItem = zod.object({
+  id: zod.number(),
+  userId: zod.number().nullish(),
+  username: zod.string().nullish(),
+  action: zod.string(),
+  entityType: zod.string().nullish(),
+  entityId: zod.string().nullish(),
+  summary: zod.string().nullish(),
+  ip: zod.string().nullish(),
+  userAgent: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const AdminListAuditLogsResponse = zod.array(
+  AdminListAuditLogsResponseItem,
+);
 
 /**
  * @summary List all jobs (admin)
@@ -1028,7 +1122,7 @@ export const AdminListReviewsResponseItem = zod.object({
   name: zod.string(),
   email: zod.string(),
   rating: zod.number(),
-  title: zod.string(),
+  title: zod.string().nullish(),
   body: zod.string(),
   postSlug: zod.string().nullish(),
   status: zod.string(),
@@ -1049,7 +1143,7 @@ export const AdminUpdateReviewStatusResponse = zod.object({
   name: zod.string(),
   email: zod.string(),
   rating: zod.number(),
-  title: zod.string(),
+  title: zod.string().nullish(),
   body: zod.string(),
   postSlug: zod.string().nullish(),
   status: zod.string(),
@@ -1089,4 +1183,5 @@ export const AdminGetInboxCountsResponse = zod.object({
   reviews: zod.number(),
   adInquiries: zod.number(),
   contacts: zod.number(),
+  comments: zod.number(),
 });

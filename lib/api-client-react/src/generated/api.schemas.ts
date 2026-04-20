@@ -336,7 +336,7 @@ export interface Review {
   name: string;
   email: string;
   rating: number;
-  title: string;
+  title?: string | null;
   body: string;
   postSlug?: string | null;
   status: string;
@@ -347,7 +347,7 @@ export interface ReviewBody {
   name: string;
   email: string;
   rating: number;
-  title: string;
+  title?: string | null;
   body: string;
   postSlug?: string | null;
 }
@@ -387,6 +387,50 @@ export interface InboxCounts {
   reviews: number;
   adInquiries: number;
   contacts: number;
+  comments: number;
+}
+
+export interface Comment {
+  id: number;
+  postSlug: string;
+  name: string;
+  email?: string | null;
+  body: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface NewCommentInput {
+  postSlug: string;
+  name: string;
+  email?: string;
+  body: string;
+}
+
+export type CommentStatusUpdateStatus =
+  (typeof CommentStatusUpdateStatus)[keyof typeof CommentStatusUpdateStatus];
+
+export const CommentStatusUpdateStatus = {
+  approved: "approved",
+  rejected: "rejected",
+  pending: "pending",
+} as const;
+
+export interface CommentStatusUpdate {
+  status: CommentStatusUpdateStatus;
+}
+
+export interface AuditLog {
+  id: number;
+  userId?: number | null;
+  username?: string | null;
+  action: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  summary?: string | null;
+  ip?: string | null;
+  userAgent?: string | null;
+  createdAt: string;
 }
 
 export interface ReviewStatusUpdate {
@@ -410,4 +454,12 @@ export type ListProductsParams = {
 
 export type AdminLogout200 = {
   success?: boolean;
+};
+
+export type ListCommentsParams = {
+  postSlug: string;
+};
+
+export type AdminListAuditLogsParams = {
+  limit?: number;
 };

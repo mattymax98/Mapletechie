@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, adInquiriesTable, contactsTable } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
 import { adminAuth, requirePermission } from "../middlewares/adminAuth";
-import { applicationsTable, reviewsTable } from "@workspace/db";
+import { applicationsTable, reviewsTable, commentsTable } from "@workspace/db";
 
 const router = Router();
 
@@ -47,11 +47,13 @@ router.get("/admin/inbox-counts", adminAuth, requirePermission("inbox"), async (
   const [revs] = await db.select({ c: sql<number>`count(*)::int` }).from(reviewsTable).where(eq(reviewsTable.status, "pending"));
   const [ads] = await db.select({ c: sql<number>`count(*)::int` }).from(adInquiriesTable);
   const [contacts] = await db.select({ c: sql<number>`count(*)::int` }).from(contactsTable);
+  const [comments] = await db.select({ c: sql<number>`count(*)::int` }).from(commentsTable).where(eq(commentsTable.status, "pending"));
   res.json({
     applications: apps?.c || 0,
     reviews: revs?.c || 0,
     adInquiries: ads?.c || 0,
     contacts: contacts?.c || 0,
+    comments: comments?.c || 0,
   });
 });
 

@@ -6,10 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface InboxCounts {
-  applications: number;
-  reviews: number;
-  adInquiries: number;
-  contacts: number;
-  comments: number;
-}
+export type ListCommentsParams = {
+  postSlug: string;
+};

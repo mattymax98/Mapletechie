@@ -6,14 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface Review {
-  id: number;
+export interface NewCommentInput {
+  postSlug: string;
   name: string;
-  email: string;
-  rating: number;
-  title?: string | null;
+  email?: string;
   body: string;
-  postSlug?: string | null;
-  status: string;
-  createdAt: Date;
 }

@@ -9,6 +9,7 @@ import {
   sanitizeUser,
 } from "../lib/auth";
 import { adminAuth, requirePermission } from "../middlewares/adminAuth";
+import { writeAuditLog, writeAuditLogForUser } from "../lib/audit";
 
 const router = Router();
 
@@ -27,17 +28,29 @@ router.post("/admin/login", async (req, res): Promise<void> => {
     .where(eq(usersTable.username, username.trim().toLowerCase()));
 
   if (!user || !user.isActive) {
+    await writeAuditLogForUser(req, null, {
+      action: "auth.login.fail",
+      summary: `Failed login attempt for "${username.trim().toLowerCase()}" (no such user or inactive)`,
+    });
     res.status(401).json({ success: false, message: "Invalid credentials" });
     return;
   }
 
   const ok = await verifyPassword(password, user.passwordHash);
   if (!ok) {
+    await writeAuditLogForUser(req, { id: user.id, username: user.username }, {
+      action: "auth.login.fail",
+      summary: `Wrong password for ${user.username}`,
+    });
     res.status(401).json({ success: false, message: "Invalid credentials" });
     return;
   }
 
   const token = await createSession(user.id);
+  await writeAuditLogForUser(req, { id: user.id, username: user.username }, {
+    action: "auth.login",
+    summary: `${user.displayName} signed in`,
+  });
   res.json({ success: true, token, user: sanitizeUser(user) });
 });
 
@@ -55,6 +68,7 @@ router.post("/admin/verify", async (req, res): Promise<void> => {
 router.post("/admin/logout", adminAuth, async (req, res): Promise<void> => {
   const token = req.headers.authorization?.slice(7);
   if (token) await deleteSession(token);
+  await writeAuditLog(req, { action: "auth.logout", summary: `${req.user?.displayName ?? "User"} signed out` });
   res.json({ success: true });
 });
 
@@ -104,9 +118,11 @@ router.put("/admin/me", adminAuth, async (req, res): Promise<void> => {
 
 // ---- User management (admin only) ----
 
-router.get("/admin/users", adminAuth, requirePermission("editors"), async (_req, res): Promise<void> => {
+router.get("/admin/users", adminAuth, requirePermission("editors"), async (req, res): Promise<void> => {
   const users = await db.select().from(usersTable).orderBy(usersTable.id);
-  res.json(users.map(sanitizeUser));
+  // Non-admins (e.g. editors with canManageEditors) cannot see the founding admin's account.
+  const filtered = req.user?.role === "admin" ? users : users.filter((u) => u.role !== "admin");
+  res.json(filtered.map(sanitizeUser));
 });
 
 router.post("/admin/users", adminAuth, requirePermission("editors"), async (req, res): Promise<void> => {
