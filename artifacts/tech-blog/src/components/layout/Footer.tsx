@@ -1,9 +1,44 @@
 import { Link } from "wouter";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SiX, SiGithub, SiDiscord, SiYoutube } from "react-icons/si";
+import { useSubmitContact } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
 
 export function Footer() {
+  const [email, setEmail] = useState("");
+  const { toast } = useToast();
+  const submit = useSubmitContact();
+
+  const handleSubscribe = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = email.trim();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      toast({ title: "Enter a valid email", variant: "destructive" });
+      return;
+    }
+    submit.mutate(
+      {
+        data: {
+          name: "Newsletter Signup",
+          email: trimmed,
+          subject: "Newsletter Signup",
+          message: `New newsletter signup: ${trimmed}`,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast({ title: "You're in.", description: "Thanks for subscribing — we'll be in touch." });
+          setEmail("");
+        },
+        onError: () => {
+          toast({ title: "Something went wrong", description: "Please try again in a moment.", variant: "destructive" });
+        },
+      }
+    );
+  };
+
   return (
     <footer className="border-t border-border bg-card mt-20">
       <div className="container mx-auto px-4 md:px-6 py-12 md:py-16">
@@ -44,12 +79,27 @@ export function Footer() {
             </ul>
           </div>
           
-          <div>
+          <div id="newsletter" className="scroll-mt-24">
             <h4 className="font-bold uppercase tracking-wider mb-4 text-sm">Newsletter</h4>
             <p className="text-muted-foreground text-sm mb-4">Get the latest tech news delivered to your inbox daily. No spam, just signal.</p>
-            <form className="flex gap-2" onSubmit={(e) => e.preventDefault()}>
-              <Input type="email" placeholder="Your email" className="rounded-none bg-background" />
-              <Button type="submit" className="rounded-none font-bold uppercase tracking-wider">Join</Button>
+            <form className="flex gap-2" onSubmit={handleSubscribe}>
+              <Input
+                type="email"
+                placeholder="Your email"
+                className="rounded-none bg-background"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                data-testid="input-newsletter-email"
+              />
+              <Button
+                type="submit"
+                className="rounded-none font-bold uppercase tracking-wider"
+                disabled={submit.isPending}
+                data-testid="button-newsletter-join"
+              >
+                {submit.isPending ? "…" : "Join"}
+              </Button>
             </form>
           </div>
         </div>

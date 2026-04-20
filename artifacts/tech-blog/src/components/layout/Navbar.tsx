@@ -17,6 +17,18 @@ export function Navbar() {
   }, [location]);
 
   const { data: categories } = useListCategories();
+  const [, navigate] = useLocation();
+
+  const scrollToNewsletter = () => {
+    const el = document.getElementById("newsletter");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      setTimeout(() => {
+        const input = el.querySelector<HTMLInputElement>("input[type=email]");
+        input?.focus();
+      }, 600);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md">
@@ -45,7 +57,14 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="hidden md:flex">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hidden md:flex"
+            onClick={() => navigate("/search")}
+            aria-label="Search"
+            data-testid="button-search"
+          >
             <Search className="h-4 w-4" />
           </Button>
           <Button 
@@ -55,7 +74,12 @@ export function Navbar() {
           >
             {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
-          <Button variant="default" className="hidden md:flex font-bold rounded-none uppercase tracking-wider text-xs px-6">
+          <Button
+            variant="default"
+            className="hidden md:flex font-bold rounded-none uppercase tracking-wider text-xs px-6"
+            onClick={scrollToNewsletter}
+            data-testid="button-subscribe"
+          >
             Subscribe
           </Button>
           <Button 
@@ -84,7 +108,7 @@ export function Navbar() {
               <Link href="/shop" className="py-2 border-b border-border/50">Gear & Shop</Link>
               <Link href="/about" className="py-2 border-b border-border/50">About</Link>
               <Link href="/contact" className="py-2 border-b border-border/50">Contact Us</Link>
-              <Button className="w-full mt-4 rounded-none">Subscribe Now</Button>
+              <Button className="w-full mt-4 rounded-none" onClick={scrollToNewsletter}>Subscribe Now</Button>
             </nav>
           </motion.div>
         )}

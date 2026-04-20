@@ -28,6 +28,7 @@ import Careers from "@/pages/careers";
 import CareerDetail from "@/pages/career-detail";
 import Advertise from "@/pages/advertise";
 import Reviews from "@/pages/reviews";
+import SearchPage from "@/pages/search";
 import { AdminProvider } from "@/context/AdminContext";
 import { AdminGuard } from "@/components/AdminGuard";
 
@@ -86,6 +87,7 @@ function Router() {
             <Route path="/careers/:slug" component={CareerDetail} />
             <Route path="/advertise" component={Advertise} />
             <Route path="/reviews" component={Reviews} />
+            <Route path="/search" component={SearchPage} />
             <Route path="/category/:slug" component={CategoryIndex} />
             <Route component={NotFound} />
           </Switch>
