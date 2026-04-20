@@ -198,6 +198,21 @@ function Toolbar({ editor }: { editor: Editor }) {
 }
 
 export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorProps) {
+  const [dropping, setDropping] = useState(false);
+
+  const insertImageFile = async (file: File, ed: Editor) => {
+    if (!file.type.startsWith("image/")) return;
+    setDropping(true);
+    try {
+      const { url } = await uploadImage(file);
+      ed.chain().focus().setImage({ src: url, alt: file.name }).run();
+    } catch (err: any) {
+      alert(err?.message ?? "Image upload failed.");
+    } finally {
+      setDropping(false);
+    }
+  };
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -225,6 +240,28 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
         class:
           "tiptap prose prose-invert prose-zinc max-w-none focus:outline-none min-h-[400px] px-4 py-3 text-zinc-100 prose-headings:text-white prose-a:text-orange-400 prose-strong:text-white prose-blockquote:border-orange-500 prose-blockquote:text-zinc-300 prose-code:text-orange-300",
       },
+      handleDrop: (view, event, _slice, moved) => {
+        if (moved) return false;
+        const files = Array.from((event as DragEvent).dataTransfer?.files ?? []);
+        const images = files.filter((f) => f.type.startsWith("image/"));
+        if (images.length === 0) return false;
+        event.preventDefault();
+        const ed = (view as any).editor as Editor | undefined;
+        const target = ed ?? (editor as Editor);
+        images.forEach((f) => insertImageFile(f, target));
+        return true;
+      },
+      handlePaste: (_view, event) => {
+        const items = Array.from(event.clipboardData?.items ?? []);
+        const imageItems = items.filter((i) => i.kind === "file" && i.type.startsWith("image/"));
+        if (imageItems.length === 0) return false;
+        event.preventDefault();
+        imageItems.forEach((i) => {
+          const f = i.getAsFile();
+          if (f && editor) insertImageFile(f, editor);
+        });
+        return true;
+      },
     },
   });
 
@@ -246,9 +283,14 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
   }
 
   return (
-    <div className="border border-zinc-700 rounded bg-zinc-900 overflow-hidden focus-within:border-orange-500 transition-colors">
+    <div className="border border-zinc-700 rounded bg-zinc-900 overflow-hidden focus-within:border-orange-500 transition-colors relative">
       <Toolbar editor={editor} />
       <EditorContent editor={editor} />
+      {dropping && (
+        <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-orange-300 text-sm font-medium pointer-events-none">
+          Uploading image…
+        </div>
+      )}
     </div>
   );
 }

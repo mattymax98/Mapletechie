@@ -22,6 +22,7 @@ export function ImageUploadField({
   const [mode, setMode] = useState<"upload" | "url">("upload");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [dragOver, setDragOver] = useState(false);
 
   const handleFile = async (file: File) => {
     setError("");
@@ -72,7 +73,22 @@ export function ImageUploadField({
       </div>
 
       {mode === "upload" ? (
-        <div>
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            const file = e.dataTransfer.files?.[0];
+            if (file) handleFile(file);
+          }}
+          onClick={() => !uploading && fileRef.current?.click()}
+          className={`w-full cursor-pointer rounded border-2 border-dashed p-6 text-center transition-colors ${
+            dragOver
+              ? "border-orange-500 bg-orange-500/10"
+              : "border-zinc-700 bg-zinc-900 hover:border-zinc-600 hover:bg-zinc-800/50"
+          } ${uploading ? "opacity-60 cursor-wait" : ""}`}
+        >
           <input
             ref={fileRef}
             type="file"
@@ -80,24 +96,19 @@ export function ImageUploadField({
             onChange={onFileChange}
             className="hidden"
           />
-          <Button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            className="w-full bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 gap-2"
-          >
-            {uploading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Uploading...
-              </>
-            ) : (
-              <>
-                <Upload className="w-4 h-4" />
-                Choose image
-              </>
-            )}
-          </Button>
+          {uploading ? (
+            <div className="flex items-center justify-center gap-2 text-sm text-zinc-300">
+              <Loader2 className="w-4 h-4 animate-spin" /> Uploading & optimizing...
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-1">
+              <Upload className="w-6 h-6 text-zinc-400" />
+              <p className="text-sm text-zinc-300 font-medium">
+                {dragOver ? "Drop to upload" : "Click or drag an image here"}
+              </p>
+              <p className="text-xs text-zinc-500">JPG, PNG, WEBP, or GIF · auto-resized if oversized</p>
+            </div>
+          )}
         </div>
       ) : (
         <Input
