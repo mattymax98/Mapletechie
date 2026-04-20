@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Save, AlertCircle, CheckCircle } from "lucide-react";
+import { ImageUploadField } from "@/components/ImageUploadField";
 
 export default function AdminProfile() {
   const { user, refreshUser } = useAdmin();
@@ -109,9 +110,13 @@ export default function AdminProfile() {
               <Input value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} className="bg-zinc-900 border-zinc-700" />
             </div>
             <div className="space-y-2 md:col-span-2">
-              <Label>Profile Picture URL</Label>
-              <Input value={form.avatarUrl} onChange={(e) => setForm({ ...form, avatarUrl: e.target.value })} placeholder="https://..." className="bg-zinc-900 border-zinc-700" />
-              <p className="text-xs text-zinc-500">Paste a direct image URL (jpg/png/webp).</p>
+              <Label>Profile Picture</Label>
+              <ImageUploadField
+                value={form.avatarUrl}
+                onChange={(url) => setForm({ ...form, avatarUrl: url })}
+                variant="avatar"
+                helpText="Upload a square photo for best results."
+              />
             </div>
             <div className="space-y-2 md:col-span-2">
               <Label>Email</Label>
