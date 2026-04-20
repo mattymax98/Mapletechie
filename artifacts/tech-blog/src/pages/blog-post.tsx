@@ -47,14 +47,20 @@ export default function BlogPost() {
   return (
     <article className="w-full">
       <SEO
-        title={post.title}
-        description={post.excerpt ?? undefined}
-        image={post.coverImage ?? undefined}
+        title={(post as any).seoTitle || post.title}
+        description={(post as any).seoDescription || post.excerpt || undefined}
+        image={(post as any).ogImage || post.coverImage || undefined}
         url={`/blog/${post.slug}`}
         type="article"
         publishedTime={post.publishedAt ?? undefined}
         author={post.author ?? undefined}
-        keywords={post.category ? [post.category, "tech", "technology"] : ["tech", "technology"]}
+        keywords={
+          (post as any).seoKeywords && (post as any).seoKeywords.length > 0
+            ? (post as any).seoKeywords
+            : post.category
+              ? [post.category, "tech", "technology"]
+              : ["tech", "technology"]
+        }
       />
       {/* Header */}
       <header className="container mx-auto px-4 md:px-6 py-10 md:py-16 max-w-4xl">
