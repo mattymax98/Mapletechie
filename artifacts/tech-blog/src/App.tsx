@@ -25,6 +25,7 @@ import AdminProducts from "@/pages/admin/AdminProducts";
 import AdminInbox from "@/pages/admin/AdminInbox";
 import AdminNewsletter from "@/pages/admin/AdminNewsletter";
 import AdminJobs from "@/pages/admin/AdminJobs";
+import AdminAudit from "@/pages/admin/AdminAudit";
 import Careers from "@/pages/careers";
 import CareerDetail from "@/pages/career-detail";
 import Advertise from "@/pages/advertise";
@@ -68,6 +69,9 @@ function Router() {
       </Route>
       <Route path="/admin/jobs">
         <AdminGuard><AdminJobs /></AdminGuard>
+      </Route>
+      <Route path="/admin/audit">
+        <AdminGuard><AdminAudit /></AdminGuard>
       </Route>
       <Route path="/admin/posts/new">
         <AdminGuard><AdminNewPost /></AdminGuard>

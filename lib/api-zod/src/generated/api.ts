@@ -942,7 +942,7 @@ export const ListCommentsResponse = zod.array(ListCommentsResponseItem);
 export const SubmitCommentBody = zod.object({
   postSlug: zod.string(),
   name: zod.string(),
-  email: zod.string().optional(),
+  email: zod.string(),
   body: zod.string(),
 });
 

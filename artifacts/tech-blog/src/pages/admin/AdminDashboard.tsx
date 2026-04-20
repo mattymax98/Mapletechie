@@ -8,6 +8,22 @@ import { PlusCircle, Pencil, Trash2, LogOut, Eye, ExternalLink, Sparkles, Users,
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 
+function NavIcon({ href, Icon, label }: { href: string; Icon: any; label: string }) {
+  return (
+    <Link href={href}>
+      <Button
+        variant="ghost"
+        size="sm"
+        title={label}
+        className="text-zinc-400 hover:text-white h-9 w-9 xl:w-auto xl:px-3 p-0 xl:gap-2"
+      >
+        <Icon className="w-4 h-4" />
+        <span className="hidden xl:inline text-xs">{label}</span>
+      </Button>
+    </Link>
+  );
+}
+
 export default function AdminDashboard() {
   const { logout, user } = useAdmin();
   const { data: posts, isLoading } = useListAdminPosts();
@@ -44,88 +60,36 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-black text-white">
       <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-baseline gap-2 leading-none whitespace-nowrap shrink-0">
-            <span className="text-lg sm:text-xl font-bold tracking-tight">
-              <span className="text-orange-500">MAPLE</span>TECHIE
-            </span>
-            <span className="text-zinc-500 text-lg font-light">/</span>
-            <span className="text-zinc-300 text-sm sm:text-base font-medium tracking-tight">Admin</span>
-            {user && isAdmin && (
-              <Badge className="ml-2 bg-orange-500/20 text-orange-400 border-orange-500/30 text-[10px] hidden md:inline-flex">ADMIN</Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-0.5 sm:gap-1 overflow-x-auto">
-            <Link href="/admin/profile">
-              <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
-                <UserIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">My Profile</span>
-              </Button>
-            </Link>
-            {canEditors && (
-              <Link href="/admin/users">
-                <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
-                  <Users className="w-4 h-4" />
-                  <span className="hidden sm:inline">Editors</span>
-                </Button>
-              </Link>
-            )}
-            {canShop && (
-              <Link href="/admin/products">
-                <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
-                  <ShoppingBag className="w-4 h-4" />
-                  <span className="hidden sm:inline">Shop</span>
-                </Button>
-              </Link>
-            )}
-            {canJobs && (
-              <Link href="/admin/jobs">
-                <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
-                  <Briefcase className="w-4 h-4" />
-                  <span className="hidden sm:inline">Jobs</span>
-                </Button>
-              </Link>
-            )}
-            {canInbox && (
-              <Link href="/admin/inbox">
-                <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
-                  <Inbox className="w-4 h-4" />
-                  <span className="hidden sm:inline">Inbox</span>
-                </Button>
-              </Link>
-            )}
-            {isAdmin && (
-              <Link href="/admin/newsletter">
-                <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
-                  <Mail className="w-4 h-4" />
-                  <span className="hidden lg:inline">Newsletter</span>
-                </Button>
-              </Link>
-            )}
-            {isAdmin && (
-              <Link href="/admin/audit">
-                <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
-                  <ClipboardList className="w-4 h-4" />
-                  <span className="hidden lg:inline">Activity</span>
-                </Button>
-              </Link>
-            )}
-            <Link href="/">
-              <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
-                <ExternalLink className="w-4 h-4" />
-                <span className="hidden sm:inline">View Site</span>
-              </Button>
-            </Link>
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between gap-3">
+          <Link href="/admin">
+            <div className="flex items-baseline gap-2 leading-none whitespace-nowrap shrink-0 cursor-pointer">
+              <span className="text-base sm:text-lg font-bold tracking-tight">
+                <span className="text-orange-500">MAPLE</span>TECHIE
+              </span>
+              <span className="text-zinc-500 text-sm sm:text-base font-light">/</span>
+              <span className="text-zinc-300 text-xs sm:text-sm font-medium tracking-tight">Admin</span>
+            </div>
+          </Link>
+          <nav className="flex items-center gap-0.5 min-w-0">
+            <NavIcon href="/admin/profile" Icon={UserIcon} label="Profile" />
+            {canEditors && <NavIcon href="/admin/users" Icon={Users} label="Editors" />}
+            {canShop && <NavIcon href="/admin/products" Icon={ShoppingBag} label="Shop" />}
+            {canJobs && <NavIcon href="/admin/jobs" Icon={Briefcase} label="Jobs" />}
+            {canInbox && <NavIcon href="/admin/inbox" Icon={Inbox} label="Inbox" />}
+            {isAdmin && <NavIcon href="/admin/newsletter" Icon={Mail} label="Newsletter" />}
+            {isAdmin && <NavIcon href="/admin/audit" Icon={ClipboardList} label="Activity" />}
+            <NavIcon href="/" Icon={ExternalLink} label="View Site" />
             <Button
               variant="ghost"
               size="sm"
               onClick={logout}
-              className="text-zinc-400 hover:text-red-400 gap-2"
+              title="Sign out"
+              className="text-zinc-400 hover:text-red-400 h-9 w-9 sm:w-auto sm:px-3 p-0 sm:gap-2"
             >
               <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline">Sign Out</span>
+              <span className="hidden xl:inline text-xs">Sign out</span>
             </Button>
-          </div>
+          </nav>
         </div>
       </header>
 
