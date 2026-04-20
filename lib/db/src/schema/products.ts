@@ -8,6 +8,7 @@ export const productsTable = pgTable("products", {
   description: text("description").notNull(),
   price: numeric("price", { precision: 10, scale: 2 }).notNull(),
   originalPrice: numeric("original_price", { precision: 10, scale: 2 }),
+  currency: text("currency").notNull().default("CAD"),
   affiliateUrl: text("affiliate_url").notNull(),
   imageUrl: text("image_url"),
   category: text("category").notNull(),

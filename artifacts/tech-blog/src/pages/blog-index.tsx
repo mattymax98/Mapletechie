@@ -97,7 +97,7 @@ export default function BlogIndex() {
             >
               <Link href={`/blog/${post.slug}`} className="group flex flex-col gap-4 h-full">
                 <div className="overflow-hidden border border-border aspect-[4/3] bg-muted relative">
-                  <img 
+                  <img loading="lazy" decoding="async" 
                     src={post.coverImage || `/images/post-${(idx % 2) + 1}.png`} 
                     alt={post.title} 
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
