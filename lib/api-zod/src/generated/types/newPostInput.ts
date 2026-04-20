@@ -16,6 +16,7 @@ export interface NewPostInput {
   tags?: string[];
   author?: string;
   authorAvatar?: string;
+  authorId?: number;
   readTime?: number;
   isFeatured?: boolean;
   status?: string;

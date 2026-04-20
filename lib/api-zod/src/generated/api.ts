@@ -64,6 +64,7 @@ export const CreatePostBody = zod.object({
   tags: zod.array(zod.string()).optional(),
   author: zod.string().optional(),
   authorAvatar: zod.string().optional(),
+  authorId: zod.number().optional(),
   readTime: zod.number().optional(),
   isFeatured: zod.boolean().optional(),
   status: zod.string().optional(),
@@ -121,6 +122,7 @@ export const UpdatePostBody = zod.object({
   tags: zod.array(zod.string()).optional(),
   author: zod.string().optional(),
   authorAvatar: zod.string().optional(),
+  authorId: zod.number().optional(),
   readTime: zod.number().optional(),
   isFeatured: zod.boolean().optional(),
   status: zod.string().optional(),
@@ -627,6 +629,37 @@ export const GetAuthorParams = zod.object({
 });
 
 export const GetAuthorResponse = zod.object({
+  id: zod.number(),
+  displayName: zod.string(),
+  bio: zod.string().optional(),
+  avatarUrl: zod.string().optional(),
+  twitterUrl: zod.string().optional(),
+  linkedinUrl: zod.string().optional(),
+  instagramUrl: zod.string().optional(),
+  githubUrl: zod.string().optional(),
+  websiteUrl: zod.string().optional(),
+});
+
+/**
+ * @summary List all active editors (public)
+ */
+export const ListEditorsResponseItem = zod.object({
+  id: zod.number(),
+  displayName: zod.string(),
+  bio: zod.string().optional(),
+  avatarUrl: zod.string().optional(),
+  twitterUrl: zod.string().optional(),
+  linkedinUrl: zod.string().optional(),
+  instagramUrl: zod.string().optional(),
+  githubUrl: zod.string().optional(),
+  websiteUrl: zod.string().optional(),
+});
+export const ListEditorsResponse = zod.array(ListEditorsResponseItem);
+
+/**
+ * @summary Get the founding/featured editor (public)
+ */
+export const GetFeaturedEditorResponse = zod.object({
   id: zod.number(),
   displayName: zod.string(),
   bio: zod.string().optional(),

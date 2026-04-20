@@ -1,4 +1,4 @@
-import { useGetFeaturedPosts, useGetLatestPosts, useGetTrendingPosts, useGetFeaturedProducts } from "@workspace/api-client-react";
+import { useGetFeaturedPosts, useGetLatestPosts, useGetTrendingPosts, useGetFeaturedProducts, useGetFeaturedEditor } from "@workspace/api-client-react";
 import { SEO } from "@/components/SEO";
 import { Link } from "wouter";
 import { format } from "date-fns";
@@ -20,6 +20,7 @@ export default function Home() {
   const { data: latestPosts, isLoading: loadingLatest } = useGetLatestPosts({ limit: 6 });
   const { data: trendingPosts, isLoading: loadingTrending } = useGetTrendingPosts();
   const { data: products } = useGetFeaturedProducts();
+  const { data: editor } = useGetFeaturedEditor();
 
   const heroPost = featuredPosts?.[0];
   const subHeroPosts = featuredPosts?.slice(1, 3) || [];
@@ -292,7 +293,13 @@ export default function Home() {
             <div className="flex items-start gap-6 md:gap-10 flex-col md:flex-row">
               <div className="shrink-0">
                 <div className="w-24 h-24 md:w-28 md:h-28 rounded-full overflow-hidden border-2 border-primary">
-                  <img loading="lazy" decoding="async" src="/author-matthew.png" alt="Matthew Mbaka, Editor" className="w-full h-full object-cover" />
+                  <img
+                    loading="lazy"
+                    decoding="async"
+                    src={editor?.avatarUrl || `${import.meta.env.BASE_URL}author-matthew.png`}
+                    alt={`${editor?.displayName || "Editor"}, Editor`}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
               </div>
               <div className="flex-1">
@@ -307,7 +314,7 @@ export default function Home() {
                   We're building something different here: opinionated, plain-spoken coverage of the technology shaping our lives, written by people who actually use the things they write about. If that sounds like a publication you'd want to read, you're in the right place.
                 </p>
                 <div className="flex items-center gap-4 flex-wrap">
-                  <span className="font-serif italic text-lg">— Matthew Mbaka, Founding Editor</span>
+                  <span className="font-serif italic text-lg">— {editor?.displayName || "Matthew Mbaka"}, Founding Editor</span>
                   <Button asChild variant="outline" size="sm" className="rounded-none font-bold uppercase tracking-wider">
                     <Link href="/about">More about us</Link>
                   </Button>
