@@ -96,13 +96,70 @@ export default function BlogPost() {
           </div>
           
           <div className="flex gap-2">
-            <Button variant="outline" size="icon" className="rounded-none border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors">
-              <Twitter className="h-4 w-4" />
+            <Button
+              asChild
+              variant="outline"
+              size="icon"
+              className="rounded-none border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+              title="Share on X / Twitter"
+            >
+              <a
+                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(post.title)}&url=${encodeURIComponent(`https://mapletechie.com/blog/${post.slug}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Twitter className="h-4 w-4" />
+              </a>
             </Button>
-            <Button variant="outline" size="icon" className="rounded-none border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors">
-              <Facebook className="h-4 w-4" />
+            <Button
+              asChild
+              variant="outline"
+              size="icon"
+              className="rounded-none border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+              title="Share on Facebook"
+            >
+              <a
+                href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`https://mapletechie.com/blog/${post.slug}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Facebook className="h-4 w-4" />
+              </a>
             </Button>
-            <Button variant="outline" size="icon" className="rounded-none border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors">
+            <Button
+              asChild
+              variant="outline"
+              size="icon"
+              className="rounded-none border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+              title="Share on LinkedIn"
+            >
+              <a
+                href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`https://mapletechie.com/blog/${post.slug}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Linkedin className="h-4 w-4" />
+              </a>
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-none border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+              title="Copy link"
+              onClick={async () => {
+                const url = `https://mapletechie.com/blog/${post.slug}`;
+                try {
+                  if (navigator.share) {
+                    await navigator.share({ title: post.title, url });
+                  } else {
+                    await navigator.clipboard.writeText(url);
+                    alert("Link copied to clipboard");
+                  }
+                } catch {
+                  // user cancelled
+                }
+              }}
+            >
               <Share2 className="h-4 w-4" />
             </Button>
           </div>
@@ -141,7 +198,11 @@ export default function BlogPost() {
 
       {/* Author Bio */}
       <div className="container mx-auto px-4 md:px-6 max-w-4xl pb-10">
-        <AuthorBio />
+        <AuthorBio
+          authorId={(post as any).authorId ?? null}
+          fallbackName={post.author}
+          fallbackAvatar={post.authorAvatar}
+        />
       </div>
 
       {/* Related Posts */}

@@ -17,6 +17,8 @@ export interface Post {
   tags?: string[];
   author: string;
   authorAvatar?: string;
+  authorId?: number;
+  status: string;
   readTime: number;
   viewCount: number;
   isFeatured: boolean;
