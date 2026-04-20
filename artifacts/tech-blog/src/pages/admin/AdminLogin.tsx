@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useAdminVerify } from "@workspace/api-client-react";
+import { useAdminLogin } from "@workspace/api-client-react";
 import { useAdmin } from "@/context/AdminContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,23 +9,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Lock, AlertCircle } from "lucide-react";
 
 export default function AdminLogin() {
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const { login } = useAdmin();
   const [, navigate] = useLocation();
 
-  const verifyMutation = useAdminVerify({
+  const loginMutation = useAdminLogin({
     mutation: {
-      onSuccess: (data) => {
-        if (data.success) {
-          login(password);
+      onSuccess: (data: any) => {
+        if (data?.success && data.token && data.user) {
+          login(data.token, data.user);
           navigate("/admin");
         } else {
-          setError("Incorrect password. Please try again.");
+          setError("Invalid username or password.");
         }
       },
       onError: () => {
-        setError("Incorrect password. Please try again.");
+        setError("Invalid username or password.");
       },
     },
   });
@@ -33,11 +34,11 @@ export default function AdminLogin() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!password.trim()) {
-      setError("Please enter a password.");
+    if (!username.trim() || !password.trim()) {
+      setError("Enter both username and password.");
       return;
     }
-    verifyMutation.mutate({ data: { password } });
+    loginMutation.mutate({ data: { username: username.trim(), password } });
   };
 
   return (
@@ -53,15 +54,26 @@ export default function AdminLogin() {
             <span className="text-orange-500">MAPLE</span>TECHIE Admin
           </CardTitle>
           <CardDescription className="text-zinc-400">
-            Enter your admin password to access the dashboard.
+            Sign in with your username and password.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-zinc-300">
-                Admin Password
-              </Label>
+              <Label htmlFor="username" className="text-zinc-300">Username</Label>
+              <Input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="your-username"
+                className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-orange-500"
+                autoFocus
+                autoComplete="username"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-zinc-300">Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -69,7 +81,7 @@ export default function AdminLogin() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter password"
                 className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-orange-500"
-                autoFocus
+                autoComplete="current-password"
               />
             </div>
 
@@ -83,9 +95,9 @@ export default function AdminLogin() {
             <Button
               type="submit"
               className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold"
-              disabled={verifyMutation.isPending}
+              disabled={loginMutation.isPending}
             >
-              {verifyMutation.isPending ? "Verifying..." : "Sign In"}
+              {loginMutation.isPending ? "Signing in..." : "Sign In"}
             </Button>
           </form>
         </CardContent>

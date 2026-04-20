@@ -9,13 +9,14 @@
 export interface NewPostInput {
   title: string;
   slug: string;
-  excerpt: string;
+  excerpt?: string;
   content: string;
   coverImage?: string;
   category: string;
   tags?: string[];
-  author: string;
+  author?: string;
   authorAvatar?: string;
-  readTime: number;
+  readTime?: number;
   isFeatured?: boolean;
+  status?: string;
 }

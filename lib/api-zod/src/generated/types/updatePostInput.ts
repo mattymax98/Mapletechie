@@ -18,5 +18,6 @@ export interface UpdatePostInput {
   authorAvatar?: string;
   readTime?: number;
   isFeatured?: boolean;
+  status?: string;
   publishedAt?: Date;
 }

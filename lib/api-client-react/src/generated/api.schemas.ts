@@ -20,6 +20,8 @@ export interface Post {
   tags?: string[];
   author: string;
   authorAvatar?: string;
+  authorId?: number;
+  status: string;
   readTime: number;
   viewCount: number;
   isFeatured: boolean;
@@ -30,15 +32,16 @@ export interface Post {
 export interface NewPostInput {
   title: string;
   slug: string;
-  excerpt: string;
+  excerpt?: string;
   content: string;
   coverImage?: string;
   category: string;
   tags?: string[];
-  author: string;
+  author?: string;
   authorAvatar?: string;
-  readTime: number;
+  readTime?: number;
   isFeatured?: boolean;
+  status?: string;
 }
 
 export interface UpdatePostInput {
@@ -53,7 +56,93 @@ export interface UpdatePostInput {
   authorAvatar?: string;
   readTime?: number;
   isFeatured?: boolean;
+  status?: string;
   publishedAt?: string;
+}
+
+export interface LoginBody {
+  username: string;
+  password: string;
+}
+
+export interface PublicUser {
+  id: number;
+  username: string;
+  displayName: string;
+  email?: string;
+  bio?: string;
+  avatarUrl?: string;
+  twitterUrl?: string;
+  linkedinUrl?: string;
+  instagramUrl?: string;
+  githubUrl?: string;
+  websiteUrl?: string;
+  role: string;
+  canPublishDirectly: boolean;
+  isActive: boolean;
+}
+
+export interface LoginResponse {
+  success: boolean;
+  token: string;
+  user: PublicUser;
+}
+
+export interface NewUserInput {
+  username: string;
+  password: string;
+  displayName: string;
+  email?: string;
+  bio?: string;
+  avatarUrl?: string;
+  twitterUrl?: string;
+  linkedinUrl?: string;
+  instagramUrl?: string;
+  githubUrl?: string;
+  websiteUrl?: string;
+  role?: string;
+  canPublishDirectly?: boolean;
+}
+
+export interface UpdateUserInput {
+  password?: string;
+  displayName?: string;
+  email?: string;
+  bio?: string;
+  avatarUrl?: string;
+  twitterUrl?: string;
+  linkedinUrl?: string;
+  instagramUrl?: string;
+  githubUrl?: string;
+  websiteUrl?: string;
+  role?: string;
+  canPublishDirectly?: boolean;
+  isActive?: boolean;
+}
+
+export interface UpdateMeInput {
+  password?: string;
+  displayName?: string;
+  email?: string;
+  bio?: string;
+  avatarUrl?: string;
+  twitterUrl?: string;
+  linkedinUrl?: string;
+  instagramUrl?: string;
+  githubUrl?: string;
+  websiteUrl?: string;
+}
+
+export interface AuthorProfile {
+  id: number;
+  displayName: string;
+  bio?: string;
+  avatarUrl?: string;
+  twitterUrl?: string;
+  linkedinUrl?: string;
+  instagramUrl?: string;
+  githubUrl?: string;
+  websiteUrl?: string;
 }
 
 export interface VerifyAdminBody {
@@ -122,4 +211,8 @@ export type GetLatestPostsParams = {
 export type ListProductsParams = {
   category?: string;
   featured?: boolean;
+};
+
+export type AdminLogout200 = {
+  success?: boolean;
 };

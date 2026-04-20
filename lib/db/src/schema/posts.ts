@@ -13,6 +13,8 @@ export const postsTable = pgTable("posts", {
   tags: text("tags").array().notNull().default([]),
   author: text("author").notNull(),
   authorAvatar: text("author_avatar"),
+  authorId: integer("author_id"),
+  status: text("status").notNull().default("published"),
   readTime: integer("read_time").notNull().default(5),
   viewCount: integer("view_count").notNull().default(0),
   isFeatured: boolean("is_featured").notNull().default(false),
