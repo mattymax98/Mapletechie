@@ -22,15 +22,15 @@ router.post("/reviews", async (req, res): Promise<void> => {
   const title = String(body.title || "").trim();
   const reviewBody = String(body.body || "").trim();
   const rating = Math.min(5, Math.max(1, Number(body.rating) || 0));
-  if (!name || !email || !title || !reviewBody || !rating) {
-    res.status(400).json({ success: false, message: "All fields are required and rating must be 1-5" });
+  if (!name || !email || !reviewBody || !rating) {
+    res.status(400).json({ success: false, message: "Name, email, review and rating are required (rating 1-5)." });
     return;
   }
   await db.insert(reviewsTable).values({
     name: name.slice(0, 100),
     email: email.slice(0, 200),
     rating,
-    title: title.slice(0, 200),
+    title: title ? title.slice(0, 200) : null,
     body: reviewBody.slice(0, 5000),
     postSlug: body.postSlug ? String(body.postSlug).trim().slice(0, 200) : null,
   });

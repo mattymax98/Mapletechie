@@ -13,6 +13,8 @@ import jobsRouter from "./jobs";
 import reviewsRouter from "./reviews";
 import advertiseRouter from "./advertise";
 import newsletterRouter from "./newsletter";
+import auditRouter from "./audit";
+import commentsRouter from "./comments";
 
 const router: IRouter = Router();
 
@@ -30,5 +32,7 @@ router.use(jobsRouter);
 router.use(reviewsRouter);
 router.use(advertiseRouter);
 router.use(newsletterRouter);
+router.use(auditRouter);
+router.use(commentsRouter);
 
 export default router;
