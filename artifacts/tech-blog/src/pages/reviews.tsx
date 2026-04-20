@@ -44,12 +44,12 @@ export default function Reviews() {
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.email || !form.title || !form.body) {
-      toast({ title: "Missing info", description: "Please fill all fields.", variant: "destructive" });
+    if (!form.name || !form.email || !form.body) {
+      toast({ title: "Missing info", description: "Please fill in your name, email, and review.", variant: "destructive" });
       return;
     }
     submit.mutate(
-      { data: form as any },
+      { data: { ...form, title: form.title.trim() || null } as any },
       {
         onSuccess: (res: any) => {
           setSubmitted(true);
@@ -104,7 +104,7 @@ export default function Reviews() {
                   <div key={r.id} className="bg-card border border-border p-6">
                     <div className="flex items-start justify-between gap-4 mb-3 flex-wrap">
                       <div>
-                        <h3 className="font-serif text-xl font-bold mb-1">{r.title}</h3>
+                        {r.title && <h3 className="font-serif text-xl font-bold mb-1">{r.title}</h3>}
                         <p className="text-xs text-muted-foreground">
                           {r.name} · {format(new Date(r.createdAt), "MMM d, yyyy")}
                         </p>
@@ -139,8 +139,10 @@ export default function Reviews() {
                     <div className="mt-2"><StarPicker value={form.rating} onChange={(n) => setForm({ ...form, rating: n })} /></div>
                   </div>
                   <div>
-                    <Label className="text-xs font-bold uppercase tracking-wider">Headline *</Label>
-                    <Input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Sum it up in a line" className="rounded-none mt-2" />
+                    <Label className="text-xs font-bold uppercase tracking-wider">
+                      Headline <span className="text-muted-foreground normal-case font-normal">(optional)</span>
+                    </Label>
+                    <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Sum it up in a line — or leave blank" className="rounded-none mt-2" />
                   </div>
                   <div>
                     <Label className="text-xs font-bold uppercase tracking-wider">Your review *</Label>

@@ -1845,7 +1845,7 @@ components:
         name: { type: string }
         email: { type: string }
         body: { type: string }
-      required: [postSlug, name, body]
+      required: [postSlug, name, email, body]
 
     CommentStatusUpdate:
       type: object

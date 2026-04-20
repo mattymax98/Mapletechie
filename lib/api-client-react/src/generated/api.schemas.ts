@@ -403,7 +403,7 @@ export interface Comment {
 export interface NewCommentInput {
   postSlug: string;
   name: string;
-  email?: string;
+  email: string;
   body: string;
 }
 

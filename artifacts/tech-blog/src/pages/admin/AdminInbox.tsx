@@ -2,31 +2,46 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Trash2, Mail, Megaphone, Star, FileText, Briefcase, ExternalLink } from "lucide-react";
+import { ArrowLeft, Trash2, Mail, Megaphone, Star, FileText, Briefcase, ExternalLink, MessageCircle } from "lucide-react";
 import { format } from "date-fns";
 
 const TOKEN_KEY = "mapletechie_admin_token";
 
-type Tab = "applications" | "reviews" | "ads" | "contacts";
+type Tab = "applications" | "reviews" | "ads" | "contacts" | "comments";
 
 export default function AdminInbox() {
   const [tab, setTab] = useState<Tab>("applications");
   const [data, setData] = useState<Record<Tab, any[] | null>>({
-    applications: null, reviews: null, ads: null, contacts: null,
+    applications: null, reviews: null, ads: null, contacts: null, comments: null,
   });
 
   const token = typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;
   const headers = { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) };
 
+  const safeFetch = (url: string) =>
+    fetch(url, { headers })
+      .then((res) => (res.ok ? res.json() : []))
+      .catch(() => []);
+
   async function loadAll() {
-    const [a, r, ad, c] = await Promise.all([
-      fetch("/api/admin/applications", { headers }).then(res => res.ok ? res.json() : []),
-      fetch("/api/admin/reviews", { headers }).then(res => res.ok ? res.json() : []),
-      fetch("/api/admin/ad-inquiries", { headers }).then(res => res.ok ? res.json() : []),
-      // Reuse existing /admin/inbox if any — fallback to empty
-      fetch("/api/admin/contacts", { headers }).then(res => res.ok ? res.json() : []).catch(() => []),
+    const [a, r, ad, c, cm] = await Promise.all([
+      safeFetch("/api/admin/applications"),
+      safeFetch("/api/admin/reviews"),
+      safeFetch("/api/admin/ad-inquiries"),
+      safeFetch("/api/admin/contacts"),
+      safeFetch("/api/admin/comments"),
     ]);
-    setData({ applications: a, reviews: r, ads: ad, contacts: c });
+    setData({ applications: a, reviews: r, ads: ad, contacts: c, comments: cm });
+  }
+
+  async function setCommentStatus(id: number, status: string) {
+    try {
+      const res = await fetch(`/api/admin/comments/${id}`, { method: "PATCH", headers, body: JSON.stringify({ status }) });
+      if (!res.ok) throw new Error(String(res.status));
+      await loadAll();
+    } catch {
+      alert("Could not update the comment. Please try again.");
+    }
   }
 
   useEffect(() => { loadAll(); }, []);
@@ -49,6 +64,7 @@ export default function AdminInbox() {
   const tabs: Array<{ id: Tab; label: string; icon: any; count: number }> = [
     { id: "applications", label: "Job Applications", icon: Briefcase, count: data.applications?.length || 0 },
     { id: "reviews", label: "Reader Reviews", icon: Star, count: data.reviews?.length || 0 },
+    { id: "comments", label: "Article Comments", icon: MessageCircle, count: data.comments?.length || 0 },
     { id: "ads", label: "Ad Inquiries", icon: Megaphone, count: data.ads?.length || 0 },
     { id: "contacts", label: "Contact Messages", icon: Mail, count: data.contacts?.length || 0 },
   ];
@@ -130,7 +146,7 @@ export default function AdminInbox() {
               <div key={r.id} className="bg-zinc-950 border border-zinc-800 rounded-lg p-5">
                 <div className="flex items-start justify-between gap-4 mb-3 flex-wrap">
                   <div>
-                    <h3 className="font-bold text-lg">{r.title}</h3>
+                    {r.title && <h3 className="font-bold text-lg">{r.title}</h3>}
                     <p className="text-sm text-zinc-400">
                       {r.name} · <a href={`mailto:${r.email}`} className="text-orange-400 hover:underline">{r.email}</a>
                     </p>
@@ -194,6 +210,38 @@ export default function AdminInbox() {
                     </a>
                   </div>
                 )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === "comments" && (
+          <div className="space-y-3">
+            {data.comments?.length === 0 && <Empty label="No reader comments yet." />}
+            {data.comments?.map((c: any) => (
+              <div key={c.id} className="bg-zinc-950 border border-zinc-800 rounded-lg p-5">
+                <div className="flex items-start justify-between gap-4 mb-3 flex-wrap">
+                  <div>
+                    <h3 className="font-bold">{c.name} <span className="text-zinc-500 font-normal text-sm">on</span> <a href={`/blog/${c.postSlug}`} target="_blank" rel="noopener" className="text-orange-400 hover:underline text-sm">/{c.postSlug}</a></h3>
+                    {c.email && <a href={`mailto:${c.email}`} className="text-orange-400 text-xs hover:underline">{c.email}</a>}
+                  </div>
+                  <span className="text-xs text-zinc-500">{format(new Date(c.createdAt), "MMM d, yyyy · h:mm a")}</span>
+                </div>
+                <p className="text-zinc-300 text-sm whitespace-pre-line bg-zinc-900/50 p-3 rounded border border-zinc-800 mb-3">{c.body}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge className={c.status === "approved" ? "bg-green-500/20 text-green-400 border-green-500/30" : c.status === "rejected" ? "bg-red-500/20 text-red-400 border-red-500/30" : "bg-amber-500/20 text-amber-400 border-amber-500/30"}>
+                    {c.status}
+                  </Badge>
+                  {c.status !== "approved" && (
+                    <Button size="sm" onClick={() => setCommentStatus(c.id, "approved")} className="h-7 px-3 text-xs bg-green-600 hover:bg-green-700">Approve</Button>
+                  )}
+                  {c.status !== "rejected" && (
+                    <Button size="sm" variant="outline" onClick={() => setCommentStatus(c.id, "rejected")} className="h-7 px-3 text-xs border-zinc-700">Reject</Button>
+                  )}
+                  <Button size="sm" variant="ghost" onClick={() => del(`/api/admin/comments/${c.id}`)} className="h-7 px-2 text-zinc-400 hover:text-red-400 ml-auto">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>

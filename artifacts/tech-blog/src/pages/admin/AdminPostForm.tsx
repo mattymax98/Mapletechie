@@ -48,6 +48,11 @@ function slugify(text: string): string {
 
 const TITLE_LIMIT = 60;
 const DESC_LIMIT = 160;
+const SLUG_LIMIT = 75;
+const POST_TITLE_MIN = 40;
+const POST_TITLE_MAX = 70;
+const EXCERPT_MIN = 140;
+const EXCERPT_MAX = 200;
 
 function CharCounter({ count, limit }: { count: number; limit: number }) {
   const ratio = count / limit;
@@ -64,6 +69,26 @@ function CharCounter({ count, limit }: { count: number; limit: number }) {
       {count}/{limit}
     </span>
   );
+}
+
+function RangeCounter({ count, min, max, unit = "chars" }: { count: number; min: number; max: number; unit?: string }) {
+  let color = "text-zinc-500";
+  if (count > 0) {
+    if (count < min) color = "text-amber-400";
+    else if (count <= max) color = "text-emerald-400";
+    else color = "text-red-400";
+  }
+  return (
+    <span className={`text-xs ${color}`}>
+      {count} {unit} <span className="text-zinc-600">· aim {min}–{max}</span>
+    </span>
+  );
+}
+
+function countWords(html: string): number {
+  const text = html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").trim();
+  if (!text) return 0;
+  return text.split(/\s+/).length;
 }
 
 export default function AdminPostForm({ postId }: AdminPostFormProps) {
@@ -285,28 +310,40 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
 
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div className="md:col-span-2 space-y-2">
-              <Label className="text-zinc-300">Title *</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-zinc-300">Title *</Label>
+                <RangeCounter count={form.title.length} min={POST_TITLE_MIN} max={POST_TITLE_MAX} />
+              </div>
               <Input
                 value={form.title}
                 onChange={(e) => handleTitleChange(e.target.value)}
-                placeholder="Post title"
+                placeholder="e.g. Apple Vision Pro 2 review: a year later, is it worth it?"
                 className="bg-zinc-900 border-zinc-700 text-white text-lg focus:border-orange-500"
               />
+              <p className="text-xs text-zinc-500">
+                Strong titles are clear and specific. Aim for {POST_TITLE_MIN}–{POST_TITLE_MAX} characters so they don't get cut off in Google or social previews.
+              </p>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-zinc-300">
-                Slug * <span className="text-zinc-500 text-xs font-normal">(URL-friendly name)</span>
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-zinc-300">
+                  Slug * <span className="text-zinc-500 text-xs font-normal">(URL part)</span>
+                </Label>
+                <CharCounter count={form.slug.length} limit={SLUG_LIMIT} />
+              </div>
               <Input
                 value={form.slug}
                 onChange={(e) => {
                   setAutoSlug(false);
                   setForm((f) => ({ ...f, slug: e.target.value }));
                 }}
-                placeholder="my-post-title"
+                placeholder="apple-vision-pro-2-review"
                 className="bg-zinc-900 border-zinc-700 text-white font-mono text-sm focus:border-orange-500"
               />
+              <p className="text-xs text-zinc-500">
+                Auto-fills from your title. Lowercase, dashes only — keep it short.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -389,11 +426,14 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
             </div>
 
             <div className="md:col-span-2 space-y-2">
-              <Label className="text-zinc-300">Excerpt</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-zinc-300">Excerpt</Label>
+                <RangeCounter count={form.excerpt.length} min={EXCERPT_MIN} max={EXCERPT_MAX} />
+              </div>
               <Textarea
                 value={form.excerpt}
                 onChange={(e) => setForm((f) => ({ ...f, excerpt: e.target.value }))}
-                placeholder="Short summary shown in post cards (1–2 sentences). Used as the meta description if you don't set one below."
+                placeholder="A 1–2 sentence summary that hooks the reader. Shows on post cards and in Google results when no SEO description is set."
                 rows={3}
                 className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500 resize-none"
               />
@@ -403,14 +443,17 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
               <div className="flex items-center justify-between">
                 <Label className="text-zinc-300">Content *</Label>
                 <span className="text-xs text-zinc-500">
-                  Use the toolbar to format text — no code needed.
+                  {countWords(form.content)} words <span className="text-zinc-600">· aim 800–1500 for in-depth pieces</span>
                 </span>
               </div>
               <RichTextEditor
                 value={form.content}
                 onChange={(html) => setForm((f) => ({ ...f, content: html }))}
-                placeholder="Start writing your article..."
+                placeholder="Start with a strong hook in the first sentence, then back it up. Use headings to break up long sections, and add an image or two if you have them."
               />
+              <p className="text-xs text-zinc-500">
+                Use the toolbar to format — no code needed. Aim for 800–1500 words for a full review or feature; 300–500 is fine for news.
+              </p>
             </div>
 
             {/* SEO Section */}
