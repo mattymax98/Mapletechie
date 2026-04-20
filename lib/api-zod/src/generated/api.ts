@@ -37,6 +37,8 @@ export const ListPostsResponseItem = zod.object({
   tags: zod.array(zod.string()).optional(),
   author: zod.string(),
   authorAvatar: zod.string().optional(),
+  authorId: zod.number().optional(),
+  status: zod.string(),
   readTime: zod.number(),
   viewCount: zod.number(),
   isFeatured: zod.boolean(),
@@ -51,15 +53,16 @@ export const ListPostsResponse = zod.array(ListPostsResponseItem);
 export const CreatePostBody = zod.object({
   title: zod.string(),
   slug: zod.string(),
-  excerpt: zod.string(),
+  excerpt: zod.string().optional(),
   content: zod.string(),
   coverImage: zod.string().optional(),
   category: zod.string(),
   tags: zod.array(zod.string()).optional(),
-  author: zod.string(),
+  author: zod.string().optional(),
   authorAvatar: zod.string().optional(),
-  readTime: zod.number(),
+  readTime: zod.number().optional(),
   isFeatured: zod.boolean().optional(),
+  status: zod.string().optional(),
 });
 
 /**
@@ -80,6 +83,8 @@ export const GetPostResponse = zod.object({
   tags: zod.array(zod.string()).optional(),
   author: zod.string(),
   authorAvatar: zod.string().optional(),
+  authorId: zod.number().optional(),
+  status: zod.string(),
   readTime: zod.number(),
   viewCount: zod.number(),
   isFeatured: zod.boolean(),
@@ -106,6 +111,7 @@ export const UpdatePostBody = zod.object({
   authorAvatar: zod.string().optional(),
   readTime: zod.number().optional(),
   isFeatured: zod.boolean().optional(),
+  status: zod.string().optional(),
   publishedAt: zod.coerce.date().optional(),
 });
 
@@ -120,6 +126,8 @@ export const UpdatePostResponse = zod.object({
   tags: zod.array(zod.string()).optional(),
   author: zod.string(),
   authorAvatar: zod.string().optional(),
+  authorId: zod.number().optional(),
+  status: zod.string(),
   readTime: zod.number(),
   viewCount: zod.number(),
   isFeatured: zod.boolean(),
@@ -152,6 +160,8 @@ export const GetPostBySlugResponse = zod.object({
   tags: zod.array(zod.string()).optional(),
   author: zod.string(),
   authorAvatar: zod.string().optional(),
+  authorId: zod.number().optional(),
+  status: zod.string(),
   readTime: zod.number(),
   viewCount: zod.number(),
   isFeatured: zod.boolean(),
@@ -173,6 +183,8 @@ export const GetFeaturedPostsResponseItem = zod.object({
   tags: zod.array(zod.string()).optional(),
   author: zod.string(),
   authorAvatar: zod.string().optional(),
+  authorId: zod.number().optional(),
+  status: zod.string(),
   readTime: zod.number(),
   viewCount: zod.number(),
   isFeatured: zod.boolean(),
@@ -201,6 +213,8 @@ export const GetLatestPostsResponseItem = zod.object({
   tags: zod.array(zod.string()).optional(),
   author: zod.string(),
   authorAvatar: zod.string().optional(),
+  authorId: zod.number().optional(),
+  status: zod.string(),
   readTime: zod.number(),
   viewCount: zod.number(),
   isFeatured: zod.boolean(),
@@ -223,6 +237,8 @@ export const GetTrendingPostsResponseItem = zod.object({
   tags: zod.array(zod.string()).optional(),
   author: zod.string(),
   authorAvatar: zod.string().optional(),
+  authorId: zod.number().optional(),
+  status: zod.string(),
   readTime: zod.number(),
   viewCount: zod.number(),
   isFeatured: zod.boolean(),
@@ -340,7 +356,7 @@ export const GetSiteSummaryResponse = zod.object({
 });
 
 /**
- * @summary Verify admin password
+ * @summary Verify admin password (legacy)
  */
 export const AdminVerifyBody = zod.object({
   password: zod.string(),
@@ -349,4 +365,223 @@ export const AdminVerifyBody = zod.object({
 export const AdminVerifyResponse = zod.object({
   success: zod.boolean(),
   message: zod.string(),
+});
+
+/**
+ * @summary Login with username + password
+ */
+export const AdminLoginBody = zod.object({
+  username: zod.string(),
+  password: zod.string(),
+});
+
+export const AdminLoginResponse = zod.object({
+  success: zod.boolean(),
+  token: zod.string(),
+  user: zod.object({
+    id: zod.number(),
+    username: zod.string(),
+    displayName: zod.string(),
+    email: zod.string().optional(),
+    bio: zod.string().optional(),
+    avatarUrl: zod.string().optional(),
+    twitterUrl: zod.string().optional(),
+    linkedinUrl: zod.string().optional(),
+    instagramUrl: zod.string().optional(),
+    githubUrl: zod.string().optional(),
+    websiteUrl: zod.string().optional(),
+    role: zod.string(),
+    canPublishDirectly: zod.boolean(),
+    isActive: zod.boolean(),
+  }),
+});
+
+/**
+ * @summary Log out (deletes session)
+ */
+export const AdminLogoutResponse = zod.object({
+  success: zod.boolean().optional(),
+});
+
+/**
+ * @summary Get the currently logged-in user
+ */
+export const GetCurrentUserResponse = zod.object({
+  id: zod.number(),
+  username: zod.string(),
+  displayName: zod.string(),
+  email: zod.string().optional(),
+  bio: zod.string().optional(),
+  avatarUrl: zod.string().optional(),
+  twitterUrl: zod.string().optional(),
+  linkedinUrl: zod.string().optional(),
+  instagramUrl: zod.string().optional(),
+  githubUrl: zod.string().optional(),
+  websiteUrl: zod.string().optional(),
+  role: zod.string(),
+  canPublishDirectly: zod.boolean(),
+  isActive: zod.boolean(),
+});
+
+/**
+ * @summary Update the current user's own profile
+ */
+export const UpdateCurrentUserBody = zod.object({
+  password: zod.string().optional(),
+  displayName: zod.string().optional(),
+  email: zod.string().optional(),
+  bio: zod.string().optional(),
+  avatarUrl: zod.string().optional(),
+  twitterUrl: zod.string().optional(),
+  linkedinUrl: zod.string().optional(),
+  instagramUrl: zod.string().optional(),
+  githubUrl: zod.string().optional(),
+  websiteUrl: zod.string().optional(),
+});
+
+export const UpdateCurrentUserResponse = zod.object({
+  id: zod.number(),
+  username: zod.string(),
+  displayName: zod.string(),
+  email: zod.string().optional(),
+  bio: zod.string().optional(),
+  avatarUrl: zod.string().optional(),
+  twitterUrl: zod.string().optional(),
+  linkedinUrl: zod.string().optional(),
+  instagramUrl: zod.string().optional(),
+  githubUrl: zod.string().optional(),
+  websiteUrl: zod.string().optional(),
+  role: zod.string(),
+  canPublishDirectly: zod.boolean(),
+  isActive: zod.boolean(),
+});
+
+/**
+ * @summary List all users (admin only)
+ */
+export const ListUsersResponseItem = zod.object({
+  id: zod.number(),
+  username: zod.string(),
+  displayName: zod.string(),
+  email: zod.string().optional(),
+  bio: zod.string().optional(),
+  avatarUrl: zod.string().optional(),
+  twitterUrl: zod.string().optional(),
+  linkedinUrl: zod.string().optional(),
+  instagramUrl: zod.string().optional(),
+  githubUrl: zod.string().optional(),
+  websiteUrl: zod.string().optional(),
+  role: zod.string(),
+  canPublishDirectly: zod.boolean(),
+  isActive: zod.boolean(),
+});
+export const ListUsersResponse = zod.array(ListUsersResponseItem);
+
+/**
+ * @summary Create a new user (admin only)
+ */
+export const CreateUserBody = zod.object({
+  username: zod.string(),
+  password: zod.string(),
+  displayName: zod.string(),
+  email: zod.string().optional(),
+  bio: zod.string().optional(),
+  avatarUrl: zod.string().optional(),
+  twitterUrl: zod.string().optional(),
+  linkedinUrl: zod.string().optional(),
+  instagramUrl: zod.string().optional(),
+  githubUrl: zod.string().optional(),
+  websiteUrl: zod.string().optional(),
+  role: zod.string().optional(),
+  canPublishDirectly: zod.boolean().optional(),
+});
+
+/**
+ * @summary Update a user (admin only)
+ */
+export const UpdateUserParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateUserBody = zod.object({
+  password: zod.string().optional(),
+  displayName: zod.string().optional(),
+  email: zod.string().optional(),
+  bio: zod.string().optional(),
+  avatarUrl: zod.string().optional(),
+  twitterUrl: zod.string().optional(),
+  linkedinUrl: zod.string().optional(),
+  instagramUrl: zod.string().optional(),
+  githubUrl: zod.string().optional(),
+  websiteUrl: zod.string().optional(),
+  role: zod.string().optional(),
+  canPublishDirectly: zod.boolean().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const UpdateUserResponse = zod.object({
+  id: zod.number(),
+  username: zod.string(),
+  displayName: zod.string(),
+  email: zod.string().optional(),
+  bio: zod.string().optional(),
+  avatarUrl: zod.string().optional(),
+  twitterUrl: zod.string().optional(),
+  linkedinUrl: zod.string().optional(),
+  instagramUrl: zod.string().optional(),
+  githubUrl: zod.string().optional(),
+  websiteUrl: zod.string().optional(),
+  role: zod.string(),
+  canPublishDirectly: zod.boolean(),
+  isActive: zod.boolean(),
+});
+
+/**
+ * @summary Delete a user (admin only)
+ */
+export const DeleteUserParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary List posts visible to current user (own for editors, all for admin)
+ */
+export const ListAdminPostsResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  slug: zod.string(),
+  excerpt: zod.string(),
+  content: zod.string(),
+  coverImage: zod.string().optional(),
+  category: zod.string(),
+  tags: zod.array(zod.string()).optional(),
+  author: zod.string(),
+  authorAvatar: zod.string().optional(),
+  authorId: zod.number().optional(),
+  status: zod.string(),
+  readTime: zod.number(),
+  viewCount: zod.number(),
+  isFeatured: zod.boolean(),
+  publishedAt: zod.coerce.date(),
+  createdAt: zod.coerce.date(),
+});
+export const ListAdminPostsResponse = zod.array(ListAdminPostsResponseItem);
+
+/**
+ * @summary Get a public author profile by id
+ */
+export const GetAuthorParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetAuthorResponse = zod.object({
+  id: zod.number(),
+  displayName: zod.string(),
+  bio: zod.string().optional(),
+  avatarUrl: zod.string().optional(),
+  twitterUrl: zod.string().optional(),
+  linkedinUrl: zod.string().optional(),
+  instagramUrl: zod.string().optional(),
+  githubUrl: zod.string().optional(),
+  websiteUrl: zod.string().optional(),
 });

@@ -19,6 +19,8 @@ import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminNewPost from "@/pages/admin/AdminNewPost";
 import AdminEditPost from "@/pages/admin/AdminEditPost";
 import AdminGenerate from "@/pages/admin/AdminGenerate";
+import AdminUsers from "@/pages/admin/AdminUsers";
+import AdminProfile from "@/pages/admin/AdminProfile";
 import { AdminProvider } from "@/context/AdminContext";
 import { AdminGuard } from "@/components/AdminGuard";
 
@@ -37,6 +39,12 @@ function Router() {
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin/generate">
         <AdminGuard><AdminGenerate /></AdminGuard>
+      </Route>
+      <Route path="/admin/users">
+        <AdminGuard><AdminUsers /></AdminGuard>
+      </Route>
+      <Route path="/admin/profile">
+        <AdminGuard><AdminProfile /></AdminGuard>
       </Route>
       <Route path="/admin/posts/new">
         <AdminGuard><AdminNewPost /></AdminGuard>

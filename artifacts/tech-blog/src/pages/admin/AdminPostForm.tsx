@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import {
   useCreatePost,
@@ -6,6 +6,7 @@ import {
   useGetPost,
   useListCategories,
 } from "@workspace/api-client-react";
+import { useAdmin } from "@/context/AdminContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, Save, AlertCircle } from "lucide-react";
+import { ArrowLeft, Save, AlertCircle, FileText } from "lucide-react";
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -38,11 +39,14 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   const isEditing = !!postId;
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
+  const { user } = useAdmin();
   const { data: categories } = useListCategories();
 
   const { data: existingPost, isLoading: loadingPost } = useGetPost(postId ?? 0, {
     query: { enabled: isEditing },
   });
+
+  const canChooseStatus = user?.role === "admin" || user?.canPublishDirectly === true;
 
   const [form, setForm] = useState({
     title: "",
@@ -50,17 +54,20 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     excerpt: "",
     content: "",
     category: "",
-    author: "Matthew Mbaka",
+    author: user?.displayName ?? "",
     coverImage: "",
     readTime: 5,
     isFeatured: false,
+    status: canChooseStatus ? "published" : "draft",
   });
 
   const [error, setError] = useState("");
   const [autoSlug, setAutoSlug] = useState(!isEditing);
+  const hydratedRef = useRef(false);
 
+  // Hydrate from existing post (edit mode) — only once
   useEffect(() => {
-    if (existingPost) {
+    if (existingPost && !hydratedRef.current) {
       setForm({
         title: existingPost.title ?? "",
         slug: existingPost.slug ?? "",
@@ -71,12 +78,14 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
         coverImage: existingPost.coverImage ?? "",
         readTime: existingPost.readTime ?? 5,
         isFeatured: existingPost.isFeatured ?? false,
+        status: (existingPost as any).status ?? "published",
       });
       setAutoSlug(false);
+      hydratedRef.current = true;
     }
   }, [existingPost]);
 
-  // Hydrate from AI draft if present (when navigating from AI Generator)
+  // Hydrate from AI draft (new mode only)
   useEffect(() => {
     if (isEditing) return;
     const raw = sessionStorage.getItem("ai-draft");
@@ -117,8 +126,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
         navigate("/admin");
       },
       onError: (err: unknown) => {
-        const msg =
-          err instanceof Error ? err.message : "Failed to create post.";
+        const msg = err instanceof Error ? err.message : "Failed to create post.";
         setError(msg);
       },
     },
@@ -131,14 +139,13 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
         navigate("/admin");
       },
       onError: (err: unknown) => {
-        const msg =
-          err instanceof Error ? err.message : "Failed to update post.";
+        const msg = err instanceof Error ? err.message : "Failed to update post.";
         setError(msg);
       },
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const submit = (e: React.FormEvent, statusOverride?: "draft" | "published") => {
     e.preventDefault();
     setError("");
 
@@ -146,25 +153,33 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     if (!form.slug.trim()) return setError("Slug is required.");
     if (!form.content.trim()) return setError("Content is required.");
     if (!form.category) return setError("Category is required.");
-    if (!form.author.trim()) return setError("Author is required.");
+
+    const status = statusOverride ?? form.status;
 
     const payload: Record<string, unknown> = {
       title: form.title.trim(),
       slug: form.slug.trim(),
       content: form.content.trim(),
       category: form.category,
-      author: form.author.trim(),
       readTime: form.readTime,
       isFeatured: form.isFeatured,
-      publishedAt: new Date().toISOString(),
+      status,
     };
     if (form.excerpt.trim()) payload.excerpt = form.excerpt.trim();
     if (form.coverImage.trim()) payload.coverImage = form.coverImage.trim();
 
+    // Author field is admin-only and only sent if admin actually changed it from current user's name
+    if (!isEditing) {
+      payload.author = form.author.trim() || user?.displayName || "Mapletechie";
+      if (!statusOverride) payload.publishedAt = new Date().toISOString();
+    } else if (user?.role === "admin" && form.author.trim()) {
+      payload.author = form.author.trim();
+    }
+
     if (isEditing && postId) {
-      updateMutation.mutate({ id: postId, data: payload });
+      updateMutation.mutate({ id: postId, data: payload as any });
     } else {
-      createMutation.mutate({ data: payload });
+      createMutation.mutate({ data: payload as any });
     }
   };
 
@@ -193,14 +208,12 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
               Back
             </Button>
           </Link>
-          <h1 className="text-lg font-semibold">
-            {isEditing ? "Edit Post" : "New Post"}
-          </h1>
+          <h1 className="text-lg font-semibold">{isEditing ? "Edit Post" : "New Post"}</h1>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-8">
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={(e) => submit(e)} className="space-y-6">
           {error && (
             <div className="flex items-center gap-2 text-red-400 text-sm bg-red-900/20 border border-red-900 rounded p-3">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -221,10 +234,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
 
             <div className="space-y-2">
               <Label className="text-zinc-300">
-                Slug *{" "}
-                <span className="text-zinc-500 text-xs font-normal">
-                  (URL-friendly name)
-                </span>
+                Slug * <span className="text-zinc-500 text-xs font-normal">(URL-friendly name)</span>
               </Label>
               <Input
                 value={form.slug}
@@ -240,14 +250,16 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
             <div className="space-y-2">
               <Label className="text-zinc-300">Category *</Label>
               <Select
-                value={form.category}
+                value={form.category || undefined}
                 onValueChange={(v) => setForm((f) => ({ ...f, category: v }))}
               >
                 <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500">
-                  <SelectValue placeholder="Select a category" />
+                  <SelectValue placeholder="Select a category">
+                    {form.category && categories?.find((c: any) => c.slug === form.category)?.name || form.category || "Select a category"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-900 border-zinc-700">
-                  {categories?.map((c) => (
+                  {categories?.map((c: any) => (
                     <SelectItem key={c.id} value={c.slug} className="text-white hover:bg-zinc-800">
                       {c.name}
                     </SelectItem>
@@ -257,28 +269,28 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-zinc-300">Author *</Label>
+              <Label className="text-zinc-300">
+                Author {user?.role !== "admin" && <span className="text-zinc-500 text-xs">(your name)</span>}
+              </Label>
               <Input
                 value={form.author}
                 onChange={(e) => setForm((f) => ({ ...f, author: e.target.value }))}
                 placeholder="Author name"
-                className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500"
+                disabled={user?.role !== "admin"}
+                className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500 disabled:opacity-70"
               />
             </div>
 
             <div className="space-y-2">
               <Label className="text-zinc-300">
-                Read Time{" "}
-                <span className="text-zinc-500 text-xs font-normal">(minutes)</span>
+                Read Time <span className="text-zinc-500 text-xs font-normal">(minutes)</span>
               </Label>
               <Input
                 type="number"
                 min={1}
                 max={60}
                 value={form.readTime}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, readTime: Number(e.target.value) }))
-                }
+                onChange={(e) => setForm((f) => ({ ...f, readTime: Number(e.target.value) }))}
                 className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500"
               />
             </div>
@@ -288,12 +300,15 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
               <Input
                 value={form.coverImage}
                 onChange={(e) => setForm((f) => ({ ...f, coverImage: e.target.value }))}
-                placeholder="https://images.unsplash.com/..."
+                placeholder="https://..."
                 className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500"
               />
-              <p className="text-xs text-zinc-500">
-                Paste a link from Unsplash, Pexels, or any image URL. Leave blank to skip.
-              </p>
+              {form.coverImage && (
+                <div className="mt-2 border border-zinc-800 rounded overflow-hidden bg-zinc-950">
+                  <img src={form.coverImage} alt="Cover preview" className="w-full max-h-48 object-cover" />
+                </div>
+              )}
+              <p className="text-xs text-zinc-500">Paste any image URL. Leave blank to skip.</p>
             </div>
 
             <div className="md:col-span-2 space-y-2">
@@ -301,7 +316,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
               <Textarea
                 value={form.excerpt}
                 onChange={(e) => setForm((f) => ({ ...f, excerpt: e.target.value }))}
-                placeholder="Short summary shown in post cards (recommended: 1-2 sentences)"
+                placeholder="Short summary shown in post cards (1-2 sentences)"
                 rows={3}
                 className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500 resize-none"
               />
@@ -309,10 +324,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
 
             <div className="md:col-span-2 space-y-2">
               <Label className="text-zinc-300">
-                Content *{" "}
-                <span className="text-zinc-500 text-xs font-normal">
-                  (HTML supported — use &lt;p&gt;, &lt;h2&gt;, &lt;ul&gt;, &lt;strong&gt;, etc.)
-                </span>
+                Content * <span className="text-zinc-500 text-xs font-normal">(HTML supported)</span>
               </Label>
               <Textarea
                 value={form.content}
@@ -326,30 +338,52 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
             <div className="md:col-span-2 flex items-center justify-between p-4 bg-zinc-900 rounded-lg border border-zinc-800">
               <div>
                 <p className="text-sm font-medium text-white">Featured Post</p>
-                <p className="text-xs text-zinc-400">
-                  Show this post in the featured hero section on the home page.
-                </p>
+                <p className="text-xs text-zinc-400">Show this post in the featured hero section.</p>
               </div>
               <Switch
                 checked={form.isFeatured}
                 onCheckedChange={(v) => setForm((f) => ({ ...f, isFeatured: v }))}
               />
             </div>
+
+            {!canChooseStatus && (
+              <div className="md:col-span-2 flex items-center gap-2 text-amber-400 text-xs bg-amber-900/20 border border-amber-900/40 rounded p-3">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                Your posts will be saved as drafts pending admin approval.
+              </div>
+            )}
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
+          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800 flex-wrap">
             <Link href="/admin">
               <Button type="button" variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
                 Cancel
               </Button>
             </Link>
+            {canChooseStatus && (
+              <Button
+                type="button"
+                disabled={isPending}
+                onClick={(e) => submit(e as any, "draft")}
+                variant="outline"
+                className="border-zinc-700 text-zinc-200 hover:bg-zinc-800 gap-2"
+              >
+                <FileText className="w-4 h-4" />
+                Save as Draft
+              </Button>
+            )}
             <Button
               type="submit"
               disabled={isPending}
               className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
+              onClick={(e) => submit(e as any, canChooseStatus ? "published" : "draft")}
             >
               <Save className="w-4 h-4" />
-              {isPending ? "Saving..." : isEditing ? "Update Post" : "Publish Post"}
+              {isPending
+                ? "Saving..."
+                : canChooseStatus
+                  ? (isEditing ? "Update & Publish" : "Publish Post")
+                  : (isEditing ? "Update Draft" : "Submit for Review")}
             </Button>
           </div>
         </form>

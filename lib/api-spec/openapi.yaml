@@ -328,7 +328,7 @@ paths:
     post:
       operationId: adminVerify
       tags: [admin]
-      summary: Verify admin password
+      summary: Verify admin password (legacy)
       requestBody:
         required: true
         content:
@@ -344,6 +344,179 @@ paths:
                 $ref: "#/components/schemas/VerifyAdminResponse"
         "401":
           description: Unauthorized
+
+  /admin/login:
+    post:
+      operationId: adminLogin
+      tags: [admin]
+      summary: Login with username + password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Invalid credentials
+
+  /admin/logout:
+    post:
+      operationId: adminLogout
+      tags: [admin]
+      summary: Log out (deletes session)
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  /admin/me:
+    get:
+      operationId: getCurrentUser
+      tags: [admin]
+      summary: Get the currently logged-in user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicUser"
+    put:
+      operationId: updateCurrentUser
+      tags: [admin]
+      summary: Update the current user's own profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMeInput"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicUser"
+
+  /admin/users:
+    get:
+      operationId: listUsers
+      tags: [admin]
+      summary: List all users (admin only)
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PublicUser"
+    post:
+      operationId: createUser
+      tags: [admin]
+      summary: Create a new user (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewUserInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicUser"
+
+  /admin/users/{id}:
+    put:
+      operationId: updateUser
+      tags: [admin]
+      summary: Update a user (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicUser"
+    delete:
+      operationId: deleteUser
+      tags: [admin]
+      summary: Delete a user (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /admin/posts:
+    get:
+      operationId: listAdminPosts
+      tags: [admin]
+      summary: List posts visible to current user (own for editors, all for admin)
+      responses:
+        "200":
+          description: Posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Post"
+
+  /authors/{id}:
+    get:
+      operationId: getAuthor
+      tags: [posts]
+      summary: Get a public author profile by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Author profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorProfile"
+        "404":
+          description: Not found
 
 components:
   schemas:
@@ -380,6 +553,10 @@ components:
           type: string
         authorAvatar:
           type: string
+        authorId:
+          type: integer
+        status:
+          type: string
         readTime:
           type: integer
         viewCount:
@@ -400,6 +577,7 @@ components:
         - content
         - category
         - author
+        - status
         - readTime
         - viewCount
         - isFeatured
@@ -433,14 +611,13 @@ components:
           type: integer
         isFeatured:
           type: boolean
+        status:
+          type: string
       required:
         - title
         - slug
-        - excerpt
         - content
         - category
-        - author
-        - readTime
 
     UpdatePostInput:
       type: object
@@ -469,9 +646,188 @@ components:
           type: integer
         isFeatured:
           type: boolean
+        status:
+          type: string
         publishedAt:
           type: string
           format: date-time
+
+    LoginBody:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required:
+        - username
+        - password
+
+    PublicUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        displayName:
+          type: string
+        email:
+          type: string
+        bio:
+          type: string
+        avatarUrl:
+          type: string
+        twitterUrl:
+          type: string
+        linkedinUrl:
+          type: string
+        instagramUrl:
+          type: string
+        githubUrl:
+          type: string
+        websiteUrl:
+          type: string
+        role:
+          type: string
+        canPublishDirectly:
+          type: boolean
+        isActive:
+          type: boolean
+      required:
+        - id
+        - username
+        - displayName
+        - role
+        - canPublishDirectly
+        - isActive
+
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/PublicUser"
+      required:
+        - success
+        - token
+        - user
+
+    NewUserInput:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        displayName:
+          type: string
+        email:
+          type: string
+        bio:
+          type: string
+        avatarUrl:
+          type: string
+        twitterUrl:
+          type: string
+        linkedinUrl:
+          type: string
+        instagramUrl:
+          type: string
+        githubUrl:
+          type: string
+        websiteUrl:
+          type: string
+        role:
+          type: string
+        canPublishDirectly:
+          type: boolean
+      required:
+        - username
+        - password
+        - displayName
+
+    UpdateUserInput:
+      type: object
+      properties:
+        password:
+          type: string
+        displayName:
+          type: string
+        email:
+          type: string
+        bio:
+          type: string
+        avatarUrl:
+          type: string
+        twitterUrl:
+          type: string
+        linkedinUrl:
+          type: string
+        instagramUrl:
+          type: string
+        githubUrl:
+          type: string
+        websiteUrl:
+          type: string
+        role:
+          type: string
+        canPublishDirectly:
+          type: boolean
+        isActive:
+          type: boolean
+
+    UpdateMeInput:
+      type: object
+      properties:
+        password:
+          type: string
+        displayName:
+          type: string
+        email:
+          type: string
+        bio:
+          type: string
+        avatarUrl:
+          type: string
+        twitterUrl:
+          type: string
+        linkedinUrl:
+          type: string
+        instagramUrl:
+          type: string
+        githubUrl:
+          type: string
+        websiteUrl:
+          type: string
+
+    AuthorProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        displayName:
+          type: string
+        bio:
+          type: string
+        avatarUrl:
+          type: string
+        twitterUrl:
+          type: string
+        linkedinUrl:
+          type: string
+        instagramUrl:
+          type: string
+        githubUrl:
+          type: string
+        websiteUrl:
+          type: string
+      required:
+        - id
+        - displayName
 
     VerifyAdminBody:
       type: object

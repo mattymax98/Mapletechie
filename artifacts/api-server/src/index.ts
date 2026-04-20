@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { bootstrapAdmin } from "./lib/auth";
 
 const rawPort = process.env["PORT"];
 
@@ -14,6 +15,8 @@ const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
+
+bootstrapAdmin().catch((err) => logger.error({ err }, "Bootstrap admin failed"));
 
 app.listen(port, (err) => {
   if (err) {
