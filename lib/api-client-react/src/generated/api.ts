@@ -37,6 +37,10 @@ import type {
   LoginResponse,
   NewPostInput,
   NewUserInput,
+  NewsletterActionResponse,
+  NewsletterSubscribeBody,
+  NewsletterSubscribeResponse,
+  NewsletterTestBody,
   Post,
   Product,
   PublicUser,
@@ -45,6 +49,7 @@ import type {
   ReviewStatusUpdate,
   SiteSummary,
   SubmissionResponse,
+  Subscriber,
   UpdateMeInput,
   UpdatePostInput,
   UpdateUserInput,
@@ -2361,6 +2366,418 @@ export function useListEditors<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Subscribe to the weekly newsletter (sends confirm email)
+ */
+export const getSubscribeNewsletterUrl = () => {
+  return `/api/newsletter/subscribe`;
+};
+
+export const subscribeNewsletter = async (
+  newsletterSubscribeBody: NewsletterSubscribeBody,
+  options?: RequestInit,
+): Promise<NewsletterSubscribeResponse> => {
+  return customFetch<NewsletterSubscribeResponse>(getSubscribeNewsletterUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(newsletterSubscribeBody),
+  });
+};
+
+export const getSubscribeNewsletterMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof subscribeNewsletter>>,
+    TError,
+    { data: BodyType<NewsletterSubscribeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof subscribeNewsletter>>,
+  TError,
+  { data: BodyType<NewsletterSubscribeBody> },
+  TContext
+> => {
+  const mutationKey = ["subscribeNewsletter"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof subscribeNewsletter>>,
+    { data: BodyType<NewsletterSubscribeBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return subscribeNewsletter(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubscribeNewsletterMutationResult = NonNullable<
+  Awaited<ReturnType<typeof subscribeNewsletter>>
+>;
+export type SubscribeNewsletterMutationBody = BodyType<NewsletterSubscribeBody>;
+export type SubscribeNewsletterMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Subscribe to the weekly newsletter (sends confirm email)
+ */
+export const useSubscribeNewsletter = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof subscribeNewsletter>>,
+    TError,
+    { data: BodyType<NewsletterSubscribeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof subscribeNewsletter>>,
+  TError,
+  { data: BodyType<NewsletterSubscribeBody> },
+  TContext
+> => {
+  return useMutation(getSubscribeNewsletterMutationOptions(options));
+};
+
+/**
+ * @summary List all newsletter subscribers (admin only)
+ */
+export const getListSubscribersUrl = () => {
+  return `/api/admin/subscribers`;
+};
+
+export const listSubscribers = async (
+  options?: RequestInit,
+): Promise<Subscriber[]> => {
+  return customFetch<Subscriber[]>(getListSubscribersUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSubscribersQueryKey = () => {
+  return [`/api/admin/subscribers`] as const;
+};
+
+export const getListSubscribersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSubscribers>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listSubscribers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListSubscribersQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listSubscribers>>> = ({
+    signal,
+  }) => listSubscribers({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSubscribers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSubscribersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSubscribers>>
+>;
+export type ListSubscribersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all newsletter subscribers (admin only)
+ */
+
+export function useListSubscribers<
+  TData = Awaited<ReturnType<typeof listSubscribers>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listSubscribers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSubscribersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Delete a subscriber (admin only)
+ */
+export const getDeleteSubscriberUrl = (id: number) => {
+  return `/api/admin/subscribers/${id}`;
+};
+
+export const deleteSubscriber = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteSubscriberUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteSubscriberMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSubscriber>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteSubscriber>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteSubscriber"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteSubscriber>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteSubscriber(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteSubscriberMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteSubscriber>>
+>;
+
+export type DeleteSubscriberMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a subscriber (admin only)
+ */
+export const useDeleteSubscriber = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSubscriber>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteSubscriber>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteSubscriberMutationOptions(options));
+};
+
+/**
+ * @summary Send a test digest to a single email (admin only)
+ */
+export const getSendTestNewsletterUrl = () => {
+  return `/api/admin/newsletter/test`;
+};
+
+export const sendTestNewsletter = async (
+  newsletterTestBody: NewsletterTestBody,
+  options?: RequestInit,
+): Promise<NewsletterActionResponse> => {
+  return customFetch<NewsletterActionResponse>(getSendTestNewsletterUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(newsletterTestBody),
+  });
+};
+
+export const getSendTestNewsletterMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendTestNewsletter>>,
+    TError,
+    { data: BodyType<NewsletterTestBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendTestNewsletter>>,
+  TError,
+  { data: BodyType<NewsletterTestBody> },
+  TContext
+> => {
+  const mutationKey = ["sendTestNewsletter"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendTestNewsletter>>,
+    { data: BodyType<NewsletterTestBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return sendTestNewsletter(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendTestNewsletterMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendTestNewsletter>>
+>;
+export type SendTestNewsletterMutationBody = BodyType<NewsletterTestBody>;
+export type SendTestNewsletterMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Send a test digest to a single email (admin only)
+ */
+export const useSendTestNewsletter = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendTestNewsletter>>,
+    TError,
+    { data: BodyType<NewsletterTestBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendTestNewsletter>>,
+  TError,
+  { data: BodyType<NewsletterTestBody> },
+  TContext
+> => {
+  return useMutation(getSendTestNewsletterMutationOptions(options));
+};
+
+/**
+ * @summary Trigger the weekly digest immediately (admin only)
+ */
+export const getSendNewsletterNowUrl = () => {
+  return `/api/admin/newsletter/send-now`;
+};
+
+export const sendNewsletterNow = async (
+  options?: RequestInit,
+): Promise<NewsletterActionResponse> => {
+  return customFetch<NewsletterActionResponse>(getSendNewsletterNowUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getSendNewsletterNowMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendNewsletterNow>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendNewsletterNow>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["sendNewsletterNow"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendNewsletterNow>>,
+    void
+  > = () => {
+    return sendNewsletterNow(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendNewsletterNowMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendNewsletterNow>>
+>;
+
+export type SendNewsletterNowMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Trigger the weekly digest immediately (admin only)
+ */
+export const useSendNewsletterNow = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendNewsletterNow>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendNewsletterNow>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getSendNewsletterNowMutationOptions(options));
+};
 
 /**
  * @summary Get the founding/featured editor (public)

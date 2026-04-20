@@ -174,6 +174,39 @@ export interface AuthorProfile {
   websiteUrl?: string;
 }
 
+export interface NewsletterSubscribeBody {
+  email: string;
+  source?: string;
+}
+
+export interface NewsletterSubscribeResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface NewsletterTestBody {
+  email: string;
+}
+
+export interface NewsletterActionResponse {
+  success: boolean;
+  sent?: number;
+  skipped?: number;
+  postCount?: number;
+  message?: string;
+}
+
+export interface Subscriber {
+  id: number;
+  email: string;
+  status: string;
+  source?: string;
+  createdAt?: string;
+  confirmedAt?: string;
+  unsubscribedAt?: string;
+  lastSentAt?: string;
+}
+
 export interface VerifyAdminBody {
   password: string;
 }

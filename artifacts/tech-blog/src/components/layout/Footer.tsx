@@ -3,13 +3,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SiX, SiGithub, SiDiscord, SiYoutube } from "react-icons/si";
-import { useSubmitContact } from "@workspace/api-client-react";
+import { useSubscribeNewsletter } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 
 export function Footer() {
   const [email, setEmail] = useState("");
   const { toast } = useToast();
-  const submit = useSubmitContact();
+  const submit = useSubscribeNewsletter();
 
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,23 +19,23 @@ export function Footer() {
       return;
     }
     submit.mutate(
+      { data: { email: trimmed, source: "footer" } },
       {
-        data: {
-          name: "Newsletter Signup",
-          email: trimmed,
-          subject: "Newsletter Signup",
-          message: `New newsletter signup: ${trimmed}`,
-        },
-      },
-      {
-        onSuccess: () => {
-          toast({ title: "You're in.", description: "Thanks for subscribing — we'll be in touch." });
+        onSuccess: (res) => {
+          toast({
+            title: "Almost there",
+            description: res?.message || "Check your inbox to confirm your subscription.",
+          });
           setEmail("");
         },
         onError: () => {
-          toast({ title: "Something went wrong", description: "Please try again in a moment.", variant: "destructive" });
+          toast({
+            title: "Something went wrong",
+            description: "Please try again in a moment.",
+            variant: "destructive",
+          });
         },
-      }
+      },
     );
   };
 
