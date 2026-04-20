@@ -657,6 +657,67 @@ export const ListEditorsResponseItem = zod.object({
 export const ListEditorsResponse = zod.array(ListEditorsResponseItem);
 
 /**
+ * @summary Subscribe to the weekly newsletter (sends confirm email)
+ */
+export const SubscribeNewsletterBody = zod.object({
+  email: zod.string(),
+  source: zod.string().optional(),
+});
+
+export const SubscribeNewsletterResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string(),
+});
+
+/**
+ * @summary List all newsletter subscribers (admin only)
+ */
+export const ListSubscribersResponseItem = zod.object({
+  id: zod.number(),
+  email: zod.string(),
+  status: zod.string(),
+  source: zod.string().optional(),
+  createdAt: zod.coerce.date().optional(),
+  confirmedAt: zod.coerce.date().optional(),
+  unsubscribedAt: zod.coerce.date().optional(),
+  lastSentAt: zod.coerce.date().optional(),
+});
+export const ListSubscribersResponse = zod.array(ListSubscribersResponseItem);
+
+/**
+ * @summary Delete a subscriber (admin only)
+ */
+export const DeleteSubscriberParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Send a test digest to a single email (admin only)
+ */
+export const SendTestNewsletterBody = zod.object({
+  email: zod.string(),
+});
+
+export const SendTestNewsletterResponse = zod.object({
+  success: zod.boolean(),
+  sent: zod.number().optional(),
+  skipped: zod.number().optional(),
+  postCount: zod.number().optional(),
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary Trigger the weekly digest immediately (admin only)
+ */
+export const SendNewsletterNowResponse = zod.object({
+  success: zod.boolean(),
+  sent: zod.number().optional(),
+  skipped: zod.number().optional(),
+  postCount: zod.number().optional(),
+  message: zod.string().optional(),
+});
+
+/**
  * @summary Get the founding/featured editor (public)
  */
 export const GetFeaturedEditorResponse = zod.object({

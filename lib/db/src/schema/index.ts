@@ -6,3 +6,4 @@ export * from "./users";
 export * from "./jobs";
 export * from "./reviews";
 export * from "./adInquiries";
+export * from "./subscribers";
