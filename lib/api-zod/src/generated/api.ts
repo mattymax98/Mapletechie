@@ -442,6 +442,10 @@ export const AdminLoginResponse = zod.object({
     websiteUrl: zod.string().optional(),
     role: zod.string(),
     canPublishDirectly: zod.boolean(),
+    canManageShop: zod.boolean().optional(),
+    canManageJobs: zod.boolean().optional(),
+    canViewInbox: zod.boolean().optional(),
+    canManageEditors: zod.boolean().optional(),
     isActive: zod.boolean(),
   }),
 });
@@ -470,6 +474,10 @@ export const GetCurrentUserResponse = zod.object({
   websiteUrl: zod.string().optional(),
   role: zod.string(),
   canPublishDirectly: zod.boolean(),
+  canManageShop: zod.boolean().optional(),
+  canManageJobs: zod.boolean().optional(),
+  canViewInbox: zod.boolean().optional(),
+  canManageEditors: zod.boolean().optional(),
   isActive: zod.boolean(),
 });
 
@@ -503,6 +511,10 @@ export const UpdateCurrentUserResponse = zod.object({
   websiteUrl: zod.string().optional(),
   role: zod.string(),
   canPublishDirectly: zod.boolean(),
+  canManageShop: zod.boolean().optional(),
+  canManageJobs: zod.boolean().optional(),
+  canViewInbox: zod.boolean().optional(),
+  canManageEditors: zod.boolean().optional(),
   isActive: zod.boolean(),
 });
 
@@ -523,6 +535,10 @@ export const ListUsersResponseItem = zod.object({
   websiteUrl: zod.string().optional(),
   role: zod.string(),
   canPublishDirectly: zod.boolean(),
+  canManageShop: zod.boolean().optional(),
+  canManageJobs: zod.boolean().optional(),
+  canViewInbox: zod.boolean().optional(),
+  canManageEditors: zod.boolean().optional(),
   isActive: zod.boolean(),
 });
 export const ListUsersResponse = zod.array(ListUsersResponseItem);
@@ -544,6 +560,10 @@ export const CreateUserBody = zod.object({
   websiteUrl: zod.string().optional(),
   role: zod.string().optional(),
   canPublishDirectly: zod.boolean().optional(),
+  canManageShop: zod.boolean().optional(),
+  canManageJobs: zod.boolean().optional(),
+  canViewInbox: zod.boolean().optional(),
+  canManageEditors: zod.boolean().optional(),
 });
 
 /**
@@ -566,6 +586,10 @@ export const UpdateUserBody = zod.object({
   websiteUrl: zod.string().optional(),
   role: zod.string().optional(),
   canPublishDirectly: zod.boolean().optional(),
+  canManageShop: zod.boolean().optional(),
+  canManageJobs: zod.boolean().optional(),
+  canViewInbox: zod.boolean().optional(),
+  canManageEditors: zod.boolean().optional(),
   isActive: zod.boolean().optional(),
 });
 
@@ -583,6 +607,10 @@ export const UpdateUserResponse = zod.object({
   websiteUrl: zod.string().optional(),
   role: zod.string(),
   canPublishDirectly: zod.boolean(),
+  canManageShop: zod.boolean().optional(),
+  canManageJobs: zod.boolean().optional(),
+  canViewInbox: zod.boolean().optional(),
+  canManageEditors: zod.boolean().optional(),
   isActive: zod.boolean(),
 });
 

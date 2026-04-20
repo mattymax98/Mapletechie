@@ -44,3 +44,29 @@ export function requireRole(role: "admin") {
     next();
   };
 }
+
+export type AdminPermission = "shop" | "jobs" | "inbox" | "editors";
+
+export function requirePermission(...perms: AdminPermission[]) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    if (req.user.role === "admin") {
+      next();
+      return;
+    }
+    const map: Record<AdminPermission, boolean> = {
+      shop: !!req.user.canManageShop,
+      jobs: !!req.user.canManageJobs,
+      inbox: !!req.user.canViewInbox,
+      editors: !!req.user.canManageEditors,
+    };
+    if (perms.some((p) => map[p])) {
+      next();
+      return;
+    }
+    res.status(403).json({ error: "Forbidden" });
+  };
+}

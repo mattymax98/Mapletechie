@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, contactsTable } from "@workspace/db";
 import { SubmitContactBody } from "@workspace/api-zod";
 import { desc, eq } from "drizzle-orm";
-import { adminAuth, requireRole } from "../middlewares/adminAuth";
+import { adminAuth, requirePermission } from "../middlewares/adminAuth";
 
 const router = Router();
 
@@ -16,12 +16,12 @@ router.post("/contact", async (req, res): Promise<void> => {
   res.json({ success: true, message: "Thank you! We'll be in touch soon." });
 });
 
-router.get("/admin/contacts", adminAuth, requireRole("admin"), async (_req, res): Promise<void> => {
+router.get("/admin/contacts", adminAuth, requirePermission("inbox"), async (_req, res): Promise<void> => {
   const items = await db.select().from(contactsTable).orderBy(desc(contactsTable.createdAt));
   res.json(items);
 });
 
-router.delete("/admin/contacts/:id", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+router.delete("/admin/contacts/:id", adminAuth, requirePermission("inbox"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   await db.delete(contactsTable).where(eq(contactsTable.id, id));

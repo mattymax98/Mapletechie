@@ -108,6 +108,10 @@ export interface PublicUser {
   websiteUrl?: string;
   role: string;
   canPublishDirectly: boolean;
+  canManageShop?: boolean;
+  canManageJobs?: boolean;
+  canViewInbox?: boolean;
+  canManageEditors?: boolean;
   isActive: boolean;
 }
 
@@ -131,6 +135,10 @@ export interface NewUserInput {
   websiteUrl?: string;
   role?: string;
   canPublishDirectly?: boolean;
+  canManageShop?: boolean;
+  canManageJobs?: boolean;
+  canViewInbox?: boolean;
+  canManageEditors?: boolean;
 }
 
 export interface UpdateUserInput {
@@ -146,6 +154,10 @@ export interface UpdateUserInput {
   websiteUrl?: string;
   role?: string;
   canPublishDirectly?: boolean;
+  canManageShop?: boolean;
+  canManageJobs?: boolean;
+  canViewInbox?: boolean;
+  canManageEditors?: boolean;
   isActive?: boolean;
 }
 
