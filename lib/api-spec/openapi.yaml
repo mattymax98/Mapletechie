@@ -1220,6 +1220,14 @@ components:
           type: string
         canPublishDirectly:
           type: boolean
+        canManageShop:
+          type: boolean
+        canManageJobs:
+          type: boolean
+        canViewInbox:
+          type: boolean
+        canManageEditors:
+          type: boolean
         isActive:
           type: boolean
       required:
@@ -1273,6 +1281,14 @@ components:
           type: string
         canPublishDirectly:
           type: boolean
+        canManageShop:
+          type: boolean
+        canManageJobs:
+          type: boolean
+        canViewInbox:
+          type: boolean
+        canManageEditors:
+          type: boolean
       required:
         - username
         - password
@@ -1304,6 +1320,14 @@ components:
         role:
           type: string
         canPublishDirectly:
+          type: boolean
+        canManageShop:
+          type: boolean
+        canManageJobs:
+          type: boolean
+        canViewInbox:
+          type: boolean
+        canManageEditors:
           type: boolean
         isActive:
           type: boolean

@@ -8,7 +8,7 @@ import {
   deleteSession,
   sanitizeUser,
 } from "../lib/auth";
-import { adminAuth, requireRole } from "../middlewares/adminAuth";
+import { adminAuth, requirePermission } from "../middlewares/adminAuth";
 
 const router = Router();
 
@@ -104,12 +104,13 @@ router.put("/admin/me", adminAuth, async (req, res): Promise<void> => {
 
 // ---- User management (admin only) ----
 
-router.get("/admin/users", adminAuth, requireRole("admin"), async (_req, res): Promise<void> => {
+router.get("/admin/users", adminAuth, requirePermission("editors"), async (_req, res): Promise<void> => {
   const users = await db.select().from(usersTable).orderBy(usersTable.id);
   res.json(users.map(sanitizeUser));
 });
 
-router.post("/admin/users", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+router.post("/admin/users", adminAuth, requirePermission("editors"), async (req, res): Promise<void> => {
+  const callerIsAdmin = req.user?.role === "admin";
   const {
     username,
     password,
@@ -124,6 +125,10 @@ router.post("/admin/users", adminAuth, requireRole("admin"), async (req, res): P
     websiteUrl,
     role,
     canPublishDirectly,
+    canManageShop,
+    canManageJobs,
+    canViewInbox,
+    canManageEditors,
   } = req.body ?? {};
 
   if (typeof username !== "string" || username.trim().length < 2) {
@@ -162,8 +167,12 @@ router.post("/admin/users", adminAuth, requireRole("admin"), async (req, res): P
       instagramUrl: instagramUrl ?? null,
       githubUrl: githubUrl ?? null,
       websiteUrl: websiteUrl ?? null,
-      role: role === "admin" ? "admin" : "editor",
-      canPublishDirectly: !!canPublishDirectly,
+      role: callerIsAdmin && role === "admin" ? "admin" : "editor",
+      canPublishDirectly: callerIsAdmin ? !!canPublishDirectly : false,
+      canManageShop: callerIsAdmin ? !!canManageShop : false,
+      canManageJobs: callerIsAdmin ? !!canManageJobs : false,
+      canViewInbox: callerIsAdmin ? !!canViewInbox : false,
+      canManageEditors: callerIsAdmin ? !!canManageEditors : false,
       isActive: true,
     })
     .returning();
@@ -171,14 +180,25 @@ router.post("/admin/users", adminAuth, requireRole("admin"), async (req, res): P
   res.status(201).json(sanitizeUser(user));
 });
 
-router.put("/admin/users/:id", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+router.put("/admin/users/:id", adminAuth, requirePermission("editors"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (Number.isNaN(id)) {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
 
-  const allowed = [
+  const callerIsAdmin = req.user?.role === "admin";
+  const [target] = await db.select().from(usersTable).where(eq(usersTable.id, id));
+  if (!target) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  if (!callerIsAdmin && target.role === "admin") {
+    res.status(403).json({ error: "Only the founding admin can modify the admin account." });
+    return;
+  }
+
+  const baseAllowed = [
     "displayName",
     "email",
     "bio",
@@ -188,14 +208,25 @@ router.put("/admin/users/:id", adminAuth, requireRole("admin"), async (req, res)
     "instagramUrl",
     "githubUrl",
     "websiteUrl",
+    "isActive",
+  ] as const;
+  const adminOnly = [
     "role",
     "canPublishDirectly",
-    "isActive",
+    "canManageShop",
+    "canManageJobs",
+    "canViewInbox",
+    "canManageEditors",
   ] as const;
 
   const update: Partial<User> = {};
-  for (const k of allowed) {
+  for (const k of baseAllowed) {
     if (k in req.body) (update as Record<string, unknown>)[k] = req.body[k];
+  }
+  if (callerIsAdmin) {
+    for (const k of adminOnly) {
+      if (k in req.body) (update as Record<string, unknown>)[k] = req.body[k];
+    }
   }
 
   if (typeof req.body.password === "string" && req.body.password.length >= 6) {
@@ -215,7 +246,7 @@ router.put("/admin/users/:id", adminAuth, requireRole("admin"), async (req, res)
   res.json(sanitizeUser(updated));
 });
 
-router.delete("/admin/users/:id", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+router.delete("/admin/users/:id", adminAuth, requirePermission("editors"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (Number.isNaN(id)) {
     res.status(400).json({ error: "Invalid id" });
@@ -223,6 +254,15 @@ router.delete("/admin/users/:id", adminAuth, requireRole("admin"), async (req, r
   }
   if (req.user?.id === id) {
     res.status(400).json({ error: "Cannot delete your own account" });
+    return;
+  }
+  const [target] = await db.select().from(usersTable).where(eq(usersTable.id, id));
+  if (!target) {
+    res.status(204).send();
+    return;
+  }
+  if (target.role === "admin" && req.user?.role !== "admin") {
+    res.status(403).json({ error: "Only the founding admin can remove the admin account." });
     return;
   }
   await db.delete(usersTable).where(eq(usersTable.id, id));

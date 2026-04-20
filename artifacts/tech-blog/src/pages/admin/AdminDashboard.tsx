@@ -13,6 +13,11 @@ export default function AdminDashboard() {
   const { data: posts, isLoading } = useListAdminPosts();
   const queryClient = useQueryClient();
   const isAdmin = user?.role === "admin";
+  const u = user as any;
+  const canShop = isAdmin || !!u?.canManageShop;
+  const canJobs = isAdmin || !!u?.canManageJobs;
+  const canInbox = isAdmin || !!u?.canViewInbox;
+  const canEditors = isAdmin || !!u?.canManageEditors;
 
   const deleteMutation = useDeletePost({
     mutation: {
@@ -40,11 +45,12 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-black text-white">
       <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-xl font-bold">
+          <div className="flex items-baseline gap-2.5 leading-none">
+            <span className="text-xl font-bold tracking-tight">
               <span className="text-orange-500">MAPLE</span>TECHIE
             </span>
-            <span className="text-zinc-500 text-sm">/ Admin</span>
+            <span className="text-zinc-500 text-xl font-light">/</span>
+            <span className="text-zinc-300 text-base font-medium tracking-tight">Admin</span>
             {user && (
               <span className="text-zinc-400 text-xs ml-3 hidden sm:inline">
                 Signed in as <span className="text-orange-400 font-medium">{user.displayName}</span>
@@ -59,7 +65,7 @@ export default function AdminDashboard() {
                 <span className="hidden sm:inline">My Profile</span>
               </Button>
             </Link>
-            {isAdmin && (
+            {canEditors && (
               <Link href="/admin/users">
                 <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
                   <Users className="w-4 h-4" />
@@ -67,7 +73,7 @@ export default function AdminDashboard() {
                 </Button>
               </Link>
             )}
-            {isAdmin && (
+            {canShop && (
               <Link href="/admin/products">
                 <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
                   <ShoppingBag className="w-4 h-4" />
@@ -75,7 +81,7 @@ export default function AdminDashboard() {
                 </Button>
               </Link>
             )}
-            {isAdmin && (
+            {canJobs && (
               <Link href="/admin/jobs">
                 <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
                   <Briefcase className="w-4 h-4" />
@@ -83,7 +89,7 @@ export default function AdminDashboard() {
                 </Button>
               </Link>
             )}
-            {isAdmin && (
+            {canInbox && (
               <Link href="/admin/inbox">
                 <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
                   <Inbox className="w-4 h-4" />

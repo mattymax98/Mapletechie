@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, productsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { ListProductsQueryParams, GetProductParams } from "@workspace/api-zod";
-import { adminAuth, requireRole } from "../middlewares/adminAuth";
+import { adminAuth, requirePermission } from "../middlewares/adminAuth";
 
 const router = Router();
 
@@ -84,12 +84,12 @@ function sanitizeProductInput(body: any) {
   };
 }
 
-router.get("/admin/products", adminAuth, requireRole("admin"), async (_req, res): Promise<void> => {
+router.get("/admin/products", adminAuth, requirePermission("shop"), async (_req, res): Promise<void> => {
   const products = await db.select().from(productsTable).orderBy(desc(productsTable.createdAt));
   res.json(products.map(mapProduct));
 });
 
-router.post("/admin/products", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+router.post("/admin/products", adminAuth, requirePermission("shop"), async (req, res): Promise<void> => {
   try {
     const data = sanitizeProductInput(req.body);
     if (!data.name || !data.affiliateUrl) {
@@ -103,7 +103,7 @@ router.post("/admin/products", adminAuth, requireRole("admin"), async (req, res)
   }
 });
 
-router.put("/admin/products/:id", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+router.put("/admin/products/:id", adminAuth, requirePermission("shop"), async (req, res): Promise<void> => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -116,7 +116,7 @@ router.put("/admin/products/:id", adminAuth, requireRole("admin"), async (req, r
   }
 });
 
-router.delete("/admin/products/:id", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+router.delete("/admin/products/:id", adminAuth, requirePermission("shop"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   await db.delete(productsTable).where(eq(productsTable.id, id));

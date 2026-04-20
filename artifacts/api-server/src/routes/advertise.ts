@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, adInquiriesTable, contactsTable } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
-import { adminAuth, requireRole } from "../middlewares/adminAuth";
+import { adminAuth, requirePermission } from "../middlewares/adminAuth";
 import { applicationsTable, reviewsTable } from "@workspace/db";
 
 const router = Router();
@@ -30,19 +30,19 @@ router.post("/advertise", async (req, res): Promise<void> => {
   res.json({ success: true, message: "Got it. We'll review your inquiry and reply within 2 business days." });
 });
 
-router.get("/admin/ad-inquiries", adminAuth, requireRole("admin"), async (_req, res): Promise<void> => {
+router.get("/admin/ad-inquiries", adminAuth, requirePermission("inbox"), async (_req, res): Promise<void> => {
   const inquiries = await db.select().from(adInquiriesTable).orderBy(desc(adInquiriesTable.createdAt));
   res.json(inquiries);
 });
 
-router.delete("/admin/ad-inquiries/:id", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+router.delete("/admin/ad-inquiries/:id", adminAuth, requirePermission("inbox"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   await db.delete(adInquiriesTable).where(eq(adInquiriesTable.id, id));
   res.status(204).end();
 });
 
-router.get("/admin/inbox-counts", adminAuth, requireRole("admin"), async (_req, res): Promise<void> => {
+router.get("/admin/inbox-counts", adminAuth, requirePermission("inbox"), async (_req, res): Promise<void> => {
   const [apps] = await db.select({ c: sql<number>`count(*)::int` }).from(applicationsTable);
   const [revs] = await db.select({ c: sql<number>`count(*)::int` }).from(reviewsTable).where(eq(reviewsTable.status, "pending"));
   const [ads] = await db.select({ c: sql<number>`count(*)::int` }).from(adInquiriesTable);

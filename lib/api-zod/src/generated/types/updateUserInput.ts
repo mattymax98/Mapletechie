@@ -19,5 +19,9 @@ export interface UpdateUserInput {
   websiteUrl?: string;
   role?: string;
   canPublishDirectly?: boolean;
+  canManageShop?: boolean;
+  canManageJobs?: boolean;
+  canViewInbox?: boolean;
+  canManageEditors?: boolean;
   isActive?: boolean;
 }

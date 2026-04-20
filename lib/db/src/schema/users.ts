@@ -15,6 +15,10 @@ export const usersTable = pgTable("users", {
   websiteUrl: text("website_url"),
   role: text("role").notNull().default("editor"),
   canPublishDirectly: boolean("can_publish_directly").notNull().default(false),
+  canManageShop: boolean("can_manage_shop").notNull().default(false),
+  canManageJobs: boolean("can_manage_jobs").notNull().default(false),
+  canViewInbox: boolean("can_view_inbox").notNull().default(false),
+  canManageEditors: boolean("can_manage_editors").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

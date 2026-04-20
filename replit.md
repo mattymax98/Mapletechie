@@ -52,8 +52,19 @@ Dashboard, Posts (CRUD), Users, Profile, **Jobs** (`/admin/jobs` — full CRUD),
 ## Admin Panel
 
 - URL: `/admin` (redirects to `/admin/login` if not logged in)
-- Password: set in `ADMIN_PASSWORD` environment variable (default: `Maple2025!Admin`)
-- Capabilities: create, edit, delete posts; mark featured; set category, author, cover image, read time
+- Founding admin: username `matthew` (password set via `ADMIN_PASSWORD` env secret — not stored in repo)
+- Multi-user: editors with per-user permissions
+- Permission flags on each user: `canPublishDirectly`, `canManageShop`, `canManageJobs`, `canViewInbox`, `canManageEditors`. The `admin` role bypasses all checks. Only the admin can set role or permission flags, and the founding admin account cannot be modified or deleted by non-admins.
+- Server enforcement: `requirePermission(...perms)` middleware in `artifacts/api-server/src/middlewares/adminAuth.ts` gates `/admin/products` (shop), `/admin/jobs` + `/admin/applications` (jobs), `/admin/contacts` + `/admin/reviews` + `/admin/ad-inquiries` + `/admin/inbox-counts` (inbox), `/admin/users` (editors).
+- Admin nav buttons in dashboard render conditionally based on the same flags.
+
+## Newsletter
+
+- Weekly digest, Friday 5pm America/Toronto, scheduled in `artifacts/api-server/src/lib/newsletterScheduler.ts`.
+- Provider: Resend (used directly via `RESEND_API_KEY` secret — user dismissed the Replit Resend integration).
+- Sender: `Mapletechies <newsletter@mapletechie.com>` (requires DNS records in Namecheap: SPF TXT, DKIM TXT records from Resend, optional DMARC).
+- Footer subscribe form uses `useSubscribeNewsletter` hook.
+- Admin page `/admin/newsletter` (admin-only): stats, send test, send now, subscriber list with delete.
 
 ## SEO Setup
 

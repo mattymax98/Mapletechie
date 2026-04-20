@@ -20,4 +20,8 @@ export interface NewUserInput {
   websiteUrl?: string;
   role?: string;
   canPublishDirectly?: boolean;
+  canManageShop?: boolean;
+  canManageJobs?: boolean;
+  canViewInbox?: boolean;
+  canManageEditors?: boolean;
 }
