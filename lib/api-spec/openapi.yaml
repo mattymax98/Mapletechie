@@ -557,6 +557,16 @@ components:
           type: integer
         status:
           type: string
+        seoTitle:
+          type: string
+        seoDescription:
+          type: string
+        seoKeywords:
+          type: array
+          items:
+            type: string
+        ogImage:
+          type: string
         readTime:
           type: integer
         viewCount:
@@ -613,6 +623,16 @@ components:
           type: boolean
         status:
           type: string
+        seoTitle:
+          type: string
+        seoDescription:
+          type: string
+        seoKeywords:
+          type: array
+          items:
+            type: string
+        ogImage:
+          type: string
       required:
         - title
         - slug
@@ -647,6 +667,16 @@ components:
         isFeatured:
           type: boolean
         status:
+          type: string
+        seoTitle:
+          type: string
+        seoDescription:
+          type: string
+        seoKeywords:
+          type: array
+          items:
+            type: string
+        ogImage:
           type: string
         publishedAt:
           type: string

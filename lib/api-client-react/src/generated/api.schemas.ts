@@ -22,6 +22,10 @@ export interface Post {
   authorAvatar?: string;
   authorId?: number;
   status: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string[];
+  ogImage?: string;
   readTime: number;
   viewCount: number;
   isFeatured: boolean;
@@ -42,6 +46,10 @@ export interface NewPostInput {
   readTime?: number;
   isFeatured?: boolean;
   status?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string[];
+  ogImage?: string;
 }
 
 export interface UpdatePostInput {
@@ -57,6 +65,10 @@ export interface UpdatePostInput {
   readTime?: number;
   isFeatured?: boolean;
   status?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string[];
+  ogImage?: string;
   publishedAt?: string;
 }
 

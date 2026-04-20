@@ -19,4 +19,8 @@ export interface NewPostInput {
   readTime?: number;
   isFeatured?: boolean;
   status?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string[];
+  ogImage?: string;
 }

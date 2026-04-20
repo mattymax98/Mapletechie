@@ -19,10 +19,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, Save, AlertCircle, FileText } from "lucide-react";
+import {
+  ArrowLeft,
+  Save,
+  AlertCircle,
+  FileText,
+  Search,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RichTextEditor } from "@/components/RichTextEditor";
 
 interface AdminPostFormProps {
   postId?: number;
@@ -33,6 +42,26 @@ function slugify(text: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
+}
+
+const TITLE_LIMIT = 60;
+const DESC_LIMIT = 160;
+
+function CharCounter({ count, limit }: { count: number; limit: number }) {
+  const ratio = count / limit;
+  const color =
+    count === 0
+      ? "text-zinc-500"
+      : ratio <= 0.9
+        ? "text-emerald-400"
+        : ratio <= 1
+          ? "text-amber-400"
+          : "text-red-400";
+  return (
+    <span className={`text-xs ${color}`}>
+      {count}/{limit}
+    </span>
+  );
 }
 
 export default function AdminPostForm({ postId }: AdminPostFormProps) {
@@ -59,33 +88,41 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     readTime: 5,
     isFeatured: false,
     status: canChooseStatus ? "published" : "draft",
+    seoTitle: "",
+    seoDescription: "",
+    seoKeywords: "",
+    ogImage: "",
   });
 
   const [error, setError] = useState("");
   const [autoSlug, setAutoSlug] = useState(!isEditing);
+  const [seoOpen, setSeoOpen] = useState(false);
   const hydratedRef = useRef(false);
 
-  // Hydrate from existing post (edit mode) — only once
   useEffect(() => {
     if (existingPost && !hydratedRef.current) {
+      const ep = existingPost as any;
       setForm({
-        title: existingPost.title ?? "",
-        slug: existingPost.slug ?? "",
-        excerpt: existingPost.excerpt ?? "",
-        content: existingPost.content ?? "",
-        category: existingPost.category ?? "",
-        author: existingPost.author ?? "",
-        coverImage: existingPost.coverImage ?? "",
-        readTime: existingPost.readTime ?? 5,
-        isFeatured: existingPost.isFeatured ?? false,
-        status: (existingPost as any).status ?? "published",
+        title: ep.title ?? "",
+        slug: ep.slug ?? "",
+        excerpt: ep.excerpt ?? "",
+        content: ep.content ?? "",
+        category: ep.category ?? "",
+        author: ep.author ?? "",
+        coverImage: ep.coverImage ?? "",
+        readTime: ep.readTime ?? 5,
+        isFeatured: ep.isFeatured ?? false,
+        status: ep.status ?? "published",
+        seoTitle: ep.seoTitle ?? "",
+        seoDescription: ep.seoDescription ?? "",
+        seoKeywords: Array.isArray(ep.seoKeywords) ? ep.seoKeywords.join(", ") : "",
+        ogImage: ep.ogImage ?? "",
       });
       setAutoSlug(false);
       hydratedRef.current = true;
     }
   }, [existingPost]);
 
-  // Hydrate from AI draft (new mode only)
   useEffect(() => {
     if (isEditing) return;
     const raw = sessionStorage.getItem("ai-draft");
@@ -151,24 +188,33 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
 
     if (!form.title.trim()) return setError("Title is required.");
     if (!form.slug.trim()) return setError("Slug is required.");
-    if (!form.content.trim()) return setError("Content is required.");
+    if (!form.content.trim() || form.content.trim() === "<p></p>")
+      return setError("Content is required.");
     if (!form.category) return setError("Category is required.");
 
     const status = statusOverride ?? form.status;
 
+    const keywordsArray = form.seoKeywords
+      .split(",")
+      .map((k) => k.trim())
+      .filter(Boolean);
+
     const payload: Record<string, unknown> = {
       title: form.title.trim(),
       slug: form.slug.trim(),
-      content: form.content.trim(),
+      content: form.content,
       category: form.category,
       readTime: form.readTime,
       isFeatured: form.isFeatured,
       status,
+      seoTitle: form.seoTitle.trim() || null,
+      seoDescription: form.seoDescription.trim() || null,
+      seoKeywords: keywordsArray,
+      ogImage: form.ogImage.trim() || null,
     };
     if (form.excerpt.trim()) payload.excerpt = form.excerpt.trim();
     if (form.coverImage.trim()) payload.coverImage = form.coverImage.trim();
 
-    // Author field is admin-only and only sent if admin actually changed it from current user's name
     if (!isEditing) {
       payload.author = form.author.trim() || user?.displayName || "Mapletechie";
       if (!statusOverride) payload.publishedAt = new Date().toISOString();
@@ -198,9 +244,16 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     );
   }
 
+  const previewTitle = (form.seoTitle.trim() || form.title || "Your post title") + " | Mapletechie";
+  const previewDesc =
+    form.seoDescription.trim() ||
+    form.excerpt.trim() ||
+    "Add an excerpt or SEO description to control how your post appears in search results.";
+  const previewSlug = form.slug || "your-post-slug";
+
   return (
     <div className="min-h-screen bg-black text-white">
-      <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-10">
+      <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-20">
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center gap-4">
           <Link href="/admin">
             <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
@@ -255,7 +308,9 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
               >
                 <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500">
                   <SelectValue placeholder="Select a category">
-                    {form.category && categories?.find((c: any) => c.slug === form.category)?.name || form.category || "Select a category"}
+                    {(form.category && categories?.find((c: any) => c.slug === form.category)?.name) ||
+                      form.category ||
+                      "Select a category"}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-900 border-zinc-700">
@@ -316,23 +371,126 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
               <Textarea
                 value={form.excerpt}
                 onChange={(e) => setForm((f) => ({ ...f, excerpt: e.target.value }))}
-                placeholder="Short summary shown in post cards (1-2 sentences)"
+                placeholder="Short summary shown in post cards (1–2 sentences). Used as the meta description if you don't set one below."
                 rows={3}
                 className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500 resize-none"
               />
             </div>
 
             <div className="md:col-span-2 space-y-2">
-              <Label className="text-zinc-300">
-                Content * <span className="text-zinc-500 text-xs font-normal">(HTML supported)</span>
-              </Label>
-              <Textarea
+              <div className="flex items-center justify-between">
+                <Label className="text-zinc-300">Content *</Label>
+                <span className="text-xs text-zinc-500">
+                  Use the toolbar to format text — no code needed.
+                </span>
+              </div>
+              <RichTextEditor
                 value={form.content}
-                onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
-                placeholder="<p>Your article content here...</p>"
-                rows={18}
-                className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500 font-mono text-sm"
+                onChange={(html) => setForm((f) => ({ ...f, content: html }))}
+                placeholder="Start writing your article..."
               />
+            </div>
+
+            {/* SEO Section */}
+            <div className="md:col-span-2 border border-zinc-800 rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setSeoOpen((o) => !o)}
+                className="w-full flex items-center justify-between p-4 bg-zinc-900 hover:bg-zinc-800/80 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <Search className="w-5 h-5 text-orange-400" />
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-white">SEO & Social Sharing</p>
+                    <p className="text-xs text-zinc-400">
+                      Control how this post shows up on Google and when shared on social media.
+                    </p>
+                  </div>
+                </div>
+                {seoOpen ? (
+                  <ChevronUp className="w-5 h-5 text-zinc-400" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-zinc-400" />
+                )}
+              </button>
+
+              {seoOpen && (
+                <div className="p-4 space-y-5 bg-zinc-950 border-t border-zinc-800">
+                  {/* Live Google preview */}
+                  <div className="bg-white text-black rounded p-4 font-sans">
+                    <p className="text-xs text-zinc-500 mb-1">Google search preview</p>
+                    <p className="text-xs text-emerald-700 truncate">
+                      mapletechie.com › blog › {previewSlug}
+                    </p>
+                    <p className="text-blue-700 text-lg leading-tight truncate">{previewTitle}</p>
+                    <p className="text-sm text-zinc-700 line-clamp-2">{previewDesc}</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-zinc-300">SEO Title</Label>
+                      <CharCounter count={form.seoTitle.length} limit={TITLE_LIMIT} />
+                    </div>
+                    <Input
+                      value={form.seoTitle}
+                      onChange={(e) => setForm((f) => ({ ...f, seoTitle: e.target.value }))}
+                      placeholder="Leave blank to use the post title"
+                      className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500"
+                    />
+                    <p className="text-xs text-zinc-500">
+                      The headline Google shows. Aim for 50–60 characters and include your main keyword.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-zinc-300">Meta Description</Label>
+                      <CharCounter count={form.seoDescription.length} limit={DESC_LIMIT} />
+                    </div>
+                    <Textarea
+                      value={form.seoDescription}
+                      onChange={(e) => setForm((f) => ({ ...f, seoDescription: e.target.value }))}
+                      placeholder="Leave blank to use the excerpt"
+                      rows={3}
+                      className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500 resize-none"
+                    />
+                    <p className="text-xs text-zinc-500">
+                      The short blurb under the headline. Aim for 140–160 characters with a clear hook.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-zinc-300">Keywords</Label>
+                    <Input
+                      value={form.seoKeywords}
+                      onChange={(e) => setForm((f) => ({ ...f, seoKeywords: e.target.value }))}
+                      placeholder="iphone 17, apple, smartphone review"
+                      className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500"
+                    />
+                    <p className="text-xs text-zinc-500">
+                      Comma-separated. 3–6 specific phrases people might search for.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-zinc-300">Social Share Image URL</Label>
+                    <Input
+                      value={form.ogImage}
+                      onChange={(e) => setForm((f) => ({ ...f, ogImage: e.target.value }))}
+                      placeholder="Leave blank to use the cover image"
+                      className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500"
+                    />
+                    {form.ogImage && (
+                      <div className="mt-2 border border-zinc-800 rounded overflow-hidden bg-zinc-950">
+                        <img src={form.ogImage} alt="Social preview" className="w-full max-h-48 object-cover" />
+                      </div>
+                    )}
+                    <p className="text-xs text-zinc-500">
+                      The image that appears when you share this post on X, Facebook, or LinkedIn. Recommended: 1200×630.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="md:col-span-2 flex items-center justify-between p-4 bg-zinc-900 rounded-lg border border-zinc-800">
