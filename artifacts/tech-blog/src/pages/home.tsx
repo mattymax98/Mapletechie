@@ -30,38 +30,30 @@ export default function Home() {
 
       {/* ============ MANIFESTO HERO ============ */}
       <section className="relative overflow-hidden border-b border-border bg-background">
-        {/* Decorative orange grid lines */}
-        <div className="absolute inset-0 opacity-[0.06] pointer-events-none" aria-hidden>
-          <div className="absolute inset-x-0 top-0 h-px bg-primary" />
-          <div className="absolute inset-y-0 left-1/4 w-px bg-primary" />
-          <div className="absolute inset-y-0 left-1/2 w-px bg-primary" />
-          <div className="absolute inset-y-0 left-3/4 w-px bg-primary" />
-        </div>
-
-        <div className="container mx-auto px-4 md:px-6 pt-14 pb-16 md:pt-20 md:pb-24 relative">
-          <div className="flex items-center gap-3 mb-8">
+        <div className="container mx-auto px-4 md:px-6 py-10 md:py-14 relative">
+          <div className="flex items-center gap-3 mb-4">
             <span className="inline-block w-8 h-px bg-primary" />
-            <span className="text-xs uppercase tracking-[0.25em] font-bold text-primary">
-              Independent Tech Publication · Est. 2025 · Toronto
+            <span className="text-[11px] uppercase tracking-[0.25em] font-bold text-primary">
+              Independent Tech Publication
             </span>
           </div>
 
-          <h1 className="font-serif font-black tracking-tight leading-[0.95] text-5xl sm:text-6xl md:text-7xl lg:text-[5.75rem] max-w-5xl">
+          <h1 className="font-serif font-black tracking-tight leading-[0.95] text-4xl sm:text-5xl md:text-6xl max-w-4xl">
             Tech, <span className="italic text-primary">told straight</span>.
           </h1>
 
-          <p className="mt-8 max-w-3xl text-lg md:text-xl text-muted-foreground leading-relaxed">
-            No press junkets. No hype cycles. No reviews written from a brief.
-            <span className="text-foreground font-medium"> Mapletechies is an independent tech publication</span> for people tired of marketing copy disguised as journalism — sharp opinion, real reviews, and the context the spec sheets leave out.
-          </p>
-
-          <div className="mt-10 flex flex-wrap items-center gap-3">
-            <Button asChild size="lg" className="rounded-none font-bold uppercase tracking-wider">
-              <Link href="/blog">Read the latest <ArrowRight className="ml-2 h-4 w-4" /></Link>
-            </Button>
-            <Button asChild size="lg" variant="outline" className="rounded-none font-bold uppercase tracking-wider border-2">
-              <Link href="/about">What we're about</Link>
-            </Button>
+          <div className="mt-5 flex flex-col md:flex-row md:items-end md:justify-between gap-5">
+            <p className="max-w-2xl text-base md:text-lg text-muted-foreground leading-relaxed">
+              No press junkets. No hype cycles. <span className="text-foreground font-medium">Sharp opinion, real reviews,</span> and the context the spec sheets leave out.
+            </p>
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
+              <Button asChild className="rounded-none font-bold uppercase tracking-wider">
+                <Link href="/blog">Read the latest <ArrowRight className="ml-2 h-4 w-4" /></Link>
+              </Button>
+              <Button asChild variant="outline" className="rounded-none font-bold uppercase tracking-wider border-2">
+                <Link href="/about">About us</Link>
+              </Button>
+            </div>
           </div>
         </div>
       </section>
