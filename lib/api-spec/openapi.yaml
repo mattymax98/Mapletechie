@@ -1004,6 +1004,9 @@ components:
           type: number
         originalPrice:
           type: number
+        currency:
+          type: string
+          description: ISO 4217 currency code (defaults to CAD)
         affiliateUrl:
           type: string
         imageUrl:

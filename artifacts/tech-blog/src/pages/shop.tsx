@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
+import { formatPrice } from "@/lib/formatPrice";
 
 export default function Shop() {
   const searchString = useSearch();
@@ -95,6 +96,8 @@ export default function Shop() {
                     <img 
                       src={product.imageUrl || `/images/product-${(idx % 3) + 1}.png`} 
                       alt={product.name} 
+                      loading="lazy"
+                      decoding="async"
                       className="max-w-full max-h-full object-contain mix-blend-multiply dark:mix-blend-normal group-hover:scale-110 transition-transform duration-500"
                     />
                   </div>
@@ -120,11 +123,11 @@ export default function Shop() {
                       <div>
                         {product.originalPrice && (
                           <div className="text-xs text-muted-foreground line-through font-bold">
-                            ${product.originalPrice.toFixed(2)}
+                            {formatPrice(product.originalPrice, product.currency)}
                           </div>
                         )}
                         <div className="text-2xl font-black text-foreground">
-                          ${product.price.toFixed(2)}
+                          {formatPrice(product.price, product.currency)}
                         </div>
                       </div>
                       
