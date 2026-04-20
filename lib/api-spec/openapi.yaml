@@ -587,6 +587,297 @@ paths:
         '404':
           description: Not found
 
+  /jobs:
+    get:
+      operationId: listJobs
+      tags: [careers]
+      summary: List active job postings
+      responses:
+        "200":
+          description: Jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Job"
+
+  /jobs/{slug}:
+    get:
+      operationId: getJobBySlug
+      tags: [careers]
+      summary: Get a single job posting by slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "404":
+          description: Not found
+
+  /jobs/{slug}/apply:
+    post:
+      operationId: submitApplication
+      tags: [careers]
+      summary: Submit an application for a job
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationBody"
+      responses:
+        "200":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmissionResponse"
+
+  /reviews:
+    get:
+      operationId: listReviews
+      tags: [reviews]
+      summary: List approved reviews
+      responses:
+        "200":
+          description: Reviews
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Review"
+    post:
+      operationId: submitReview
+      tags: [reviews]
+      summary: Submit a reader review
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewBody"
+      responses:
+        "200":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmissionResponse"
+
+  /advertise:
+    post:
+      operationId: submitAdInquiry
+      tags: [advertise]
+      summary: Submit an advertising inquiry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdInquiryBody"
+      responses:
+        "200":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmissionResponse"
+
+  /admin/jobs:
+    get:
+      operationId: adminListJobs
+      tags: [admin]
+      summary: List all jobs (admin)
+      responses:
+        "200":
+          description: Jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Job"
+    post:
+      operationId: adminCreateJob
+      tags: [admin]
+      summary: Create job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+  /admin/jobs/{id}:
+    put:
+      operationId: adminUpdateJob
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+    delete:
+      operationId: adminDeleteJob
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  /admin/applications:
+    get:
+      operationId: adminListApplications
+      tags: [admin]
+      responses:
+        "200":
+          description: Applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Application"
+
+  /admin/applications/{id}:
+    delete:
+      operationId: adminDeleteApplication
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  /admin/reviews:
+    get:
+      operationId: adminListReviews
+      tags: [admin]
+      responses:
+        "200":
+          description: Reviews
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Review"
+
+  /admin/reviews/{id}:
+    patch:
+      operationId: adminUpdateReviewStatus
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewStatusUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+    delete:
+      operationId: adminDeleteReview
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  /admin/ad-inquiries:
+    get:
+      operationId: adminListAdInquiries
+      tags: [admin]
+      responses:
+        "200":
+          description: Ad inquiries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdInquiry"
+
+  /admin/ad-inquiries/{id}:
+    delete:
+      operationId: adminDeleteAdInquiry
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  /admin/inbox-counts:
+    get:
+      operationId: adminGetInboxCounts
+      tags: [admin]
+      summary: Counts of new submissions across inbox types
+      responses:
+        "200":
+          description: Counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxCounts"
+
 components:
   schemas:
     UploadUrlRequest:
@@ -1080,3 +1371,144 @@ components:
         - totalCategories
         - totalProducts
         - totalViews
+
+    Job:
+      type: object
+      properties:
+        id: { type: integer }
+        slug: { type: string }
+        title: { type: string }
+        department: { type: string }
+        location: { type: string }
+        employmentType: { type: string }
+        compensation: { type: string, nullable: true }
+        summary: { type: string }
+        description: { type: string }
+        responsibilities: { type: string }
+        requirements: { type: string }
+        niceToHaves: { type: string, nullable: true }
+        applyEmail: { type: string, nullable: true }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, slug, title, department, location, employmentType, summary, description, responsibilities, requirements, isActive, createdAt, updatedAt]
+
+    JobInput:
+      type: object
+      properties:
+        slug: { type: string }
+        title: { type: string }
+        department: { type: string }
+        location: { type: string }
+        employmentType: { type: string }
+        compensation: { type: string, nullable: true }
+        summary: { type: string }
+        description: { type: string }
+        responsibilities: { type: string }
+        requirements: { type: string }
+        niceToHaves: { type: string, nullable: true }
+        applyEmail: { type: string, nullable: true }
+        isActive: { type: boolean }
+      required: [slug, title, department, location, employmentType, summary, description, responsibilities, requirements]
+
+    Application:
+      type: object
+      properties:
+        id: { type: integer }
+        jobId: { type: integer }
+        name: { type: string }
+        email: { type: string }
+        phone: { type: string, nullable: true }
+        resumeUrl: { type: string, nullable: true }
+        portfolioUrl: { type: string, nullable: true }
+        coverLetter: { type: string }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, jobId, name, email, coverLetter, status, createdAt]
+
+    ApplicationBody:
+      type: object
+      properties:
+        name: { type: string }
+        email: { type: string }
+        phone: { type: string, nullable: true }
+        resumeUrl: { type: string, nullable: true }
+        portfolioUrl: { type: string, nullable: true }
+        coverLetter: { type: string }
+      required: [name, email, coverLetter]
+
+    Review:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        email: { type: string }
+        rating: { type: integer }
+        title: { type: string }
+        body: { type: string }
+        postSlug: { type: string, nullable: true }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, name, email, rating, title, body, status, createdAt]
+
+    ReviewBody:
+      type: object
+      properties:
+        name: { type: string }
+        email: { type: string }
+        rating: { type: integer }
+        title: { type: string }
+        body: { type: string }
+        postSlug: { type: string, nullable: true }
+      required: [name, email, rating, title, body]
+
+    AdInquiry:
+      type: object
+      properties:
+        id: { type: integer }
+        companyName: { type: string }
+        contactName: { type: string }
+        email: { type: string }
+        website: { type: string, nullable: true }
+        adType: { type: string }
+        budget: { type: string, nullable: true }
+        message: { type: string }
+        creativeUrl: { type: string, nullable: true }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, companyName, contactName, email, adType, message, status, createdAt]
+
+    AdInquiryBody:
+      type: object
+      properties:
+        companyName: { type: string }
+        contactName: { type: string }
+        email: { type: string }
+        website: { type: string, nullable: true }
+        adType: { type: string }
+        budget: { type: string, nullable: true }
+        message: { type: string }
+        creativeUrl: { type: string, nullable: true }
+      required: [companyName, contactName, email, adType, message]
+
+    SubmissionResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+      required: [success, message]
+
+    InboxCounts:
+      type: object
+      properties:
+        applications: { type: integer }
+        reviews: { type: integer }
+        adInquiries: { type: integer }
+        contacts: { type: integer }
+      required: [applications, reviews, adInquiries, contacts]
+
+    ReviewStatusUpdate:
+      type: object
+      properties:
+        status: { type: string }
+      required: [status]

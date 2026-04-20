@@ -27,19 +27,20 @@ export function Footer() {
             <h4 className="font-bold uppercase tracking-wider mb-4 text-sm">Sections</h4>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li><Link href="/blog" className="hover:text-primary transition-colors">Latest News</Link></li>
-              <li><Link href="/category/reviews" className="hover:text-primary transition-colors">Reviews</Link></li>
+              <li><Link href="/category/reviews" className="hover:text-primary transition-colors">Article Reviews</Link></li>
               <li><Link href="/category/software" className="hover:text-primary transition-colors">Software</Link></li>
               <li><Link href="/shop" className="hover:text-primary transition-colors">Gear</Link></li>
+              <li><Link href="/reviews" className="hover:text-primary transition-colors">Reader Reviews</Link></li>
             </ul>
           </div>
           
           <div>
             <h4 className="font-bold uppercase tracking-wider mb-4 text-sm">Company</h4>
             <ul className="space-y-3 text-sm text-muted-foreground">
-              <li><Link href="/contact" className="hover:text-primary transition-colors">About Us</Link></li>
+              <li><Link href="/about" className="hover:text-primary transition-colors">About Us</Link></li>
               <li><Link href="/contact" className="hover:text-primary transition-colors">Contact</Link></li>
-              <li><a href="#" className="hover:text-primary transition-colors">Advertise</a></li>
-              <li><a href="#" className="hover:text-primary transition-colors">Careers</a></li>
+              <li><Link href="/advertise" className="hover:text-primary transition-colors">Advertise</Link></li>
+              <li><Link href="/careers" className="hover:text-primary transition-colors">Careers</Link></li>
             </ul>
           </div>
           

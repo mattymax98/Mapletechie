@@ -227,6 +227,125 @@ export interface SiteSummary {
   totalViews: number;
 }
 
+export interface Job {
+  id: number;
+  slug: string;
+  title: string;
+  department: string;
+  location: string;
+  employmentType: string;
+  compensation?: string | null;
+  summary: string;
+  description: string;
+  responsibilities: string;
+  requirements: string;
+  niceToHaves?: string | null;
+  applyEmail?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface JobInput {
+  slug: string;
+  title: string;
+  department: string;
+  location: string;
+  employmentType: string;
+  compensation?: string | null;
+  summary: string;
+  description: string;
+  responsibilities: string;
+  requirements: string;
+  niceToHaves?: string | null;
+  applyEmail?: string | null;
+  isActive?: boolean;
+}
+
+export interface Application {
+  id: number;
+  jobId: number;
+  name: string;
+  email: string;
+  phone?: string | null;
+  resumeUrl?: string | null;
+  portfolioUrl?: string | null;
+  coverLetter: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface ApplicationBody {
+  name: string;
+  email: string;
+  phone?: string | null;
+  resumeUrl?: string | null;
+  portfolioUrl?: string | null;
+  coverLetter: string;
+}
+
+export interface Review {
+  id: number;
+  name: string;
+  email: string;
+  rating: number;
+  title: string;
+  body: string;
+  postSlug?: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export interface ReviewBody {
+  name: string;
+  email: string;
+  rating: number;
+  title: string;
+  body: string;
+  postSlug?: string | null;
+}
+
+export interface AdInquiry {
+  id: number;
+  companyName: string;
+  contactName: string;
+  email: string;
+  website?: string | null;
+  adType: string;
+  budget?: string | null;
+  message: string;
+  creativeUrl?: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export interface AdInquiryBody {
+  companyName: string;
+  contactName: string;
+  email: string;
+  website?: string | null;
+  adType: string;
+  budget?: string | null;
+  message: string;
+  creativeUrl?: string | null;
+}
+
+export interface SubmissionResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface InboxCounts {
+  applications: number;
+  reviews: number;
+  adInquiries: number;
+  contacts: number;
+}
+
+export interface ReviewStatusUpdate {
+  status: string;
+}
+
 export type ListPostsParams = {
   category?: string;
   limit?: number;

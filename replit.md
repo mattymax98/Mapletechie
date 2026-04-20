@@ -37,9 +37,17 @@ pnpm workspace monorepo using TypeScript. Contains "Mapletechie" (mapletechie.co
 
 ## Database Schema
 
-Tables: `posts`, `categories`, `products`, `contact_submissions`
+Tables: `posts`, `categories`, `products`, `contact_submissions`, `jobs`, `job_applications`, `reviews`, `ad_inquiries`.
 
-Seeded with: 6 posts, 6 categories, 6 products.
+Seeded with: 6 posts, 6 categories, 6 products, 1 job (`senior-editor`).
+
+## Public Pages (Mapletechie)
+
+Home, Latest, Blog Post, Category, Shop, About, Contact, **Careers** (`/careers`, `/careers/:slug`), **Advertise** (`/advertise`), **Reader Reviews** (`/reviews`).
+
+## Admin Pages
+
+Dashboard, Posts (CRUD), Users, Profile, **Jobs** (`/admin/jobs` — full CRUD), **Inbox** (`/admin/inbox` — unified view of job applications, reader reviews w/ approve/reject, ad inquiries, and contact messages).
 
 ## Admin Panel
 
