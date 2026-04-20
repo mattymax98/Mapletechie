@@ -2288,6 +2288,156 @@ export function useGetAuthor<
 }
 
 /**
+ * @summary List all active editors (public)
+ */
+export const getListEditorsUrl = () => {
+  return `/api/editors`;
+};
+
+export const listEditors = async (
+  options?: RequestInit,
+): Promise<AuthorProfile[]> => {
+  return customFetch<AuthorProfile[]>(getListEditorsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListEditorsQueryKey = () => {
+  return [`/api/editors`] as const;
+};
+
+export const getListEditorsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listEditors>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listEditors>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListEditorsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listEditors>>> = ({
+    signal,
+  }) => listEditors({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listEditors>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListEditorsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listEditors>>
+>;
+export type ListEditorsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all active editors (public)
+ */
+
+export function useListEditors<
+  TData = Awaited<ReturnType<typeof listEditors>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listEditors>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListEditorsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get the founding/featured editor (public)
+ */
+export const getGetFeaturedEditorUrl = () => {
+  return `/api/editors/featured`;
+};
+
+export const getFeaturedEditor = async (
+  options?: RequestInit,
+): Promise<AuthorProfile> => {
+  return customFetch<AuthorProfile>(getGetFeaturedEditorUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetFeaturedEditorQueryKey = () => {
+  return [`/api/editors/featured`] as const;
+};
+
+export const getGetFeaturedEditorQueryOptions = <
+  TData = Awaited<ReturnType<typeof getFeaturedEditor>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getFeaturedEditor>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetFeaturedEditorQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getFeaturedEditor>>
+  > = ({ signal }) => getFeaturedEditor({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getFeaturedEditor>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetFeaturedEditorQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getFeaturedEditor>>
+>;
+export type GetFeaturedEditorQueryError = ErrorType<void>;
+
+/**
+ * @summary Get the founding/featured editor (public)
+ */
+
+export function useGetFeaturedEditor<
+  TData = Awaited<ReturnType<typeof getFeaturedEditor>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getFeaturedEditor>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFeaturedEditorQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Request a presigned URL for file upload
  */
 export const getRequestUploadUrlUrl = () => {

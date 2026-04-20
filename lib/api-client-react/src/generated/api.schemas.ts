@@ -58,6 +58,7 @@ export interface NewPostInput {
   tags?: string[];
   author?: string;
   authorAvatar?: string;
+  authorId?: number;
   readTime?: number;
   isFeatured?: boolean;
   status?: string;
@@ -77,6 +78,7 @@ export interface UpdatePostInput {
   tags?: string[];
   author?: string;
   authorAvatar?: string;
+  authorId?: number;
   readTime?: number;
   isFeatured?: boolean;
   status?: string;

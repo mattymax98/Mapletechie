@@ -1,4 +1,4 @@
-import { useGetPostBySlug, useGetLatestPosts } from "@workspace/api-client-react";
+import { useGetPostBySlug, useGetLatestPosts, useGetAuthor } from "@workspace/api-client-react";
 import { Link, useParams } from "wouter";
 import { format } from "date-fns";
 import { Clock, Eye, Share2, Facebook, Twitter, Linkedin } from "lucide-react";
@@ -85,21 +85,12 @@ export default function BlogPost() {
         </p>
 
         <div className="flex items-center justify-between py-6 border-y border-border">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-muted rounded-full overflow-hidden border border-border">
-              {post.authorAvatar ? (
-                <img src={post.authorAvatar} alt={post.author} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center font-bold text-lg bg-primary/10 text-primary">
-                  {post.author.charAt(0)}
-                </div>
-              )}
-            </div>
-            <div>
-              <div className="font-bold tracking-wide">{post.author}</div>
-              <div className="text-sm text-muted-foreground">{format(new Date(post.publishedAt), 'MMMM dd, yyyy')}</div>
-            </div>
-          </div>
+          <BylineAuthor
+            authorId={post.authorId}
+            fallbackName={post.author}
+            fallbackAvatar={post.authorAvatar}
+            publishedAt={post.publishedAt}
+          />
           
           <div className="flex gap-2">
             <Button
@@ -238,5 +229,40 @@ export default function BlogPost() {
         </div>
       </div>
     </article>
+  );
+}
+
+function BylineAuthor({
+  authorId,
+  fallbackName,
+  fallbackAvatar,
+  publishedAt,
+}: {
+  authorId?: number;
+  fallbackName: string;
+  fallbackAvatar?: string;
+  publishedAt: string;
+}) {
+  const { data: author } = useGetAuthor(authorId ?? 0, {
+    query: { enabled: !!authorId },
+  });
+  const name = author?.displayName || fallbackName;
+  const avatar = author?.avatarUrl || fallbackAvatar;
+  return (
+    <div className="flex items-center gap-4">
+      <div className="w-12 h-12 bg-muted rounded-full overflow-hidden border border-border">
+        {avatar ? (
+          <img src={avatar} alt={name} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center font-bold text-lg bg-primary/10 text-primary">
+            {name.charAt(0)}
+          </div>
+        )}
+      </div>
+      <div>
+        <div className="font-bold tracking-wide">{name}</div>
+        <div className="text-sm text-muted-foreground">{format(new Date(publishedAt), 'MMMM dd, yyyy')}</div>
+      </div>
+    </div>
   );
 }
