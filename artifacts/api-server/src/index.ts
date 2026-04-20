@@ -18,6 +18,9 @@ if (Number.isNaN(port) || port <= 0) {
 
 bootstrapAdmin().catch((err) => logger.error({ err }, "Bootstrap admin failed"));
 
+import { startNewsletterScheduler } from "./lib/newsletterScheduler";
+startNewsletterScheduler();
+
 app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");

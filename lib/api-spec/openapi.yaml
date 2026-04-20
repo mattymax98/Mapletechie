@@ -535,6 +535,87 @@ paths:
                 items:
                   $ref: "#/components/schemas/AuthorProfile"
 
+  /newsletter/subscribe:
+    post:
+      operationId: subscribeNewsletter
+      tags: [newsletter]
+      summary: Subscribe to the weekly newsletter (sends confirm email)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewsletterSubscribeBody"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewsletterSubscribeResponse"
+
+  /admin/subscribers:
+    get:
+      operationId: listSubscribers
+      tags: [newsletter]
+      summary: List all newsletter subscribers (admin only)
+      responses:
+        "200":
+          description: Subscribers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Subscriber"
+
+  /admin/subscribers/{id}:
+    delete:
+      operationId: deleteSubscriber
+      tags: [newsletter]
+      summary: Delete a subscriber (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /admin/newsletter/test:
+    post:
+      operationId: sendTestNewsletter
+      tags: [newsletter]
+      summary: Send a test digest to a single email (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewsletterTestBody"
+      responses:
+        "200":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewsletterActionResponse"
+
+  /admin/newsletter/send-now:
+    post:
+      operationId: sendNewsletterNow
+      tags: [newsletter]
+      summary: Trigger the weekly digest immediately (admin only)
+      responses:
+        "200":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewsletterActionResponse"
+
   /editors/featured:
     get:
       operationId: getFeaturedEditor
@@ -1275,6 +1356,79 @@ components:
       required:
         - id
         - displayName
+
+    NewsletterSubscribeBody:
+      type: object
+      properties:
+        email:
+          type: string
+        source:
+          type: string
+      required:
+        - email
+
+    NewsletterSubscribeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+        - message
+
+    NewsletterTestBody:
+      type: object
+      properties:
+        email:
+          type: string
+      required:
+        - email
+
+    NewsletterActionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        sent:
+          type: integer
+        skipped:
+          type: integer
+        postCount:
+          type: integer
+        message:
+          type: string
+      required:
+        - success
+
+    Subscriber:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        status:
+          type: string
+        source:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        confirmedAt:
+          type: string
+          format: date-time
+        unsubscribedAt:
+          type: string
+          format: date-time
+        lastSentAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - email
+        - status
 
     VerifyAdminBody:
       type: object

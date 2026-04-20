@@ -12,6 +12,7 @@ import storageRouter from "./storage";
 import jobsRouter from "./jobs";
 import reviewsRouter from "./reviews";
 import advertiseRouter from "./advertise";
+import newsletterRouter from "./newsletter";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(storageRouter);
 router.use(jobsRouter);
 router.use(reviewsRouter);
 router.use(advertiseRouter);
+router.use(newsletterRouter);
 
 export default router;
