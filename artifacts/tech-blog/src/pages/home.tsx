@@ -1,8 +1,9 @@
 import { useGetFeaturedPosts, useGetLatestPosts, useGetTrendingPosts, useGetFeaturedProducts, useGetFeaturedEditor } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { SEO } from "@/components/SEO";
 import { Link } from "wouter";
 import { format } from "date-fns";
-import { ArrowRight, Clock, Eye, TrendingUp } from "lucide-react";
+import { ArrowRight, Clock, MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,6 +22,15 @@ export default function Home() {
   const { data: trendingPosts, isLoading: loadingTrending } = useGetTrendingPosts();
   const { data: products } = useGetFeaturedProducts();
   const { data: editor } = useGetFeaturedEditor();
+  const { data: discussedPosts, isLoading: loadingDiscussed } = useQuery({
+    queryKey: ["posts", "most-discussed"],
+    queryFn: async () => {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/posts/most-discussed`);
+      if (!res.ok) return [] as any[];
+      return (await res.json()) as Array<{ id: number; slug: string; title: string; category: string; commentCount: number }>;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   const heroPost = featuredPosts?.[0];
   const subHeroPosts = featuredPosts?.slice(1, 3) || [];
@@ -135,8 +145,8 @@ export default function Home() {
 
       {/* ============ TOP ARTICLES (rotated label) ============ */}
       {(() => {
-        const top3 = trendingPosts?.slice(0, 3) || [];
-        if (!loadingTrending && top3.length === 0) return null;
+        const topPosts = trendingPosts?.slice(0, 4) || [];
+        if (!loadingTrending && topPosts.length === 0) return null;
         return (
           <section className="border-t border-border bg-background">
             <div className="container mx-auto px-4 md:px-6 py-14 md:py-20">
@@ -173,18 +183,18 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Three articles in a staggered, editorial row */}
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+                {/* Four articles in a staggered, editorial row */}
+                <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 md:gap-6">
                   {loadingTrending
-                    ? Array.from({ length: 3 }).map((_, i) => (
+                    ? Array.from({ length: 4 }).map((_, i) => (
                         <Skeleton key={i} className="aspect-[4/5] rounded-none" />
                       ))
-                    : top3.map((post, idx) => (
+                    : topPosts.map((post, idx) => (
                         <Link
                           key={post.id}
                           href={`/blog/${post.slug}`}
                           className={`group block ${
-                            idx === 1 ? "md:mt-10" : idx === 2 ? "md:mt-20" : ""
+                            idx === 1 ? "md:mt-8" : idx === 2 ? "md:mt-16" : idx === 3 ? "md:mt-24" : ""
                           }`}
                           data-testid={`top-article-${idx}`}
                         >
@@ -197,19 +207,19 @@ export default function Home() {
                               className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/20 to-transparent" />
-                            <div className="absolute top-4 left-4">
-                              <span className="font-serif font-black text-5xl lg:text-6xl text-primary leading-none drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+                            <div className="absolute top-3 left-3">
+                              <span className="font-serif font-black text-4xl lg:text-5xl text-primary leading-none drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
                                 {String(idx + 1).padStart(2, "0")}
                               </span>
                             </div>
-                            <div className="absolute bottom-0 left-0 right-0 p-5">
+                            <div className="absolute bottom-0 left-0 right-0 p-4">
                               <Badge
                                 variant="outline"
                                 className="text-white border-white/40 rounded-none uppercase font-bold text-[10px] tracking-wider mb-2 bg-black/30 backdrop-blur-sm"
                               >
                                 {post.category}
                               </Badge>
-                              <h3 className="text-lg lg:text-xl font-serif font-bold leading-tight text-white group-hover:text-primary transition-colors line-clamp-3">
+                              <h3 className="text-base lg:text-lg font-serif font-bold leading-tight text-white group-hover:text-primary transition-colors line-clamp-3">
                                 {post.title}
                               </h3>
                             </div>
@@ -318,41 +328,45 @@ export default function Home() {
           </div>
 
           <aside className="lg:col-span-4 flex flex-col gap-10">
-            <div className="bg-card border border-border p-6">
-              <h3 className="text-lg font-black uppercase tracking-tight flex items-center gap-2 mb-6 border-b border-border pb-4">
-                <TrendingUp className="h-5 w-5 text-primary" />
-                Trending Now
-              </h3>
-              <div className="flex flex-col gap-6">
-                {loadingTrending ? (
-                  Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="flex gap-4">
-                      <Skeleton className="w-8 h-8 rounded-full shrink-0" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="w-full h-4 rounded-none" />
-                        <Skeleton className="w-2/3 h-4 rounded-none" />
+            {(loadingDiscussed || (discussedPosts && discussedPosts.length > 0)) && (
+              <div className="bg-card border border-border p-6">
+                <h3 className="text-lg font-black uppercase tracking-tight flex items-center gap-2 mb-6 border-b border-border pb-4">
+                  <MessageCircle className="h-5 w-5 text-primary" />
+                  Most Discussed
+                </h3>
+                <div className="flex flex-col gap-6">
+                  {loadingDiscussed ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="flex gap-4">
+                        <Skeleton className="w-8 h-8 rounded-full shrink-0" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="w-full h-4 rounded-none" />
+                          <Skeleton className="w-2/3 h-4 rounded-none" />
+                        </div>
                       </div>
-                    </div>
-                  ))
-                ) : trendingPosts?.slice(0, 4).map((post, idx) => (
-                  <Link key={post.id} href={`/blog/${post.slug}`} className="group flex gap-4 items-start">
-                    <span className="font-serif text-4xl font-black text-muted/30 group-hover:text-primary transition-colors w-10 text-center shrink-0 leading-none">
-                      {idx + 1}
-                    </span>
-                    <div>
-                      <h4 className="font-bold leading-snug group-hover:text-primary transition-colors line-clamp-2 mb-1 text-sm">
-                        {post.title}
-                      </h4>
-                      <div className="flex items-center text-xs text-muted-foreground gap-2 font-medium">
-                        <span>{post.category}</span>
-                        <span>&bull;</span>
-                        <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> {post.viewCount.toLocaleString()}</span>
+                    ))
+                  ) : discussedPosts?.slice(0, 4).map((post, idx) => (
+                    <Link key={post.id} href={`/blog/${post.slug}#comments`} className="group flex gap-4 items-start">
+                      <span className="font-serif text-4xl font-black text-muted/30 group-hover:text-primary transition-colors w-10 text-center shrink-0 leading-none">
+                        {idx + 1}
+                      </span>
+                      <div>
+                        <h4 className="font-bold leading-snug group-hover:text-primary transition-colors line-clamp-2 mb-1 text-sm">
+                          {post.title}
+                        </h4>
+                        <div className="flex items-center text-xs text-muted-foreground gap-2 font-medium">
+                          <span>{post.category}</span>
+                          <span>&bull;</span>
+                          <span className="flex items-center gap-1">
+                            <MessageCircle className="h-3 w-3" /> {post.commentCount} {post.commentCount === 1 ? "comment" : "comments"}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {products && products.length > 0 && (
               <div>
