@@ -127,7 +127,7 @@ function Router() {
 function App() {
   return (
     <HelmetProvider>
-      <ThemeProvider defaultTheme="light" attribute="class">
+      <ThemeProvider defaultTheme="dark" attribute="class" enableSystem>
         <QueryClientProvider client={queryClient}>
           <AdminProvider>
             <TooltipProvider>
