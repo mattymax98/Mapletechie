@@ -84,7 +84,7 @@ export default function SeriesPage() {
       <SEO
         title={`${series.title} — Series`}
         description={series.description || `A multi-part series on Mapletechie.`}
-        image={series.coverImage || undefined}
+        image={`/api/og/series/${encodeURIComponent(series.slug)}.png`}
         url={`/series/${series.slug}`}
       />
 

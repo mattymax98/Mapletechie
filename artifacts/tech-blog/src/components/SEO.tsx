@@ -13,7 +13,7 @@ interface SEOProps {
 
 const SITE_NAME = "Mapletechie";
 const SITE_URL = "https://mapletechie.com";
-const DEFAULT_IMAGE = `${SITE_URL}/opengraph.jpg`;
+const DEFAULT_IMAGE = `${SITE_URL}/api/og/site.png`;
 const DEFAULT_DESCRIPTION =
   "Mapletechie — Your go-to source for tech news, gadget reviews, software deep dives, and the latest in AI, EVs, and cybersecurity.";
 

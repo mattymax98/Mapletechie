@@ -101,7 +101,7 @@ export default function AuthorPage() {
       <SEO
         title={`${author.displayName} — Author`}
         description={author.bio || `Articles by ${author.displayName} on Mapletechie.`}
-        image={author.avatarUrl || undefined}
+        image={`/api/og/author/${encodeURIComponent(author.username)}.png`}
         url={`/author/${author.username}`}
       />
 

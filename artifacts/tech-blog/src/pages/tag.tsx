@@ -48,6 +48,7 @@ export default function TagPage() {
       <SEO
         title={`#${tag} — Tag archive`}
         description={`Every Mapletechie story tagged "${tag}".`}
+        image={`/api/og/tag/${encodeURIComponent(tag)}.png`}
         url={`/tag/${tag}`}
       />
 
