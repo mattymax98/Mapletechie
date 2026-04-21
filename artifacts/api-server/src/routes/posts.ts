@@ -148,6 +148,9 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     authorId: assignedAuthorId,
     readTime: typeof body.readTime === "number" ? body.readTime : 5,
     isFeatured: !!body.isFeatured,
+    seriesId: typeof body.seriesId === "number" ? body.seriesId : null,
+    seriesPosition:
+      typeof body.seriesPosition === "number" ? body.seriesPosition : null,
     status,
     seoTitle: cleanText(body.seoTitle),
     seoDescription: cleanText(body.seoDescription),
@@ -315,6 +318,8 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     "tags",
     "readTime",
     "isFeatured",
+    "seriesId",
+    "seriesPosition",
     "publishedAt",
     "status",
     "seoTitle",

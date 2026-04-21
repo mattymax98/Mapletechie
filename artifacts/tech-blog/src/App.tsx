@@ -36,6 +36,7 @@ import Reviews from "@/pages/reviews";
 import SearchPage from "@/pages/search";
 import AuthorPage from "@/pages/author";
 import TagPage from "@/pages/tag";
+import SeriesPage from "@/pages/series";
 import Privacy from "@/pages/privacy";
 import Terms from "@/pages/terms";
 import { AdminProvider } from "@/context/AdminContext";
@@ -120,6 +121,7 @@ function Router() {
             <Route path="/category/:slug" component={CategoryIndex} />
             <Route path="/author/:username" component={AuthorPage} />
             <Route path="/tag/:tag" component={TagPage} />
+            <Route path="/series/:slug" component={SeriesPage} />
             <Route component={NotFound} />
           </Switch>
         </Layout>

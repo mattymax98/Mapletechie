@@ -10,3 +10,4 @@ export * from "./subscribers";
 export * from "./auditLogs";
 export * from "./comments";
 export * from "./pageViews";
+export * from "./series";
