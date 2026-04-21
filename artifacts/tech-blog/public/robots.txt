@@ -1,5 +1,10 @@
 User-agent: *
 Allow: /
 Disallow: /admin/
+Disallow: /admin
+
+# Be nice to crawlers
+Crawl-delay: 1
 
 Sitemap: https://mapletechie.com/api/sitemap.xml
+Sitemap: https://mapletechie.com/api/feed.xml
