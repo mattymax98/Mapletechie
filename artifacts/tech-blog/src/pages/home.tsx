@@ -133,6 +133,103 @@ export default function Home() {
         </section>
       </div>
 
+      {/* ============ TOP ARTICLES (rotated label) ============ */}
+      {(() => {
+        const top3 = trendingPosts?.slice(0, 3) || [];
+        if (!loadingTrending && top3.length === 0) return null;
+        return (
+          <section className="border-t border-border bg-background">
+            <div className="container mx-auto px-4 md:px-6 py-14 md:py-20">
+              <div className="flex flex-col md:flex-row gap-8 md:gap-10">
+                {/* Rotated header — vertical on md+, horizontal on mobile */}
+                <div className="md:shrink-0 md:w-32 lg:w-40 flex md:items-start">
+                  <div className="hidden md:flex h-[520px] lg:h-[580px] w-full relative items-center justify-center">
+                    <div
+                      className="origin-center whitespace-nowrap"
+                      style={{ transform: "rotate(-90deg)" }}
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="block w-8 h-px bg-primary" />
+                        <span className="text-[10px] uppercase tracking-[0.4em] font-bold text-primary">
+                          What's Hot
+                        </span>
+                      </div>
+                      <h2 className="font-serif font-black tracking-tight text-6xl lg:text-7xl leading-[0.9]">
+                        Top <span className="italic text-primary">Articles</span>
+                      </h2>
+                    </div>
+                  </div>
+                  {/* Mobile fallback header (no rotation) */}
+                  <div className="md:hidden">
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="block w-8 h-px bg-primary" />
+                      <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-primary">
+                        What's Hot
+                      </span>
+                    </div>
+                    <h2 className="font-serif font-black tracking-tight text-4xl leading-none">
+                      Top <span className="italic text-primary">Articles</span>
+                    </h2>
+                  </div>
+                </div>
+
+                {/* Three articles in a staggered, editorial row */}
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+                  {loadingTrending
+                    ? Array.from({ length: 3 }).map((_, i) => (
+                        <Skeleton key={i} className="aspect-[4/5] rounded-none" />
+                      ))
+                    : top3.map((post, idx) => (
+                        <Link
+                          key={post.id}
+                          href={`/blog/${post.slug}`}
+                          className={`group block ${
+                            idx === 1 ? "md:mt-10" : idx === 2 ? "md:mt-20" : ""
+                          }`}
+                          data-testid={`top-article-${idx}`}
+                        >
+                          <div className="relative overflow-hidden bg-muted aspect-[4/5] border border-border">
+                            <img
+                              loading="lazy"
+                              decoding="async"
+                              src={post.coverImage || `/images/post-${(idx % 3) + 1}.png`}
+                              alt={post.title}
+                              className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/20 to-transparent" />
+                            <div className="absolute top-4 left-4">
+                              <span className="font-serif font-black text-5xl lg:text-6xl text-primary leading-none drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+                                {String(idx + 1).padStart(2, "0")}
+                              </span>
+                            </div>
+                            <div className="absolute bottom-0 left-0 right-0 p-5">
+                              <Badge
+                                variant="outline"
+                                className="text-white border-white/40 rounded-none uppercase font-bold text-[10px] tracking-wider mb-2 bg-black/30 backdrop-blur-sm"
+                              >
+                                {post.category}
+                              </Badge>
+                              <h3 className="text-lg lg:text-xl font-serif font-bold leading-tight text-white group-hover:text-primary transition-colors line-clamp-3">
+                                {post.title}
+                              </h3>
+                            </div>
+                          </div>
+                          <div className="mt-3 flex items-center text-xs text-muted-foreground font-medium uppercase tracking-wide gap-3">
+                            <span className="truncate">{post.author}</span>
+                            <span className="w-1 h-1 rounded-full bg-primary shrink-0" />
+                            <span className="flex items-center gap-1 shrink-0">
+                              <Clock className="h-3 w-3" /> {post.readTime} min
+                            </span>
+                          </div>
+                        </Link>
+                      ))}
+                </div>
+              </div>
+            </div>
+          </section>
+        );
+      })()}
+
       {/* ============ WHAT WE BELIEVE ============ */}
       <section className="border-y border-border bg-card/30">
         <div className="container mx-auto px-4 md:px-6 py-16 md:py-20">
