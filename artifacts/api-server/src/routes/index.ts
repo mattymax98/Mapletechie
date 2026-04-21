@@ -15,6 +15,7 @@ import advertiseRouter from "./advertise";
 import newsletterRouter from "./newsletter";
 import auditRouter from "./audit";
 import commentsRouter from "./comments";
+import analyticsRouter from "./analytics";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(advertiseRouter);
 router.use(newsletterRouter);
 router.use(auditRouter);
 router.use(commentsRouter);
+router.use(analyticsRouter);
 
 export default router;
