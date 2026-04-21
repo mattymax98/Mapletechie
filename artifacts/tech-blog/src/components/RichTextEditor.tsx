@@ -87,7 +87,9 @@ function Toolbar({ editor }: { editor: Editor }) {
   const promptForImageUrl = () => {
     const url = window.prompt("Paste image URL");
     if (!url) return;
-    editor.chain().focus().setImage({ src: url, alt: "" }).run();
+    const alt = window.prompt("Image description / alt text") || "";
+    const caption = window.prompt("Image caption (optional)") || "";
+    editor.chain().focus().setImage({ src: url, alt, title: caption }).run();
   };
 
   const onPickImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,7 +98,9 @@ function Toolbar({ editor }: { editor: Editor }) {
     setUploadingImage(true);
     try {
       const { url } = await uploadImage(file);
-      editor.chain().focus().setImage({ src: url, alt: file.name }).run();
+      const alt = window.prompt("Image description / alt text", file.name) || file.name;
+      const caption = window.prompt("Image caption (optional)") || "";
+      editor.chain().focus().setImage({ src: url, alt, title: caption }).run();
     } catch (err: any) {
       alert(err?.message ?? "Image upload failed.");
     } finally {
@@ -225,7 +229,13 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
         autolink: true,
         HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
       }),
-      Image.configure({ inline: false, allowBase64: false }),
+      Image.configure({
+        inline: false,
+        allowBase64: false,
+        HTMLAttributes: {
+          class: "max-w-full h-auto",
+        },
+      }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Placeholder.configure({
         placeholder: placeholder ?? "Write your article here...",

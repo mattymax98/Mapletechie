@@ -10,6 +10,15 @@ import { SEO } from "@/components/SEO";
 import { AuthorBio } from "@/components/AuthorBio";
 import { CommentsSection } from "@/components/CommentsSection";
 
+function PostContent({ html }: { html: string }) {
+  return (
+    <div
+      className="prose prose-lg dark:prose-invert max-w-none prose-headings:font-black prose-headings:tracking-tight prose-a:text-primary hover:prose-a:text-primary/80 prose-img:border prose-img:border-border font-serif leading-relaxed"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
 export default function BlogPost() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug || "";
@@ -133,10 +142,7 @@ export default function BlogPost() {
 
       {/* Content */}
       <div className="container mx-auto px-4 md:px-6 max-w-3xl mb-20">
-        <div 
-          className="prose prose-lg dark:prose-invert max-w-none prose-headings:font-black prose-headings:tracking-tight prose-a:text-primary hover:prose-a:text-primary/80 prose-img:border prose-img:border-border font-serif leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: post.content }}
-        />
+        <PostContent html={post.content} />
         
         {post.tags && post.tags.length > 0 && (
           <div className="mt-12 pt-8 border-t border-border flex flex-wrap gap-2">
