@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, postsTable, usersTable } from "@workspace/db";
-import { eq, desc, and } from "drizzle-orm";
+import { db, postsTable, usersTable, pageViewsTable } from "@workspace/db";
+import { eq, desc, and, gte, sql, inArray } from "drizzle-orm";
 import {
   ListPostsQueryParams,
   GetPostParams,
@@ -191,13 +191,48 @@ router.get("/posts/latest", async (req, res): Promise<void> => {
 });
 
 router.get("/posts/trending", async (_req, res): Promise<void> => {
-  const posts = await db
-    .select()
-    .from(postsTable)
-    .where(eq(postsTable.status, "published"))
-    .orderBy(desc(postsTable.viewCount))
-    .limit(5);
-  res.json(posts);
+  // Top published posts by real reader page views over the last 30 days.
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const topSlugs = await db
+    .select({
+      slug: pageViewsTable.postSlug,
+      views: sql<number>`count(*)::int`,
+    })
+    .from(pageViewsTable)
+    .where(and(gte(pageViewsTable.createdAt, since), sql`${pageViewsTable.postSlug} is not null`))
+    .groupBy(pageViewsTable.postSlug)
+    .orderBy(desc(sql`count(*)`))
+    .limit(20);
+
+  const slugs = topSlugs.map((r) => r.slug).filter((s): s is string => !!s);
+
+  let posts: typeof postsTable.$inferSelect[] = [];
+  if (slugs.length > 0) {
+    const found = await db
+      .select()
+      .from(postsTable)
+      .where(and(eq(postsTable.status, "published"), inArray(postsTable.slug, slugs)));
+    // Re-order by analytics rank
+    const order = new Map(slugs.map((s, i) => [s, i]));
+    posts = found.sort((a, b) => (order.get(a.slug) ?? 99) - (order.get(b.slug) ?? 99)).slice(0, 5);
+  }
+
+  // Fallback: if analytics has no data yet (or fewer than 3), top up with stored viewCount
+  if (posts.length < 5) {
+    const exclude = new Set(posts.map((p) => p.id));
+    const filler = await db
+      .select()
+      .from(postsTable)
+      .where(eq(postsTable.status, "published"))
+      .orderBy(desc(postsTable.viewCount))
+      .limit(10);
+    for (const p of filler) {
+      if (posts.length >= 5) break;
+      if (!exclude.has(p.id)) posts.push(p);
+    }
+  }
+
+  res.json(posts.slice(0, 5));
 });
 
 router.get("/posts/slug/:slug", async (req, res): Promise<void> => {
