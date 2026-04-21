@@ -95,7 +95,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   const isEditing = !!postId;
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
-  const { user } = useAdmin();
+  const { user, token } = useAdmin();
   const { data: categories } = useListCategories();
   const { data: editors } = useListEditors();
 
@@ -121,7 +121,42 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     seoDescription: "",
     seoKeywords: "",
     ogImage: "",
+    seriesId: 0,
+    seriesPosition: 1,
   });
+
+  const [seriesList, setSeriesList] = useState<Array<{ id: number; slug: string; title: string }>>([]);
+  useEffect(() => {
+    fetch("/api/series")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list) => setSeriesList(Array.isArray(list) ? list : []))
+      .catch(() => setSeriesList([]));
+  }, []);
+
+  const createNewSeries = async () => {
+    const title = window.prompt("New series title:");
+    if (!title || !title.trim()) return;
+    try {
+      const r = await fetch("/api/admin/series", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ title: title.trim() }),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        alert(`Failed to create series: ${err.error || r.statusText}`);
+        return;
+      }
+      const created = (await r.json()) as { id: number; slug: string; title: string };
+      setSeriesList((prev) => [...prev, created].sort((a, b) => a.title.localeCompare(b.title)));
+      setForm((f) => ({ ...f, seriesId: created.id }));
+    } catch (e: any) {
+      alert(`Failed to create series: ${e?.message ?? e}`);
+    }
+  };
 
   const [error, setError] = useState("");
   const [autoSlug, setAutoSlug] = useState(!isEditing);
@@ -147,6 +182,8 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
         seoDescription: ep.seoDescription ?? "",
         seoKeywords: Array.isArray(ep.seoKeywords) ? ep.seoKeywords.join(", ") : "",
         ogImage: ep.ogImage ?? "",
+        seriesId: ep.seriesId ?? 0,
+        seriesPosition: ep.seriesPosition ?? 1,
       });
       setAutoSlug(false);
       hydratedRef.current = true;
@@ -241,6 +278,8 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
       seoDescription: form.seoDescription.trim() || null,
       seoKeywords: keywordsArray,
       ogImage: form.ogImage.trim() || null,
+      seriesId: form.seriesId > 0 ? form.seriesId : null,
+      seriesPosition: form.seriesId > 0 ? form.seriesPosition : null,
     };
     if (form.excerpt.trim()) payload.excerpt = form.excerpt.trim();
     if (form.coverImage.trim()) payload.coverImage = form.coverImage.trim();
@@ -558,6 +597,58 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                 checked={form.isFeatured}
                 onCheckedChange={(v) => setForm((f) => ({ ...f, isFeatured: v }))}
               />
+            </div>
+
+            <div className="md:col-span-2 p-4 bg-zinc-900 rounded-lg border border-zinc-800 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-white">Series (optional)</p>
+                  <p className="text-xs text-zinc-400">
+                    Group this post with other parts. Readers will see a series banner with prev/next navigation.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={createNewSeries}
+                  className="border-zinc-700 text-zinc-200 hover:bg-zinc-800 shrink-0"
+                >
+                  + New series
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <Label className="text-xs text-zinc-400">Series</Label>
+                  <select
+                    value={form.seriesId}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, seriesId: Number(e.target.value) }))
+                    }
+                    className="w-full bg-zinc-950 border border-zinc-700 rounded px-3 py-2 text-white focus:border-orange-500 focus:outline-none"
+                  >
+                    <option value={0}>— Not part of a series —</option>
+                    {seriesList.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-xs text-zinc-400">Part #</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={form.seriesPosition}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, seriesPosition: Math.max(1, Number(e.target.value) || 1) }))
+                    }
+                    disabled={form.seriesId === 0}
+                    className="bg-zinc-950 border-zinc-700 text-white focus:border-orange-500"
+                  />
+                </div>
+              </div>
             </div>
 
             {!canChooseStatus && (

@@ -24,6 +24,7 @@ import { SEO } from "@/components/SEO";
 import { AuthorBio } from "@/components/AuthorBio";
 import { CommentsSection } from "@/components/CommentsSection";
 import { applyResponsiveImages } from "@/lib/responsiveImage";
+import { SeriesBanner } from "@/components/SeriesBanner";
 
 const SITE_URL = "https://mapletechie.com";
 
@@ -385,8 +386,13 @@ export default function BlogPost() {
         </div>
       </header>
 
+      {/* Series banner (if part of a series) */}
+      {(post as any).seriesId && (
+        <SeriesBanner seriesId={(post as any).seriesId} currentPostId={post.id} />
+      )}
+
       {/* Cover Image */}
-      <div className="w-full max-w-6xl mx-auto px-4 md:px-6 mb-12">
+      <div className="w-full max-w-6xl mx-auto px-4 md:px-6 mb-12 mt-8">
         <div className="aspect-video w-full bg-muted border border-border">
           <img
             loading="lazy"
