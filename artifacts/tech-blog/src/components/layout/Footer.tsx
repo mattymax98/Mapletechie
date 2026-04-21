@@ -45,7 +45,15 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
           <div className="md:col-span-1">
             <Link href="/" className="flex items-center gap-2 mb-4">
-              <span className="flex items-center gap-2"><img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="Mapletechies logo" className="h-9 w-9 object-contain" /><span className="text-2xl font-bold uppercase tracking-tighter text-primary">MAPLE<span className="text-foreground">TECHIES</span></span></span>
+              <span className="flex items-center gap-2.5">
+                <span aria-hidden="true" className="relative flex items-center justify-center h-10 w-10 bg-primary text-primary-foreground shadow-[3px_3px_0_0_hsl(var(--foreground))]">
+                  <span className="font-serif font-black italic text-2xl leading-none -mt-0.5">M</span>
+                  <span className="absolute bottom-1 right-1 w-1 h-1 bg-primary-foreground rounded-full" />
+                </span>
+                <span className="font-serif font-black text-2xl leading-none tracking-tight text-foreground">
+                  Maple<span className="italic text-primary">techies</span><span className="text-primary">.</span>
+                </span>
+              </span>
             </Link>
             <p className="text-muted-foreground text-sm mb-6 max-w-xs">
               The premier destination for tech news, gadget reviews, and deep dives into the future of software and hardware.
