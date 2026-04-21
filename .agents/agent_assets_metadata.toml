@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "gox9I9_GA3rkuoXJoU_me"
@@ -102,3 +101,15 @@ id = "LEl2gK7djP3B7N_zBLiG1"
 uri = "file://artifacts/tech-blog/public/logo-favicon-raw.png"
 type = "image"
 title = "Favicon"
+
+[[outputs]]
+id = "Gd59z5xcQeUaqSkwM14l2"
+uri = "file://screenshots/og-site.png"
+type = "image"
+title = "Homepage share card"
+
+[[outputs]]
+id = "TJ6kRs5QtjVmcIBSgzJb6"
+uri = "file://screenshots/og-category.png"
+type = "image"
+title = "Cybersecurity category share card"
