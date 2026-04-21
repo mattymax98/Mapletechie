@@ -42,13 +42,17 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md">
       <div className="container mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-6">
-          <Link href="/" className="flex items-center gap-2">
-            <img
-              src={`${import.meta.env.BASE_URL}logo-icon.png`}
-              alt="Mapletechies logo"
-              className="h-8 w-8 object-contain"
-            />
-            <span className="text-xl font-bold uppercase tracking-tighter text-primary">MAPLE<span className="text-foreground">TECHIES</span></span>
+          <Link href="/" className="flex items-center gap-2.5 group" aria-label="Mapletechies — home">
+            <span
+              aria-hidden="true"
+              className="relative flex items-center justify-center h-10 w-10 bg-primary text-primary-foreground shadow-[3px_3px_0_0_hsl(var(--foreground))] transition-transform group-hover:-translate-y-[1px] group-hover:translate-x-[1px] group-hover:shadow-[2px_2px_0_0_hsl(var(--foreground))]"
+            >
+              <span className="font-serif font-black italic text-2xl leading-none -mt-0.5">M</span>
+              <span className="absolute bottom-1 right-1 w-1 h-1 bg-primary-foreground rounded-full" />
+            </span>
+            <span className="font-serif font-black text-2xl md:text-[1.7rem] leading-none tracking-tight text-foreground">
+              Maple<span className="italic text-primary">techies</span><span className="text-primary">.</span>
+            </span>
           </Link>
           
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
