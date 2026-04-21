@@ -3,6 +3,7 @@ import { Upload, Link2, Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { uploadImage } from "@/lib/uploadImage";
+import { CropImageModal } from "@/components/CropImageModal";
 
 interface ImageUploadFieldProps {
   value: string;
@@ -10,6 +11,8 @@ interface ImageUploadFieldProps {
   /** "tall" shows a wide preview area (covers, OG images). "avatar" shows a round preview. */
   variant?: "tall" | "avatar";
   helpText?: string;
+  /** Aspect ratio for the cropper (width/height). Defaults: tall=16/9, avatar=1. */
+  cropAspect?: number;
 }
 
 export function ImageUploadField({
@@ -17,14 +20,18 @@ export function ImageUploadField({
   onChange,
   variant = "tall",
   helpText,
+  cropAspect,
 }: ImageUploadFieldProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<"upload" | "url">("upload");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
+  const [pendingCrop, setPendingCrop] = useState<File | null>(null);
 
-  const handleFile = async (file: File) => {
+  const aspect = cropAspect ?? (variant === "avatar" ? 1 : 16 / 9);
+
+  const doUpload = async (file: File) => {
     setError("");
     setUploading(true);
     try {
@@ -36,6 +43,15 @@ export function ImageUploadField({
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
     }
+  };
+
+  const handleFile = (file: File) => {
+    // Skip cropper for GIFs (animated) — upload as-is.
+    if (file.type === "image/gif") {
+      doUpload(file);
+      return;
+    }
+    setPendingCrop(file);
   };
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,6 +164,21 @@ export function ImageUploadField({
       )}
 
       {helpText && <p className="text-xs text-zinc-500">{helpText}</p>}
+
+      {pendingCrop && (
+        <CropImageModal
+          file={pendingCrop}
+          aspect={aspect}
+          onCancel={() => {
+            setPendingCrop(null);
+            if (fileRef.current) fileRef.current.value = "";
+          }}
+          onComplete={(cropped) => {
+            setPendingCrop(null);
+            doUpload(cropped);
+          }}
+        />
+      )}
     </div>
   );
 }
