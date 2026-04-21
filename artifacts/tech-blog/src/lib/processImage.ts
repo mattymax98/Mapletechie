@@ -3,8 +3,8 @@
  * Skips GIFs (would lose animation) and SVGs.
  * Returns the original file untouched if it's already small enough.
  */
-const MAX_DIMENSION = 2000; // Largest side, in CSS pixels
-const QUALITY = 0.85;
+const MAX_DIMENSION = 2880; // Largest side, in CSS pixels — generous for retina/4K displays
+const QUALITY = 0.95;       // Re-encode quality when we *have* to resize
 
 export async function processImage(file: File): Promise<File> {
   // Don't touch animated formats or vectors
@@ -20,8 +20,8 @@ export async function processImage(file: File): Promise<File> {
   const width = (bitmap as any).naturalWidth || bitmap.width;
   const height = (bitmap as any).naturalHeight || bitmap.height;
 
-  // Already within limits AND under 2 MB → upload as-is, preserve original quality
-  if (width <= MAX_DIMENSION && height <= MAX_DIMENSION && file.size <= 2 * 1024 * 1024) {
+  // Already within limits AND under 8 MB → upload as-is, preserve original quality
+  if (width <= MAX_DIMENSION && height <= MAX_DIMENSION && file.size <= 8 * 1024 * 1024) {
     bitmap.close?.();
     return file;
   }
@@ -38,11 +38,20 @@ export async function processImage(file: File): Promise<File> {
     bitmap.close?.();
     return file;
   }
+  // Highest-quality downscaling the browser supports
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
   ctx.drawImage(bitmap, 0, 0, targetW, targetH);
   bitmap.close?.();
 
-  // Use original mime when supported by canvas; fall back to JPEG
-  const outType = file.type === "image/png" || file.type === "image/webp" ? file.type : "image/jpeg";
+  // Prefer WebP — best quality-to-size ratio. Keep PNG for transparency. JPEG fallback otherwise.
+  const supportsWebp = canvas.toDataURL("image/webp").startsWith("data:image/webp");
+  const outType =
+    file.type === "image/png"
+      ? "image/png"
+      : supportsWebp
+        ? "image/webp"
+        : "image/jpeg";
   const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, outType, QUALITY));
   if (!blob) return file;
 
