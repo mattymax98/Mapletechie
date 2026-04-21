@@ -22,6 +22,8 @@ export const postsTable = pgTable("posts", {
   readTime: integer("read_time").notNull().default(5),
   viewCount: integer("view_count").notNull().default(0),
   isFeatured: boolean("is_featured").notNull().default(false),
+  seriesId: integer("series_id"),
+  seriesPosition: integer("series_position"),
   publishedAt: timestamp("published_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
