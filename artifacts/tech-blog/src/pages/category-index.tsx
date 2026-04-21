@@ -5,6 +5,7 @@ import { Clock, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
+import { SEO } from "@/components/SEO";
 
 export default function CategoryIndex() {
   const params = useParams<{ slug: string }>();
@@ -17,6 +18,15 @@ export default function CategoryIndex() {
 
   return (
     <div className="w-full">
+      <SEO
+        title={category?.name || slug.replace(/-/g, " ")}
+        description={
+          category?.description ||
+          `Latest ${category?.name || slug.replace(/-/g, " ")} stories on Mapletechie.`
+        }
+        image={`/api/og/category/${encodeURIComponent(slug)}.png`}
+        url={`/category/${slug}`}
+      />
       {/* Category Header */}
       <div className="bg-card border-b border-border py-16 md:py-24 text-center">
         <div className="container mx-auto px-4">
