@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, postsTable, usersTable, pageViewsTable } from "@workspace/db";
+import { db, postsTable, usersTable, pageViewsTable, commentsTable } from "@workspace/db";
 import { eq, desc, and, gte, sql, inArray } from "drizzle-orm";
 import {
   ListPostsQueryParams,
@@ -233,6 +233,38 @@ router.get("/posts/trending", async (_req, res): Promise<void> => {
   }
 
   res.json(posts.slice(0, 5));
+});
+
+router.get("/posts/most-discussed", async (_req, res): Promise<void> => {
+  // Top published posts by approved comment count.
+  const topSlugs = await db
+    .select({
+      slug: commentsTable.postSlug,
+      comments: sql<number>`count(*)::int`,
+    })
+    .from(commentsTable)
+    .where(eq(commentsTable.status, "approved"))
+    .groupBy(commentsTable.postSlug)
+    .orderBy(desc(sql`count(*)`))
+    .limit(10);
+
+  if (topSlugs.length === 0) {
+    res.json([]);
+    return;
+  }
+
+  const slugs = topSlugs.map((r) => r.slug);
+  const found = await db
+    .select()
+    .from(postsTable)
+    .where(and(eq(postsTable.status, "published"), inArray(postsTable.slug, slugs)));
+
+  const countBySlug = new Map(topSlugs.map((r) => [r.slug, r.comments]));
+  const ranked = found
+    .map((p) => ({ ...p, commentCount: countBySlug.get(p.slug) || 0 }))
+    .sort((a, b) => b.commentCount - a.commentCount)
+    .slice(0, 5);
+  res.json(ranked);
 });
 
 router.get("/posts/slug/:slug", async (req, res): Promise<void> => {
