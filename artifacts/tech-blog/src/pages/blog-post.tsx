@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SEO } from "@/components/SEO";
 import { AuthorBio } from "@/components/AuthorBio";
 import { CommentsSection } from "@/components/CommentsSection";
+import { applyResponsiveImages } from "@/lib/responsiveImage";
 
 const SITE_URL = "https://mapletechie.com";
 
@@ -49,6 +50,7 @@ function PostContent({
       return { id, text };
     });
     onHeadingsExtracted(headings);
+    applyResponsiveImages(ref.current);
   }, [html, onHeadingsExtracted]);
 
   return (
@@ -309,7 +311,7 @@ export default function BlogPost() {
       <SEO
         title={(post as any).seoTitle || post.title}
         description={(post as any).seoDescription || post.excerpt || undefined}
-        image={(post as any).ogImage || post.coverImage || undefined}
+        image={(post as any).ogImage || `${SITE_URL}/api/og/post/${post.slug}.png`}
         url={`/blog/${post.slug}`}
         type="article"
         publishedTime={post.publishedAt ?? undefined}
@@ -417,9 +419,11 @@ export default function BlogPost() {
           <div className="mt-12 pt-8 border-t border-border flex flex-wrap gap-2">
             <span className="text-sm font-bold uppercase tracking-widest text-muted-foreground mr-4 flex items-center">Tags:</span>
             {post.tags.map(tag => (
-              <Badge key={tag} variant="secondary" className="rounded-none uppercase tracking-wider font-bold hover:bg-primary hover:text-primary-foreground cursor-pointer">
-                #{tag}
-              </Badge>
+              <Link key={tag} href={`/tag/${encodeURIComponent(tag.toLowerCase())}`}>
+                <Badge variant="secondary" className="rounded-none uppercase tracking-wider font-bold hover:bg-primary hover:text-primary-foreground cursor-pointer">
+                  #{tag}
+                </Badge>
+              </Link>
             ))}
           </div>
         )}
@@ -521,19 +525,31 @@ function BylineAuthor({
   });
   const name = author?.displayName || fallbackName;
   const avatar = author?.avatarUrl || fallbackAvatar;
+  const username = (author as any)?.username as string | undefined;
+  const NameWrap = username
+    ? ({ children }: { children: React.ReactNode }) => (
+        <Link href={`/author/${username}`} className="hover:text-primary transition-colors">
+          {children}
+        </Link>
+      )
+    : ({ children }: { children: React.ReactNode }) => <>{children}</>;
   return (
     <div className="flex items-center gap-4">
-      <div className="w-12 h-12 bg-muted rounded-full overflow-hidden border border-border">
-        {avatar ? (
-          <img src={avatar} alt={name} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center font-bold text-lg bg-primary/10 text-primary">
-            {name.charAt(0)}
-          </div>
-        )}
-      </div>
+      <NameWrap>
+        <div className="w-12 h-12 bg-muted rounded-full overflow-hidden border border-border cursor-pointer">
+          {avatar ? (
+            <img src={avatar} alt={name} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center font-bold text-lg bg-primary/10 text-primary">
+              {name.charAt(0)}
+            </div>
+          )}
+        </div>
+      </NameWrap>
       <div>
-        <div className="font-bold tracking-wide">{name}</div>
+        <NameWrap>
+          <div className="font-bold tracking-wide cursor-pointer">{name}</div>
+        </NameWrap>
         <div className="text-sm text-muted-foreground">{format(new Date(publishedAt), 'MMMM dd, yyyy')}</div>
       </div>
     </div>
