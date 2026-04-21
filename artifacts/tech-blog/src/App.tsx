@@ -1,5 +1,6 @@
 import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
 import { useEffect } from "react";
+import { trackPageView } from "@/lib/tracker";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -27,6 +28,7 @@ import AdminInbox from "@/pages/admin/AdminInbox";
 import AdminNewsletter from "@/pages/admin/AdminNewsletter";
 import AdminJobs from "@/pages/admin/AdminJobs";
 import AdminAudit from "@/pages/admin/AdminAudit";
+import AdminAnalytics from "@/pages/admin/AdminAnalytics";
 import Careers from "@/pages/careers";
 import CareerDetail from "@/pages/career-detail";
 import Advertise from "@/pages/advertise";
@@ -49,6 +51,7 @@ function ScrollToTop() {
   const [location] = useLocation();
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    trackPageView(location);
   }, [location]);
   return null;
 }
@@ -81,6 +84,9 @@ function Router() {
       </Route>
       <Route path="/admin/audit">
         <AdminGuard><AdminAudit /></AdminGuard>
+      </Route>
+      <Route path="/admin/analytics">
+        <AdminGuard><AdminAnalytics /></AdminGuard>
       </Route>
       <Route path="/admin/posts/new">
         <AdminGuard><AdminNewPost /></AdminGuard>
@@ -121,7 +127,7 @@ function Router() {
 function App() {
   return (
     <HelmetProvider>
-      <ThemeProvider defaultTheme="dark" attribute="class">
+      <ThemeProvider defaultTheme="light" attribute="class">
         <QueryClientProvider client={queryClient}>
           <AdminProvider>
             <TooltipProvider>
