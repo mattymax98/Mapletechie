@@ -347,6 +347,7 @@ router.get("/authors/:id", async (req, res): Promise<void> => {
   // Return only public-safe fields
   res.json({
     id: user.id,
+    username: user.username,
     displayName: user.displayName,
     bio: user.bio,
     avatarUrl: user.avatarUrl,

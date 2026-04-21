@@ -34,6 +34,8 @@ import CareerDetail from "@/pages/career-detail";
 import Advertise from "@/pages/advertise";
 import Reviews from "@/pages/reviews";
 import SearchPage from "@/pages/search";
+import AuthorPage from "@/pages/author";
+import TagPage from "@/pages/tag";
 import Privacy from "@/pages/privacy";
 import Terms from "@/pages/terms";
 import { AdminProvider } from "@/context/AdminContext";
@@ -116,6 +118,8 @@ function Router() {
             <Route path="/privacy" component={Privacy} />
             <Route path="/terms" component={Terms} />
             <Route path="/category/:slug" component={CategoryIndex} />
+            <Route path="/author/:username" component={AuthorPage} />
+            <Route path="/tag/:tag" component={TagPage} />
             <Route component={NotFound} />
           </Switch>
         </Layout>

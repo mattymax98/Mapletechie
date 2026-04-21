@@ -82,6 +82,7 @@
     "@tiptap/extension-underline": "^3.22.4",
     "@tiptap/react": "^3.22.4",
     "@tiptap/starter-kit": "^3.22.4",
-    "react-helmet-async": "^3.0.0"
+    "react-helmet-async": "^3.0.0",
+    "react-image-crop": "^11.0.10"
   }
 }
