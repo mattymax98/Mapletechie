@@ -1,7 +1,24 @@
 User-agent: *
 Allow: /
-Disallow: /admin/
+
+# Admin SPA — never index, never crawl
 Disallow: /admin
+Disallow: /admin/
+
+# Authenticated / non-public API endpoints — these intentionally return 401/403
+# to non-logged-in clients. Don't waste crawl budget on them and don't let
+# Google flag them as access-forbidden indexing errors.
+Disallow: /api/admin/
+Disallow: /api/auth/
+Disallow: /api/upload
+Disallow: /api/jobs/admin
+Disallow: /api/inbox
+Disallow: /api/audit
+Disallow: /api/analytics
+Disallow: /api/newsletter/admin
+
+# Internal search results pages aren't useful to index either
+Disallow: /search?
 
 # Be nice to crawlers
 Crawl-delay: 1
