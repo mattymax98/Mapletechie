@@ -28,6 +28,7 @@ export async function adminAuth(req: Request, res: Response, next: NextFunction)
 
   const user = await getUserBySession(token);
   if (!user) {
+    res.setHeader("X-Robots-Tag", "noindex, nofollow");
     res.status(401).json({ error: "Invalid or expired session" });
     return;
   }
@@ -38,6 +39,7 @@ export async function adminAuth(req: Request, res: Response, next: NextFunction)
 export function requireRole(role: "admin") {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user || req.user.role !== role) {
+      res.setHeader("X-Robots-Tag", "noindex, nofollow");
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -50,6 +52,7 @@ export type AdminPermission = "shop" | "jobs" | "inbox" | "editors";
 export function requirePermission(...perms: AdminPermission[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
+      res.setHeader("X-Robots-Tag", "noindex, nofollow");
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
@@ -67,6 +70,7 @@ export function requirePermission(...perms: AdminPermission[]) {
       next();
       return;
     }
+    res.setHeader("X-Robots-Tag", "noindex, nofollow");
     res.status(403).json({ error: "Forbidden" });
   };
 }
