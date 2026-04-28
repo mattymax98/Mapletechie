@@ -1,4 +1,11 @@
-import { useGetPostBySlug, useListPosts, useGetAuthor } from "@workspace/api-client-react";
+import {
+  useGetPostBySlug,
+  useListPosts,
+  useGetAuthor,
+  getGetPostBySlugQueryKey,
+  getListPostsQueryKey,
+  getGetAuthorQueryKey,
+} from "@workspace/api-client-react";
 import { Link, useParams } from "wouter";
 import { format } from "date-fns";
 import {
@@ -221,11 +228,16 @@ export default function BlogPost() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug || "";
 
-  const { data: post, isLoading } = useGetPostBySlug(slug, { query: { enabled: !!slug } });
-  const { data: relatedByCategory } = useListPosts(
-    { category: post?.category ?? undefined, limit: 4 },
-    { query: { enabled: !!post?.category } },
-  );
+  const { data: post, isLoading } = useGetPostBySlug(slug, {
+    query: { enabled: !!slug, queryKey: getGetPostBySlugQueryKey(slug) },
+  });
+  const relatedParams = { category: post?.category ?? undefined, limit: 4 };
+  const { data: relatedByCategory } = useListPosts(relatedParams, {
+    query: {
+      enabled: !!post?.category,
+      queryKey: getListPostsQueryKey(relatedParams),
+    },
+  });
 
   const [headings, setHeadings] = useState<{ id: string; text: string }[]>([]);
 
@@ -484,7 +496,7 @@ export default function BlogPost() {
 
 function AuthorSocials({ authorId }: { authorId?: number }) {
   const { data: author } = useGetAuthor(authorId ?? 0, {
-    query: { enabled: !!authorId },
+    query: { enabled: !!authorId, queryKey: getGetAuthorQueryKey(authorId ?? 0) },
   });
   if (!author) return null;
   const links: { url?: string; Icon: typeof Twitter; title: string }[] = [
@@ -527,7 +539,7 @@ function BylineAuthor({
   publishedAt: string;
 }) {
   const { data: author } = useGetAuthor(authorId ?? 0, {
-    query: { enabled: !!authorId },
+    query: { enabled: !!authorId, queryKey: getGetAuthorQueryKey(authorId ?? 0) },
   });
   const name = author?.displayName || fallbackName;
   const avatar = author?.avatarUrl || fallbackAvatar;

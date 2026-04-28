@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Mail, Twitter, Linkedin, Instagram, Github, Globe } from "lucide-react";
-import { useGetAuthor } from "@workspace/api-client-react";
+import { useGetAuthor, getGetAuthorQueryKey } from "@workspace/api-client-react";
 
 interface AuthorBioProps {
   variant?: "card" | "inline";
@@ -12,7 +12,7 @@ interface AuthorBioProps {
 
 export function AuthorBio({ variant = "card", authorId, fallbackName, fallbackAvatar }: AuthorBioProps) {
   const { data: author } = useGetAuthor(authorId ?? 0, {
-    query: { enabled: !!authorId },
+    query: { enabled: !!authorId, queryKey: getGetAuthorQueryKey(authorId ?? 0) },
   });
 
   const displayName = author?.displayName ?? fallbackName ?? "Mapletechie";

@@ -14,18 +14,17 @@ declare global {
 export async function adminAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.setHeader("X-Robots-Tag", "noindex, nofollow");
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
 
   const token = authHeader.slice(7);
 
-  // Legacy fallback: allow ADMIN_PASSWORD env var as token (for any AI generator scripts)
-  if (process.env.ADMIN_PASSWORD && token === process.env.ADMIN_PASSWORD) {
-    next();
-    return;
-  }
-
+  // Session-only auth. The legacy ADMIN_PASSWORD bearer-token fallback was
+  // removed: it created a global bypass key with no expiry, no audit trail,
+  // and no rotation. All admin work must go through a real user session
+  // issued by POST /admin/login.
   const user = await getUserBySession(token);
   if (!user) {
     res.setHeader("X-Robots-Tag", "noindex, nofollow");
