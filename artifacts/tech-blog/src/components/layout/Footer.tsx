@@ -2,7 +2,6 @@ import { Link } from "wouter";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { SiX, SiGithub, SiDiscord, SiYoutube } from "react-icons/si";
 import { useSubscribeNewsletter } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -56,23 +55,18 @@ export function Footer() {
               </span>
             </Link>
             <p className="text-muted-foreground text-sm mb-6 max-w-xs">
-              The premier destination for tech news, gadget reviews, and deep dives into the future of software and hardware.
+              Independent tech journalism — sharp opinion, real reviews, and the context the spec sheets leave out.
             </p>
-            <div className="flex items-center gap-4">
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors"><SiX className="h-5 w-5" /></a>
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors"><SiYoutube className="h-5 w-5" /></a>
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors"><SiGithub className="h-5 w-5" /></a>
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors"><SiDiscord className="h-5 w-5" /></a>
-            </div>
           </div>
-          
+
           <div>
             <h4 className="font-bold uppercase tracking-wider mb-4 text-sm">Sections</h4>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li><Link href="/blog" className="hover:text-primary transition-colors">Latest News</Link></li>
-              <li><Link href="/category/reviews" className="hover:text-primary transition-colors">Article Reviews</Link></li>
-              <li><Link href="/category/software" className="hover:text-primary transition-colors">Software</Link></li>
-              <li><Link href="/shop" className="hover:text-primary transition-colors">Gear</Link></li>
+              <li><Link href="/category/ai-machine-learning" className="hover:text-primary transition-colors">AI &amp; Machine Learning</Link></li>
+              <li><Link href="/category/gadgets" className="hover:text-primary transition-colors">Gadgets</Link></li>
+              <li><Link href="/category/cybersecurity" className="hover:text-primary transition-colors">Cybersecurity</Link></li>
+              <li><Link href="/category/electric-vehicles" className="hover:text-primary transition-colors">Electric Vehicles</Link></li>
               <li><Link href="/reviews" className="hover:text-primary transition-colors">Reader Reviews</Link></li>
             </ul>
           </div>

@@ -143,6 +143,43 @@ export default function Home() {
         </section>
       </div>
 
+      {/* ============ EXPLORE BY CATEGORY ============ */}
+      <section className="border-t border-border bg-background">
+        <div className="container mx-auto px-4 md:px-6 py-14 md:py-16">
+          <div className="flex items-end justify-between mb-8 border-b border-border pb-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.25em] font-bold text-primary mb-1">Explore</p>
+              <h2 className="text-3xl md:text-4xl font-serif font-black tracking-tight">Pick your beat</h2>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+            {[
+              { slug: "ai-machine-learning", name: "AI & ML", desc: "The models, the labs, the real-world impact." },
+              { slug: "gadgets", name: "Gadgets", desc: "Phones, laptops, wearables — reviewed sharp." },
+              { slug: "cybersecurity", name: "Cybersecurity", desc: "Breaches, defenses, and what it costs you." },
+              { slug: "electric-vehicles", name: "EVs", desc: "Cars, batteries, and the road ahead." },
+              { slug: "software", name: "Software", desc: "Apps, operating systems, dev culture." },
+              { slug: "science-space", name: "Science & Space", desc: "Missions, discoveries, the long view." },
+            ].map((cat) => (
+              <Link
+                key={cat.slug}
+                href={`/category/${cat.slug}`}
+                className="group block border border-border p-5 md:p-6 hover:border-primary transition-colors bg-card/30"
+                data-testid={`home-category-${cat.slug}`}
+              >
+                <h3 className="font-serif font-black text-xl md:text-2xl mb-2 group-hover:text-primary transition-colors leading-tight">
+                  {cat.name}
+                </h3>
+                <p className="text-muted-foreground text-sm mb-4 leading-relaxed line-clamp-2">{cat.desc}</p>
+                <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-primary">
+                  Read <ArrowRight className="h-3 w-3" />
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ============ TOP ARTICLES (rotated label) ============ */}
       {(() => {
         const topPosts = trendingPosts?.slice(0, 4) || [];
