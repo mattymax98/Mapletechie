@@ -32,8 +32,10 @@ pnpm workspace monorepo using TypeScript. Contains "Mapletechie" (mapletechie.co
 ### API Server (`artifacts/api-server`)
 - Preview path: `/api`
 - Express 5 REST API
-- Routes: posts (CRUD), categories, products, contact, stats, admin verify, sitemap.xml
-- Admin auth: `Authorization: Bearer <ADMIN_PASSWORD>` header required for POST/PUT/DELETE on posts
+- Routes: posts (CRUD), categories, products, contact, stats, admin login, sitemap.xml
+- Admin auth: `Authorization: Bearer <session-token>` header required for protected routes. Sessions are issued by `POST /api/admin/login` against the `users` table (bcrypt-hashed passwords). The legacy `ADMIN_PASSWORD` bearer-token bypass and `/admin/verify` endpoint were removed.
+- Rate limiting: `express-rate-limit` middleware in `src/middlewares/rateLimit.ts` protects public-write endpoints (`/contact`, `/comments`, `/newsletter/subscribe`, `/reviews`, `/advertise`, `/admin/login`, `/admin/generate-post`). `app.set('trust proxy', 1)` so the limiter sees the real client IP behind the Replit/Cloudflare proxy.
+- 401/403 admin responses set `X-Robots-Tag: noindex, nofollow` so search engines don't index error pages.
 
 ## Database Schema
 
@@ -85,5 +87,5 @@ pnpm --filter @workspace/api-spec run codegen
 
 - `DATABASE_URL` — PostgreSQL connection string (auto-managed by Replit)
 - `SESSION_SECRET` — Session secret (set in Replit Secrets)
-- `ADMIN_PASSWORD` — Admin panel password (set as env var; change from default in Replit Secrets)
+- `ADMIN_PASSWORD` — Used **only** to bootstrap the founding admin (`matthew`) on first boot via `bootstrapAdmin()`. After that, login goes through `POST /api/admin/login` against the `users` table. Not used as an auth bypass anywhere else.
 - `SITE_DOMAIN` — Used in sitemap.xml generation (default: `https://mapletechie.com`)

@@ -1,5 +1,9 @@
 import { useState } from "react";
-import { useListComments, useSubmitComment } from "@workspace/api-client-react";
+import {
+  useListComments,
+  useSubmitComment,
+  getListCommentsQueryKey,
+} from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +15,12 @@ import { format } from "date-fns";
 export function CommentsSection({ postSlug }: { postSlug: string }) {
   const { data: comments, refetch } = useListComments(
     { postSlug },
-    { query: { enabled: !!postSlug } },
+    {
+      query: {
+        enabled: !!postSlug,
+        queryKey: getListCommentsQueryKey({ postSlug }),
+      },
+    },
   );
   const submit = useSubmitComment();
   const { toast } = useToast();

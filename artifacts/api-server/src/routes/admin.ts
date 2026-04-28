@@ -10,12 +10,13 @@ import {
 } from "../lib/auth";
 import { adminAuth, requirePermission } from "../middlewares/adminAuth";
 import { writeAuditLog, writeAuditLogForUser } from "../lib/audit";
+import { loginLimiter } from "../middlewares/rateLimit";
 
 const router = Router();
 
 // ---- Auth ----
 
-router.post("/admin/login", async (req, res): Promise<void> => {
+router.post("/admin/login", loginLimiter, async (req, res): Promise<void> => {
   const { username, password } = req.body ?? {};
   if (typeof username !== "string" || typeof password !== "string") {
     res.status(400).json({ success: false, message: "Username and password required" });
@@ -54,16 +55,8 @@ router.post("/admin/login", async (req, res): Promise<void> => {
   res.json({ success: true, token, user: sanitizeUser(user) });
 });
 
-// Legacy: keep /admin/verify for back-compat — accepts password only against env ADMIN_PASSWORD
-router.post("/admin/verify", async (req, res): Promise<void> => {
-  const adminPassword = process.env.ADMIN_PASSWORD;
-  const { password } = req.body ?? {};
-  if (!adminPassword || password !== adminPassword) {
-    res.status(401).json({ success: false, message: "Incorrect password" });
-    return;
-  }
-  res.json({ success: true, message: "Authenticated" });
-});
+// Removed: /admin/verify (legacy ADMIN_PASSWORD endpoint).
+// Use POST /admin/login + session token instead.
 
 router.post("/admin/logout", adminAuth, async (req, res): Promise<void> => {
   const token = req.headers.authorization?.slice(7);

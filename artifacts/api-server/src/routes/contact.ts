@@ -3,10 +3,11 @@ import { db, contactsTable } from "@workspace/db";
 import { SubmitContactBody } from "@workspace/api-zod";
 import { desc, eq } from "drizzle-orm";
 import { adminAuth, requirePermission } from "../middlewares/adminAuth";
+import { contactLimiter } from "../middlewares/rateLimit";
 
 const router = Router();
 
-router.post("/contact", async (req, res): Promise<void> => {
+router.post("/contact", contactLimiter, async (req, res): Promise<void> => {
   const parsed = SubmitContactBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ success: false, message: parsed.error.message });

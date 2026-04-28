@@ -16,27 +16,34 @@ router.get("/sitemap.xml", async (req, res): Promise<void> => {
     .select({ slug: categoriesTable.slug })
     .from(categoriesTable);
 
-  const staticPages = [
+  type SitemapEntry = {
+    loc: string;
+    priority: string;
+    changefreq: string;
+    lastmod?: string;
+  };
+
+  const staticPages: SitemapEntry[] = [
     { loc: `${domain}/`, priority: "1.0", changefreq: "daily" },
     { loc: `${domain}/blog`, priority: "0.9", changefreq: "daily" },
     { loc: `${domain}/shop`, priority: "0.7", changefreq: "weekly" },
     { loc: `${domain}/contact`, priority: "0.5", changefreq: "monthly" },
   ];
 
-  const categoryUrls = categories.map((c) => ({
+  const categoryUrls: SitemapEntry[] = categories.map((c) => ({
     loc: `${domain}/category/${c.slug}`,
     priority: "0.7",
     changefreq: "weekly",
   }));
 
-  const postUrls = posts.map((p) => ({
+  const postUrls: SitemapEntry[] = posts.map((p) => ({
     loc: `${domain}/blog/${p.slug}`,
     priority: "0.8",
     changefreq: "monthly",
     lastmod: p.publishedAt ? new Date(p.publishedAt).toISOString().split("T")[0] : undefined,
   }));
 
-  const allUrls = [...staticPages, ...categoryUrls, ...postUrls];
+  const allUrls: SitemapEntry[] = [...staticPages, ...categoryUrls, ...postUrls];
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

@@ -3,6 +3,7 @@ import { db, commentsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { adminAuth, requirePermission } from "../middlewares/adminAuth";
 import { writeAuditLog } from "../lib/audit";
+import { commentLimiter } from "../middlewares/rateLimit";
 
 const router = Router();
 
@@ -31,7 +32,7 @@ router.get("/comments", async (req, res): Promise<void> => {
 });
 
 // Public: submit a new comment (pending approval)
-router.post("/comments", async (req, res): Promise<void> => {
+router.post("/comments", commentLimiter, async (req, res): Promise<void> => {
   const body = req.body || {};
   const slug = String(body.postSlug || "").trim().toLowerCase();
   const name = String(body.name || "").trim();
