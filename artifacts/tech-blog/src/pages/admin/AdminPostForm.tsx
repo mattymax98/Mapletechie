@@ -4,6 +4,7 @@ import {
   useCreatePost,
   useUpdatePost,
   useGetPost,
+  getGetPostQueryKey,
   useListCategories,
   useListEditors,
 } from "@workspace/api-client-react";
@@ -100,7 +101,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   const { data: editors } = useListEditors();
 
   const { data: existingPost, isLoading: loadingPost } = useGetPost(postId ?? 0, {
-    query: { enabled: isEditing },
+    query: { enabled: isEditing, queryKey: getGetPostQueryKey(postId ?? 0) },
   });
 
   const canChooseStatus = user?.role === "admin" || user?.canPublishDirectly === true;

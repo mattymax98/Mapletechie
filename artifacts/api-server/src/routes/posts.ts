@@ -109,14 +109,10 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     }
   }
 
-  // Determine status based on user permissions
-  let status = "draft";
-  if (!user) {
-    // Legacy ADMIN_PASSWORD env auth — treat as full admin
-    status = body.status === "draft" ? "draft" : "published";
-  } else if (user.role === "admin") {
-    status = body.status === "draft" ? "draft" : "published";
-  } else if (user.canPublishDirectly) {
+  // Determine status based on user permissions. adminAuth always populates
+  // req.user before reaching this handler, so the !user branch is gone.
+  let status: string;
+  if (user?.role === "admin" || user?.canPublishDirectly) {
     status = body.status === "draft" ? "draft" : "published";
   } else {
     status = "draft";
@@ -155,7 +151,9 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     seoTitle: cleanText(body.seoTitle),
     seoDescription: cleanText(body.seoDescription),
     seoKeywords: Array.isArray(body.seoKeywords)
-      ? body.seoKeywords.map((k: unknown) => cleanText(k)).filter((k): k is string => !!k)
+      ? (body.seoKeywords as unknown[])
+          .map((k) => cleanText(k))
+          .filter((k): k is string => !!k)
       : [],
     ogImage: body.ogImage ?? null,
     publishedAt: body.publishedAt ? new Date(body.publishedAt) : new Date(),

@@ -3,10 +3,11 @@ import { db, adInquiriesTable, contactsTable } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
 import { adminAuth, requirePermission } from "../middlewares/adminAuth";
 import { applicationsTable, reviewsTable, commentsTable } from "@workspace/db";
+import { adInquiryLimiter } from "../middlewares/rateLimit";
 
 const router = Router();
 
-router.post("/advertise", async (req, res): Promise<void> => {
+router.post("/advertise", adInquiryLimiter, async (req, res): Promise<void> => {
   const body = req.body || {};
   const companyName = String(body.companyName || "").trim();
   const contactName = String(body.contactName || "").trim();

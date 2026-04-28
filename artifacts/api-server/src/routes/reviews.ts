@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, reviewsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { adminAuth, requirePermission } from "../middlewares/adminAuth";
+import { reviewLimiter } from "../middlewares/rateLimit";
 
 const router = Router();
 
@@ -15,7 +16,7 @@ router.get("/reviews", async (_req, res): Promise<void> => {
   res.json(reviews);
 });
 
-router.post("/reviews", async (req, res): Promise<void> => {
+router.post("/reviews", reviewLimiter, async (req, res): Promise<void> => {
   const body = req.body || {};
   const name = String(body.name || "").trim();
   const email = String(body.email || "").trim();

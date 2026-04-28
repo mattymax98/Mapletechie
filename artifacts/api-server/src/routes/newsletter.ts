@@ -10,12 +10,13 @@ import {
 import { runWeeklyDigest, sendTestDigest } from "../lib/newsletterScheduler";
 import { adminAuth, requireRole } from "../middlewares/adminAuth";
 import { logger } from "../lib/logger";
+import { newsletterLimiter } from "../middlewares/rateLimit";
 
 const router = Router();
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-router.post("/newsletter/subscribe", async (req, res): Promise<void> => {
+router.post("/newsletter/subscribe", newsletterLimiter, async (req, res): Promise<void> => {
   const email = String(req.body?.email || "").trim().toLowerCase();
   const source = typeof req.body?.source === "string" ? req.body.source : "footer";
   if (!EMAIL_RE.test(email)) {

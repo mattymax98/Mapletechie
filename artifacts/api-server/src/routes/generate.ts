@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { adminAuth } from "../middlewares/adminAuth";
+import { aiGenerateLimiter } from "../middlewares/rateLimit";
 
 const router = Router();
 
@@ -41,7 +42,7 @@ Rules:
 - Content uses markdown headings (##), bold (**), and bullet lists where helpful.
 - Be specific and factual. If you don't know recent details, write evergreen content rather than fabricating dates or quotes.`;
 
-router.post("/admin/generate-post", adminAuth, async (req, res): Promise<void> => {
+router.post("/admin/generate-post", aiGenerateLimiter, adminAuth, async (req, res): Promise<void> => {
   const { topic } = req.body ?? {};
   if (typeof topic !== "string" || topic.trim().length < 3) {
     res.status(400).json({ error: "Topic is required (min 3 characters)" });
