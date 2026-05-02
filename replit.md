@@ -24,7 +24,7 @@ pnpm workspace monorepo using TypeScript. Contains "Mapletechie" (mapletechie.co
 ### Tech Blog (`artifacts/tech-blog`)
 - Preview path: `/`
 - Full tech blog site: Mapletechie (mapletechie.com)
-- Pages: Home, Blog, Blog Post, Shop, Contact, Category, Admin
+- Pages: Home, Blog, Blog Post, Contact, Category, Admin (the standalone Shop and Reader-Reviews pages were removed in May 2026)
 - SEO: react-helmet-async applied to all pages (title, description, OG tags, Twitter cards)
 - Admin panel at `/admin` (password-protected, no Layout wrapper)
 - `public/robots.txt` included; sitemap.xml served dynamically from API
@@ -32,10 +32,20 @@ pnpm workspace monorepo using TypeScript. Contains "Mapletechie" (mapletechie.co
 ### API Server (`artifacts/api-server`)
 - Preview path: `/api`
 - Express 5 REST API
-- Routes: posts (CRUD), categories, products, contact, stats, admin login, sitemap.xml
+- Routes: posts (CRUD + scheduled publish), categories, contact, stats, admin login, media library, newsletter, send-email, sitemap.xml. The legacy `products` and `reviews` routers were removed in May 2026.
 - Admin auth: `Authorization: Bearer <session-token>` header required for protected routes. Sessions are issued by `POST /api/admin/login` against the `users` table (bcrypt-hashed passwords). The legacy `ADMIN_PASSWORD` bearer-token bypass and `/admin/verify` endpoint were removed.
-- Rate limiting: `express-rate-limit` middleware in `src/middlewares/rateLimit.ts` protects public-write endpoints (`/contact`, `/comments`, `/newsletter/subscribe`, `/reviews`, `/advertise`, `/admin/login`, `/admin/generate-post`). `app.set('trust proxy', 1)` so the limiter sees the real client IP behind the Replit/Cloudflare proxy.
-- 401/403 admin responses set `X-Robots-Tag: noindex, nofollow` so search engines don't index error pages.
+- Rate limiting: `express-rate-limit` middleware in `src/middlewares/rateLimit.ts` protects public-write endpoints (`/contact`, `/comments`, `/newsletter/subscribe`, `/advertise`, `/admin/login`, `/admin/generate-post`) plus a per-editor `emailSendLimiter` (50 sends / 24 h, keyed by `user:<id>` using `ipKeyGenerator` for IPv6 fallback) on `/admin/send-email`. `app.set('trust proxy', 1)` so limiters see the real client IP behind the Replit/Cloudflare proxy.
+
+### Posts: scheduled publishing
+- `posts.status` enum is `draft | scheduled | published`. `posts.scheduledFor` (timestamp, nullable) holds the future go-live time.
+- `startScheduledPublishCron` polls every minute (in `src/lib/scheduledPublishCron.ts`) and atomically promotes any `status='scheduled' && scheduledFor <= now()` row to `published` (`scheduledFor` cleared, `publishedAt` set).
+- The public `GET /api/posts*` endpoints filter to `status='published'`. Only the owner/admin sees scheduled rows in `/api/admin/posts`.
+- UI: `AdminPostForm` shows a "Schedule for later" datetime-local picker. Picking a future time switches the submit to "Schedule Post"; the dashboard list shows a blue Scheduled badge with the run time.
+
+### Media library
+- New `media` table (`src/lib/db/src/schema/media.ts`): `id, url, filename, mime_type, size, uploader_id, created_at`.
+- Routes: `GET/POST /api/admin/media` (any authed editor) and `DELETE /api/admin/media/:id` (admin or original uploader).
+- UI: `/admin/media` (`AdminMedia.tsx`) — upload via `ImageUploadField`, browse the library grid, copy URL, delete.
 
 ## Database Schema
 
@@ -56,13 +66,15 @@ Dashboard, Posts (CRUD), Users, Profile, **Jobs** (`/admin/jobs` — full CRUD),
 - URL: `/admin` (redirects to `/admin/login` if not logged in)
 - Founding admin: username `matthew` (password set via `ADMIN_PASSWORD` env secret — not stored in repo)
 - Multi-user: editors with per-user permissions
-- Permission flags on each user: `canPublishDirectly`, `canManageShop`, `canManageJobs`, `canViewInbox`, `canManageEditors`. The `admin` role bypasses all checks. Only the admin can set role or permission flags, and the founding admin account cannot be modified or deleted by non-admins.
+- Permission flags on each user: `canPublishDirectly`, `canManageJobs`, `canViewInbox`, `canManageEditors`, `canSendEmail`. (The legacy `canManageShop` flag still exists in the DB column for historical rows but the UI toggle and the `/admin/products` enforcement were removed.) The `admin` role bypasses all checks. Only the admin can set role or permission flags. Editor email is locked: `users.email` is always derived from `username + "@mapletechie.com"` on create, and `PUT /admin/me` and `PUT /admin/users/:id` strip `email` and `username` from the editable list — changing them requires deleting and recreating the account.
+- AI generation (`/admin/generate-post`) is gated to `requireRole("admin")` — editors cannot trigger it. The `/admin/generate` page is wrapped in `<AdminGuard adminOnly>` so non-admin editors get redirected.
 - Server enforcement: `requirePermission(...perms)` middleware in `artifacts/api-server/src/middlewares/adminAuth.ts` gates `/admin/products` (shop), `/admin/jobs` + `/admin/applications` (jobs), `/admin/contacts` + `/admin/reviews` + `/admin/ad-inquiries` + `/admin/inbox-counts` (inbox), `/admin/users` (editors).
 - Admin nav buttons in dashboard render conditionally based on the same flags.
 
 ## Newsletter
 
-- Weekly digest, Friday 5pm America/Toronto, scheduled in `artifacts/api-server/src/lib/newsletterScheduler.ts`.
+- Reader newsletter is **manual** — the auto-`startNewsletterScheduler` was removed in May 2026. An admin composes each digest on `/admin/newsletter`: `subject` (required) + optional `editorNote` markdown, with a live preview of the past-7-days posts that will be appended via `digestEmailHtml`. `POST /api/admin/newsletter/test` accepts `{to, subject, editorNote}` (single test send); `POST /api/admin/newsletter/send-now` accepts `{subject, editorNote}` and broadcasts to every `status='active'` subscriber.
+- A separate weekly **editor digest** cron (`startEditorWeeklyDigestCron`, Sunday 8 PM America/Toronto) emails the founding admin a week-in-review of new posts, comments, and inbox activity — purely internal, never sent to subscribers.
 - Provider: Resend (used directly via `RESEND_API_KEY` secret — user dismissed the Replit Resend integration).
 - Sender: `Mapletechies <newsletter@mapletechie.com>` (requires DNS records in Namecheap: SPF TXT, DKIM TXT records from Resend, optional DMARC).
 - Footer subscribe form uses `useSubscribeNewsletter` hook.

@@ -136,10 +136,11 @@ export default function AdminUsers() {
       if (form.username.trim().length < 2) return setError("Username must be at least 2 characters.");
       if (form.password.length < 6) return setError("Password must be at least 6 characters.");
       if (!form.displayName.trim()) return setError("Display name is required.");
-      const { username, password, displayName, ...rest } = form;
+      const { username, password, displayName, email: _email, ...rest } = form;
       createMut.mutate({ data: { username: username.trim().toLowerCase(), password, displayName: displayName.trim(), ...rest } as any });
     } else if (editing) {
-      const { username, password, ...rest } = form;
+      // email + username are immutable post-creation; never send them in updates.
+      const { username: _u, password, email: _e, ...rest } = form;
       const payload: any = { ...rest };
       if (password.length >= 6) payload.password = password;
       updateMut.mutate({ id: editing.id, data: payload });
@@ -262,14 +263,22 @@ export default function AdminUsers() {
                 />
               </div>
               <div className="space-y-2 col-span-2">
-                <Label>Email</Label>
+                <Label>Email <span className="text-zinc-500 text-xs font-normal">(auto-derived from username)</span></Label>
                 <Input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  placeholder="jane@mapletechie.com"
-                  className="bg-zinc-800 border-zinc-700"
+                  value={
+                    creating
+                      ? form.username.trim()
+                        ? `${form.username.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "")}@mapletechie.com`
+                        : "(set the username above)"
+                      : form.email || `${form.username}@mapletechie.com`
+                  }
+                  disabled
+                  className="bg-zinc-800/60 border-zinc-700 text-zinc-300 disabled:opacity-100 font-mono text-sm"
+                  data-testid="input-editor-email"
                 />
+                <p className="text-xs text-zinc-500">
+                  Every editor sends from their own <span className="font-mono">@mapletechie.com</span> address. Change the username to change the email — they're locked together so the From: header always passes domain verification.
+                </p>
               </div>
               <div className="space-y-2 col-span-2">
                 <Label>Profile Picture</Label>
@@ -312,12 +321,6 @@ export default function AdminUsers() {
                   <Label className="text-orange-400 text-xs uppercase tracking-wider font-bold">Admin Permissions</Label>
                   <p className="text-xs text-zinc-500">Grant this editor access to specific admin areas. They will never be able to modify your admin account.</p>
 
-                  <PermissionToggle
-                    label="Manage the Shop"
-                    desc="Add, edit, and remove affiliate products."
-                    checked={form.canManageShop}
-                    onChange={(v) => setForm({ ...form, canManageShop: v })}
-                  />
                   <PermissionToggle
                     label="Manage Jobs & Applications"
                     desc="Post and edit job listings; view applicants."

@@ -118,6 +118,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     readTime: 5,
     isFeatured: false,
     status: canChooseStatus ? "published" : "draft",
+    scheduledFor: "",
     seoTitle: "",
     seoDescription: "",
     seoKeywords: "",
@@ -179,6 +180,9 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
         readTime: ep.readTime ?? 5,
         isFeatured: ep.isFeatured ?? false,
         status: ep.status ?? "published",
+        scheduledFor: ep.scheduledFor
+          ? new Date(ep.scheduledFor).toISOString().slice(0, 16)
+          : "",
         seoTitle: ep.seoTitle ?? "",
         seoDescription: ep.seoDescription ?? "",
         seoKeywords: Array.isArray(ep.seoKeywords) ? ep.seoKeywords.join(", ") : "",
@@ -250,7 +254,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     },
   });
 
-  const submit = (e: React.FormEvent, statusOverride?: "draft" | "published") => {
+  const submit = (e: React.FormEvent, statusOverride?: "draft" | "published" | "scheduled") => {
     e.preventDefault();
     setError("");
 
@@ -261,6 +265,17 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     if (!form.category) return setError("Category is required.");
 
     const status = statusOverride ?? form.status;
+
+    if (status === "scheduled") {
+      if (!form.scheduledFor) {
+        return setError("Pick a date and time to schedule this post.");
+      }
+      const when = new Date(form.scheduledFor);
+      if (isNaN(when.getTime())) return setError("Scheduled date is invalid.");
+      if (when.getTime() <= Date.now() + 30_000) {
+        return setError("Scheduled time must be in the future.");
+      }
+    }
 
     const keywordsArray = form.seoKeywords
       .split(",")
@@ -275,6 +290,10 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
       readTime: form.readTime,
       isFeatured: form.isFeatured,
       status,
+      scheduledFor:
+        status === "scheduled" && form.scheduledFor
+          ? new Date(form.scheduledFor).toISOString()
+          : null,
       seoTitle: form.seoTitle.trim() || null,
       seoDescription: form.seoDescription.trim() || null,
       seoKeywords: keywordsArray,
@@ -291,7 +310,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     }
     if (!isEditing) {
       payload.author = form.author.trim() || user?.displayName || "Mapletechie";
-      if (!statusOverride) payload.publishedAt = new Date().toISOString();
+      if (!statusOverride && status === "published") payload.publishedAt = new Date().toISOString();
     } else if (user?.role === "admin" && form.author.trim()) {
       payload.author = form.author.trim();
     }
@@ -658,6 +677,44 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                 Your posts will be saved as drafts pending admin approval.
               </div>
             )}
+
+            {canChooseStatus && (
+              <div className="md:col-span-2 border border-zinc-800 rounded-lg p-4 bg-zinc-950 space-y-3">
+                <Label className="text-zinc-200 font-bold">Schedule for later <span className="text-zinc-500 font-normal">(optional)</span></Label>
+                <p className="text-xs text-zinc-500">
+                  Pick a future date/time and the post will go live automatically. Leave blank to publish immediately when you click <strong>Publish</strong>.
+                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Input
+                    type="datetime-local"
+                    value={form.scheduledFor}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        scheduledFor: e.target.value,
+                        status: e.target.value ? "scheduled" : f.status === "scheduled" ? "draft" : f.status,
+                      }))
+                    }
+                    className="bg-zinc-900 border-zinc-700 text-white max-w-[260px]"
+                    data-testid="input-scheduled-for"
+                  />
+                  {form.scheduledFor && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setForm((f) => ({ ...f, scheduledFor: "", status: f.status === "scheduled" ? "draft" : f.status }))}
+                      className="text-zinc-400 hover:text-white text-xs"
+                    >
+                      Clear schedule
+                    </Button>
+                  )}
+                  {form.status === "scheduled" && (
+                    <span className="text-xs text-blue-400">Will publish automatically.</span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800 flex-wrap">
@@ -682,14 +739,26 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
               type="submit"
               disabled={isPending}
               className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
-              onClick={(e) => submit(e as any, canChooseStatus ? "published" : "draft")}
+              onClick={(e) =>
+                submit(
+                  e as any,
+                  !canChooseStatus
+                    ? "draft"
+                    : form.scheduledFor
+                      ? "scheduled"
+                      : "published",
+                )
+              }
+              data-testid="button-publish"
             >
               <Save className="w-4 h-4" />
               {isPending
                 ? "Saving..."
-                : canChooseStatus
-                  ? (isEditing ? "Update & Publish" : "Publish Post")
-                  : (isEditing ? "Update Draft" : "Submit for Review")}
+                : !canChooseStatus
+                  ? (isEditing ? "Update Draft" : "Submit for Review")
+                  : form.scheduledFor
+                    ? (isEditing ? "Update & Schedule" : "Schedule Post")
+                    : (isEditing ? "Update & Publish" : "Publish Post")}
             </Button>
           </div>
         </form>

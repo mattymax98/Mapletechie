@@ -14,7 +14,11 @@ export const postsTable = pgTable("posts", {
   author: text("author").notNull(),
   authorAvatar: text("author_avatar"),
   authorId: integer("author_id"),
+  // status: 'draft' | 'scheduled' | 'published'
   status: text("status").notNull().default("published"),
+  // When set and status === 'scheduled', the scheduled-publish cron flips
+  // the post to 'published' once `scheduledFor <= now()`.
+  scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
   seoTitle: text("seo_title"),
   seoDescription: text("seo_description"),
   seoKeywords: text("seo_keywords").array().notNull().default([]),

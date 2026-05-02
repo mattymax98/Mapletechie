@@ -1,20 +1,34 @@
 import { Router } from "express";
-import { db, subscribersTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { db, subscribersTable, postsTable } from "@workspace/db";
+import { eq, desc, and, gte } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { sendEmail, SITE_URL } from "../lib/email";
 import {
   confirmEmailHtml,
   welcomeEmailHtml,
+  digestEmailHtml,
 } from "../lib/newsletterTemplates";
-import { runWeeklyDigest, sendTestDigest } from "../lib/newsletterScheduler";
 import { adminAuth, requireRole } from "../middlewares/adminAuth";
+import { writeAuditLog } from "../lib/audit";
 import { logger } from "../lib/logger";
 import { newsletterLimiter } from "../middlewares/rateLimit";
 
 const router = Router();
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function weekLabel(date: Date = new Date()): string {
+  return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+}
+
+async function fetchWeekPosts(daysBack = 7) {
+  const since = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000);
+  return db
+    .select()
+    .from(postsTable)
+    .where(and(eq(postsTable.status, "published"), gte(postsTable.publishedAt, since)))
+    .orderBy(desc(postsTable.publishedAt));
+}
 
 router.post("/newsletter/subscribe", newsletterLimiter, async (req, res): Promise<void> => {
   const email = String(req.body?.email || "").trim().toLowerCase();
@@ -157,19 +171,56 @@ router.delete(
   },
 );
 
+/**
+ * Preview the posts that the newsletter compose page will append. Used by
+ * the admin UI to show "this week's recap" before sending.
+ */
+router.get(
+  "/admin/newsletter/preview",
+  adminAuth,
+  requireRole("admin"),
+  async (_req, res): Promise<void> => {
+    const posts = await fetchWeekPosts(7);
+    res.json({ weekLabel: weekLabel(), posts });
+  },
+);
+
+/**
+ * Send a test of the editor-composed digest to a single recipient. Body must
+ * contain { to, subject, editorNote } so the test exactly matches what the
+ * real send would produce.
+ */
 router.post(
   "/admin/newsletter/test",
   adminAuth,
   requireRole("admin"),
   async (req, res): Promise<void> => {
-    const to = String(req.body?.email || "").trim().toLowerCase();
+    const to = String(req.body?.to || req.body?.email || "").trim().toLowerCase();
+    const subject = String(req.body?.subject || "").trim();
+    const editorNote = String(req.body?.editorNote || "").trim();
     if (!EMAIL_RE.test(to)) {
-      res.status(400).json({ success: false, message: "Provide a valid test email." });
+      res.status(400).json({ success: false, message: "Provide a valid test recipient email." });
+      return;
+    }
+    if (!subject) {
+      res.status(400).json({ success: false, message: "Subject is required." });
       return;
     }
     try {
-      const result = await sendTestDigest(to);
-      res.json({ success: true, ...result });
+      const posts = await fetchWeekPosts(7);
+      const html = digestEmailHtml({
+        posts,
+        editorNote,
+        unsubUrl: `${SITE_URL}/api/newsletter/unsubscribe?token=preview`,
+        weekLabel: weekLabel(),
+      });
+      await sendEmail({
+        to,
+        subject: `[TEST] ${subject}`,
+        html,
+        text: `${editorNote}\n\nThis week:\n${posts.map((p) => `• ${p.title} — ${SITE_URL}/blog/${p.slug}`).join("\n")}`,
+      });
+      res.json({ success: true, posts: posts.length });
     } catch (err) {
       logger.error({ err }, "Test digest failed");
       const msg = err instanceof Error ? err.message : "Send failed";
@@ -178,14 +229,68 @@ router.post(
   },
 );
 
+/**
+ * Editor-composed digest: takes a hand-written subject + editor note from the
+ * admin panel, appends the past week's published posts, and emails every
+ * confirmed subscriber. There is no scheduler — sends only happen when an
+ * admin explicitly clicks "Send now".
+ */
 router.post(
   "/admin/newsletter/send-now",
   adminAuth,
   requireRole("admin"),
-  async (_req, res): Promise<void> => {
+  async (req, res): Promise<void> => {
+    const subject = String(req.body?.subject || "").trim();
+    const editorNote = String(req.body?.editorNote || "").trim();
+    if (!subject) {
+      res.status(400).json({ success: false, message: "Subject is required." });
+      return;
+    }
+
     try {
-      const result = await runWeeklyDigest({ force: true });
-      res.json({ success: true, ...result });
+      const subs = await db
+        .select()
+        .from(subscribersTable)
+        .where(eq(subscribersTable.status, "active"));
+      if (subs.length === 0) {
+        res.json({ success: true, sent: 0, failed: 0, posts: 0, message: "No active subscribers." });
+        return;
+      }
+
+      const posts = await fetchWeekPosts(7);
+      const label = weekLabel();
+      let sent = 0;
+      let failed = 0;
+      const failedEmails: string[] = [];
+
+      for (const s of subs) {
+        const unsubUrl = `${SITE_URL}/api/newsletter/unsubscribe?token=${s.unsubToken}`;
+        const html = digestEmailHtml({ posts, editorNote, unsubUrl, weekLabel: label });
+        try {
+          await sendEmail({
+            to: s.email,
+            subject,
+            html,
+            text: `${editorNote}\n\nThis week:\n${posts.map((p) => `• ${p.title} — ${SITE_URL}/blog/${p.slug}`).join("\n")}\n\nUnsubscribe: ${unsubUrl}`,
+          });
+          await db
+            .update(subscribersTable)
+            .set({ lastSentAt: new Date() })
+            .where(eq(subscribersTable.id, s.id));
+          sent++;
+        } catch (err) {
+          failed++;
+          failedEmails.push(s.email);
+          logger.error({ err, email: s.email }, "Newsletter send failed for subscriber");
+        }
+      }
+
+      await writeAuditLog(req, {
+        action: "newsletter.send",
+        summary: `Sent editor digest "${subject}" to ${sent} subscribers (${failed} failed, ${posts.length} posts)`,
+      });
+
+      res.json({ success: true, sent, failed, posts: posts.length, failedEmails: failedEmails.slice(0, 20) });
     } catch (err) {
       logger.error({ err }, "Send-now digest failed");
       const msg = err instanceof Error ? err.message : "Send failed";

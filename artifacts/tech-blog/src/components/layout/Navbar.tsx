@@ -63,7 +63,6 @@ export function Navbar() {
                 {cat.name}
               </Link>
             ))}
-            <Link href="/shop" className={`hover:text-primary transition-colors ${location === '/shop' ? 'text-primary' : 'text-foreground'}`}>Gear</Link>
             <Link href="/about" className={`hover:text-primary transition-colors ${location === '/about' ? 'text-primary' : 'text-foreground'}`}>About</Link>
           </nav>
         </div>
@@ -135,7 +134,6 @@ export function Navbar() {
             <nav className="flex flex-col p-4 gap-4 text-sm font-bold uppercase tracking-wider">
               <Link href="/" className="py-2 border-b border-border/50">Home</Link>
               <Link href="/blog" className="py-2 border-b border-border/50">Latest Posts</Link>
-              <Link href="/shop" className="py-2 border-b border-border/50">Gear & Shop</Link>
               <Link href="/about" className="py-2 border-b border-border/50">About</Link>
               <Link href="/contact" className="py-2 border-b border-border/50">Contact Us</Link>
               <Button className="w-full mt-4 rounded-none" onClick={scrollToNewsletter}>Subscribe Now</Button>

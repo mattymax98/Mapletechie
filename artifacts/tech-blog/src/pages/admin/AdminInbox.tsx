@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Trash2, Mail, Megaphone, Star, FileText, Briefcase, ExternalLink, MessageCircle, Send, X, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Trash2, Mail, Megaphone, FileText, Briefcase, ExternalLink, MessageCircle, Send, X, CheckCircle2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,7 +10,7 @@ import { format } from "date-fns";
 
 const TOKEN_KEY = "mapletechie_admin_token";
 
-type Tab = "applications" | "reviews" | "ads" | "contacts" | "comments";
+type Tab = "applications" | "ads" | "contacts" | "comments";
 
 type ReplyTemplate = "forward" | "pass" | "clarify" | "blank";
 
@@ -59,7 +59,7 @@ Once I have that I'll be back to you within a few days.`,
 export default function AdminInbox() {
   const [tab, setTab] = useState<Tab>("applications");
   const [data, setData] = useState<Record<Tab, any[] | null>>({
-    applications: null, reviews: null, ads: null, contacts: null, comments: null,
+    applications: null, ads: null, contacts: null, comments: null,
   });
   const [replyTo, setReplyTo] = useState<number | null>(null);
   const [replySubject, setReplySubject] = useState("");
@@ -126,14 +126,13 @@ export default function AdminInbox() {
       .catch(() => []);
 
   async function loadAll() {
-    const [a, r, ad, c, cm] = await Promise.all([
+    const [a, ad, c, cm] = await Promise.all([
       safeFetch("/api/admin/applications"),
-      safeFetch("/api/admin/reviews"),
       safeFetch("/api/admin/ad-inquiries"),
       safeFetch("/api/admin/contacts"),
       safeFetch("/api/admin/comments"),
     ]);
-    setData({ applications: a, reviews: r, ads: ad, contacts: c, comments: cm });
+    setData({ applications: a, ads: ad, contacts: c, comments: cm });
   }
 
   async function setCommentStatus(id: number, status: string) {
@@ -154,18 +153,8 @@ export default function AdminInbox() {
     await loadAll();
   }
 
-  async function setReviewStatus(id: number, status: string) {
-    await fetch(`/api/admin/reviews/${id}`, {
-      method: "PATCH",
-      headers,
-      body: JSON.stringify({ status }),
-    });
-    await loadAll();
-  }
-
   const tabs: Array<{ id: Tab; label: string; icon: any; count: number }> = [
     { id: "applications", label: "Job Applications", icon: Briefcase, count: data.applications?.length || 0 },
-    { id: "reviews", label: "Reader Reviews", icon: Star, count: data.reviews?.length || 0 },
     { id: "comments", label: "Article Comments", icon: MessageCircle, count: data.comments?.length || 0 },
     { id: "ads", label: "Ad Inquiries", icon: Megaphone, count: data.ads?.length || 0 },
     { id: "contacts", label: "Contact Messages", icon: Mail, count: data.contacts?.length || 0 },
@@ -328,45 +317,6 @@ export default function AdminInbox() {
                     </div>
                   </div>
                 )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {tab === "reviews" && (
-          <div className="space-y-3">
-            {data.reviews?.length === 0 && <Empty label="No reviews yet." />}
-            {data.reviews?.map((r: any) => (
-              <div key={r.id} className="bg-zinc-950 border border-zinc-800 rounded-lg p-5">
-                <div className="flex items-start justify-between gap-4 mb-3 flex-wrap">
-                  <div>
-                    {r.title && <h3 className="font-bold text-lg">{r.title}</h3>}
-                    <p className="text-sm text-zinc-400">
-                      {r.name} · <a href={`mailto:${r.email}`} className="text-orange-400 hover:underline">{r.email}</a>
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-zinc-500">
-                    <div className="flex">
-                      {[1,2,3,4,5].map(n => <Star key={n} className={`w-4 h-4 ${n <= r.rating ? "fill-orange-500 text-orange-500" : "text-zinc-700"}`} />)}
-                    </div>
-                    <span>{format(new Date(r.createdAt), "MMM d, yyyy")}</span>
-                  </div>
-                </div>
-                <p className="text-zinc-300 text-sm whitespace-pre-line bg-zinc-900/50 p-3 rounded border border-zinc-800 mb-3">{r.body}</p>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge className={r.status === "approved" ? "bg-green-500/20 text-green-400 border-green-500/30" : r.status === "rejected" ? "bg-red-500/20 text-red-400 border-red-500/30" : "bg-amber-500/20 text-amber-400 border-amber-500/30"}>
-                    {r.status}
-                  </Badge>
-                  {r.status !== "approved" && (
-                    <Button size="sm" onClick={() => setReviewStatus(r.id, "approved")} className="h-7 px-3 text-xs bg-green-600 hover:bg-green-700">Approve</Button>
-                  )}
-                  {r.status !== "rejected" && (
-                    <Button size="sm" variant="outline" onClick={() => setReviewStatus(r.id, "rejected")} className="h-7 px-3 text-xs border-zinc-700">Reject</Button>
-                  )}
-                  <Button size="sm" variant="ghost" onClick={() => del(`/api/admin/reviews/${r.id}`)} className="h-7 px-2 text-zinc-400 hover:text-red-400 ml-auto">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
               </div>
             ))}
           </div>

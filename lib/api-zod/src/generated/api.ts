@@ -38,7 +38,8 @@ export const ListPostsResponseItem = zod.object({
   author: zod.string(),
   authorAvatar: zod.string().optional(),
   authorId: zod.number().optional(),
-  status: zod.string(),
+  status: zod.enum(["draft", "scheduled", "published"]),
+  scheduledFor: zod.coerce.date().nullish(),
   seoTitle: zod.string().optional(),
   seoDescription: zod.string().optional(),
   seoKeywords: zod.array(zod.string()).optional(),
@@ -67,7 +68,8 @@ export const CreatePostBody = zod.object({
   authorId: zod.number().optional(),
   readTime: zod.number().optional(),
   isFeatured: zod.boolean().optional(),
-  status: zod.string().optional(),
+  status: zod.enum(["draft", "scheduled", "published"]).optional(),
+  scheduledFor: zod.coerce.date().nullish(),
   seoTitle: zod.string().optional(),
   seoDescription: zod.string().optional(),
   seoKeywords: zod.array(zod.string()).optional(),
@@ -93,7 +95,8 @@ export const GetPostResponse = zod.object({
   author: zod.string(),
   authorAvatar: zod.string().optional(),
   authorId: zod.number().optional(),
-  status: zod.string(),
+  status: zod.enum(["draft", "scheduled", "published"]),
+  scheduledFor: zod.coerce.date().nullish(),
   seoTitle: zod.string().optional(),
   seoDescription: zod.string().optional(),
   seoKeywords: zod.array(zod.string()).optional(),
@@ -125,7 +128,8 @@ export const UpdatePostBody = zod.object({
   authorId: zod.number().optional(),
   readTime: zod.number().optional(),
   isFeatured: zod.boolean().optional(),
-  status: zod.string().optional(),
+  status: zod.enum(["draft", "scheduled", "published"]).optional(),
+  scheduledFor: zod.coerce.date().nullish(),
   seoTitle: zod.string().optional(),
   seoDescription: zod.string().optional(),
   seoKeywords: zod.array(zod.string()).optional(),
@@ -145,7 +149,8 @@ export const UpdatePostResponse = zod.object({
   author: zod.string(),
   authorAvatar: zod.string().optional(),
   authorId: zod.number().optional(),
-  status: zod.string(),
+  status: zod.enum(["draft", "scheduled", "published"]),
+  scheduledFor: zod.coerce.date().nullish(),
   seoTitle: zod.string().optional(),
   seoDescription: zod.string().optional(),
   seoKeywords: zod.array(zod.string()).optional(),
@@ -183,7 +188,8 @@ export const GetPostBySlugResponse = zod.object({
   author: zod.string(),
   authorAvatar: zod.string().optional(),
   authorId: zod.number().optional(),
-  status: zod.string(),
+  status: zod.enum(["draft", "scheduled", "published"]),
+  scheduledFor: zod.coerce.date().nullish(),
   seoTitle: zod.string().optional(),
   seoDescription: zod.string().optional(),
   seoKeywords: zod.array(zod.string()).optional(),
@@ -210,7 +216,8 @@ export const GetFeaturedPostsResponseItem = zod.object({
   author: zod.string(),
   authorAvatar: zod.string().optional(),
   authorId: zod.number().optional(),
-  status: zod.string(),
+  status: zod.enum(["draft", "scheduled", "published"]),
+  scheduledFor: zod.coerce.date().nullish(),
   seoTitle: zod.string().optional(),
   seoDescription: zod.string().optional(),
   seoKeywords: zod.array(zod.string()).optional(),
@@ -244,7 +251,8 @@ export const GetLatestPostsResponseItem = zod.object({
   author: zod.string(),
   authorAvatar: zod.string().optional(),
   authorId: zod.number().optional(),
-  status: zod.string(),
+  status: zod.enum(["draft", "scheduled", "published"]),
+  scheduledFor: zod.coerce.date().nullish(),
   seoTitle: zod.string().optional(),
   seoDescription: zod.string().optional(),
   seoKeywords: zod.array(zod.string()).optional(),
@@ -272,7 +280,8 @@ export const GetTrendingPostsResponseItem = zod.object({
   author: zod.string(),
   authorAvatar: zod.string().optional(),
   authorId: zod.number().optional(),
-  status: zod.string(),
+  status: zod.enum(["draft", "scheduled", "published"]),
+  scheduledFor: zod.coerce.date().nullish(),
   seoTitle: zod.string().optional(),
   seoDescription: zod.string().optional(),
   seoKeywords: zod.array(zod.string()).optional(),
@@ -636,7 +645,8 @@ export const ListAdminPostsResponseItem = zod.object({
   author: zod.string(),
   authorAvatar: zod.string().optional(),
   authorId: zod.number().optional(),
-  status: zod.string(),
+  status: zod.enum(["draft", "scheduled", "published"]),
+  scheduledFor: zod.coerce.date().nullish(),
   seoTitle: zod.string().optional(),
   seoDescription: zod.string().optional(),
   seoKeywords: zod.array(zod.string()).optional(),
@@ -723,26 +733,101 @@ export const DeleteSubscriberParams = zod.object({
  * @summary Send a test digest to a single email (admin only)
  */
 export const SendTestNewsletterBody = zod.object({
-  email: zod.string(),
+  to: zod.string(),
+  subject: zod.string(),
+  editorNote: zod.string().optional(),
 });
 
 export const SendTestNewsletterResponse = zod.object({
   success: zod.boolean(),
   sent: zod.number().optional(),
+  failed: zod.number().optional(),
   skipped: zod.number().optional(),
+  posts: zod.number().optional(),
   postCount: zod.number().optional(),
   message: zod.string().optional(),
 });
 
 /**
- * @summary Trigger the weekly digest immediately (admin only)
+ * @summary Send the editor-composed digest immediately (admin only)
  */
+export const SendNewsletterNowBody = zod.object({
+  subject: zod.string(),
+  editorNote: zod.string().optional(),
+});
+
 export const SendNewsletterNowResponse = zod.object({
   success: zod.boolean(),
   sent: zod.number().optional(),
+  failed: zod.number().optional(),
   skipped: zod.number().optional(),
+  posts: zod.number().optional(),
   postCount: zod.number().optional(),
   message: zod.string().optional(),
+});
+
+/**
+ * @summary Get this week's posts that will be appended to the digest (admin only)
+ */
+export const GetNewsletterPreviewResponse = zod.object({
+  weekLabel: zod.string(),
+  posts: zod.array(
+    zod.object({
+      id: zod.number(),
+      slug: zod.string(),
+      title: zod.string(),
+      excerpt: zod.string(),
+      category: zod.string(),
+      publishedAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary List all media library items (admin/editor)
+ */
+export const ListMediaResponseItem = zod.object({
+  id: zod.number(),
+  url: zod.string(),
+  filename: zod.string(),
+  mimeType: zod.string().nullish(),
+  size: zod.number().nullish(),
+  uploaderId: zod.number().nullish(),
+  uploaderName: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListMediaResponse = zod.array(ListMediaResponseItem);
+
+/**
+ * @summary Add an image to the media library
+ */
+export const AddMediaBody = zod.object({
+  url: zod.string(),
+  filename: zod.string(),
+  mimeType: zod.string().optional(),
+  size: zod.number().optional(),
+});
+
+/**
+ * @summary Remove an item from the media library (does not delete from storage)
+ */
+export const DeleteMediaParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Send a one-off email (rate-limited to 50/day per editor)
+ */
+export const AdminSendOneOffEmailBody = zod.object({
+  to: zod.string(),
+  subject: zod.string(),
+  body: zod.string(),
+  replyTo: zod.string().optional(),
+});
+
+export const AdminSendOneOffEmailResponse = zod.object({
+  success: zod.boolean(),
+  id: zod.string().optional(),
 });
 
 /**

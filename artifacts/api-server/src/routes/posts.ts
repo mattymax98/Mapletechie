@@ -111,9 +111,25 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
 
   // Determine status based on user permissions. adminAuth always populates
   // req.user before reaching this handler, so the !user branch is gone.
+  // Editors with publish rights (and admins) can choose draft / scheduled / published;
+  // editors without publish rights are forced to draft regardless.
   let status: string;
+  let scheduledFor: Date | null = null;
   if (user?.role === "admin" || user?.canPublishDirectly) {
-    status = body.status === "draft" ? "draft" : "published";
+    if (body.status === "draft") {
+      status = "draft";
+    } else if (body.status === "scheduled" && body.scheduledFor) {
+      const when = new Date(body.scheduledFor);
+      if (!Number.isNaN(when.getTime()) && when.getTime() > Date.now()) {
+        status = "scheduled";
+        scheduledFor = when;
+      } else {
+        // Date in the past or invalid — publish immediately.
+        status = "published";
+      }
+    } else {
+      status = "published";
+    }
   } else {
     status = "draft";
   }
@@ -148,6 +164,7 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     seriesPosition:
       typeof body.seriesPosition === "number" ? body.seriesPosition : null,
     status,
+    scheduledFor,
     seoTitle: cleanText(body.seoTitle),
     seoDescription: cleanText(body.seoDescription),
     seoKeywords: Array.isArray(body.seoKeywords)
@@ -320,6 +337,7 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     "seriesPosition",
     "publishedAt",
     "status",
+    "scheduledFor",
     "seoTitle",
     "seoDescription",
     "seoKeywords",
@@ -342,9 +360,31 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     }
   }
 
-  // Editors without canPublishDirectly cannot publish; force back to draft
+  // Editors without canPublishDirectly cannot publish or schedule;
+  // their changes always land as drafts.
   if (user && user.role !== "admin" && !user.canPublishDirectly) {
-    if (update.status === "published") update.status = "draft";
+    if (update.status === "published" || update.status === "scheduled") {
+      update.status = "draft";
+      update.scheduledFor = null;
+    }
+  }
+
+  // Validate scheduledFor: must be a future timestamp when status='scheduled'.
+  if (update.status === "scheduled") {
+    const raw = update.scheduledFor;
+    const when = raw ? new Date(raw as string | Date) : null;
+    if (!when || Number.isNaN(when.getTime()) || when.getTime() <= Date.now()) {
+      // Auto-promote to published if no valid future time supplied.
+      update.status = "published";
+      update.scheduledFor = null;
+    } else {
+      update.scheduledFor = when;
+    }
+  } else if ("status" in update && update.status !== "scheduled") {
+    // Clear stale scheduledFor when leaving the scheduled state.
+    update.scheduledFor = null;
+  } else if ("scheduledFor" in update && update.scheduledFor) {
+    update.scheduledFor = new Date(update.scheduledFor as string | Date);
   }
 
   // Admin-only fields

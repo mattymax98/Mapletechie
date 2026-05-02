@@ -6,8 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface NewsletterTestBody {
+export interface AdminEmailRequest {
   to: string;
   subject: string;
-  editorNote?: string;
+  body: string;
+  replyTo?: string;
 }

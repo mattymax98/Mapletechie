@@ -24,6 +24,14 @@ export interface HealthStatus {
   status: string;
 }
 
+export type PostStatus = (typeof PostStatus)[keyof typeof PostStatus];
+
+export const PostStatus = {
+  draft: "draft",
+  scheduled: "scheduled",
+  published: "published",
+} as const;
+
 export interface Post {
   id: number;
   title: string;
@@ -36,7 +44,8 @@ export interface Post {
   author: string;
   authorAvatar?: string;
   authorId?: number;
-  status: string;
+  status: PostStatus;
+  scheduledFor?: string | null;
   seoTitle?: string;
   seoDescription?: string;
   seoKeywords?: string[];
@@ -47,6 +56,15 @@ export interface Post {
   publishedAt: string;
   createdAt: string;
 }
+
+export type NewPostInputStatus =
+  (typeof NewPostInputStatus)[keyof typeof NewPostInputStatus];
+
+export const NewPostInputStatus = {
+  draft: "draft",
+  scheduled: "scheduled",
+  published: "published",
+} as const;
 
 export interface NewPostInput {
   title: string;
@@ -61,12 +79,22 @@ export interface NewPostInput {
   authorId?: number;
   readTime?: number;
   isFeatured?: boolean;
-  status?: string;
+  status?: NewPostInputStatus;
+  scheduledFor?: string | null;
   seoTitle?: string;
   seoDescription?: string;
   seoKeywords?: string[];
   ogImage?: string;
 }
+
+export type UpdatePostInputStatus =
+  (typeof UpdatePostInputStatus)[keyof typeof UpdatePostInputStatus];
+
+export const UpdatePostInputStatus = {
+  draft: "draft",
+  scheduled: "scheduled",
+  published: "published",
+} as const;
 
 export interface UpdatePostInput {
   title?: string;
@@ -81,7 +109,8 @@ export interface UpdatePostInput {
   authorId?: number;
   readTime?: number;
   isFeatured?: boolean;
-  status?: string;
+  status?: UpdatePostInputStatus;
+  scheduledFor?: string | null;
   seoTitle?: string;
   seoDescription?: string;
   seoKeywords?: string[];
@@ -197,15 +226,68 @@ export interface NewsletterSubscribeResponse {
 }
 
 export interface NewsletterTestBody {
-  email: string;
+  to: string;
+  subject: string;
+  editorNote?: string;
+}
+
+export interface NewsletterSendNowBody {
+  subject: string;
+  editorNote?: string;
 }
 
 export interface NewsletterActionResponse {
   success: boolean;
   sent?: number;
+  failed?: number;
   skipped?: number;
+  posts?: number;
   postCount?: number;
   message?: string;
+}
+
+export interface NewsletterPreviewPost {
+  id: number;
+  slug: string;
+  title: string;
+  excerpt: string;
+  category: string;
+  publishedAt: string;
+}
+
+export interface NewsletterPreview {
+  weekLabel: string;
+  posts: NewsletterPreviewPost[];
+}
+
+export interface MediaItem {
+  id: number;
+  url: string;
+  filename: string;
+  mimeType?: string | null;
+  size?: number | null;
+  uploaderId?: number | null;
+  uploaderName?: string | null;
+  createdAt: string;
+}
+
+export interface NewMediaInput {
+  url: string;
+  filename: string;
+  mimeType?: string;
+  size?: number;
+}
+
+export interface AdminEmailRequest {
+  to: string;
+  subject: string;
+  body: string;
+  replyTo?: string;
+}
+
+export interface AdminEmailResult {
+  success: boolean;
+  id?: string;
 }
 
 export interface Subscriber {

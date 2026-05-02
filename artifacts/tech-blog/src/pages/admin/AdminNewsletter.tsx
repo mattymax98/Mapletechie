@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Trash2, Send, Mail, RefreshCw } from "lucide-react";
+import { ArrowLeft, Trash2, Send, Mail, RefreshCw, FileText, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-
-const TOKEN_KEY = "mapletechie_admin_token";
+import { adminFetch, adminJson } from "@/lib/adminFetch";
 
 interface Subscriber {
   id: number;
@@ -20,88 +21,106 @@ interface Subscriber {
   lastSentAt?: string | null;
 }
 
+interface PreviewPost {
+  id: number;
+  slug: string;
+  title: string;
+  excerpt: string;
+  category: string;
+  publishedAt: string;
+}
+
 export default function AdminNewsletter() {
   const [subs, setSubs] = useState<Subscriber[] | null>(null);
+  const [preview, setPreview] = useState<{ weekLabel: string; posts: PreviewPost[] } | null>(null);
+  const [subject, setSubject] = useState("");
+  const [editorNote, setEditorNote] = useState("");
   const [testEmail, setTestEmail] = useState("");
   const [busy, setBusy] = useState<"" | "test" | "send" | "load">("");
   const { toast } = useToast();
 
-  const token = typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;
-  const headers = {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-
-  async function load() {
+  async function loadSubs() {
     setBusy("load");
     try {
-      const res = await fetch("/api/admin/subscribers", { headers });
-      if (res.ok) setSubs(await res.json());
-      else setSubs([]);
+      const list = await adminJson<Subscriber[]>("/admin/subscribers");
+      setSubs(list);
+    } catch {
+      setSubs([]);
     } finally {
       setBusy("");
     }
   }
 
+  async function loadPreview() {
+    try {
+      const data = await adminJson<{ weekLabel: string; posts: PreviewPost[] }>("/admin/newsletter/preview");
+      setPreview(data);
+    } catch {
+      setPreview({ weekLabel: "", posts: [] });
+    }
+  }
+
   useEffect(() => {
-    load();
+    loadSubs();
+    loadPreview();
   }, []);
 
   async function del(id: number) {
     if (!confirm("Remove this subscriber? This cannot be undone.")) return;
-    await fetch(`/api/admin/subscribers/${id}`, { method: "DELETE", headers });
-    await load();
+    await adminFetch(`/admin/subscribers/${id}`, { method: "DELETE" });
+    await loadSubs();
   }
 
   async function sendTest() {
-    if (!testEmail.trim()) {
-      toast({ title: "Enter an email", variant: "destructive" });
+    if (!testEmail.trim() || !subject.trim()) {
+      toast({ title: "Subject and test email are required.", variant: "destructive" });
       return;
     }
     setBusy("test");
     try {
-      const res = await fetch("/api/admin/newsletter/test", {
+      const json = await adminJson<{ success: boolean; posts: number }>("/admin/newsletter/test", {
         method: "POST",
-        headers,
-        body: JSON.stringify({ email: testEmail.trim() }),
+        body: JSON.stringify({ to: testEmail.trim(), subject, editorNote }),
       });
-      const json = await res.json();
-      if (json.success) {
-        toast({
-          title: "Test sent",
-          description: `${json.postCount || 0} posts included. Check ${testEmail}.`,
-        });
-      } else {
-        toast({ title: "Failed", description: json.message, variant: "destructive" });
-      }
+      toast({
+        title: "Test sent",
+        description: `${json.posts} posts included. Check ${testEmail}.`,
+      });
+    } catch (err: any) {
+      toast({ title: "Test failed", description: err?.message ?? "Try again", variant: "destructive" });
     } finally {
       setBusy("");
     }
   }
 
   async function sendNow() {
+    if (!subject.trim()) {
+      toast({ title: "Add a subject first.", variant: "destructive" });
+      return;
+    }
+    const active = subs?.filter((s) => s.status === "active").length ?? 0;
     if (
       !confirm(
-        "Send this week's digest to all active subscribers right now? This will not re-send to anyone who already received it.",
+        `Send "${subject}" to ${active} active subscriber${active === 1 ? "" : "s"}? This goes out immediately and cannot be unsent.`,
       )
     )
       return;
     setBusy("send");
     try {
-      const res = await fetch("/api/admin/newsletter/send-now", {
-        method: "POST",
-        headers,
+      const json = await adminJson<{ sent: number; failed: number; posts: number }>(
+        "/admin/newsletter/send-now",
+        {
+          method: "POST",
+          body: JSON.stringify({ subject, editorNote }),
+        },
+      );
+      toast({
+        title: "Digest sent",
+        description: `Sent ${json.sent}, failed ${json.failed} (${json.posts} posts attached).`,
       });
-      const json = await res.json();
-      if (json.success) {
-        toast({
-          title: "Digest sent",
-          description: `Sent to ${json.sent || 0}, skipped ${json.skipped || 0} (no new posts for them).`,
-        });
-        await load();
-      } else {
-        toast({ title: "Failed", description: json.message, variant: "destructive" });
-      }
+      await loadSubs();
+    } catch (err: any) {
+      toast({ title: "Failed", description: err?.message ?? "Try again", variant: "destructive" });
     } finally {
       setBusy("");
     }
@@ -123,7 +142,7 @@ export default function AdminNewsletter() {
           <Button
             variant="outline"
             size="sm"
-            onClick={load}
+            onClick={() => { loadSubs(); loadPreview(); }}
             disabled={busy === "load"}
             className="border-zinc-700 text-zinc-300 hover:text-white gap-2"
           >
@@ -138,8 +157,7 @@ export default function AdminNewsletter() {
             <Mail className="w-6 h-6 text-orange-500" /> Newsletter
           </h1>
           <p className="text-zinc-400 text-sm mt-1">
-            The weekly digest goes out automatically every Friday at 5pm Toronto time. You can also send a test or trigger
-            it manually below.
+            Hand-write the digest, see this week's posts that will be appended, then send to every active subscriber. There is no automatic schedule — nothing leaves the building until you click <strong>Send</strong>.
           </p>
         </div>
 
@@ -149,33 +167,82 @@ export default function AdminNewsletter() {
           <Stat label="Unsubscribed" value={unsub.length} />
         </div>
 
-        <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-5 mb-8">
-          <h2 className="text-lg font-bold mb-3">Send a test digest</h2>
-          <p className="text-zinc-400 text-sm mb-4">
-            Sends the current week's digest (or the latest 3 posts as fallback) to a single email so you can preview it.
-          </p>
-          <div className="flex gap-2 flex-wrap">
+        <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-5 mb-8 space-y-4">
+          <h2 className="text-lg font-bold flex items-center gap-2">
+            <FileText className="w-5 h-5 text-orange-400" /> Compose this week's digest
+          </h2>
+
+          <div className="space-y-2">
+            <Label className="text-zinc-300">Subject *</Label>
             <Input
-              type="email"
-              value={testEmail}
-              onChange={(e) => setTestEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="max-w-sm bg-zinc-900 border-zinc-700"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="The week in tech: Apple's quiet pivot, Tesla's loud one"
+              maxLength={120}
+              className="bg-zinc-900 border-zinc-700"
+              data-testid="input-newsletter-subject"
             />
-            <Button onClick={sendTest} disabled={busy === "test"} className="bg-zinc-800 hover:bg-zinc-700 gap-2">
-              <Send className="w-4 h-4" /> {busy === "test" ? "Sending…" : "Send test"}
+            <p className="text-xs text-zinc-500">{subject.length}/120 — keep it under 60 chars to avoid Gmail truncation.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-zinc-300">Editor's note <span className="text-zinc-500 text-xs font-normal">(optional)</span></Label>
+            <Textarea
+              value={editorNote}
+              onChange={(e) => setEditorNote(e.target.value)}
+              placeholder="A short note from you. 1–3 paragraphs that frame the week."
+              rows={5}
+              className="bg-zinc-900 border-zinc-700 resize-none"
+              data-testid="textarea-editor-note"
+            />
+          </div>
+
+          <div className="border border-zinc-800 rounded p-4 bg-zinc-900/40">
+            <p className="text-xs uppercase tracking-wider text-zinc-400 font-bold mb-3">
+              This week's posts (auto-appended to your note) {preview?.weekLabel && <span className="text-zinc-500 normal-case font-normal">· week of {preview.weekLabel}</span>}
+            </p>
+            {!preview && <p className="text-sm text-zinc-500">Loading…</p>}
+            {preview && preview.posts.length === 0 && (
+              <p className="text-sm text-amber-400/80 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                No posts published in the last 7 days — the digest will go out with just your editor's note.
+              </p>
+            )}
+            {preview && preview.posts.length > 0 && (
+              <ul className="space-y-2 text-sm">
+                {preview.posts.map((p) => (
+                  <li key={p.id} className="flex items-baseline gap-2">
+                    <span className="text-orange-400 text-xs uppercase tracking-wider font-bold shrink-0">{p.category}</span>
+                    <span className="text-zinc-200">{p.title}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-3 pt-2 border-t border-zinc-800">
+            <div className="flex gap-2 flex-1 min-w-[260px]">
+              <Input
+                type="email"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="bg-zinc-900 border-zinc-700"
+                data-testid="input-test-email"
+              />
+              <Button onClick={sendTest} disabled={busy === "test"} variant="outline" className="border-zinc-700 text-zinc-300 gap-2">
+                <Send className="w-4 h-4" /> {busy === "test" ? "Sending…" : "Send test"}
+              </Button>
+            </div>
+            <Button
+              onClick={sendNow}
+              disabled={busy === "send" || !subject.trim()}
+              className="bg-orange-500 hover:bg-orange-600 text-white gap-2 ml-auto"
+              data-testid="button-send-now"
+            >
+              <Send className="w-4 h-4" /> {busy === "send" ? "Sending…" : `Send to ${active.length} subscriber${active.length === 1 ? "" : "s"}`}
             </Button>
           </div>
-        </div>
-
-        <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-5 mb-8">
-          <h2 className="text-lg font-bold mb-2">Send this week's digest now</h2>
-          <p className="text-zinc-400 text-sm mb-4">
-            Skips subscribers who already received the latest posts. Safe to run any time.
-          </p>
-          <Button onClick={sendNow} disabled={busy === "send"} className="bg-orange-500 hover:bg-orange-600 text-white gap-2">
-            <Send className="w-4 h-4" /> {busy === "send" ? "Sending…" : "Send digest now"}
-          </Button>
         </div>
 
         <div>
