@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
+import { useAdmin } from "@/context/AdminContext";
 
 const TOKEN_KEY = "mapletechie_admin_token";
 
@@ -14,13 +15,14 @@ type Tab = "applications" | "reviews" | "ads" | "contacts" | "comments";
 
 type ReplyTemplate = "forward" | "pass" | "clarify" | "blank";
 
+// NOTE: Do NOT include the greeting ("Hi {firstName},") or the sign-off
+// ("Best, {Name}") in these templates — the server-side wrapper adds both.
+// Otherwise the candidate sees "Hi Okorobia, Hi Okorobia," twice.
 const REPLY_TEMPLATES: Record<ReplyTemplate, { label: string; subject: (jobTitle: string) => string; body: (firstName: string, jobTitle: string) => string }> = {
   forward: {
     label: "Move forward",
-    subject: (jt) => `Your application to Mapletechies — next steps`,
-    body: (fn, jt) => `Hi ${fn},
-
-Thanks for applying to the ${jt} role at Mapletechies. I read through your application and I'd like to learn more.
+    subject: () => `Your application to Mapletechies — next steps`,
+    body: (_fn, jt) => `Thanks for applying to the ${jt} role at Mapletechies. I read through your application and I'd like to learn more.
 
 Could you reply with:
 
@@ -33,9 +35,7 @@ No deadline pressure — take the time you need to put your best foot forward.`,
   pass: {
     label: "Pass politely",
     subject: () => `Your application to Mapletechies`,
-    body: (fn, jt) => `Hi ${fn},
-
-Thanks for applying to the ${jt} role at Mapletechies and for the time you put into your submission.
+    body: (_fn, jt) => `Thanks for applying to the ${jt} role at Mapletechies and for the time you put into your submission.
 
 After reviewing the applications we received, we've decided to move forward with other candidates whose backgrounds more closely matched what we're looking for right now. This isn't a reflection of your work — it's a small team and a narrow brief.
 
@@ -46,9 +46,7 @@ Wishing you the best.`,
   clarify: {
     label: "Ask a question",
     subject: () => `Quick question about your Mapletechies application`,
-    body: (fn, jt) => `Hi ${fn},
-
-Thanks for applying to the ${jt} role. Before I take this to the next round, I'd love to clarify one thing: [your question here].
+    body: (_fn, jt) => `Thanks for applying to the ${jt} role. Before I take this to the next round, I'd love to clarify one thing: [your question here].
 
 Once I have that I'll be back to you within a few days.`,
   },
@@ -60,6 +58,9 @@ Once I have that I'll be back to you within a few days.`,
 };
 
 export default function AdminInbox() {
+  const { user: me } = useAdmin();
+  const senderEmail = me?.email && /@mapletechie\.com$/i.test(me.email) ? me.email : "careers@mapletechie.com";
+  const usingPersonalSender = senderEmail !== "careers@mapletechie.com";
   const [tab, setTab] = useState<Tab>("applications");
   const [data, setData] = useState<Record<Tab, any[] | null>>({
     applications: null, reviews: null, ads: null, contacts: null, comments: null,
@@ -252,7 +253,14 @@ export default function AdminInbox() {
                     <Button size="sm" onClick={() => openReply(app, "forward")} className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5 h-8 px-3 text-xs">
                       <Send className="w-3.5 h-3.5" /> Reply via email
                     </Button>
-                    <span className="text-xs text-zinc-500">Sends from <code className="text-zinc-400">careers@mapletechie.com</code></span>
+                    <span className="text-xs text-zinc-500">
+                      Sends from <code className="text-zinc-400">{senderEmail}</code>
+                      {!usingPersonalSender && me?.email && (
+                        <span className="ml-1 text-amber-400/80">
+                          (your profile email isn't @mapletechie.com — using shared inbox)
+                        </span>
+                      )}
+                    </span>
                   </div>
                 ) : (
                   <div className="mt-4 p-4 bg-zinc-900/50 border border-zinc-800 rounded space-y-3">
@@ -302,7 +310,7 @@ export default function AdminInbox() {
                         className="bg-zinc-900 border-zinc-700 mt-1 font-mono text-sm"
                       />
                       <p className="text-xs text-zinc-500 mt-1">
-                        {replyMessage.length} / 10,000 characters · Sent from <code className="text-zinc-400">careers@mapletechie.com</code>, replies route back to your account email (or the careers inbox if none is set).
+                        {replyMessage.length} / 10,000 · Greeting (<em>"Hi {(app.name || "").split(" ")[0] || "there"},"</em>) and sign-off (<em>"Best, {me?.displayName || "You"}"</em>) are added automatically — write the body only. Sends from <code className="text-zinc-400">{senderEmail}</code>{me?.email && me.email !== senderEmail ? <>, replies go to <code className="text-zinc-400">{me.email}</code></> : null}.
                       </p>
                     </div>
 
