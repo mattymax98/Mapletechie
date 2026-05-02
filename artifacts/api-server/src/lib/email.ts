@@ -4,6 +4,10 @@ const RESEND_API = "https://api.resend.com/emails";
 
 export const NEWSLETTER_FROM =
   process.env["NEWSLETTER_FROM"] || "Mapletechies <newsletter@mapletechie.com>";
+export const CAREERS_FROM =
+  process.env["CAREERS_FROM"] || "Mapletechies Careers <careers@mapletechie.com>";
+export const CAREERS_REPLY_TO =
+  process.env["CAREERS_REPLY_TO"] || "matthew@mapletechie.com";
 export const SITE_URL =
   process.env["SITE_URL"] || "https://mapletechie.com";
 

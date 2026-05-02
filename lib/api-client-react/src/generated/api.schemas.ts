@@ -331,6 +331,19 @@ export interface ApplicationBody {
   coverLetter: string;
 }
 
+export interface ApplicationReplyBody {
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  subject: string;
+  /**
+   * @minLength 1
+   * @maxLength 10000
+   */
+  message: string;
+}
+
 export interface Review {
   id: number;
   name: string;
@@ -462,4 +475,9 @@ export type ListCommentsParams = {
 
 export type AdminListAuditLogsParams = {
   limit?: number;
+};
+
+export type AdminReplyToApplication200 = {
+  success: boolean;
+  message?: string;
 };

@@ -1117,6 +1117,24 @@ export const AdminDeleteApplicationParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const AdminReplyToApplicationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const adminReplyToApplicationBodySubjectMax = 200;
+
+export const adminReplyToApplicationBodyMessageMax = 10000;
+
+export const AdminReplyToApplicationBody = zod.object({
+  subject: zod.string().min(1).max(adminReplyToApplicationBodySubjectMax),
+  message: zod.string().min(1).max(adminReplyToApplicationBodyMessageMax),
+});
+
+export const AdminReplyToApplicationResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string().optional(),
+});
+
 export const AdminListReviewsResponseItem = zod.object({
   id: zod.number(),
   name: zod.string(),
