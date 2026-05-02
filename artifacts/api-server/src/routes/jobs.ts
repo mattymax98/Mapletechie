@@ -204,10 +204,22 @@ router.post("/admin/applications/:id/reply", adminAuth, requirePermission("jobs"
   const jobTitle = job?.title || "your application";
 
   const senderName = req.user?.displayName || req.user?.username || "The Mapletechies Team";
-  // Route candidate replies back to the admin who sent the message when we have
-  // their personal email, so a reply doesn't get misrouted to a different inbox
-  // than the one signed at the bottom. Fall back to the global careers inbox.
-  const replyTo = req.user?.email && req.user.email.includes("@") ? req.user.email : CAREERS_REPLY_TO;
+
+  // Determine which @-address sends this email.
+  // Resend will only accept addresses on a verified domain — currently mapletechie.com.
+  // - If the editor has set an @mapletechie.com email on their profile, send AS them
+  //   (e.g. "Sarah Lee <sarah@mapletechie.com>"). DKIM signs cleanly.
+  // - Otherwise fall back to the shared careers@ mailbox.
+  // Reply-To always points back to the editor's email (mapletechie or otherwise) when
+  // available, so candidate replies route to the right person.
+  const userEmail = req.user?.email?.trim() || "";
+  const isMapletechieEmail = /@mapletechie\.com$/i.test(userEmail);
+  // Strip characters that would break the "Display <email>" header form.
+  const safeDisplay = senderName.replace(/[<>"\r\n,]/g, " ").trim() || "Mapletechies";
+  const fromAddress = isMapletechieEmail
+    ? `${safeDisplay} <${userEmail}>`
+    : CAREERS_FROM;
+  const replyTo = userEmail && userEmail.includes("@") ? userEmail : CAREERS_REPLY_TO;
 
   if (!process.env["RESEND_API_KEY"]) {
     res.status(503).json({
@@ -219,7 +231,7 @@ router.post("/admin/applications/:id/reply", adminAuth, requirePermission("jobs"
 
   try {
     await sendEmail({
-      from: CAREERS_FROM,
+      from: fromAddress,
       replyTo,
       to: app.email,
       subject,
@@ -228,7 +240,12 @@ router.post("/admin/applications/:id/reply", adminAuth, requirePermission("jobs"
     });
   } catch (err: any) {
     req.log.error({ err: err?.message || String(err), applicationId: id }, "Failed to send application reply");
-    res.status(502).json({ error: "Email send failed", message: err?.message || "Resend rejected the message" });
+    res.status(502).json({
+      error: "Email send failed",
+      message:
+        err?.message ||
+        "Resend rejected the message. If you set a custom email on your editor profile, make sure it ends with @mapletechie.com.",
+    });
     return;
   }
 
@@ -245,7 +262,15 @@ router.post("/admin/applications/:id/reply", adminAuth, requirePermission("jobs"
     entityType: "application",
     entityId: id,
     summary: `Replied to ${app.name} <${app.email}> re: ${jobTitle}`,
-    details: { subject, messagePreview, messageLength: message.length, to: app.email, replyTo, jobId: app.jobId },
+    details: {
+      subject,
+      messagePreview,
+      messageLength: message.length,
+      to: app.email,
+      from: fromAddress,
+      replyTo,
+      jobId: app.jobId,
+    },
   });
 
   res.json({ success: true, message: "Reply sent." });

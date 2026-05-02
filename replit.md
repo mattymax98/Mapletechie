@@ -69,6 +69,7 @@ Dashboard, Posts (CRUD), Users, Profile, **Jobs** (`/admin/jobs` — full CRUD),
 - Admin page `/admin/newsletter` (admin-only): stats, send test, send now, subscriber list with delete.
 - Shared email helper: `artifacts/api-server/src/lib/email.ts` exports `sendEmail`, `NEWSLETTER_FROM`, `CAREERS_FROM` (default `Mapletechies Careers <careers@mapletechie.com>`), `CAREERS_REPLY_TO` (default `matthew@mapletechie.com`), `SITE_URL`. All sender/reply-to addresses are env-overridable.
 - Careers reply: admin endpoint `POST /api/admin/applications/:id/reply` (jobs permission). Sends a branded HTML email via Resend, sets `applications.status = "replied"`, writes an audit log, returns 503 if `RESEND_API_KEY` is missing. UI lives inline on the Inbox → Applications tab in `AdminInbox.tsx` with template chips (forward / pass / clarify / blank).
+- Per-editor sender: if the logged-in editor's `users.email` ends with `@mapletechie.com`, the reply is sent **as that editor** (`"Display Name <sarah@mapletechie.com>"`); otherwise it falls back to `CAREERS_FROM`. Reply-To always points to the editor's email when set, otherwise `CAREERS_REPLY_TO`. The HTML/text wrapper auto-prepends `Hi {firstName},` and appends the `Best, {Display}` sign-off — chip templates must NOT include either, or the candidate sees a duplicate greeting.
 
 ## SEO Setup
 
