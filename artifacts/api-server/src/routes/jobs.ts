@@ -205,21 +205,11 @@ router.post("/admin/applications/:id/reply", adminAuth, requirePermission("jobs"
 
   const senderName = req.user?.displayName || req.user?.username || "The Mapletechies Team";
 
-  // Determine which @-address sends this email.
-  // Resend will only accept addresses on a verified domain — currently mapletechie.com.
-  // - If the editor has set an @mapletechie.com email on their profile, send AS them
-  //   (e.g. "Sarah Lee <sarah@mapletechie.com>"). DKIM signs cleanly.
-  // - Otherwise fall back to the shared careers@ mailbox.
-  // Reply-To always points back to the editor's email (mapletechie or otherwise) when
-  // available, so candidate replies route to the right person.
-  const userEmail = req.user?.email?.trim() || "";
-  const isMapletechieEmail = /@mapletechie\.com$/i.test(userEmail);
-  // Strip characters that would break the "Display <email>" header form.
-  const safeDisplay = senderName.replace(/[<>"\r\n,]/g, " ").trim() || "Mapletechies";
-  const fromAddress = isMapletechieEmail
-    ? `${safeDisplay} <${userEmail}>`
-    : CAREERS_FROM;
-  const replyTo = userEmail && userEmail.includes("@") ? userEmail : CAREERS_REPLY_TO;
+  // Careers replies always send from and reply to the shared careers@ mailbox so
+  // every editor replying to a candidate stays in one shared thread/inbox. The
+  // sender's name appears in the sign-off only.
+  const fromAddress = CAREERS_FROM;
+  const replyTo = CAREERS_REPLY_TO;
 
   if (!process.env["RESEND_API_KEY"]) {
     res.status(503).json({
@@ -242,9 +232,7 @@ router.post("/admin/applications/:id/reply", adminAuth, requirePermission("jobs"
     req.log.error({ err: err?.message || String(err), applicationId: id }, "Failed to send application reply");
     res.status(502).json({
       error: "Email send failed",
-      message:
-        err?.message ||
-        "Resend rejected the message. If you set a custom email on your editor profile, make sure it ends with @mapletechie.com.",
+      message: err?.message || "Resend rejected the message",
     });
     return;
   }

@@ -4,7 +4,7 @@ import { useAdmin } from "@/context/AdminContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlusCircle, Pencil, Trash2, LogOut, Eye, ExternalLink, Sparkles, Users, User as UserIcon, CheckCircle2, ShoppingBag, Inbox, Briefcase, Mail, ClipboardList, BarChart3 } from "lucide-react";
+import { PlusCircle, Pencil, Trash2, LogOut, Eye, ExternalLink, Sparkles, Users, User as UserIcon, CheckCircle2, ShoppingBag, Inbox, Briefcase, Mail, ClipboardList, BarChart3, Send } from "lucide-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -34,6 +34,7 @@ export default function AdminDashboard() {
   const canJobs = isAdmin || !!u?.canManageJobs;
   const canInbox = isAdmin || !!u?.canViewInbox;
   const canEditors = isAdmin || !!u?.canManageEditors;
+  const canSendEmail = isAdmin || !!u?.canSendEmail;
 
   const deleteMutation = useDeletePost({
     mutation: {
@@ -77,6 +78,7 @@ export default function AdminDashboard() {
             {canJobs && <NavIcon href="/admin/jobs" Icon={Briefcase} label="Jobs" />}
             {canInbox && <NavIcon href="/admin/inbox" Icon={Inbox} label="Inbox" />}
             {isAdmin && <NavIcon href="/admin/newsletter" Icon={Mail} label="Newsletter" />}
+            {canSendEmail && <NavIcon href="/admin/send-email" Icon={Send} label="Send Email" />}
             <NavIcon href="/admin/analytics" Icon={BarChart3} label="Analytics" />
             {isAdmin && <NavIcon href="/admin/audit" Icon={ClipboardList} label="Activity" />}
             <NavIcon href="/" Icon={ExternalLink} label="View Site" />

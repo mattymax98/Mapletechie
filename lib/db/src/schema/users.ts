@@ -19,6 +19,7 @@ export const usersTable = pgTable("users", {
   canManageJobs: boolean("can_manage_jobs").notNull().default(false),
   canViewInbox: boolean("can_view_inbox").notNull().default(false),
   canManageEditors: boolean("can_manage_editors").notNull().default(false),
+  canSendEmail: boolean("can_send_email").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
