@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
-import { useAdmin } from "@/context/AdminContext";
 
 const TOKEN_KEY = "mapletechie_admin_token";
 
@@ -58,9 +57,6 @@ Once I have that I'll be back to you within a few days.`,
 };
 
 export default function AdminInbox() {
-  const { user: me } = useAdmin();
-  const senderEmail = me?.email && /@mapletechie\.com$/i.test(me.email) ? me.email : "careers@mapletechie.com";
-  const usingPersonalSender = senderEmail !== "careers@mapletechie.com";
   const [tab, setTab] = useState<Tab>("applications");
   const [data, setData] = useState<Record<Tab, any[] | null>>({
     applications: null, reviews: null, ads: null, contacts: null, comments: null,
@@ -254,12 +250,7 @@ export default function AdminInbox() {
                       <Send className="w-3.5 h-3.5" /> Reply via email
                     </Button>
                     <span className="text-xs text-zinc-500">
-                      Sends from <code className="text-zinc-400">{senderEmail}</code>
-                      {!usingPersonalSender && me?.email && (
-                        <span className="ml-1 text-amber-400/80">
-                          (your profile email isn't @mapletechie.com — using shared inbox)
-                        </span>
-                      )}
+                      Sends from the shared <code className="text-zinc-400">careers@mapletechie.com</code> mailbox.
                     </span>
                   </div>
                 ) : (
@@ -310,7 +301,7 @@ export default function AdminInbox() {
                         className="bg-zinc-900 border-zinc-700 mt-1 font-mono text-sm"
                       />
                       <p className="text-xs text-zinc-500 mt-1">
-                        {replyMessage.length} / 10,000 · Greeting (<em>"Hi {(app.name || "").split(" ")[0] || "there"},"</em>) and sign-off (<em>"Best, {me?.displayName || "You"}"</em>) are added automatically — write the body only. Sends from <code className="text-zinc-400">{senderEmail}</code>{me?.email && me.email !== senderEmail ? <>, replies go to <code className="text-zinc-400">{me.email}</code></> : null}.
+                        {replyMessage.length} / 10,000 · The greeting (<em>"Hi {(app.name || "").split(" ")[0] || "there"},"</em>) and sign-off are added automatically — write only the body. Sends from <code className="text-zinc-400">careers@mapletechie.com</code>; replies land in the shared careers inbox.
                       </p>
                     </div>
 

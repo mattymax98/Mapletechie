@@ -38,6 +38,7 @@ interface UserRow {
   canManageJobs?: boolean;
   canViewInbox?: boolean;
   canManageEditors?: boolean;
+  canSendEmail?: boolean;
   isActive: boolean;
 }
 
@@ -59,6 +60,7 @@ const emptyForm = {
   canManageJobs: false,
   canViewInbox: false,
   canManageEditors: false,
+  canSendEmail: false,
   isActive: true,
 };
 
@@ -121,6 +123,7 @@ export default function AdminUsers() {
       canManageJobs: !!u.canManageJobs,
       canViewInbox: !!u.canViewInbox,
       canManageEditors: !!u.canManageEditors,
+      canSendEmail: !!u.canSendEmail,
       isActive: u.isActive,
     });
     setError("");
@@ -332,6 +335,12 @@ export default function AdminUsers() {
                     desc="Add or remove other editors. Cannot modify your admin account."
                     checked={form.canManageEditors}
                     onChange={(v) => setForm({ ...form, canManageEditors: v })}
+                  />
+                  <PermissionToggle
+                    label="Send Email"
+                    desc="Compose and send emails from the admin panel as their own @mapletechie.com address."
+                    checked={form.canSendEmail}
+                    onChange={(v) => setForm({ ...form, canSendEmail: v })}
                   />
                 </div>
               )}

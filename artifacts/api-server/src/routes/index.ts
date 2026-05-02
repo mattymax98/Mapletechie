@@ -23,6 +23,7 @@ import newsletterRouter from "./newsletter";
 import auditRouter from "./audit";
 import commentsRouter from "./comments";
 import analyticsRouter from "./analytics";
+import sendEmailRouter from "./sendEmail";
 
 const router: IRouter = Router();
 
@@ -50,5 +51,6 @@ router.use(newsletterRouter);
 router.use(auditRouter);
 router.use(commentsRouter);
 router.use(analyticsRouter);
+router.use(sendEmailRouter);
 
 export default router;

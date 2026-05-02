@@ -15,6 +15,11 @@ export interface AdminUser {
   websiteUrl?: string;
   role: string;
   canPublishDirectly: boolean;
+  canManageShop?: boolean;
+  canManageJobs?: boolean;
+  canViewInbox?: boolean;
+  canManageEditors?: boolean;
+  canSendEmail?: boolean;
   isActive: boolean;
 }
 
