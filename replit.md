@@ -69,7 +69,15 @@ Dashboard, Posts (CRUD), Users, Profile, **Jobs** (`/admin/jobs` — full CRUD),
 - Admin page `/admin/newsletter` (admin-only): stats, send test, send now, subscriber list with delete.
 - Shared email helper: `artifacts/api-server/src/lib/email.ts` exports `sendEmail`, `NEWSLETTER_FROM`, `CAREERS_FROM` (default `Mapletechies Careers <careers@mapletechie.com>`), `CAREERS_REPLY_TO` (default `matthew@mapletechie.com`), `SITE_URL`. All sender/reply-to addresses are env-overridable.
 - Careers reply: admin endpoint `POST /api/admin/applications/:id/reply` (jobs permission). Sends a branded HTML email via Resend, sets `applications.status = "replied"`, writes an audit log, returns 503 if `RESEND_API_KEY` is missing. UI lives inline on the Inbox → Applications tab in `AdminInbox.tsx` with template chips (forward / pass / clarify / blank).
-- Per-editor sender: if the logged-in editor's `users.email` ends with `@mapletechie.com`, the reply is sent **as that editor** (`"Display Name <sarah@mapletechie.com>"`); otherwise it falls back to `CAREERS_FROM`. Reply-To always points to the editor's email when set, otherwise `CAREERS_REPLY_TO`. The HTML/text wrapper auto-prepends `Hi {firstName},` and appends the `Best, {Display}` sign-off — chip templates must NOT include either, or the candidate sees a duplicate greeting.
+- Careers replies are intentionally always sent **from and replied-to** the shared `careers@` mailbox so all editors see/handle one shared candidate thread. The replying editor's name appears only in the sign-off. The HTML/text wrapper auto-prepends `Hi {firstName},` and appends the `Best, {Display}` sign-off — chip templates must NOT include either, or the candidate sees a duplicate greeting.
+
+### General-purpose Send Email (admin compose)
+
+- Permission flag: `users.canSendEmail` (boolean, default false). Founding admin always has it; other editors must be granted it via Admin → Manage Editors → "Send Email" toggle (admin-only toggle).
+- Permission key: `"email"` in `requirePermission(...)`; mapped to `req.user.canSendEmail` in `adminAuth.ts`.
+- Endpoint: `POST /api/admin/send-email` in `artifacts/api-server/src/routes/sendEmail.ts`. Validates `to` (1–25 emails, comma/semicolon/newline-separated), optional `cc`/`bcc`, `subject` (≤200), `message` (≤20,000). Returns 400 if the editor's `users.email` is not an `@mapletechie.com` address (Resend only sends from our verified domain). Sends via `sendEmail` as `"Display Name <user.email>"` with `replyTo = user.email`. Audit-logs as `email.sent` with recipients + 200-char message preview. CC/BCC are passed through Resend `headers`.
+- UI: `artifacts/tech-blog/src/pages/admin/AdminSendEmail.tsx` at `/admin/send-email`. Compose form with To/CC/BCC/Subject/Message, char counters, 4 starter templates (intro, press request, partnership, blank), plain-text body (line breaks preserved). Banners warn if the editor lacks an `@mapletechie.com` profile email. Nav icon (Send) appears in `AdminDashboard.tsx` for `isAdmin || canSendEmail`.
+- Editor onboarding: route the new `name@mapletechie.com` address in Cloudflare Email Routing (forward to their personal inbox + verify), then set that address on their profile in Manage Editors.
 
 ## SEO Setup
 
