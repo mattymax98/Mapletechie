@@ -1007,6 +1007,33 @@ paths:
         "204":
           description: Deleted
 
+  /admin/applications/{id}/reply:
+    post:
+      operationId: adminReplyToApplication
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationReplyBody"
+      responses:
+        "200":
+          description: Reply sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                required: [success]
+
   /admin/reviews:
     get:
       operationId: adminListReviews
@@ -1754,6 +1781,13 @@ components:
         portfolioUrl: { type: string, nullable: true }
         coverLetter: { type: string }
       required: [name, email, coverLetter]
+
+    ApplicationReplyBody:
+      type: object
+      properties:
+        subject: { type: string, minLength: 1, maxLength: 200 }
+        message: { type: string, minLength: 1, maxLength: 10000 }
+      required: [subject, message]
 
     Review:
       type: object

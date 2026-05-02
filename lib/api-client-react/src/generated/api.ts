@@ -21,8 +21,10 @@ import type {
   AdInquiryBody,
   AdminListAuditLogsParams,
   AdminLogout200,
+  AdminReplyToApplication200,
   Application,
   ApplicationBody,
+  ApplicationReplyBody,
   AuditLog,
   AuthorProfile,
   Category,
@@ -4581,6 +4583,91 @@ export const useAdminDeleteApplication = <
   TContext
 > => {
   return useMutation(getAdminDeleteApplicationMutationOptions(options));
+};
+
+export const getAdminReplyToApplicationUrl = (id: number) => {
+  return `/api/admin/applications/${id}/reply`;
+};
+
+export const adminReplyToApplication = async (
+  id: number,
+  applicationReplyBody: ApplicationReplyBody,
+  options?: RequestInit,
+): Promise<AdminReplyToApplication200> => {
+  return customFetch<AdminReplyToApplication200>(
+    getAdminReplyToApplicationUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(applicationReplyBody),
+    },
+  );
+};
+
+export const getAdminReplyToApplicationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminReplyToApplication>>,
+    TError,
+    { id: number; data: BodyType<ApplicationReplyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminReplyToApplication>>,
+  TError,
+  { id: number; data: BodyType<ApplicationReplyBody> },
+  TContext
+> => {
+  const mutationKey = ["adminReplyToApplication"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminReplyToApplication>>,
+    { id: number; data: BodyType<ApplicationReplyBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminReplyToApplication(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminReplyToApplicationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminReplyToApplication>>
+>;
+export type AdminReplyToApplicationMutationBody =
+  BodyType<ApplicationReplyBody>;
+export type AdminReplyToApplicationMutationError = ErrorType<unknown>;
+
+export const useAdminReplyToApplication = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminReplyToApplication>>,
+    TError,
+    { id: number; data: BodyType<ApplicationReplyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminReplyToApplication>>,
+  TError,
+  { id: number; data: BodyType<ApplicationReplyBody> },
+  TContext
+> => {
+  return useMutation(getAdminReplyToApplicationMutationOptions(options));
 };
 
 export const getAdminListReviewsUrl = () => {
