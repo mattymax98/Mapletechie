@@ -79,9 +79,10 @@ router.put("/admin/me", adminAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  // Same rule as PUT /admin/users/:id — email is derived from username and
+  // cannot be edited from the profile page.
   const allowed = [
     "displayName",
-    "email",
     "bio",
     "avatarUrl",
     "twitterUrl",
@@ -124,7 +125,6 @@ router.post("/admin/users", adminAuth, requirePermission("editors"), async (req,
     username,
     password,
     displayName,
-    email,
     bio,
     avatarUrl,
     twitterUrl,
@@ -154,7 +154,11 @@ router.post("/admin/users", adminAuth, requirePermission("editors"), async (req,
     return;
   }
 
-  const cleanUsername = username.trim().toLowerCase();
+  const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
+  if (cleanUsername.length < 2) {
+    res.status(400).json({ error: "Username must contain only letters, numbers, dots, dashes, or underscores" });
+    return;
+  }
   const [existing] = await db.select().from(usersTable).where(eq(usersTable.username, cleanUsername));
   if (existing) {
     res.status(409).json({ error: "Username already taken" });
@@ -162,6 +166,9 @@ router.post("/admin/users", adminAuth, requirePermission("editors"), async (req,
   }
 
   const passwordHash = await hashPassword(password);
+  // Editor email is *always* derived from the username so the Resend From:
+  // header passes domain verification. Bodies cannot override it.
+  const derivedEmail = `${cleanUsername}@mapletechie.com`;
 
   const [user] = await db
     .insert(usersTable)
@@ -169,7 +176,7 @@ router.post("/admin/users", adminAuth, requirePermission("editors"), async (req,
       username: cleanUsername,
       passwordHash,
       displayName: displayName.trim(),
-      email: email ?? null,
+      email: derivedEmail,
       bio: bio ?? null,
       avatarUrl: avatarUrl ?? null,
       twitterUrl: twitterUrl ?? null,
@@ -209,9 +216,11 @@ router.put("/admin/users/:id", adminAuth, requirePermission("editors"), async (r
     return;
   }
 
+  // NOTE: `email` deliberately omitted — emails are derived from username
+  // and immutable. Updating username/email after creation is unsupported;
+  // delete + recreate the editor if you need to change them.
   const baseAllowed = [
     "displayName",
-    "email",
     "bio",
     "avatarUrl",
     "twitterUrl",

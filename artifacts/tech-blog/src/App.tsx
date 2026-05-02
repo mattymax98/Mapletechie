@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { useEffect } from "react";
 import { trackPageView } from "@/lib/tracker";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -12,7 +12,6 @@ import { Layout } from "@/components/layout/Layout";
 import Home from "@/pages/home";
 import BlogIndex from "@/pages/blog-index";
 import BlogPost from "@/pages/blog-post";
-import Shop from "@/pages/shop";
 import Contact from "@/pages/contact";
 import CategoryIndex from "@/pages/category-index";
 import About from "@/pages/about";
@@ -23,17 +22,16 @@ import AdminEditPost from "@/pages/admin/AdminEditPost";
 import AdminGenerate from "@/pages/admin/AdminGenerate";
 import AdminUsers from "@/pages/admin/AdminUsers";
 import AdminProfile from "@/pages/admin/AdminProfile";
-import AdminProducts from "@/pages/admin/AdminProducts";
 import AdminInbox from "@/pages/admin/AdminInbox";
 import AdminNewsletter from "@/pages/admin/AdminNewsletter";
 import AdminJobs from "@/pages/admin/AdminJobs";
 import AdminAudit from "@/pages/admin/AdminAudit";
 import AdminAnalytics from "@/pages/admin/AdminAnalytics";
 import AdminSendEmail from "@/pages/admin/AdminSendEmail";
+import AdminMedia from "@/pages/admin/AdminMedia";
 import Careers from "@/pages/careers";
 import CareerDetail from "@/pages/career-detail";
 import Advertise from "@/pages/advertise";
-import Reviews from "@/pages/reviews";
 import SearchPage from "@/pages/search";
 import AuthorPage from "@/pages/author";
 import TagPage from "@/pages/tag";
@@ -66,7 +64,7 @@ function Router() {
       {/* Admin routes — no Layout wrapper */}
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin/generate">
-        <AdminGuard><AdminGenerate /></AdminGuard>
+        <AdminGuard adminOnly><AdminGenerate /></AdminGuard>
       </Route>
       <Route path="/admin/users">
         <AdminGuard><AdminUsers /></AdminGuard>
@@ -74,8 +72,8 @@ function Router() {
       <Route path="/admin/profile">
         <AdminGuard><AdminProfile /></AdminGuard>
       </Route>
-      <Route path="/admin/products">
-        <AdminGuard><AdminProducts /></AdminGuard>
+      <Route path="/admin/media">
+        <AdminGuard><AdminMedia /></AdminGuard>
       </Route>
       <Route path="/admin/inbox">
         <AdminGuard><AdminInbox /></AdminGuard>
@@ -112,13 +110,11 @@ function Router() {
             <Route path="/" component={Home} />
             <Route path="/blog" component={BlogIndex} />
             <Route path="/blog/:slug" component={BlogPost} />
-            <Route path="/shop" component={Shop} />
             <Route path="/contact" component={Contact} />
             <Route path="/about" component={About} />
             <Route path="/careers" component={Careers} />
             <Route path="/careers/:slug" component={CareerDetail} />
             <Route path="/advertise" component={Advertise} />
-            <Route path="/reviews" component={Reviews} />
             <Route path="/search" component={SearchPage} />
             <Route path="/privacy" component={Privacy} />
             <Route path="/terms" component={Terms} />

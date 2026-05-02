@@ -8,15 +8,21 @@ import { useAdmin } from "@/context/AdminContext";
  * `<meta name="robots" content="noindex, nofollow">` tag so even if Googlebot
  * (or any crawler) reaches an /admin URL, it will not be added to the index.
  */
-export function AdminGuard({ children }: { children: ReactNode }) {
-  const { isAdmin } = useAdmin();
+/**
+ * `adminOnly` requires the *admin* role specifically (founding admin), not
+ * just any signed-in editor. Use it for pages that bypass per-editor
+ * permission checks like /admin/generate.
+ */
+export function AdminGuard({ children, adminOnly = false }: { children: ReactNode; adminOnly?: boolean }) {
+  const { isAdmin, user } = useAdmin();
+  const allowed = adminOnly ? user?.role === "admin" : isAdmin;
   return (
     <>
       <Helmet>
         <meta name="robots" content="noindex, nofollow" />
         <meta name="googlebot" content="noindex, nofollow" />
       </Helmet>
-      {isAdmin ? <>{children}</> : <Redirect to="/admin/login" />}
+      {allowed ? <>{children}</> : <Redirect to="/admin/login" />}
     </>
   );
 }

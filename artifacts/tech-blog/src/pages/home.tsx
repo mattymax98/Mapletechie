@@ -1,4 +1,4 @@
-import { useGetFeaturedPosts, useGetLatestPosts, useGetTrendingPosts, useGetFeaturedProducts, useGetFeaturedEditor } from "@workspace/api-client-react";
+import { useGetFeaturedPosts, useGetLatestPosts, useGetTrendingPosts, useGetFeaturedEditor } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { SEO } from "@/components/SEO";
 import { Link } from "wouter";
@@ -20,7 +20,6 @@ export default function Home() {
   const { data: featuredPosts, isLoading: loadingFeatured } = useGetFeaturedPosts();
   const { data: latestPosts, isLoading: loadingLatest } = useGetLatestPosts({ limit: 6 });
   const { data: trendingPosts, isLoading: loadingTrending } = useGetTrendingPosts();
-  const { data: products } = useGetFeaturedProducts();
   const { data: editor } = useGetFeaturedEditor();
   const { data: discussedPosts, isLoading: loadingDiscussed } = useQuery({
     queryKey: ["posts", "most-discussed"],
@@ -405,31 +404,6 @@ export default function Home() {
               </div>
             )}
 
-            {products && products.length > 0 && (
-              <div>
-                <h3 className="text-lg font-black uppercase tracking-tight flex items-center gap-2 mb-6 border-b border-border pb-4">
-                  <span className="w-3 h-3 bg-accent block" />
-                  Featured Gear
-                </h3>
-                <div className="flex flex-col gap-4">
-                  {products.slice(0, 3).map((product, idx) => (
-                    <Link key={product.id} href="/shop" className="group flex items-center gap-4 bg-card border border-border p-3 hover:border-primary transition-colors">
-                      <div className="w-20 h-20 bg-muted shrink-0 flex items-center justify-center p-2">
-                         <img loading="lazy" decoding="async" src={product.imageUrl || `/images/product-${idx + 1}.png`} alt={product.name} className="max-w-full max-h-full object-contain mix-blend-multiply dark:mix-blend-normal" />
-                      </div>
-                      <div className="flex-1">
-                        {product.badge && <Badge variant="outline" className="text-[10px] rounded-none uppercase tracking-wider mb-1 text-primary border-primary">{product.badge}</Badge>}
-                        <h4 className="font-bold text-sm line-clamp-1 group-hover:text-primary transition-colors">{product.name}</h4>
-                        <div className="text-sm font-bold mt-1">${product.price.toFixed(2)} <span className="text-[10px] text-muted-foreground font-normal uppercase tracking-wider">{product.currency || 'CAD'}</span></div>
-                      </div>
-                    </Link>
-                  ))}
-                  <Button asChild variant="outline" className="w-full rounded-none font-bold uppercase tracking-wider mt-2">
-                    <Link href="/shop">View All Gear</Link>
-                  </Button>
-                </div>
-              </div>
-            )}
           </aside>
         </div>
       </div>

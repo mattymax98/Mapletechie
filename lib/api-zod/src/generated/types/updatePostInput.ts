@@ -5,6 +5,7 @@
  * API specification for Tech Blog
  * OpenAPI spec version: 0.1.0
  */
+import type { UpdatePostInputStatus } from "./updatePostInputStatus";
 
 export interface UpdatePostInput {
   title?: string;
@@ -19,7 +20,8 @@ export interface UpdatePostInput {
   authorId?: number;
   readTime?: number;
   isFeatured?: boolean;
-  status?: string;
+  status?: UpdatePostInputStatus;
+  scheduledFor?: Date | null;
   seoTitle?: string;
   seoDescription?: string;
   seoKeywords?: string[];

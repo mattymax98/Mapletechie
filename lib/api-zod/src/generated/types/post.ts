@@ -5,6 +5,7 @@
  * API specification for Tech Blog
  * OpenAPI spec version: 0.1.0
  */
+import type { PostStatus } from "./postStatus";
 
 export interface Post {
   id: number;
@@ -18,7 +19,8 @@ export interface Post {
   author: string;
   authorAvatar?: string;
   authorId?: number;
-  status: string;
+  status: PostStatus;
+  scheduledFor?: Date | null;
   seoTitle?: string;
   seoDescription?: string;
   seoKeywords?: string[];

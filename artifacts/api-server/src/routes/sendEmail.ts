@@ -2,6 +2,7 @@ import { Router } from "express";
 import { adminAuth, requirePermission } from "../middlewares/adminAuth";
 import { sendEmail, escapeHtml, SITE_URL } from "../lib/email";
 import { writeAuditLog } from "../lib/audit";
+import { emailSendLimiter } from "../middlewares/rateLimit";
 
 const router = Router();
 
@@ -61,6 +62,7 @@ router.post(
   "/admin/send-email",
   adminAuth,
   requirePermission("email"),
+  emailSendLimiter,
   async (req, res): Promise<void> => {
     const senderEmail = (req.user?.email || "").trim();
     const senderName = req.user?.displayName || req.user?.username || "Mapletechies";

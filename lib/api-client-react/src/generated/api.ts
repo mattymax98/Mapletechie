@@ -19,6 +19,8 @@ import type {
 import type {
   AdInquiry,
   AdInquiryBody,
+  AdminEmailRequest,
+  AdminEmailResult,
   AdminListAuditLogsParams,
   AdminLogout200,
   AdminReplyToApplication200,
@@ -42,10 +44,14 @@ import type {
   ListProductsParams,
   LoginBody,
   LoginResponse,
+  MediaItem,
   NewCommentInput,
+  NewMediaInput,
   NewPostInput,
   NewUserInput,
   NewsletterActionResponse,
+  NewsletterPreview,
+  NewsletterSendNowBody,
   NewsletterSubscribeBody,
   NewsletterSubscribeResponse,
   NewsletterTestBody,
@@ -2707,18 +2713,21 @@ export const useSendTestNewsletter = <
 };
 
 /**
- * @summary Trigger the weekly digest immediately (admin only)
+ * @summary Send the editor-composed digest immediately (admin only)
  */
 export const getSendNewsletterNowUrl = () => {
   return `/api/admin/newsletter/send-now`;
 };
 
 export const sendNewsletterNow = async (
+  newsletterSendNowBody: NewsletterSendNowBody,
   options?: RequestInit,
 ): Promise<NewsletterActionResponse> => {
   return customFetch<NewsletterActionResponse>(getSendNewsletterNowUrl(), {
     ...options,
     method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(newsletterSendNowBody),
   });
 };
 
@@ -2729,14 +2738,14 @@ export const getSendNewsletterNowMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof sendNewsletterNow>>,
     TError,
-    void,
+    { data: BodyType<NewsletterSendNowBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof sendNewsletterNow>>,
   TError,
-  void,
+  { data: BodyType<NewsletterSendNowBody> },
   TContext
 > => {
   const mutationKey = ["sendNewsletterNow"];
@@ -2750,9 +2759,11 @@ export const getSendNewsletterNowMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof sendNewsletterNow>>,
-    void
-  > = () => {
-    return sendNewsletterNow(requestOptions);
+    { data: BodyType<NewsletterSendNowBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return sendNewsletterNow(data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -2761,11 +2772,11 @@ export const getSendNewsletterNowMutationOptions = <
 export type SendNewsletterNowMutationResult = NonNullable<
   Awaited<ReturnType<typeof sendNewsletterNow>>
 >;
-
+export type SendNewsletterNowMutationBody = BodyType<NewsletterSendNowBody>;
 export type SendNewsletterNowMutationError = ErrorType<unknown>;
 
 /**
- * @summary Trigger the weekly digest immediately (admin only)
+ * @summary Send the editor-composed digest immediately (admin only)
  */
 export const useSendNewsletterNow = <
   TError = ErrorType<unknown>,
@@ -2774,17 +2785,415 @@ export const useSendNewsletterNow = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof sendNewsletterNow>>,
     TError,
-    void,
+    { data: BodyType<NewsletterSendNowBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof sendNewsletterNow>>,
   TError,
-  void,
+  { data: BodyType<NewsletterSendNowBody> },
   TContext
 > => {
   return useMutation(getSendNewsletterNowMutationOptions(options));
+};
+
+/**
+ * @summary Get this week's posts that will be appended to the digest (admin only)
+ */
+export const getGetNewsletterPreviewUrl = () => {
+  return `/api/admin/newsletter/preview`;
+};
+
+export const getNewsletterPreview = async (
+  options?: RequestInit,
+): Promise<NewsletterPreview> => {
+  return customFetch<NewsletterPreview>(getGetNewsletterPreviewUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetNewsletterPreviewQueryKey = () => {
+  return [`/api/admin/newsletter/preview`] as const;
+};
+
+export const getGetNewsletterPreviewQueryOptions = <
+  TData = Awaited<ReturnType<typeof getNewsletterPreview>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getNewsletterPreview>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetNewsletterPreviewQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getNewsletterPreview>>
+  > = ({ signal }) => getNewsletterPreview({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getNewsletterPreview>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetNewsletterPreviewQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getNewsletterPreview>>
+>;
+export type GetNewsletterPreviewQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get this week's posts that will be appended to the digest (admin only)
+ */
+
+export function useGetNewsletterPreview<
+  TData = Awaited<ReturnType<typeof getNewsletterPreview>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getNewsletterPreview>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetNewsletterPreviewQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all media library items (admin/editor)
+ */
+export const getListMediaUrl = () => {
+  return `/api/admin/media`;
+};
+
+export const listMedia = async (
+  options?: RequestInit,
+): Promise<MediaItem[]> => {
+  return customFetch<MediaItem[]>(getListMediaUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMediaQueryKey = () => {
+  return [`/api/admin/media`] as const;
+};
+
+export const getListMediaQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMedia>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listMedia>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMediaQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listMedia>>> = ({
+    signal,
+  }) => listMedia({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMedia>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMediaQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMedia>>
+>;
+export type ListMediaQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all media library items (admin/editor)
+ */
+
+export function useListMedia<
+  TData = Awaited<ReturnType<typeof listMedia>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listMedia>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMediaQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add an image to the media library
+ */
+export const getAddMediaUrl = () => {
+  return `/api/admin/media`;
+};
+
+export const addMedia = async (
+  newMediaInput: NewMediaInput,
+  options?: RequestInit,
+): Promise<MediaItem> => {
+  return customFetch<MediaItem>(getAddMediaUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(newMediaInput),
+  });
+};
+
+export const getAddMediaMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addMedia>>,
+    TError,
+    { data: BodyType<NewMediaInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addMedia>>,
+  TError,
+  { data: BodyType<NewMediaInput> },
+  TContext
+> => {
+  const mutationKey = ["addMedia"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addMedia>>,
+    { data: BodyType<NewMediaInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return addMedia(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddMediaMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addMedia>>
+>;
+export type AddMediaMutationBody = BodyType<NewMediaInput>;
+export type AddMediaMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add an image to the media library
+ */
+export const useAddMedia = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addMedia>>,
+    TError,
+    { data: BodyType<NewMediaInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addMedia>>,
+  TError,
+  { data: BodyType<NewMediaInput> },
+  TContext
+> => {
+  return useMutation(getAddMediaMutationOptions(options));
+};
+
+/**
+ * @summary Remove an item from the media library (does not delete from storage)
+ */
+export const getDeleteMediaUrl = (id: number) => {
+  return `/api/admin/media/${id}`;
+};
+
+export const deleteMedia = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteMediaUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteMediaMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMedia>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMedia>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteMedia"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMedia>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteMedia(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteMediaMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMedia>>
+>;
+
+export type DeleteMediaMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Remove an item from the media library (does not delete from storage)
+ */
+export const useDeleteMedia = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMedia>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMedia>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteMediaMutationOptions(options));
+};
+
+/**
+ * @summary Send a one-off email (rate-limited to 50/day per editor)
+ */
+export const getAdminSendOneOffEmailUrl = () => {
+  return `/api/admin/send-email`;
+};
+
+export const adminSendOneOffEmail = async (
+  adminEmailRequest: AdminEmailRequest,
+  options?: RequestInit,
+): Promise<AdminEmailResult> => {
+  return customFetch<AdminEmailResult>(getAdminSendOneOffEmailUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminEmailRequest),
+  });
+};
+
+export const getAdminSendOneOffEmailMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminSendOneOffEmail>>,
+    TError,
+    { data: BodyType<AdminEmailRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminSendOneOffEmail>>,
+  TError,
+  { data: BodyType<AdminEmailRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminSendOneOffEmail"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminSendOneOffEmail>>,
+    { data: BodyType<AdminEmailRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminSendOneOffEmail(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminSendOneOffEmailMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminSendOneOffEmail>>
+>;
+export type AdminSendOneOffEmailMutationBody = BodyType<AdminEmailRequest>;
+export type AdminSendOneOffEmailMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Send a one-off email (rate-limited to 50/day per editor)
+ */
+export const useAdminSendOneOffEmail = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminSendOneOffEmail>>,
+    TError,
+    { data: BodyType<AdminEmailRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminSendOneOffEmail>>,
+  TError,
+  { data: BodyType<AdminEmailRequest> },
+  TContext
+> => {
+  return useMutation(getAdminSendOneOffEmailMutationOptions(options));
 };
 
 /**

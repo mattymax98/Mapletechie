@@ -11,3 +11,4 @@ export * from "./auditLogs";
 export * from "./comments";
 export * from "./pageViews";
 export * from "./series";
+export * from "./media";

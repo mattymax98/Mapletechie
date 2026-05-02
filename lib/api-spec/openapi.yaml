@@ -607,7 +607,13 @@ paths:
     post:
       operationId: sendNewsletterNow
       tags: [newsletter]
-      summary: Trigger the weekly digest immediately (admin only)
+      summary: Send the editor-composed digest immediately (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewsletterSendNowBody"
       responses:
         "200":
           description: Sent
@@ -615,6 +621,85 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NewsletterActionResponse"
+
+  /admin/newsletter/preview:
+    get:
+      operationId: getNewsletterPreview
+      tags: [newsletter]
+      summary: Get this week's posts that will be appended to the digest (admin only)
+      responses:
+        "200":
+          description: Preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewsletterPreview"
+
+  /admin/media:
+    get:
+      operationId: listMedia
+      tags: [admin]
+      summary: List all media library items (admin/editor)
+      responses:
+        "200":
+          description: Media items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MediaItem"
+    post:
+      operationId: addMedia
+      tags: [admin]
+      summary: Add an image to the media library
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewMediaInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaItem"
+
+  /admin/media/{id}:
+    delete:
+      operationId: deleteMedia
+      tags: [admin]
+      summary: Remove an item from the media library (does not delete from storage)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /admin/send-email:
+    post:
+      operationId: adminSendOneOffEmail
+      tags: [admin]
+      summary: Send a one-off email (rate-limited to 50/day per editor)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminEmailRequest"
+      responses:
+        "200":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminEmailResult"
 
   /editors/featured:
     get:
@@ -1184,6 +1269,11 @@ components:
           type: integer
         status:
           type: string
+          enum: [draft, scheduled, published]
+        scheduledFor:
+          type: string
+          format: date-time
+          nullable: true
         seoTitle:
           type: string
         seoDescription:
@@ -1252,6 +1342,11 @@ components:
           type: boolean
         status:
           type: string
+          enum: [draft, scheduled, published]
+        scheduledFor:
+          type: string
+          format: date-time
+          nullable: true
         seoTitle:
           type: string
         seoDescription:
@@ -1299,6 +1394,11 @@ components:
           type: boolean
         status:
           type: string
+          enum: [draft, scheduled, published]
+        scheduledFor:
+          type: string
+          format: date-time
+          nullable: true
         seoTitle:
           type: string
         seoDescription:
@@ -1538,10 +1638,25 @@ components:
     NewsletterTestBody:
       type: object
       properties:
-        email:
+        to:
+          type: string
+        subject:
+          type: string
+        editorNote:
           type: string
       required:
-        - email
+        - to
+        - subject
+
+    NewsletterSendNowBody:
+      type: object
+      properties:
+        subject:
+          type: string
+        editorNote:
+          type: string
+      required:
+        - subject
 
     NewsletterActionResponse:
       type: object
@@ -1550,11 +1665,123 @@ components:
           type: boolean
         sent:
           type: integer
+        failed:
+          type: integer
         skipped:
+          type: integer
+        posts:
           type: integer
         postCount:
           type: integer
         message:
+          type: string
+      required:
+        - success
+
+    NewsletterPreview:
+      type: object
+      properties:
+        weekLabel:
+          type: string
+        posts:
+          type: array
+          items:
+            $ref: "#/components/schemas/NewsletterPreviewPost"
+      required:
+        - weekLabel
+        - posts
+
+    NewsletterPreviewPost:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        title:
+          type: string
+        excerpt:
+          type: string
+        category:
+          type: string
+        publishedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - slug
+        - title
+        - excerpt
+        - category
+        - publishedAt
+
+    MediaItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        url:
+          type: string
+        filename:
+          type: string
+        mimeType:
+          type: string
+          nullable: true
+        size:
+          type: integer
+          nullable: true
+        uploaderId:
+          type: integer
+          nullable: true
+        uploaderName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - url
+        - filename
+        - createdAt
+
+    NewMediaInput:
+      type: object
+      properties:
+        url:
+          type: string
+        filename:
+          type: string
+        mimeType:
+          type: string
+        size:
+          type: integer
+      required:
+        - url
+        - filename
+
+    AdminEmailRequest:
+      type: object
+      properties:
+        to:
+          type: string
+        subject:
+          type: string
+        body:
+          type: string
+        replyTo:
+          type: string
+      required:
+        - to
+        - subject
+        - body
+
+    AdminEmailResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        id:
           type: string
       required:
         - success

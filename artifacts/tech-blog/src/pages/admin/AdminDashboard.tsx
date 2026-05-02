@@ -4,7 +4,7 @@ import { useAdmin } from "@/context/AdminContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlusCircle, Pencil, Trash2, LogOut, Eye, ExternalLink, Sparkles, Users, User as UserIcon, CheckCircle2, ShoppingBag, Inbox, Briefcase, Mail, ClipboardList, BarChart3, Send } from "lucide-react";
+import { PlusCircle, Pencil, Trash2, LogOut, Eye, ExternalLink, Sparkles, Users, User as UserIcon, CheckCircle2, Inbox, Briefcase, Mail, ClipboardList, BarChart3, Send, Image as ImageIcon, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -30,7 +30,6 @@ export default function AdminDashboard() {
   const queryClient = useQueryClient();
   const isAdmin = user?.role === "admin";
   const u = user as any;
-  const canShop = isAdmin || !!u?.canManageShop;
   const canJobs = isAdmin || !!u?.canManageJobs;
   const canInbox = isAdmin || !!u?.canViewInbox;
   const canEditors = isAdmin || !!u?.canManageEditors;
@@ -74,7 +73,7 @@ export default function AdminDashboard() {
           <nav className="flex items-center gap-0.5 min-w-0">
             <NavIcon href="/admin/profile" Icon={UserIcon} label="Profile" />
             {canEditors && <NavIcon href="/admin/users" Icon={Users} label="Editors" />}
-            {canShop && <NavIcon href="/admin/products" Icon={ShoppingBag} label="Shop" />}
+            <NavIcon href="/admin/media" Icon={ImageIcon} label="Media" />
             {canJobs && <NavIcon href="/admin/jobs" Icon={Briefcase} label="Jobs" />}
             {canInbox && <NavIcon href="/admin/inbox" Icon={Inbox} label="Inbox" />}
             {isAdmin && <NavIcon href="/admin/newsletter" Icon={Mail} label="Newsletter" />}
@@ -106,12 +105,14 @@ export default function AdminDashboard() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/admin/generate">
-              <Button variant="outline" className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10 hover:text-orange-300 gap-2">
-                <Sparkles className="w-4 h-4" />
-                Generate with AI
-              </Button>
-            </Link>
+            {isAdmin && (
+              <Link href="/admin/generate">
+                <Button variant="outline" className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10 hover:text-orange-300 gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  Generate with AI
+                </Button>
+              </Link>
+            )}
             <Link href="/admin/posts/new">
               <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2">
                 <PlusCircle className="w-4 h-4" />
@@ -156,6 +157,11 @@ export default function AdminDashboard() {
                     <td className="px-4 py-3">
                       {post.status === "draft" ? (
                         <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs">Draft</Badge>
+                      ) : post.status === "scheduled" ? (
+                        <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs gap-1">
+                          <Clock className="w-3 h-3" />
+                          {post.scheduledFor ? format(new Date(post.scheduledFor), "MMM d, h:mma") : "Scheduled"}
+                        </Badge>
                       ) : (
                         <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">Published</Badge>
                       )}

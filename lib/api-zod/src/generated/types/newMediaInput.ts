@@ -6,8 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface NewsletterTestBody {
-  to: string;
-  subject: string;
-  editorNote?: string;
+export interface NewMediaInput {
+  url: string;
+  filename: string;
+  mimeType?: string;
+  size?: number;
 }

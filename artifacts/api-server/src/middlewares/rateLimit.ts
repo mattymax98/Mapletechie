@@ -1,4 +1,5 @@
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import type { Request } from "express";
 
 /**
  * Rate limiters for public-write endpoints. Uses the per-IP key from
@@ -76,4 +77,26 @@ export const aiGenerateLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   message: json429("AI generation"),
+});
+
+/**
+ * Per-editor outbound email limit: 50 messages / 24 hours, keyed on the
+ * authenticated user id. Falls back to IP if (somehow) the user isn't on the
+ * request — which should never happen because adminAuth runs first.
+ */
+export const emailSendLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  limit: 50,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: (req: Request, res) => {
+    const id = req.user?.id;
+    if (id) return `user:${id}`;
+    return `ip:${ipKeyGenerator(req.ip ?? "")}`;
+  },
+  message: {
+    error: "Daily email limit reached",
+    message:
+      "You've hit the 50-email-per-day limit for this account. Try again in 24 hours, or ask the founding admin to bump the limit.",
+  },
 });

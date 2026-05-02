@@ -6,12 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface NewsletterActionResponse {
+export interface AdminEmailResult {
   success: boolean;
-  sent?: number;
-  failed?: number;
-  skipped?: number;
-  posts?: number;
-  postCount?: number;
-  message?: string;
+  id?: string;
 }

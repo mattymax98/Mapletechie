@@ -67,7 +67,6 @@ export function Footer() {
               <li><Link href="/category/gadgets" className="hover:text-primary transition-colors">Gadgets</Link></li>
               <li><Link href="/category/cybersecurity" className="hover:text-primary transition-colors">Cybersecurity</Link></li>
               <li><Link href="/category/electric-vehicles" className="hover:text-primary transition-colors">Electric Vehicles</Link></li>
-              <li><Link href="/reviews" className="hover:text-primary transition-colors">Reader Reviews</Link></li>
             </ul>
           </div>
           

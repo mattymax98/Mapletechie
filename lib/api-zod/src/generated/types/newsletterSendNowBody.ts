@@ -6,8 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface NewsletterTestBody {
-  to: string;
+export interface NewsletterSendNowBody {
   subject: string;
   editorNote?: string;
 }

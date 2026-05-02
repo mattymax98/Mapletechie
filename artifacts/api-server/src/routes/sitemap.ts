@@ -26,7 +26,6 @@ router.get("/sitemap.xml", async (req, res): Promise<void> => {
   const staticPages: SitemapEntry[] = [
     { loc: `${domain}/`, priority: "1.0", changefreq: "daily" },
     { loc: `${domain}/blog`, priority: "0.9", changefreq: "daily" },
-    { loc: `${domain}/shop`, priority: "0.7", changefreq: "weekly" },
     { loc: `${domain}/contact`, priority: "0.5", changefreq: "monthly" },
   ];
 
