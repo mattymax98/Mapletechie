@@ -114,20 +114,23 @@ router.post(
     }
 
     const movedCount = await db.transaction(async (tx) => {
+      // Move via category_id, the source of truth. The BEFORE UPDATE trigger
+      // on posts.category_id rewrites posts.category text from the new
+      // category's name automatically.
       const moved = await tx
         .update(postsTable)
-        .set({ category: to })
-        .where(eq(postsTable.category, from))
+        .set({ categoryId: toCat.id })
+        .where(eq(postsTable.categoryId, fromCat.id))
         .returning({ id: postsTable.id });
 
       const [{ count: fromCount }] = await tx
         .select({ count: sql<number>`count(*)::int` })
         .from(postsTable)
-        .where(eq(postsTable.category, from));
+        .where(eq(postsTable.categoryId, fromCat.id));
       const [{ count: toCount }] = await tx
         .select({ count: sql<number>`count(*)::int` })
         .from(postsTable)
-        .where(eq(postsTable.category, to));
+        .where(eq(postsTable.categoryId, toCat.id));
 
       await tx
         .update(categoriesTable)
@@ -216,23 +219,14 @@ router.put(
     }
 
     try {
-      // posts.category stores the category NAME as text. If we rename, cascade
-      // the rename to every post that referenced the old name so the public
-      // /category/:slug page and dashboards keep working.
-      const [updated] = await db.transaction(async (tx) => {
-        const [row] = await tx
-          .update(categoriesTable)
-          .set(updates)
-          .where(eq(categoriesTable.id, id))
-          .returning();
-        if (renamedFrom && updates.name) {
-          await tx
-            .update(postsTable)
-            .set({ category: updates.name as string })
-            .where(eq(postsTable.category, renamedFrom));
-        }
-        return [row];
-      });
+      // The `categories_cascade_rename` Postgres trigger updates posts.category
+      // text whenever categories.name changes, so we no longer need a manual
+      // UPDATE posts cascade here — the FK + trigger handle it atomically.
+      const [updated] = await db
+        .update(categoriesTable)
+        .set(updates)
+        .where(eq(categoriesTable.id, id))
+        .returning();
       req.log.info(
         { categoryId: id, updates: Object.keys(updates), renamedFrom },
         "category.updated",
@@ -267,13 +261,14 @@ router.delete(
       return;
     }
 
-    // Block deletion if any post still uses this category. The category column
-    // is plain text, so dropping the row would orphan those posts under a
-    // dead category page.
+    // Block deletion if any post still references this category via the FK.
+    // The DB-level ON DELETE RESTRICT would also reject the delete (raising
+    // 23503), but checking explicitly lets us return a friendly error with
+    // the exact post count.
     const [{ count }] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(postsTable)
-      .where(eq(postsTable.category, existing.name));
+      .where(eq(postsTable.categoryId, existing.id));
     if (count > 0) {
       res.status(409).json({
         error: `Cannot delete: ${count} post(s) still use this category. Reassign them first.`,

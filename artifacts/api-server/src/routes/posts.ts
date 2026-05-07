@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, postsTable, usersTable, pageViewsTable, commentsTable } from "@workspace/db";
-import { eq, desc, and, gte, sql, inArray } from "drizzle-orm";
+import { db, postsTable, usersTable, pageViewsTable, commentsTable, categoriesTable } from "@workspace/db";
+import { eq, desc, and, gte, sql, inArray, or } from "drizzle-orm";
 import {
   ListPostsQueryParams,
   GetPostParams,
@@ -58,6 +58,36 @@ function cleanText(input: unknown): string | null {
   return sanitizeHtml(trimmed, { allowedTags: [], allowedAttributes: {} });
 }
 
+/**
+ * Resolve an arbitrary category input (id, slug, or name) to a categoriesTable
+ * row. Returns null if no match — callers should reject the request in that
+ * case so the FK on posts.category_id is never violated.
+ */
+async function resolveCategory(input: unknown) {
+  if (input == null) return null;
+  if (typeof input === "number" && Number.isFinite(input)) {
+    const [row] = await db.select().from(categoriesTable).where(eq(categoriesTable.id, input));
+    return row ?? null;
+  }
+  const text = String(input).trim();
+  if (!text) return null;
+  const asNum = Number(text);
+  if (Number.isInteger(asNum) && asNum > 0) {
+    const [row] = await db.select().from(categoriesTable).where(eq(categoriesTable.id, asNum));
+    if (row) return row;
+  }
+  const [row] = await db
+    .select()
+    .from(categoriesTable)
+    .where(
+      or(
+        eq(categoriesTable.slug, text),
+        sql`lower(${categoriesTable.name}) = lower(${text})`,
+      ),
+    );
+  return row ?? null;
+}
+
 router.get("/posts", async (req, res): Promise<void> => {
   const parsed = ListPostsQueryParams.safeParse(req.query);
   if (!parsed.success) {
@@ -67,7 +97,16 @@ router.get("/posts", async (req, res): Promise<void> => {
   const { category, limit = 20, offset = 0 } = parsed.data;
 
   const conditions = [eq(postsTable.status, "published")];
-  if (category) conditions.push(eq(postsTable.category, category));
+  if (category) {
+    // Frontend passes a category slug here. Resolve it to an id so the
+    // filter goes through the FK rather than the brittle text cache.
+    const cat = await resolveCategory(category);
+    if (!cat) {
+      res.json([]);
+      return;
+    }
+    conditions.push(eq(postsTable.categoryId, cat.id));
+  }
 
   const posts = await db
     .select()
@@ -103,10 +142,25 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
   // Required fields
   const required = ["title", "slug", "content", "category"];
   for (const f of required) {
-    if (typeof body[f] !== "string" || !body[f].trim()) {
+    const v = body[f];
+    if (f === "category") {
+      if (v == null || (typeof v !== "string" && typeof v !== "number") || (typeof v === "string" && !v.trim())) {
+        res.status(400).json({ error: `Missing field: ${f}` });
+        return;
+      }
+    } else if (typeof v !== "string" || !v.trim()) {
       res.status(400).json({ error: `Missing field: ${f}` });
       return;
     }
+  }
+
+  // Resolve category to a real categories.id. Reject unknown categories so
+  // the FK invariant on posts.category_id always holds — no more "leftover
+  // posts on import" recreating stale categories.
+  const resolvedCategory = await resolveCategory(body.category);
+  if (!resolvedCategory) {
+    res.status(400).json({ error: `Unknown category: ${String(body.category)}` });
+    return;
   }
 
   // Determine status based on user permissions. adminAuth always populates
@@ -153,7 +207,8 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     excerpt: typeof body.excerpt === "string" && body.excerpt.trim() ? body.excerpt.trim() : "",
     content: cleanHtml(body.content),
     coverImage: body.coverImage ?? null,
-    category: String(body.category),
+    category: resolvedCategory.name,
+    categoryId: resolvedCategory.id,
     tags: Array.isArray(body.tags) ? body.tags : [],
     author: assignedAuthorName,
     authorAvatar: assignedAuthorAvatar,
@@ -355,6 +410,17 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
       update[k] = Array.isArray(body[k])
         ? body[k].map((v: unknown) => cleanText(v)).filter((v: unknown): v is string => !!v)
         : [];
+    } else if (k === "category") {
+      // Resolve the incoming category (slug/name/id) to a real row and
+      // write the FK. The Postgres trigger overwrites the text column
+      // from the resolved name, but we set both for clarity.
+      const resolved = await resolveCategory(body[k]);
+      if (!resolved) {
+        res.status(400).json({ error: `Unknown category: ${String(body[k])}` });
+        return;
+      }
+      update.category = resolved.name;
+      update.categoryId = resolved.id;
     } else {
       update[k] = body[k];
     }

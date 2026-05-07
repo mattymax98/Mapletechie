@@ -233,11 +233,12 @@ router.get("/og/category/:slug.png", async (req, res) => {
       res.status(404).end();
       return;
     }
-    // Pick the most recent post in this category for the backdrop.
+    // Pick the most recent post in this category for the backdrop. Filter
+    // through the FK so this works regardless of cached text capitalization.
     const [recent] = await db
       .select()
       .from(postsTable)
-      .where(and(eq(postsTable.category, slug), eq(postsTable.status, "published")))
+      .where(and(eq(postsTable.categoryId, cat.id), eq(postsTable.status, "published")))
       .orderBy(desc(postsTable.publishedAt))
       .limit(1);
 
