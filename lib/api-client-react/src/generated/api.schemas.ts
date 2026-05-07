@@ -319,6 +319,14 @@ export interface Category {
   color?: string;
 }
 
+export interface CategoryInput {
+  name?: string;
+  slug?: string;
+  description?: string | null;
+  /** 6-digit hex color like */
+  color?: string | null;
+}
+
 export interface Product {
   id: number;
   name: string;

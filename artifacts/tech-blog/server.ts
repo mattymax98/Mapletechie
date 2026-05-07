@@ -198,8 +198,9 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
     post.seoDescription?.trim() || post.excerpt?.trim() || DEFAULT_DESCRIPTION;
   const image = absUrl(post.ogImage || post.coverImage, DEFAULT_OG_IMAGE);
 
+  const seoTitleFull = `${title} | Mapletechie`;
   const seo = buildSeoBlock({
-    title: `${title} | Mapletechie`,
+    title: seoTitleFull,
     description,
     image,
     url,
@@ -211,10 +212,45 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
     tags: post.tags,
   });
 
+  // schema.org JSON-LD for Google rich results. react-helmet-async ALSO emits
+  // this client-side for human visitors, but Googlebot does not always render
+  // JS during indexing — emitting it server-side as well guarantees it lands
+  // in the initial HTML for crawlers.
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    headline: title,
+    description,
+    image: [image],
+    datePublished: post.publishedAt ?? undefined,
+    dateModified: post.updatedAt ?? post.publishedAt ?? undefined,
+    author: post.author
+      ? { "@type": "Person", name: post.author }
+      : undefined,
+    publisher: {
+      "@type": "Organization",
+      name: "Mapletechie",
+      logo: {
+        "@type": "ImageObject",
+        url: `${SITE_URL}/logo-favicon-v2.png`,
+      },
+    },
+    mainEntityOfPage: { "@type": "WebPage", "@id": url },
+    articleSection: post.category ?? undefined,
+    keywords: post.tags?.join(", "),
+  };
+  // JSON.stringify escapes quotes; we additionally escape `<` so the JSON
+  // body cannot prematurely close the surrounding <script> tag.
+  const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
+  const seoWithJsonLd = seo.replace(
+    "<!-- SEO_HEAD_END -->",
+    `    <script type="application/ld+json">${jsonLdSafe}</script>\n    <!-- SEO_HEAD_END -->`,
+  );
+
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Vary", "User-Agent");
   res.setHeader("Cache-Control", "public, max-age=300, s-maxage=300");
-  res.send(renderHtml(seo));
+  res.send(renderHtml(seoWithJsonLd));
 });
 
 interface CategoryRecord {
