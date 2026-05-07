@@ -288,12 +288,38 @@ app.get(/^\/category\/([^\/]+)\/?$/, async (req, res, next) => {
   res.send(renderHtml(seo));
 });
 
+// Routes the SPA actually handles (mirrors artifacts/tech-blog/src/App.tsx).
+// Anything that doesn't match returns the SPA shell with HTTP 404 so search
+// engines stop indexing typo / stale-backlink URLs like /news-updates as if
+// they were real pages. The React app still mounts and renders <NotFound />
+// for human visitors — only the status code changes.
+const KNOWN_SPA_ROUTES: RegExp[] = [
+  /^\/$/,
+  /^\/blog\/?$/,
+  /^\/blog\/[^/]+\/?$/,
+  /^\/category\/[^/]+\/?$/,
+  /^\/author\/[^/]+\/?$/,
+  /^\/tag\/[^/]+\/?$/,
+  /^\/series\/[^/]+\/?$/,
+  /^\/careers\/?$/,
+  /^\/careers\/[^/]+\/?$/,
+  /^\/(about|contact|advertise|search|privacy|terms|latest)\/?$/,
+  /^\/admin(\/.*)?$/,
+];
+
+function isKnownSpaRoute(pathname: string): boolean {
+  return KNOWN_SPA_ROUTES.some((re) => re.test(pathname));
+}
+
 // SPA fallback — every other GET returns the unmodified index.html so React Router takes over.
 // Vary: User-Agent because /blog/* and /category/* above branch on UA, so any shared
 // cache MUST key by UA to avoid serving a crawler-rendered HTML to a real browser (or vice versa).
-app.get(/^(?!\/api\/).*/, (_req, res) => {
+app.get(/^(?!\/api\/).*/, (req, res) => {
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Vary", "User-Agent");
+  if (!isKnownSpaRoute(req.path)) {
+    res.status(404);
+  }
   res.send(indexHtml);
 });
 
