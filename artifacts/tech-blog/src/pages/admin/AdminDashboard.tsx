@@ -1,10 +1,18 @@
 import { Link } from "wouter";
-import { useListAdminPosts, useDeletePost, useUpdatePost } from "@workspace/api-client-react";
+import { useListAdminPosts, useDeletePost, useUpdatePost, useListCategories } from "@workspace/api-client-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAdmin } from "@/context/AdminContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlusCircle, Pencil, Trash2, LogOut, Eye, ExternalLink, Sparkles, Users, User as UserIcon, CheckCircle2, Inbox, Briefcase, Mail, ClipboardList, BarChart3, Send, Image as ImageIcon, Clock, Tag } from "lucide-react";
+import { PlusCircle, Pencil, Trash2, LogOut, Eye, ExternalLink, Sparkles, Users, User as UserIcon, CheckCircle2, Inbox, Briefcase, Mail, ClipboardList, BarChart3, Send, Image as ImageIcon, Clock, Tag, FolderInput, Check } from "lucide-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -27,6 +35,7 @@ function NavIcon({ href, Icon, label }: { href: string; Icon: any; label: string
 export default function AdminDashboard() {
   const { logout, user } = useAdmin();
   const { data: posts, isLoading } = useListAdminPosts();
+  const { data: categories } = useListCategories();
   const queryClient = useQueryClient();
   const isAdmin = user?.role === "admin";
   const u = user as any;
@@ -56,6 +65,10 @@ export default function AdminDashboard() {
 
   const handleApprove = (id: number) => {
     updateMutation.mutate({ id, data: { status: "published", publishedAt: new Date().toISOString() } as any });
+  };
+
+  const handleChangeCategory = (id: number, categorySlug: string) => {
+    updateMutation.mutate({ id, data: { category: categorySlug } as any });
   };
 
   return (
@@ -174,7 +187,39 @@ export default function AdminDashboard() {
                       </td>
                     )}
                     <td className="px-4 py-3 hidden md:table-cell">
-                      <span className="text-xs text-zinc-400 capitalize">{post.category}</span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            className="text-xs text-zinc-400 capitalize hover:text-white inline-flex items-center gap-1 disabled:opacity-50"
+                            title="Change category"
+                            disabled={updateMutation.isPending || !categories?.length}
+                          >
+                            <span>{post.category}</span>
+                            <FolderInput className="w-3 h-3 opacity-60" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="bg-zinc-950 border-zinc-800 text-white max-h-80 overflow-y-auto">
+                          <DropdownMenuLabel className="text-xs text-zinc-400">Move to category</DropdownMenuLabel>
+                          <DropdownMenuSeparator className="bg-zinc-800" />
+                          {categories?.map((c: any) => {
+                            const isCurrent =
+                              c.id === post.categoryId ||
+                              c.slug === post.category ||
+                              c.name?.toLowerCase() === String(post.category ?? "").toLowerCase();
+                            return (
+                              <DropdownMenuItem
+                                key={c.id}
+                                disabled={isCurrent}
+                                onClick={() => !isCurrent && handleChangeCategory(post.id, c.slug)}
+                                className="text-xs cursor-pointer focus:bg-zinc-900 focus:text-white data-[disabled]:opacity-60"
+                              >
+                                <span className="flex-1">{c.name}</span>
+                                {isCurrent && <Check className="w-3 h-3 text-orange-400" />}
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                     <td className="px-4 py-3 hidden lg:table-cell">
                       <span className="text-xs text-zinc-400">

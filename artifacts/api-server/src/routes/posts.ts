@@ -387,6 +387,8 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
   ] as const;
 
   const update: Record<string, unknown> = {};
+  let categoryChanged = false;
+  const previousCategoryId = existing.categoryId;
   for (const k of allowed) {
     if (!(k in body)) continue;
     if (k === "content") {
@@ -407,6 +409,7 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
         return;
       }
       update.categoryId = resolved.id;
+      if (resolved.id !== previousCategoryId) categoryChanged = true;
     } else {
       update[k] = body[k];
     }
@@ -444,17 +447,42 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     update.publishedAt = new Date(update.publishedAt as string);
   }
 
-  await db
-    .update(postsTable)
-    .set(update)
-    .where(eq(postsTable.id, id));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(postsTable)
+      .set(update)
+      .where(eq(postsTable.id, id));
+
+    // When a post moves between categories, recompute the cached postCount
+    // for both the old and new category so the public category index stays
+    // accurate. Mirrors the bulk reassign endpoint in categories.ts.
+    if (categoryChanged) {
+      const newCategoryId = (update.categoryId as number) ?? previousCategoryId;
+      const idsToRefresh = new Set<number>();
+      if (typeof previousCategoryId === "number") idsToRefresh.add(previousCategoryId);
+      if (typeof newCategoryId === "number") idsToRefresh.add(newCategoryId);
+      for (const catId of idsToRefresh) {
+        const [{ count }] = await tx
+          .select({ count: sql<number>`count(*)::int` })
+          .from(postsTable)
+          .where(eq(postsTable.categoryId, catId));
+        await tx
+          .update(categoriesTable)
+          .set({ postCount: count })
+          .where(eq(categoriesTable.id, catId));
+      }
+    }
+  });
   // Re-fetch through the JOIN so the response includes the resolved category.
   const [updated] = await postsBaseQuery().where(eq(postsTable.id, id));
+
   await writeAuditLog(req, {
     action: "post.update",
     entityType: "post",
     entityId: updated.id,
-    summary: `Updated post "${updated.title}"`,
+    summary: categoryChanged
+      ? `Updated post "${updated.title}" — moved to category "${updated.category}"`
+      : `Updated post "${updated.title}"`,
   });
   res.json(updated);
 });
