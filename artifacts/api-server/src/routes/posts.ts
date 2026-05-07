@@ -9,6 +9,7 @@ import {
 } from "@workspace/api-zod";
 import { adminAuth } from "../middlewares/adminAuth";
 import { writeAuditLog } from "../lib/audit";
+import { validateCoverImage } from "../lib/coverImageValidation";
 import sanitizeHtml from "sanitize-html";
 
 const router = Router();
@@ -167,6 +168,17 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
   const resolvedCategory = await resolveCategory(body.category);
   if (!resolvedCategory) {
     res.status(400).json({ error: `Unknown category: ${String(body.category)}` });
+    return;
+  }
+
+  const coverError = validateCoverImage(body.coverImage);
+  if (coverError) {
+    res.status(400).json({ error: coverError });
+    return;
+  }
+  const ogImageError = validateCoverImage(body.ogImage);
+  if (ogImageError) {
+    res.status(400).json({ error: ogImageError });
     return;
   }
 
@@ -410,6 +422,13 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
       }
       update.categoryId = resolved.id;
       if (resolved.id !== previousCategoryId) categoryChanged = true;
+    } else if (k === "coverImage" || k === "ogImage") {
+      const imgError = validateCoverImage(body[k]);
+      if (imgError) {
+        res.status(400).json({ error: imgError });
+        return;
+      }
+      update[k] = body[k];
     } else {
       update[k] = body[k];
     }
