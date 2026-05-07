@@ -1,6 +1,7 @@
 import { pgTable, text, serial, timestamp, integer, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { categoriesTable } from "./categories";
 
 export const postsTable = pgTable("posts", {
   id: serial("id").primaryKey(),
@@ -9,7 +10,17 @@ export const postsTable = pgTable("posts", {
   excerpt: text("excerpt").notNull(),
   content: text("content").notNull(),
   coverImage: text("cover_image"),
+  // Denormalized cache of categories.name. Maintained by Postgres triggers
+  // installed at server boot (see api-server/src/lib/seedCategories.ts) so
+  // it stays in sync with the FK below. Application code should treat
+  // `categoryId` as the source of truth.
   category: text("category").notNull(),
+  categoryId: integer("category_id")
+    .notNull()
+    .references(() => categoriesTable.id, {
+      onDelete: "restrict",
+      onUpdate: "cascade",
+    }),
   tags: text("tags").array().notNull().default([]),
   author: text("author").notNull(),
   authorAvatar: text("author_avatar"),

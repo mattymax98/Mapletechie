@@ -19,9 +19,16 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
+// Bootstrap is fatal: the category sync triggers and FK backfill are
+// installed inside seedCuratedCategories(). If any of that fails we MUST
+// crash so a process supervisor restarts us — silently logging would let
+// the server run with a stale posts.category cache and broken rename path.
 bootstrapAdmin()
   .then(() => seedCuratedCategories())
-  .catch((err) => logger.error({ err }, "Bootstrap admin failed"));
+  .catch((err) => {
+    logger.error({ err }, "Bootstrap failed — exiting");
+    process.exit(1);
+  });
 
 // Promote any post whose `scheduledFor` time has arrived to "published".
 startScheduledPublishCron();
