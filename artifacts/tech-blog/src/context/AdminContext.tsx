@@ -20,6 +20,7 @@ export interface AdminUser {
   canViewInbox?: boolean;
   canManageEditors?: boolean;
   canSendEmail?: boolean;
+  canManageCategories?: boolean;
   isActive: boolean;
 }
 

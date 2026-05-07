@@ -38,6 +38,7 @@ const emptyForm = { name: "", slug: "", description: "", color: "#f97316" };
 export default function AdminCategories() {
   const { user } = useAdmin();
   const isAdmin = user?.role === "admin";
+  const canManage = isAdmin || !!user?.canManageCategories;
   const { data: categories, isLoading } = useListCategories();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<CategoryRow | null>(null);
@@ -131,28 +132,6 @@ export default function AdminCategories() {
     }
   };
 
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
-        <Card className="bg-zinc-900 border-zinc-800 max-w-md">
-          <CardContent className="p-6 text-center space-y-3">
-            <AlertCircle className="w-10 h-10 text-orange-500 mx-auto" />
-            <h2 className="text-xl font-bold">Admin only</h2>
-            <p className="text-zinc-400 text-sm">
-              Only the founding admin can manage categories — renames cascade across
-              published posts.
-            </p>
-            <Link href="/admin">
-              <Button variant="outline" className="border-zinc-700 text-zinc-300">
-                Back to dashboard
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-black text-white">
       <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-10">
@@ -169,14 +148,16 @@ export default function AdminCategories() {
           <h1 className="text-lg font-semibold flex items-center gap-2">
             <Tag className="w-4 h-4 text-orange-500" /> Categories
           </h1>
-          <div className="ml-auto">
-            <Button
-              onClick={openCreate}
-              className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
-            >
-              <Plus className="w-4 h-4" /> New Category
-            </Button>
-          </div>
+          {canManage && (
+            <div className="ml-auto">
+              <Button
+                onClick={openCreate}
+                className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
+              >
+                <Plus className="w-4 h-4" /> New Category
+              </Button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -225,30 +206,32 @@ export default function AdminCategories() {
                       </p>
                     )}
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openEdit(c)}
-                      className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 gap-1"
-                    >
-                      <Pencil className="w-3 h-3" /> Edit
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDelete(c)}
-                      disabled={c.postCount > 0}
-                      title={
-                        c.postCount > 0
-                          ? "Reassign posts before deleting"
-                          : "Delete category"
-                      }
-                      className="border-zinc-700 text-red-400 hover:bg-red-500/10 hover:border-red-500/50 gap-1 disabled:opacity-30"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  </div>
+                  {canManage && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openEdit(c)}
+                        className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 gap-1"
+                      >
+                        <Pencil className="w-3 h-3" /> Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDelete(c)}
+                        disabled={c.postCount > 0}
+                        title={
+                          c.postCount > 0
+                            ? "Reassign posts before deleting"
+                            : "Delete category"
+                        }
+                        className="border-zinc-700 text-red-400 hover:bg-red-500/10 hover:border-red-500/50 gap-1 disabled:opacity-30"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}

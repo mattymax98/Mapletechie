@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { bootstrapAdmin } from "./lib/auth";
 import { startScheduledPublishCron } from "./lib/scheduledPublish";
 import { startEditorWeeklyDigestCron } from "./lib/editorWeeklyDigest";
+import { seedCuratedCategories } from "./lib/seedCategories";
 
 const rawPort = process.env["PORT"];
 
@@ -18,7 +19,9 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-bootstrapAdmin().catch((err) => logger.error({ err }, "Bootstrap admin failed"));
+bootstrapAdmin()
+  .then(() => seedCuratedCategories())
+  .catch((err) => logger.error({ err }, "Bootstrap admin failed"));
 
 // Promote any post whose `scheduledFor` time has arrived to "published".
 startScheduledPublishCron();

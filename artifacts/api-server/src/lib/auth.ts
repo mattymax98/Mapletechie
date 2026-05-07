@@ -60,6 +60,7 @@ export async function bootstrapAdmin(): Promise<void> {
     avatarUrl: "/author-matthew.png",
     role: "admin",
     canPublishDirectly: true,
+    canManageCategories: true,
     isActive: true,
   }).returning();
   console.log("[auth] Bootstrapped admin user: matthew");

@@ -1520,6 +1520,10 @@ components:
           type: boolean
         canManageEditors:
           type: boolean
+        canSendEmail:
+          type: boolean
+        canManageCategories:
+          type: boolean
         isActive:
           type: boolean
       required:
@@ -1581,6 +1585,10 @@ components:
           type: boolean
         canManageEditors:
           type: boolean
+        canSendEmail:
+          type: boolean
+        canManageCategories:
+          type: boolean
       required:
         - username
         - password
@@ -1620,6 +1628,10 @@ components:
         canViewInbox:
           type: boolean
         canManageEditors:
+          type: boolean
+        canSendEmail:
+          type: boolean
+        canManageCategories:
           type: boolean
         isActive:
           type: boolean

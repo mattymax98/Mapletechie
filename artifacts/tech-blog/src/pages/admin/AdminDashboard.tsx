@@ -34,6 +34,7 @@ export default function AdminDashboard() {
   const canInbox = isAdmin || !!u?.canViewInbox;
   const canEditors = isAdmin || !!u?.canManageEditors;
   const canSendEmail = isAdmin || !!u?.canSendEmail;
+  const canCategories = isAdmin || !!u?.canManageCategories;
 
   const deleteMutation = useDeletePost({
     mutation: {
@@ -74,7 +75,7 @@ export default function AdminDashboard() {
             <NavIcon href="/admin/profile" Icon={UserIcon} label="Profile" />
             {canEditors && <NavIcon href="/admin/users" Icon={Users} label="Editors" />}
             <NavIcon href="/admin/media" Icon={ImageIcon} label="Media" />
-            {isAdmin && <NavIcon href="/admin/categories" Icon={Tag} label="Categories" />}
+            {canCategories && <NavIcon href="/admin/categories" Icon={Tag} label="Categories" />}
             {canJobs && <NavIcon href="/admin/jobs" Icon={Briefcase} label="Jobs" />}
             {canInbox && <NavIcon href="/admin/inbox" Icon={Inbox} label="Inbox" />}
             {isAdmin && <NavIcon href="/admin/newsletter" Icon={Mail} label="Newsletter" />}

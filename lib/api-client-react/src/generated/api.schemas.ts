@@ -141,6 +141,8 @@ export interface PublicUser {
   canManageJobs?: boolean;
   canViewInbox?: boolean;
   canManageEditors?: boolean;
+  canSendEmail?: boolean;
+  canManageCategories?: boolean;
   isActive: boolean;
 }
 
@@ -168,6 +170,8 @@ export interface NewUserInput {
   canManageJobs?: boolean;
   canViewInbox?: boolean;
   canManageEditors?: boolean;
+  canSendEmail?: boolean;
+  canManageCategories?: boolean;
 }
 
 export interface UpdateUserInput {
@@ -187,6 +191,8 @@ export interface UpdateUserInput {
   canManageJobs?: boolean;
   canViewInbox?: boolean;
   canManageEditors?: boolean;
+  canSendEmail?: boolean;
+  canManageCategories?: boolean;
   isActive?: boolean;
 }
 
