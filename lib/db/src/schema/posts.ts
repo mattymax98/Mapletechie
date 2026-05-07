@@ -10,11 +10,9 @@ export const postsTable = pgTable("posts", {
   excerpt: text("excerpt").notNull(),
   content: text("content").notNull(),
   coverImage: text("cover_image"),
-  // Denormalized cache of categories.name. Maintained by Postgres triggers
-  // installed at server boot (see api-server/src/lib/seedCategories.ts) so
-  // it stays in sync with the FK below. Application code should treat
-  // `categoryId` as the source of truth.
-  category: text("category").notNull(),
+  // The category for this post. The denormalized `category` text cache and
+  // the Postgres sync triggers were dropped in May 2026 — read paths now
+  // JOIN `categories.name` through this FK to expose the name.
   categoryId: integer("category_id")
     .notNull()
     .references(() => categoriesTable.id, {

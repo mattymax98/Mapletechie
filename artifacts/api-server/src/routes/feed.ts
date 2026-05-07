@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, postsTable } from "@workspace/db";
-import { desc, eq } from "drizzle-orm";
+import { db, postsTable, categoriesTable } from "@workspace/db";
+import { desc, eq, getTableColumns } from "drizzle-orm";
 
 const router = Router();
 
@@ -21,8 +21,9 @@ router.get("/feed.xml", async (_req, res): Promise<void> => {
   const domain = process.env.SITE_DOMAIN || "https://mapletechie.com";
 
   const posts = await db
-    .select()
+    .select({ ...getTableColumns(postsTable), category: categoriesTable.name })
     .from(postsTable)
+    .innerJoin(categoriesTable, eq(postsTable.categoryId, categoriesTable.id))
     .where(eq(postsTable.status, "published"))
     .orderBy(desc(postsTable.publishedAt))
     .limit(50);

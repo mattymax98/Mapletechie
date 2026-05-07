@@ -1,6 +1,11 @@
 import { SITE_URL, escapeHtml } from "./email";
 import type { Post } from "@workspace/db";
 
+// digestEmailHtml needs the resolved category name, but the `category` text
+// cache was dropped from posts in May 2026. Callers pass each Post enriched
+// with its joined category name.
+export type PostWithCategory = Post & { category: string };
+
 const BRAND = "Mapletechies";
 const ORANGE = "#f97316";
 
@@ -44,7 +49,7 @@ export function welcomeEmailHtml(unsubUrl: string): string {
 }
 
 export function digestEmailHtml(args: {
-  posts: Post[];
+  posts: PostWithCategory[];
   editorNote: string;
   unsubUrl: string;
   weekLabel: string;

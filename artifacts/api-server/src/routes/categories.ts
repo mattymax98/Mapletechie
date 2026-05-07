@@ -114,9 +114,8 @@ router.post(
     }
 
     const movedCount = await db.transaction(async (tx) => {
-      // Move via category_id, the source of truth. The BEFORE UPDATE trigger
-      // on posts.category_id rewrites posts.category text from the new
-      // category's name automatically.
+      // category_id is the source of truth — there's no text cache to keep
+      // in sync any more (the column and its triggers were dropped).
       const moved = await tx
         .update(postsTable)
         .set({ categoryId: toCat.id })
@@ -219,9 +218,9 @@ router.put(
     }
 
     try {
-      // The `categories_cascade_rename` Postgres trigger updates posts.category
-      // text whenever categories.name changes, so we no longer need a manual
-      // UPDATE posts cascade here — the FK + trigger handle it atomically.
+      // No cascade is needed — the denormalized `posts.category` text cache
+      // was dropped in May 2026, so a rename here only touches the
+      // categories row and every read picks up the new name via JOIN.
       const [updated] = await db
         .update(categoriesTable)
         .set(updates)
