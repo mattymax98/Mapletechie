@@ -54,7 +54,7 @@ export default function Terms() {
 
           <h2>5. Advertising and sponsorships</h2>
           <p>
-            We accept advertising and sponsored placements through our <a href="/advertise">Advertise</a> page. All sponsored content is clearly labeled. Advertisers do not influence our editorial coverage.
+            We accept sponsored posts and newsletter sponsorships through our <a href="/advertise">Partner with us</a> page. All sponsored content is clearly labeled. Sponsors do not influence our editorial coverage.
           </p>
 
           <h2>6. Intellectual property</h2>
