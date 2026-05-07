@@ -72,6 +72,83 @@ router.post(
   },
 );
 
+// Bulk reassign every post from one category name to another. Used by the
+// admin UI to clear out stale (non-curated) categories so they can then be
+// deleted via the existing DELETE endpoint.
+router.post(
+  "/admin/categories/reassign-posts",
+  adminAuth,
+  requirePermission("categories"),
+  async (req, res): Promise<void> => {
+    const { fromName, toName } = req.body ?? {};
+    if (typeof fromName !== "string" || !fromName.trim()) {
+      res.status(400).json({ error: "fromName is required" });
+      return;
+    }
+    if (typeof toName !== "string" || !toName.trim()) {
+      res.status(400).json({ error: "toName is required" });
+      return;
+    }
+    const from = fromName.trim();
+    const to = toName.trim();
+    if (from === to) {
+      res.status(400).json({ error: "fromName and toName must differ" });
+      return;
+    }
+
+    const [fromCat] = await db
+      .select()
+      .from(categoriesTable)
+      .where(eq(categoriesTable.name, from));
+    if (!fromCat) {
+      res.status(404).json({ error: `Source category "${from}" not found` });
+      return;
+    }
+    const [toCat] = await db
+      .select()
+      .from(categoriesTable)
+      .where(eq(categoriesTable.name, to));
+    if (!toCat) {
+      res.status(404).json({ error: `Destination category "${to}" not found` });
+      return;
+    }
+
+    const movedCount = await db.transaction(async (tx) => {
+      const moved = await tx
+        .update(postsTable)
+        .set({ category: to })
+        .where(eq(postsTable.category, from))
+        .returning({ id: postsTable.id });
+
+      const [{ count: fromCount }] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(postsTable)
+        .where(eq(postsTable.category, from));
+      const [{ count: toCount }] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(postsTable)
+        .where(eq(postsTable.category, to));
+
+      await tx
+        .update(categoriesTable)
+        .set({ postCount: fromCount })
+        .where(eq(categoriesTable.id, fromCat.id));
+      await tx
+        .update(categoriesTable)
+        .set({ postCount: toCount })
+        .where(eq(categoriesTable.id, toCat.id));
+
+      return moved.length;
+    });
+
+    req.log.info(
+      { from, to, movedCount, userId: (req as any).user?.id },
+      "category.posts.reassigned",
+    );
+    res.json({ movedCount });
+  },
+);
+
 router.put(
   "/admin/categories/:id",
   adminAuth,

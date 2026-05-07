@@ -5,6 +5,7 @@ import {
   useCreateCategory,
   useUpdateCategory,
   useDeleteCategory,
+  useReassignCategoryPosts,
 } from "@workspace/api-client-react";
 import { useAdmin } from "@/context/AdminContext";
 import { Button } from "@/components/ui/button";
@@ -21,8 +22,36 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, Pencil, Trash2, AlertCircle, Tag } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  ArrowLeft,
+  Plus,
+  Pencil,
+  Trash2,
+  AlertCircle,
+  Tag,
+  ArrowRightLeft,
+} from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+
+// Slugs from artifacts/api-server/src/lib/seedCategories.ts. Mirror this list
+// when the curated set changes server-side.
+const CURATED_SLUGS = new Set([
+  "news",
+  "reviews",
+  "ai",
+  "gadgets",
+  "software",
+  "gaming",
+  "business",
+  "canada-tech",
+]);
 
 interface CategoryRow {
   id: number;
@@ -45,6 +74,8 @@ export default function AdminCategories() {
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ ...emptyForm });
   const [error, setError] = useState("");
+  const [reassignTargets, setReassignTargets] = useState<Record<number, string>>({});
+  const [reassigningId, setReassigningId] = useState<number | null>(null);
 
   const invalidate = () => queryClient.invalidateQueries();
 
@@ -72,6 +103,46 @@ export default function AdminCategories() {
       onError: (err: any) => alert(err?.message || "Failed to delete category."),
     },
   });
+  const reassignMut = useReassignCategoryPosts({
+    mutation: {
+      onSuccess: (data: any, vars) => {
+        invalidate();
+        setReassigningId(null);
+        const moved = data?.movedCount ?? 0;
+        alert(
+          `Moved ${moved} post${moved === 1 ? "" : "s"} from "${vars.data.fromName}" to "${vars.data.toName}". You can now delete the empty category.`,
+        );
+      },
+      onError: (err: any) => {
+        setReassigningId(null);
+        alert(err?.message || "Failed to reassign posts.");
+      },
+    },
+  });
+
+  const allCategories = (categories as CategoryRow[] | undefined) ?? [];
+  const staleCategories = allCategories.filter(
+    (c) => !CURATED_SLUGS.has(c.slug) && c.postCount > 0,
+  );
+  const reassignDestinations = (from: CategoryRow) =>
+    allCategories.filter((c) => c.id !== from.id);
+
+  const runReassign = (from: CategoryRow) => {
+    const toName = reassignTargets[from.id];
+    if (!toName) {
+      alert("Pick a destination category first.");
+      return;
+    }
+    if (
+      !confirm(
+        `Move all ${from.postCount} post${from.postCount === 1 ? "" : "s"} from "${from.name}" to "${toName}"? This updates the category on every affected post.`,
+      )
+    ) {
+      return;
+    }
+    setReassigningId(from.id);
+    reassignMut.mutate({ data: { fromName: from.name, toName } });
+  };
 
   const closeAll = () => {
     setEditing(null);
@@ -175,8 +246,80 @@ export default function AdminCategories() {
             ))}
           </div>
         ) : (
-          <div className="grid gap-3">
-            {(categories as CategoryRow[] | undefined)?.map((c) => (
+          <>
+            {canManage && staleCategories.length > 0 && (
+              <section className="mb-8">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertCircle className="w-4 h-4 text-amber-400" />
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-amber-400">
+                    Stale categories ({staleCategories.length})
+                  </h2>
+                </div>
+                <p className="text-zinc-400 text-sm mb-4">
+                  These categories aren't part of the curated set but still have
+                  posts. Reassign their posts to a curated category, then delete
+                  the now-empty row below.
+                </p>
+                <div className="grid gap-3">
+                  {staleCategories.map((c) => {
+                    const target = reassignTargets[c.id] ?? "";
+                    const busy = reassigningId === c.id && reassignMut.isPending;
+                    return (
+                      <Card
+                        key={`stale-${c.id}`}
+                        className="bg-amber-950/20 border-amber-900/50"
+                      >
+                        <CardContent className="p-4 flex items-center gap-3 flex-wrap">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-white">{c.name}</span>
+                              <Badge className="bg-zinc-800 text-zinc-400 border-zinc-700 font-mono text-[10px]">
+                                /category/{c.slug}
+                              </Badge>
+                              <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40">
+                                {c.postCount} post{c.postCount === 1 ? "" : "s"} stuck
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Select
+                              value={target}
+                              onValueChange={(v) =>
+                                setReassignTargets((s) => ({ ...s, [c.id]: v }))
+                              }
+                            >
+                              <SelectTrigger className="w-56 bg-zinc-900 border-zinc-700 text-sm">
+                                <SelectValue placeholder="Reassign all posts to…" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
+                                {reassignDestinations(c).map((dest) => (
+                                  <SelectItem key={dest.id} value={dest.name}>
+                                    {dest.name}
+                                    {CURATED_SLUGS.has(dest.slug) ? "" : "  (non-curated)"}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              size="sm"
+                              onClick={() => runReassign(c)}
+                              disabled={busy || !target}
+                              className="bg-amber-500 hover:bg-amber-600 text-black gap-1"
+                            >
+                              <ArrowRightLeft className="w-3 h-3" />
+                              {busy ? "Moving…" : "Reassign"}
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            <div className="grid gap-3">
+            {allCategories.map((c) => (
               <Card key={c.id} className="bg-zinc-900 border-zinc-800">
                 <CardContent className="p-4 flex items-center gap-4 flex-wrap">
                   <div
@@ -238,7 +381,8 @@ export default function AdminCategories() {
             {!categories?.length && (
               <p className="text-zinc-500 text-sm">No categories yet.</p>
             )}
-          </div>
+            </div>
+          </>
         )}
       </main>
 

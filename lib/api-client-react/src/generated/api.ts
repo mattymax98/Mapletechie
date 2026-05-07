@@ -31,6 +31,7 @@ import type {
   AuthorProfile,
   Category,
   CategoryInput,
+  CategoryReassignInput,
   Comment,
   CommentStatusUpdate,
   ContactFormBody,
@@ -59,6 +60,7 @@ import type {
   Post,
   Product,
   PublicUser,
+  ReassignCategoryPosts200,
   Review,
   ReviewBody,
   ReviewStatusUpdate,
@@ -1076,6 +1078,92 @@ export const useCreateCategory = <
   TContext
 > => {
   return useMutation(getCreateCategoryMutationOptions(options));
+};
+
+/**
+ * @summary Bulk-move every post from one category name to another (admin only)
+ */
+export const getReassignCategoryPostsUrl = () => {
+  return `/api/admin/categories/reassign-posts`;
+};
+
+export const reassignCategoryPosts = async (
+  categoryReassignInput: CategoryReassignInput,
+  options?: RequestInit,
+): Promise<ReassignCategoryPosts200> => {
+  return customFetch<ReassignCategoryPosts200>(getReassignCategoryPostsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(categoryReassignInput),
+  });
+};
+
+export const getReassignCategoryPostsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reassignCategoryPosts>>,
+    TError,
+    { data: BodyType<CategoryReassignInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reassignCategoryPosts>>,
+  TError,
+  { data: BodyType<CategoryReassignInput> },
+  TContext
+> => {
+  const mutationKey = ["reassignCategoryPosts"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reassignCategoryPosts>>,
+    { data: BodyType<CategoryReassignInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return reassignCategoryPosts(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReassignCategoryPostsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reassignCategoryPosts>>
+>;
+export type ReassignCategoryPostsMutationBody = BodyType<CategoryReassignInput>;
+export type ReassignCategoryPostsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Bulk-move every post from one category name to another (admin only)
+ */
+export const useReassignCategoryPosts = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reassignCategoryPosts>>,
+    TError,
+    { data: BodyType<CategoryReassignInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reassignCategoryPosts>>,
+  TError,
+  { data: BodyType<CategoryReassignInput> },
+  TContext
+> => {
+  return useMutation(getReassignCategoryPostsMutationOptions(options));
 };
 
 /**

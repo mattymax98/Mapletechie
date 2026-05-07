@@ -15,6 +15,8 @@ const CURATED = [
 
 const CURATED_SLUGS = CURATED.map((c) => c.slug);
 
+export const CURATED_CATEGORY_SLUGS: readonly string[] = CURATED_SLUGS;
+
 export async function seedCuratedCategories(): Promise<void> {
   try {
     // Upsert curated rows by slug (insert if missing, update name/desc/color

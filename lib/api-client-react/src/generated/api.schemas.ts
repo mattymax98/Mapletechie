@@ -325,6 +325,13 @@ export interface Category {
   color?: string;
 }
 
+export interface CategoryReassignInput {
+  /** Existing category name on posts.category to move away from */
+  fromName: string;
+  /** Destination category name (must already exist in categories) */
+  toName: string;
+}
+
 export interface CategoryInput {
   name?: string;
   slug?: string;
@@ -554,6 +561,10 @@ export type ListPostsParams = {
 
 export type GetLatestPostsParams = {
   limit?: number;
+};
+
+export type ReassignCategoryPosts200 = {
+  movedCount: number;
 };
 
 export type ListProductsParams = {
