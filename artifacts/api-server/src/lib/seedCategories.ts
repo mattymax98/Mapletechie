@@ -38,8 +38,23 @@ async function assertCategorySchemaInvariants(): Promise<void> {
   }
 }
 
+/**
+ * Idempotently drops the legacy denormalized-category-cache plumbing that
+ * used to keep `posts.category` (text) in sync with `categories.name`. The
+ * column and these triggers were removed in May 2026; this runs at every
+ * boot so upgraded environments (production, staging) get cleaned up
+ * automatically without a manual migration step.
+ */
+async function dropLegacyCategorySyncObjects(): Promise<void> {
+  await db.execute(sql`DROP TRIGGER IF EXISTS posts_sync_category_text ON posts`);
+  await db.execute(sql`DROP TRIGGER IF EXISTS categories_cascade_rename ON categories`);
+  await db.execute(sql`DROP FUNCTION IF EXISTS sync_post_category_text() CASCADE`);
+  await db.execute(sql`DROP FUNCTION IF EXISTS cascade_category_rename() CASCADE`);
+}
+
 export async function seedCuratedCategories(): Promise<void> {
   await assertCategorySchemaInvariants();
+  await dropLegacyCategorySyncObjects();
 
   try {
     // Upsert curated rows by slug (insert if missing, update name/desc/color
