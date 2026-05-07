@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { Helmet } from "react-helmet-async";
 import { useAdminLogin } from "@workspace/api-client-react";
 import { useAdmin } from "@/context/AdminContext";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,11 @@ export default function AdminLogin() {
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
+      <Helmet>
+        <title>Admin Sign In | Mapletechie</title>
+        <meta name="robots" content="noindex, nofollow" />
+        <meta name="googlebot" content="noindex, nofollow" />
+      </Helmet>
       <Card className="w-full max-w-md bg-zinc-900 border-zinc-800">
         <CardHeader className="text-center space-y-3">
           <div className="flex justify-center">

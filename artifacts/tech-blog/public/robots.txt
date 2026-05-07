@@ -17,11 +17,17 @@ Disallow: /api/audit
 Disallow: /api/analytics
 Disallow: /api/newsletter/admin
 
+# Removed in May 2026 — stop crawlers re-fetching dead URLs
+Disallow: /shop
+Disallow: /shop/
+Disallow: /reviews
+Disallow: /reviews/
+Disallow: /admin/products
+
 # Internal search results pages aren't useful to index either
 Disallow: /search?
 
 # Be nice to crawlers
 Crawl-delay: 1
 
-Sitemap: https://mapletechie.com/api/sitemap.xml
-Sitemap: https://mapletechie.com/api/feed.xml
+Sitemap: https://mapletechie.com/sitemap.xml
