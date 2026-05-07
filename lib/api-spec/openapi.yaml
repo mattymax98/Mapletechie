@@ -280,7 +280,7 @@ paths:
     put:
       operationId: updateCategory
       tags: [categories]
-      summary: Update a category (admin only). Renaming cascades to posts.category.
+      summary: Update a category (admin only).
       parameters:
         - name: id
           in: path
@@ -1954,7 +1954,7 @@ components:
       properties:
         fromName:
           type: string
-          description: Existing category name on posts.category to move away from
+          description: Existing category name to move posts away from
         toName:
           type: string
           description: Destination category name (must already exist in categories)
