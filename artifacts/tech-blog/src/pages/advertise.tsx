@@ -5,13 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ImageUploadField } from "@/components/ImageUploadField";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, CheckCircle2, BarChart3, Users, Newspaper } from "lucide-react";
 import { motion } from "framer-motion";
 
 const AD_TYPES = [
-  "Display banner",
   "Sponsored post",
   "Newsletter sponsorship",
   "Product review",
@@ -31,7 +29,6 @@ export default function Advertise() {
     adType: AD_TYPES[0],
     budget: "",
     message: "",
-    creativeUrl: "",
   });
 
   const onSubmit = (e: React.FormEvent) => {
@@ -53,8 +50,8 @@ export default function Advertise() {
   return (
     <div className="container mx-auto px-4 md:px-6 py-12 md:py-20">
       <SEO
-        title="Advertise"
-        description="Reach Mapletechie's audience of engaged tech readers. Display, sponsorships, and partnerships."
+        title="Partner with us"
+        description="Sponsored posts and newsletter sponsorships on Mapletechie. Reach engaged tech readers through clearly labeled editorial partnerships."
         url="/advertise"
       />
 
@@ -62,20 +59,20 @@ export default function Advertise() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           <p className="font-bold uppercase tracking-widest text-sm text-primary mb-4">Partner with us</p>
           <h1 className="font-serif text-5xl md:text-7xl font-bold leading-[0.95] mb-8 tracking-tight">
-            Advertise on Mapletechie.
+            Sponsored posts & newsletter mentions.
           </h1>
           <p className="text-xl text-muted-foreground font-serif leading-relaxed mb-12 border-l-4 border-primary pl-6 max-w-3xl">
             Our readers come to us because we don't waste their time. If you're building something they
-            should know about — tell us. We do display, sponsorships, partnerships, and the occasional
-            honest review.
+            should know about, we can tell that story as a sponsored post on the site or a sponsorship
+            in our weekly newsletter — always clearly labeled, always written to be worth reading.
           </p>
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
           {[
-            { icon: Users, label: "Engaged readers", desc: "Tech enthusiasts who actually read." },
-            { icon: BarChart3, label: "Honest metrics", desc: "We share real numbers, not vanity stats." },
-            { icon: Newspaper, label: "Editorial integrity", desc: "Sponsored content is always labeled." },
+            { icon: Newspaper, label: "Sponsored posts", desc: "Long-form, clearly labeled stories that live alongside our editorial." },
+            { icon: Users, label: "Newsletter mentions", desc: "A dedicated slot in the weekly digest sent to engaged subscribers." },
+            { icon: BarChart3, label: "Honest expectations", desc: "We share real numbers and only take partnerships we can deliver on." },
           ].map((it) => (
             <div key={it.label} className="bg-card border border-border p-6">
               <it.icon className="h-7 w-7 text-primary mb-3" />
@@ -94,7 +91,7 @@ export default function Advertise() {
                   <Mail className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-bold uppercase tracking-wider text-sm mb-1">Advertising</h3>
+                  <h3 className="font-bold uppercase tracking-wider text-sm mb-1">Partnerships</h3>
                   <a href="mailto:ads@mapletechie.com" className="text-primary hover:underline">ads@mapletechie.com</a>
                   <p className="text-muted-foreground text-sm mt-2">
                     We respond within two business days.
@@ -103,8 +100,8 @@ export default function Advertise() {
               </div>
             </div>
             <p className="text-muted-foreground text-sm">
-              Or fill out the form to your right with the details and any creative you have. We'll
-              follow up with a media kit and rate sheet.
+              Or fill out the form with what you're working on, your timing, and rough budget. We'll
+              follow up with sponsored post and newsletter sponsorship rates.
             </p>
           </div>
 
@@ -142,7 +139,7 @@ export default function Advertise() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-xs font-bold uppercase tracking-wider">Ad type *</Label>
+                    <Label className="text-xs font-bold uppercase tracking-wider">Partnership type *</Label>
                     <select value={form.adType} onChange={(e) => setForm({ ...form, adType: e.target.value })} className="w-full h-10 mt-2 px-3 bg-background border border-border text-sm">
                       {AD_TYPES.map((t) => <option key={t}>{t}</option>)}
                     </select>
@@ -163,17 +160,6 @@ export default function Advertise() {
                     placeholder="Goals, timing, audience you want to reach, any specifics..."
                     className="rounded-none mt-2"
                   />
-                </div>
-
-                <div>
-                  <Label className="text-xs font-bold uppercase tracking-wider">Creative / logo (optional)</Label>
-                  <div className="mt-2">
-                    <ImageUploadField
-                      value={form.creativeUrl}
-                      onChange={(url) => setForm({ ...form, creativeUrl: url })}
-                      helpText="Upload a banner, logo, or product shot if you'd like us to see it now."
-                    />
-                  </div>
                 </div>
 
                 <Button type="submit" disabled={submit.isPending} className="w-full rounded-none font-black uppercase tracking-widest h-12">
