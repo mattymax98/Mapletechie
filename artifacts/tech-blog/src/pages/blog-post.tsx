@@ -258,7 +258,7 @@ export default function BlogPost() {
       publisher: {
         "@type": "Organization",
         name: "Mapletechie",
-        logo: { "@type": "ImageObject", url: `${SITE_URL}/logo-favicon.png` },
+        logo: { "@type": "ImageObject", url: `${SITE_URL}/logo-favicon-v2.png` },
       },
       articleSection: post.category || undefined,
       keywords: (post as any).seoKeywords && (post as any).seoKeywords.length
