@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, postsTable, usersTable, pageViewsTable, commentsTable, categoriesTable } from "@workspace/db";
-import { eq, desc, and, gte, sql, inArray, or, getTableColumns, ilike } from "drizzle-orm";
+import { eq, desc, and, gte, sql, inArray, or, getTableColumns } from "drizzle-orm";
 import {
   ListPostsQueryParams,
   GetPostParams,
@@ -502,7 +502,5 @@ router.get("/posts/:id", async (req, res): Promise<void> => {
   res.json(post);
 });
 
-// silence unused-import lint when ilike isn't referenced after the rewrite
-void ilike;
 
 export default router;
