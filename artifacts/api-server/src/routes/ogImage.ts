@@ -207,7 +207,16 @@ router.get("/og/site.png", async (req, res) => {
 router.get("/og/post/:slug.png", async (req, res) => {
   try {
     const slug = String(req.params.slug);
-    const [post] = await db.select().from(postsTable).where(eq(postsTable.slug, slug));
+    const [post] = await db
+      .select({
+        title: postsTable.title,
+        excerpt: postsTable.excerpt,
+        coverImage: postsTable.coverImage,
+        category: categoriesTable.name,
+      })
+      .from(postsTable)
+      .innerJoin(categoriesTable, eq(postsTable.categoryId, categoriesTable.id))
+      .where(eq(postsTable.slug, slug));
     if (!post) {
       res.status(404).end();
       return;

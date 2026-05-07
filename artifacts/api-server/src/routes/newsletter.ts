@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, subscribersTable, postsTable } from "@workspace/db";
-import { eq, desc, and, gte } from "drizzle-orm";
+import { db, subscribersTable, postsTable, categoriesTable } from "@workspace/db";
+import { eq, desc, and, gte, getTableColumns } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { sendEmail, SITE_URL } from "../lib/email";
 import {
@@ -24,8 +24,9 @@ function weekLabel(date: Date = new Date()): string {
 async function fetchWeekPosts(daysBack = 7) {
   const since = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000);
   return db
-    .select()
+    .select({ ...getTableColumns(postsTable), category: categoriesTable.name })
     .from(postsTable)
+    .innerJoin(categoriesTable, eq(postsTable.categoryId, categoriesTable.id))
     .where(and(eq(postsTable.status, "published"), gte(postsTable.publishedAt, since)))
     .orderBy(desc(postsTable.publishedAt));
 }

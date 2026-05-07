@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, postsTable, usersTable, pageViewsTable, commentsTable, categoriesTable } from "@workspace/db";
-import { eq, desc, and, gte, sql, inArray, or } from "drizzle-orm";
+import { eq, desc, and, gte, sql, inArray, or, getTableColumns, ilike } from "drizzle-orm";
 import {
   ListPostsQueryParams,
   GetPostParams,
@@ -14,8 +14,6 @@ import sanitizeHtml from "sanitize-html";
 const router = Router();
 
 // Sanitize rich text HTML produced by the TipTap editor.
-// Allow the formatting tags TipTap can produce; strip <script>, event handlers,
-// inline styles, and javascript: URLs to prevent stored XSS.
 function cleanHtml(input: unknown): string {
   if (typeof input !== "string") return "";
   return sanitizeHtml(input, {
@@ -59,6 +57,24 @@ function cleanText(input: unknown): string | null {
 }
 
 /**
+ * The `category` text column on posts was dropped in May 2026. Every read
+ * path now JOINs `categories.name` through `posts.category_id` and exposes
+ * it in the JSON response under the legacy `category` key so existing
+ * frontend code keeps working unchanged.
+ */
+const postColumnsWithCategory = {
+  ...getTableColumns(postsTable),
+  category: categoriesTable.name,
+};
+
+function postsBaseQuery() {
+  return db
+    .select(postColumnsWithCategory)
+    .from(postsTable)
+    .innerJoin(categoriesTable, eq(postsTable.categoryId, categoriesTable.id));
+}
+
+/**
  * Resolve an arbitrary category input (id, slug, or name) to a categoriesTable
  * row. Returns null if no match — callers should reject the request in that
  * case so the FK on posts.category_id is never violated.
@@ -98,8 +114,6 @@ router.get("/posts", async (req, res): Promise<void> => {
 
   const conditions = [eq(postsTable.status, "published")];
   if (category) {
-    // Frontend passes a category slug here. Resolve it to an id so the
-    // filter goes through the FK rather than the brittle text cache.
     const cat = await resolveCategory(category);
     if (!cat) {
       res.json([]);
@@ -108,9 +122,7 @@ router.get("/posts", async (req, res): Promise<void> => {
     conditions.push(eq(postsTable.categoryId, cat.id));
   }
 
-  const posts = await db
-    .select()
-    .from(postsTable)
+  const posts = await postsBaseQuery()
     .where(and(...conditions))
     .orderBy(desc(postsTable.publishedAt))
     .limit(limit)
@@ -124,13 +136,11 @@ router.get("/admin/posts", adminAuth, async (req, res): Promise<void> => {
   const user = req.user;
   let posts;
   if (user && user.role !== "admin") {
-    posts = await db
-      .select()
-      .from(postsTable)
+    posts = await postsBaseQuery()
       .where(eq(postsTable.authorId, user.id))
       .orderBy(desc(postsTable.createdAt));
   } else {
-    posts = await db.select().from(postsTable).orderBy(desc(postsTable.createdAt));
+    posts = await postsBaseQuery().orderBy(desc(postsTable.createdAt));
   }
   res.json(posts);
 });
@@ -154,19 +164,12 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     }
   }
 
-  // Resolve category to a real categories.id. Reject unknown categories so
-  // the FK invariant on posts.category_id always holds — no more "leftover
-  // posts on import" recreating stale categories.
   const resolvedCategory = await resolveCategory(body.category);
   if (!resolvedCategory) {
     res.status(400).json({ error: `Unknown category: ${String(body.category)}` });
     return;
   }
 
-  // Determine status based on user permissions. adminAuth always populates
-  // req.user before reaching this handler, so the !user branch is gone.
-  // Editors with publish rights (and admins) can choose draft / scheduled / published;
-  // editors without publish rights are forced to draft regardless.
   let status: string;
   let scheduledFor: Date | null = null;
   if (user?.role === "admin" || user?.canPublishDirectly) {
@@ -178,7 +181,6 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
         status = "scheduled";
         scheduledFor = when;
       } else {
-        // Date in the past or invalid — publish immediately.
         status = "published";
       }
     } else {
@@ -188,7 +190,6 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     status = "draft";
   }
 
-  // If an admin assigns a different author by id, look that user up and use their data.
   let assignedAuthorName = user ? user.displayName : (body.author ?? "Mapletechie");
   let assignedAuthorAvatar: string | null = user ? user.avatarUrl ?? null : (body.authorAvatar ?? null);
   let assignedAuthorId: number | null = user ? user.id : (body.authorId ?? null);
@@ -207,7 +208,6 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     excerpt: typeof body.excerpt === "string" && body.excerpt.trim() ? body.excerpt.trim() : "",
     content: cleanHtml(body.content),
     coverImage: body.coverImage ?? null,
-    category: resolvedCategory.name,
     categoryId: resolvedCategory.id,
     tags: Array.isArray(body.tags) ? body.tags : [],
     author: assignedAuthorName,
@@ -231,7 +231,10 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     publishedAt: body.publishedAt ? new Date(body.publishedAt) : new Date(),
   };
 
-  const [post] = await db.insert(postsTable).values(values).returning();
+  const [inserted] = await db.insert(postsTable).values(values).returning();
+  // Re-fetch through the JOIN so we return the same shape as the read paths
+  // (with `category` included).
+  const [post] = await postsBaseQuery().where(eq(postsTable.id, inserted.id));
   await writeAuditLog(req, {
     action: "post.create",
     entityType: "post",
@@ -242,9 +245,7 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
 });
 
 router.get("/posts/featured", async (_req, res): Promise<void> => {
-  const posts = await db
-    .select()
-    .from(postsTable)
+  const posts = await postsBaseQuery()
     .where(and(eq(postsTable.isFeatured, true), eq(postsTable.status, "published")))
     .orderBy(desc(postsTable.publishedAt))
     .limit(5);
@@ -254,9 +255,7 @@ router.get("/posts/featured", async (_req, res): Promise<void> => {
 router.get("/posts/latest", async (req, res): Promise<void> => {
   const parsed = GetLatestPostsQueryParams.safeParse(req.query);
   const limit = parsed.success ? (parsed.data.limit ?? 6) : 6;
-  const posts = await db
-    .select()
-    .from(postsTable)
+  const posts = await postsBaseQuery()
     .where(eq(postsTable.status, "published"))
     .orderBy(desc(postsTable.publishedAt))
     .limit(limit);
@@ -264,7 +263,6 @@ router.get("/posts/latest", async (req, res): Promise<void> => {
 });
 
 router.get("/posts/trending", async (_req, res): Promise<void> => {
-  // Top published posts by real reader page views over the last 30 days.
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const topSlugs = await db
     .select({
@@ -279,23 +277,18 @@ router.get("/posts/trending", async (_req, res): Promise<void> => {
 
   const slugs = topSlugs.map((r) => r.slug).filter((s): s is string => !!s);
 
-  let posts: typeof postsTable.$inferSelect[] = [];
+  type PostRow = Awaited<ReturnType<typeof postsBaseQuery>>[number];
+  let posts: PostRow[] = [];
   if (slugs.length > 0) {
-    const found = await db
-      .select()
-      .from(postsTable)
+    const found = await postsBaseQuery()
       .where(and(eq(postsTable.status, "published"), inArray(postsTable.slug, slugs)));
-    // Re-order by analytics rank
     const order = new Map(slugs.map((s, i) => [s, i]));
     posts = found.sort((a, b) => (order.get(a.slug) ?? 99) - (order.get(b.slug) ?? 99)).slice(0, 5);
   }
 
-  // Fallback: if analytics has no data yet (or fewer than 3), top up with stored viewCount
   if (posts.length < 5) {
     const exclude = new Set(posts.map((p) => p.id));
-    const filler = await db
-      .select()
-      .from(postsTable)
+    const filler = await postsBaseQuery()
       .where(eq(postsTable.status, "published"))
       .orderBy(desc(postsTable.viewCount))
       .limit(10);
@@ -309,7 +302,6 @@ router.get("/posts/trending", async (_req, res): Promise<void> => {
 });
 
 router.get("/posts/most-discussed", async (_req, res): Promise<void> => {
-  // Top published posts by approved comment count.
   const topSlugs = await db
     .select({
       slug: commentsTable.postSlug,
@@ -327,9 +319,7 @@ router.get("/posts/most-discussed", async (_req, res): Promise<void> => {
   }
 
   const slugs = topSlugs.map((r) => r.slug);
-  const found = await db
-    .select()
-    .from(postsTable)
+  const found = await postsBaseQuery()
     .where(and(eq(postsTable.status, "published"), inArray(postsTable.slug, slugs)));
 
   const countBySlug = new Map(topSlugs.map((r) => [r.slug, r.comments]));
@@ -346,9 +336,7 @@ router.get("/posts/slug/:slug", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [post] = await db
-    .select()
-    .from(postsTable)
+  const [post] = await postsBaseQuery()
     .where(and(eq(postsTable.slug, parsed.data.slug), eq(postsTable.status, "published")));
   if (!post) {
     res.status(404).json({ error: "Post not found" });
@@ -370,7 +358,6 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  // Ownership check: editors can only edit their own posts
   const user = req.user;
   if (user && user.role !== "admin" && existing.authorId !== user.id) {
     res.status(403).json({ error: "You can only edit your own posts" });
@@ -412,22 +399,19 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
         : [];
     } else if (k === "category") {
       // Resolve the incoming category (slug/name/id) to a real row and
-      // write the FK. The Postgres trigger overwrites the text column
-      // from the resolved name, but we set both for clarity.
+      // write the FK. The text cache column is gone, so this is the only
+      // category-related write.
       const resolved = await resolveCategory(body[k]);
       if (!resolved) {
         res.status(400).json({ error: `Unknown category: ${String(body[k])}` });
         return;
       }
-      update.category = resolved.name;
       update.categoryId = resolved.id;
     } else {
       update[k] = body[k];
     }
   }
 
-  // Editors without canPublishDirectly cannot publish or schedule;
-  // their changes always land as drafts.
   if (user && user.role !== "admin" && !user.canPublishDirectly) {
     if (update.status === "published" || update.status === "scheduled") {
       update.status = "draft";
@@ -435,25 +419,21 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     }
   }
 
-  // Validate scheduledFor: must be a future timestamp when status='scheduled'.
   if (update.status === "scheduled") {
     const raw = update.scheduledFor;
     const when = raw ? new Date(raw as string | Date) : null;
     if (!when || Number.isNaN(when.getTime()) || when.getTime() <= Date.now()) {
-      // Auto-promote to published if no valid future time supplied.
       update.status = "published";
       update.scheduledFor = null;
     } else {
       update.scheduledFor = when;
     }
   } else if ("status" in update && update.status !== "scheduled") {
-    // Clear stale scheduledFor when leaving the scheduled state.
     update.scheduledFor = null;
   } else if ("scheduledFor" in update && update.scheduledFor) {
     update.scheduledFor = new Date(update.scheduledFor as string | Date);
   }
 
-  // Admin-only fields
   if (user?.role === "admin") {
     if ("author" in body) update.author = body.author;
     if ("authorAvatar" in body) update.authorAvatar = body.authorAvatar;
@@ -464,11 +444,12 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     update.publishedAt = new Date(update.publishedAt as string);
   }
 
-  const [updated] = await db
+  await db
     .update(postsTable)
     .set(update)
-    .where(eq(postsTable.id, id))
-    .returning();
+    .where(eq(postsTable.id, id));
+  // Re-fetch through the JOIN so the response includes the resolved category.
+  const [updated] = await postsBaseQuery().where(eq(postsTable.id, id));
   await writeAuditLog(req, {
     action: "post.update",
     entityType: "post",
@@ -513,15 +494,15 @@ router.get("/posts/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [post] = await db
-    .select()
-    .from(postsTable)
-    .where(eq(postsTable.id, parsed.data.id));
+  const [post] = await postsBaseQuery().where(eq(postsTable.id, parsed.data.id));
   if (!post) {
     res.status(404).json({ error: "Post not found" });
     return;
   }
   res.json(post);
 });
+
+// silence unused-import lint when ilike isn't referenced after the rewrite
+void ilike;
 
 export default router;

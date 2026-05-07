@@ -1,14 +1,16 @@
 import { Router } from "express";
-import { db, postsTable } from "@workspace/db";
-import { and, desc, eq, ilike, or } from "drizzle-orm";
+import { db, postsTable, categoriesTable } from "@workspace/db";
+import { and, desc, eq, getTableColumns, ilike, or } from "drizzle-orm";
 
 const router = Router();
 
 /**
  * GET /search?q=...&limit=20
  *
- * Server-side search across published posts. Matches title, excerpt, and content
- * (case-insensitive substring). Title matches are ranked highest.
+ * Server-side search across published posts. Matches title, excerpt, content,
+ * author, and category name (case-insensitive substring). Title matches rank
+ * highest. The category text column on posts was dropped — we now filter and
+ * read the name through the categories JOIN.
  */
 router.get("/search", async (req, res): Promise<void> => {
   const q = String(req.query.q ?? "").trim();
@@ -21,8 +23,9 @@ router.get("/search", async (req, res): Promise<void> => {
 
   const pattern = `%${q.replace(/[%_]/g, (c) => `\\${c}`)}%`;
   const rows = await db
-    .select()
+    .select({ ...getTableColumns(postsTable), category: categoriesTable.name })
     .from(postsTable)
+    .innerJoin(categoriesTable, eq(postsTable.categoryId, categoriesTable.id))
     .where(
       and(
         eq(postsTable.status, "published"),
@@ -31,14 +34,14 @@ router.get("/search", async (req, res): Promise<void> => {
           ilike(postsTable.excerpt, pattern),
           ilike(postsTable.content, pattern),
           ilike(postsTable.author, pattern),
-          ilike(postsTable.category, pattern),
+          ilike(categoriesTable.name, pattern),
         ),
       ),
     )
     .orderBy(desc(postsTable.publishedAt))
-    .limit(limit * 2); // pull a few extras so we can re-rank
+    .limit(limit * 2);
 
-  // Simple ranking: title match > excerpt match > content match
+  // Simple ranking: title match > excerpt match > author > category > content
   const ql = q.toLowerCase();
   const scored = rows.map((p) => {
     let score = 0;
