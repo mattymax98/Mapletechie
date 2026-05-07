@@ -35,7 +35,7 @@ PORT = "26015"
 BASE_PATH = "/"
 NODE_ENV = "production"
 SITE_URL = "https://mapletechie.com"
-API_BASE = "http://localhost"
+API_BASE = "https://mapletechie.com"
 
 [services.env]
 PORT = "26015"
