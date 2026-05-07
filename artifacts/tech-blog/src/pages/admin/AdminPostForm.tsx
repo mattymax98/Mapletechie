@@ -34,7 +34,7 @@ import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RichTextEditor } from "@/components/RichTextEditor";
-import { ImageUploadField } from "@/components/ImageUploadField";
+import { ImageUploadField, type ImagePreviewStatus } from "@/components/ImageUploadField";
 
 interface AdminPostFormProps {
   postId?: number;
@@ -105,6 +105,10 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   });
 
   const canChooseStatus = user?.role === "admin" || user?.canPublishDirectly === true;
+
+  const [coverImageStatus, setCoverImageStatus] = useState<ImagePreviewStatus>("idle");
+  const [ogImageStatus, setOgImageStatus] = useState<ImagePreviewStatus>("idle");
+  const hasBrokenImage = coverImageStatus === "broken" || ogImageStatus === "broken";
 
   const [form, setForm] = useState({
     title: "",
@@ -263,6 +267,10 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     if (!form.content.trim() || form.content.trim() === "<p></p>")
       return setError("Content is required.");
     if (!form.category) return setError("Category is required.");
+    if (coverImageStatus === "broken")
+      return setError("The cover image URL didn't load. Fix or remove it before saving.");
+    if (ogImageStatus === "broken")
+      return setError("The social share image URL didn't load. Fix or remove it before saving.");
 
     const status = statusOverride ?? form.status;
 
@@ -480,6 +488,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
               <ImageUploadField
                 value={form.coverImage}
                 onChange={(url) => setForm((f) => ({ ...f, coverImage: url }))}
+                onStatusChange={setCoverImageStatus}
                 helpText="Upload from your device or paste a URL. Recommended: 1200×630."
               />
             </div>
@@ -601,6 +610,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                     <ImageUploadField
                       value={form.ogImage}
                       onChange={(url) => setForm((f) => ({ ...f, ogImage: url }))}
+                      onStatusChange={setOgImageStatus}
                       helpText="Used when this post is shared on X, Facebook, or LinkedIn. Leave blank to fall back to the cover image. Recommended: 1200×630."
                     />
                   </div>
@@ -723,13 +733,19 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                 Cancel
               </Button>
             </Link>
+            {hasBrokenImage && (
+              <p className="basis-full text-xs text-red-400 text-right">
+                Fix or remove the broken image{coverImageStatus === "broken" && ogImageStatus === "broken" ? "s" : ""} above before saving.
+              </p>
+            )}
             {canChooseStatus && (
               <Button
                 type="button"
-                disabled={isPending}
+                disabled={isPending || hasBrokenImage}
                 onClick={(e) => submit(e as any, "draft")}
                 variant="outline"
                 className="border-zinc-700 text-zinc-200 hover:bg-zinc-800 gap-2"
+                title={hasBrokenImage ? "Fix the broken image preview before saving." : undefined}
               >
                 <FileText className="w-4 h-4" />
                 Save as Draft
@@ -737,7 +753,8 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
             )}
             <Button
               type="submit"
-              disabled={isPending}
+              disabled={isPending || hasBrokenImage}
+              title={hasBrokenImage ? "Fix the broken image preview before saving." : undefined}
               className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
               onClick={(e) =>
                 submit(

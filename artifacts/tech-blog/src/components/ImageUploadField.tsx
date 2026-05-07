@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { uploadImage } from "@/lib/uploadImage";
 import { CropImageModal } from "@/components/CropImageModal";
 
+export type ImagePreviewStatus = "idle" | "checking" | "ok" | "broken";
+
 interface ImageUploadFieldProps {
   value: string;
   onChange: (url: string) => void;
@@ -13,6 +15,8 @@ interface ImageUploadFieldProps {
   helpText?: string;
   /** Aspect ratio for the cropper (width/height). Defaults: tall=16/9, avatar=1. */
   cropAspect?: number;
+  /** Notified whenever the preview load status changes. */
+  onStatusChange?: (status: ImagePreviewStatus) => void;
 }
 
 export function ImageUploadField({
@@ -21,6 +25,7 @@ export function ImageUploadField({
   variant = "tall",
   helpText,
   cropAspect,
+  onStatusChange,
 }: ImageUploadFieldProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<"upload" | "url">("upload");
@@ -31,7 +36,11 @@ export function ImageUploadField({
 
   const aspect = cropAspect ?? (variant === "avatar" ? 1 : 16 / 9);
 
-  const [previewStatus, setPreviewStatus] = useState<"idle" | "checking" | "ok" | "broken">("idle");
+  const [previewStatus, setPreviewStatus] = useState<ImagePreviewStatus>("idle");
+
+  useEffect(() => {
+    onStatusChange?.(previewStatus);
+  }, [previewStatus, onStatusChange]);
 
   useEffect(() => {
     if (!value) {
