@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, categoriesTable, postsTable } from "@workspace/db";
 import { asc, eq, sql } from "drizzle-orm";
-import { adminAuth, requireRole } from "../middlewares/adminAuth";
+import { adminAuth, requirePermission } from "../middlewares/adminAuth";
 
 const router = Router();
 
@@ -30,7 +30,7 @@ router.get("/categories", async (_req, res): Promise<void> => {
 router.post(
   "/admin/categories",
   adminAuth,
-  requireRole("admin"),
+  requirePermission("categories"),
   async (req, res): Promise<void> => {
     const { name, slug, description, color } = req.body ?? {};
     if (typeof name !== "string" || name.trim().length < 2) {
@@ -75,7 +75,7 @@ router.post(
 router.put(
   "/admin/categories/:id",
   adminAuth,
-  requireRole("admin"),
+  requirePermission("categories"),
   async (req, res): Promise<void> => {
     const id = Number(req.params.id);
     if (Number.isNaN(id)) {
@@ -174,7 +174,7 @@ router.put(
 router.delete(
   "/admin/categories/:id",
   adminAuth,
-  requireRole("admin"),
+  requirePermission("categories"),
   async (req, res): Promise<void> => {
     const id = Number(req.params.id);
     if (Number.isNaN(id)) {

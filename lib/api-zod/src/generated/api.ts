@@ -495,6 +495,8 @@ export const AdminLoginResponse = zod.object({
     canManageJobs: zod.boolean().optional(),
     canViewInbox: zod.boolean().optional(),
     canManageEditors: zod.boolean().optional(),
+    canSendEmail: zod.boolean().optional(),
+    canManageCategories: zod.boolean().optional(),
     isActive: zod.boolean(),
   }),
 });
@@ -527,6 +529,8 @@ export const GetCurrentUserResponse = zod.object({
   canManageJobs: zod.boolean().optional(),
   canViewInbox: zod.boolean().optional(),
   canManageEditors: zod.boolean().optional(),
+  canSendEmail: zod.boolean().optional(),
+  canManageCategories: zod.boolean().optional(),
   isActive: zod.boolean(),
 });
 
@@ -564,6 +568,8 @@ export const UpdateCurrentUserResponse = zod.object({
   canManageJobs: zod.boolean().optional(),
   canViewInbox: zod.boolean().optional(),
   canManageEditors: zod.boolean().optional(),
+  canSendEmail: zod.boolean().optional(),
+  canManageCategories: zod.boolean().optional(),
   isActive: zod.boolean(),
 });
 
@@ -588,6 +594,8 @@ export const ListUsersResponseItem = zod.object({
   canManageJobs: zod.boolean().optional(),
   canViewInbox: zod.boolean().optional(),
   canManageEditors: zod.boolean().optional(),
+  canSendEmail: zod.boolean().optional(),
+  canManageCategories: zod.boolean().optional(),
   isActive: zod.boolean(),
 });
 export const ListUsersResponse = zod.array(ListUsersResponseItem);
@@ -613,6 +621,8 @@ export const CreateUserBody = zod.object({
   canManageJobs: zod.boolean().optional(),
   canViewInbox: zod.boolean().optional(),
   canManageEditors: zod.boolean().optional(),
+  canSendEmail: zod.boolean().optional(),
+  canManageCategories: zod.boolean().optional(),
 });
 
 /**
@@ -639,6 +649,8 @@ export const UpdateUserBody = zod.object({
   canManageJobs: zod.boolean().optional(),
   canViewInbox: zod.boolean().optional(),
   canManageEditors: zod.boolean().optional(),
+  canSendEmail: zod.boolean().optional(),
+  canManageCategories: zod.boolean().optional(),
   isActive: zod.boolean().optional(),
 });
 
@@ -660,6 +672,8 @@ export const UpdateUserResponse = zod.object({
   canManageJobs: zod.boolean().optional(),
   canViewInbox: zod.boolean().optional(),
   canManageEditors: zod.boolean().optional(),
+  canSendEmail: zod.boolean().optional(),
+  canManageCategories: zod.boolean().optional(),
   isActive: zod.boolean(),
 });
 

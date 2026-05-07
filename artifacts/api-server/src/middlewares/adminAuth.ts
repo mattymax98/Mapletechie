@@ -46,7 +46,7 @@ export function requireRole(role: "admin") {
   };
 }
 
-export type AdminPermission = "shop" | "jobs" | "inbox" | "editors" | "email";
+export type AdminPermission = "shop" | "jobs" | "inbox" | "editors" | "email" | "categories";
 
 export function requirePermission(...perms: AdminPermission[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
@@ -65,6 +65,7 @@ export function requirePermission(...perms: AdminPermission[]) {
       inbox: !!req.user.canViewInbox,
       editors: !!req.user.canManageEditors,
       email: !!req.user.canSendEmail,
+      categories: !!req.user.canManageCategories,
     };
     if (perms.some((p) => map[p])) {
       next();

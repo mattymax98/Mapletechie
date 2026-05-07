@@ -139,6 +139,7 @@ router.post("/admin/users", adminAuth, requirePermission("editors"), async (req,
     canViewInbox,
     canManageEditors,
     canSendEmail,
+    canManageCategories,
   } = req.body ?? {};
 
   if (typeof username !== "string" || username.trim().length < 2) {
@@ -191,6 +192,7 @@ router.post("/admin/users", adminAuth, requirePermission("editors"), async (req,
       canViewInbox: callerIsAdmin ? !!canViewInbox : false,
       canManageEditors: callerIsAdmin ? !!canManageEditors : false,
       canSendEmail: callerIsAdmin ? !!canSendEmail : false,
+      canManageCategories: callerIsAdmin ? !!canManageCategories : false,
       isActive: true,
     })
     .returning();
@@ -238,6 +240,7 @@ router.put("/admin/users/:id", adminAuth, requirePermission("editors"), async (r
     "canViewInbox",
     "canManageEditors",
     "canSendEmail",
+    "canManageCategories",
   ] as const;
 
   const update: Partial<User> = {};

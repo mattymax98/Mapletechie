@@ -23,5 +23,7 @@ export interface UpdateUserInput {
   canManageJobs?: boolean;
   canViewInbox?: boolean;
   canManageEditors?: boolean;
+  canSendEmail?: boolean;
+  canManageCategories?: boolean;
   isActive?: boolean;
 }

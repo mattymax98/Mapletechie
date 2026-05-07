@@ -77,7 +77,7 @@ function Router() {
         <AdminGuard><AdminMedia /></AdminGuard>
       </Route>
       <Route path="/admin/categories">
-        <AdminGuard adminOnly><AdminCategories /></AdminGuard>
+        <AdminGuard><AdminCategories /></AdminGuard>
       </Route>
       <Route path="/admin/inbox">
         <AdminGuard><AdminInbox /></AdminGuard>

@@ -24,5 +24,7 @@ export interface PublicUser {
   canManageJobs?: boolean;
   canViewInbox?: boolean;
   canManageEditors?: boolean;
+  canSendEmail?: boolean;
+  canManageCategories?: boolean;
   isActive: boolean;
 }

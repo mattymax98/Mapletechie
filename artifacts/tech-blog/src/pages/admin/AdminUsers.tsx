@@ -39,6 +39,7 @@ interface UserRow {
   canViewInbox?: boolean;
   canManageEditors?: boolean;
   canSendEmail?: boolean;
+  canManageCategories?: boolean;
   isActive: boolean;
 }
 
@@ -61,6 +62,7 @@ const emptyForm = {
   canViewInbox: false,
   canManageEditors: false,
   canSendEmail: false,
+  canManageCategories: false,
   isActive: true,
 };
 
@@ -124,6 +126,7 @@ export default function AdminUsers() {
       canViewInbox: !!u.canViewInbox,
       canManageEditors: !!u.canManageEditors,
       canSendEmail: !!u.canSendEmail,
+      canManageCategories: !!u.canManageCategories,
       isActive: u.isActive,
     });
     setError("");
@@ -344,6 +347,12 @@ export default function AdminUsers() {
                     desc="Compose and send emails from the admin panel as their own @mapletechie.com address."
                     checked={form.canSendEmail}
                     onChange={(v) => setForm({ ...form, canSendEmail: v })}
+                  />
+                  <PermissionToggle
+                    label="Manage Categories"
+                    desc="Create, rename, recolor, and delete blog categories. Renames cascade to existing posts."
+                    checked={form.canManageCategories}
+                    onChange={(v) => setForm({ ...form, canManageCategories: v })}
                   />
                 </div>
               )}

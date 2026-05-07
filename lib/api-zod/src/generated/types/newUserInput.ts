@@ -24,4 +24,6 @@ export interface NewUserInput {
   canManageJobs?: boolean;
   canViewInbox?: boolean;
   canManageEditors?: boolean;
+  canSendEmail?: boolean;
+  canManageCategories?: boolean;
 }
