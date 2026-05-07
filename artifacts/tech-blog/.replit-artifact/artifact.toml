@@ -18,13 +18,24 @@ localPort = 26015
 run = "pnpm --filter @workspace/tech-blog run dev"
 
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/tech-blog", "run", "build" ]
-publicDir = "artifacts/tech-blog/dist/public"
-serve = "static"
 
-[[services.production.rewrites]]
-from = "/*"
-to = "/index.html"
+[services.production.build]
+args = ["pnpm", "--filter", "@workspace/tech-blog", "run", "build"]
+
+[services.production.build.env]
+NODE_ENV = "production"
+PORT = "26015"
+BASE_PATH = "/"
+
+[services.production.run]
+args = ["node", "--enable-source-maps", "artifacts/tech-blog/dist/server.mjs"]
+
+[services.production.run.env]
+PORT = "26015"
+BASE_PATH = "/"
+NODE_ENV = "production"
+SITE_URL = "https://mapletechie.com"
+API_BASE = "http://localhost"
 
 [services.env]
 PORT = "26015"
