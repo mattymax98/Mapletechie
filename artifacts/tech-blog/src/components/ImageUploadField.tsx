@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { Upload, Link2, Loader2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AlertTriangle, Upload, Link2, Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { uploadImage } from "@/lib/uploadImage";
@@ -30,6 +30,44 @@ export function ImageUploadField({
   const [pendingCrop, setPendingCrop] = useState<File | null>(null);
 
   const aspect = cropAspect ?? (variant === "avatar" ? 1 : 16 / 9);
+
+  const [previewStatus, setPreviewStatus] = useState<"idle" | "checking" | "ok" | "broken">("idle");
+
+  useEffect(() => {
+    if (!value) {
+      setPreviewStatus("idle");
+      return;
+    }
+    setPreviewStatus("checking");
+    let cancelled = false;
+
+    const img = new Image();
+    img.onload = () => {
+      if (!cancelled) setPreviewStatus("ok");
+    };
+    img.onerror = async () => {
+      if (cancelled) return;
+      try {
+        const res = await fetch(value, { method: "HEAD" });
+        if (cancelled) return;
+        const ct = res.headers.get("content-type") ?? "";
+        if (res.ok && (ct.startsWith("image/") || ct === "")) {
+          setPreviewStatus("ok");
+        } else {
+          setPreviewStatus("broken");
+        }
+      } catch {
+        if (!cancelled) setPreviewStatus("broken");
+      }
+    };
+    img.src = value;
+
+    return () => {
+      cancelled = true;
+      img.onload = null;
+      img.onerror = null;
+    };
+  }, [value]);
 
   const doUpload = async (file: File) => {
     setError("");
@@ -139,9 +177,9 @@ export function ImageUploadField({
 
       {value && (
         <div
-          className={`mt-2 border border-zinc-800 rounded overflow-hidden bg-zinc-950 relative ${
-            variant === "avatar" ? "w-24 h-24 rounded-full" : ""
-          }`}
+          className={`mt-2 border rounded overflow-hidden bg-zinc-950 relative ${
+            previewStatus === "broken" ? "border-red-500/60" : "border-zinc-800"
+          } ${variant === "avatar" ? "w-24 h-24 rounded-full" : ""}`}
         >
           <img
             src={value}
@@ -161,6 +199,20 @@ export function ImageUploadField({
             <X className="w-3 h-3" />
           </button>
         </div>
+      )}
+
+      {value && previewStatus === "broken" && (
+        <p className="text-xs text-red-400 flex items-start gap-1.5">
+          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+          <span>
+            This image URL didn&apos;t load. Please verify the link before saving.
+          </span>
+        </p>
+      )}
+      {value && previewStatus === "checking" && (
+        <p className="text-xs text-zinc-500 flex items-center gap-1.5">
+          <Loader2 className="w-3 h-3 animate-spin" /> Checking image…
+        </p>
       )}
 
       {helpText && <p className="text-xs text-zinc-500">{helpText}</p>}
