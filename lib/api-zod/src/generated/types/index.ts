@@ -19,6 +19,7 @@ export * from "./applicationReplyBody";
 export * from "./auditLog";
 export * from "./authorProfile";
 export * from "./category";
+export * from "./categoryInput";
 export * from "./comment";
 export * from "./commentStatusUpdate";
 export * from "./commentStatusUpdateStatus";

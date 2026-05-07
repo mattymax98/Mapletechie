@@ -308,6 +308,46 @@ export const ListCategoriesResponseItem = zod.object({
 export const ListCategoriesResponse = zod.array(ListCategoriesResponseItem);
 
 /**
+ * @summary Create a new category (admin only)
+ */
+export const CreateCategoryBody = zod.object({
+  name: zod.string().optional(),
+  slug: zod.string().optional(),
+  description: zod.string().nullish(),
+  color: zod.string().nullish().describe("6-digit hex color like"),
+});
+
+/**
+ * @summary Update a category (admin only). Renaming cascades to posts.category.
+ */
+export const UpdateCategoryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateCategoryBody = zod.object({
+  name: zod.string().optional(),
+  slug: zod.string().optional(),
+  description: zod.string().nullish(),
+  color: zod.string().nullish().describe("6-digit hex color like"),
+});
+
+export const UpdateCategoryResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  slug: zod.string(),
+  description: zod.string().optional(),
+  postCount: zod.number(),
+  color: zod.string().optional(),
+});
+
+/**
+ * @summary Delete a category (admin only). Blocked when posts still use it.
+ */
+export const DeleteCategoryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
  * @summary List affiliate products
  */
 export const ListProductsQueryParams = zod.object({
