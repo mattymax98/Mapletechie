@@ -318,6 +318,22 @@ export const CreateCategoryBody = zod.object({
 });
 
 /**
+ * @summary Bulk-move every post from one category name to another (admin only)
+ */
+export const ReassignCategoryPostsBody = zod.object({
+  fromName: zod
+    .string()
+    .describe("Existing category name on posts.category to move away from"),
+  toName: zod
+    .string()
+    .describe("Destination category name (must already exist in categories)"),
+});
+
+export const ReassignCategoryPostsResponse = zod.object({
+  movedCount: zod.number(),
+});
+
+/**
  * @summary Update a category (admin only). Renaming cascades to posts.category.
  */
 export const UpdateCategoryParams = zod.object({

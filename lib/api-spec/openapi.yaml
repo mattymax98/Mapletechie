@@ -253,6 +253,29 @@ paths:
               schema:
                 $ref: "#/components/schemas/Category"
 
+  /admin/categories/reassign-posts:
+    post:
+      operationId: reassignCategoryPosts
+      tags: [categories]
+      summary: Bulk-move every post from one category name to another (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryReassignInput"
+      responses:
+        "200":
+          description: Reassignment result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  movedCount:
+                    type: integer
+                required: [movedCount]
+
   /admin/categories/{id}:
     put:
       operationId: updateCategory
@@ -1924,6 +1947,17 @@ components:
         - name
         - slug
         - postCount
+
+    CategoryReassignInput:
+      type: object
+      required: [fromName, toName]
+      properties:
+        fromName:
+          type: string
+          description: Existing category name on posts.category to move away from
+        toName:
+          type: string
+          description: Destination category name (must already exist in categories)
 
     CategoryInput:
       type: object
