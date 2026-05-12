@@ -252,6 +252,7 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     entityType: "post",
     entityId: post.id,
     summary: `Created post "${post.title}" (${post.status})`,
+    details: { snapshot: inserted },
   });
   res.status(201).json(post);
 });
@@ -494,6 +495,8 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
   });
   // Re-fetch through the JOIN so the response includes the resolved category.
   const [updated] = await postsBaseQuery().where(eq(postsTable.id, id));
+  // Re-fetch the raw row so the snapshot is the same shape as `before`.
+  const [updatedRaw] = await db.select().from(postsTable).where(eq(postsTable.id, id));
 
   await writeAuditLog(req, {
     action: "post.update",
@@ -502,6 +505,7 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     summary: categoryChanged
       ? `Updated post "${updated.title}" — moved to category "${updated.category}"`
       : `Updated post "${updated.title}"`,
+    details: { before: existing, after: updatedRaw },
   });
   res.json(updated);
 });
@@ -531,6 +535,7 @@ router.delete("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     entityType: "post",
     entityId: id,
     summary: `Deleted post "${existing.title}"`,
+    details: { snapshot: existing },
   });
   res.status(204).send();
 });
