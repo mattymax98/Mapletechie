@@ -377,23 +377,36 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     e.preventDefault();
     setError("");
 
-    const fail = (msg: string) => {
+    const fail = (msg: string, fieldId?: string) => {
       setError(msg);
-      requestAnimationFrame(() =>
-        errorBannerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
-      );
+      // If the bad field lives inside the SEO collapsible panel, open it
+      // first so the scroll target is actually visible.
+      if (fieldId === "field-og") setSeoOpen(true);
+      requestAnimationFrame(() => {
+        const target = fieldId ? document.getElementById(fieldId) : null;
+        const node = target ?? errorBannerRef.current;
+        node?.scrollIntoView({ behavior: "smooth", block: "center" });
+        // Focus the first input/textarea inside the section so the user can
+        // start typing immediately without an extra click.
+        if (target) {
+          const focusable = target.querySelector<HTMLElement>(
+            "input, textarea, [contenteditable='true'], button[role='combobox']",
+          );
+          focusable?.focus({ preventScroll: true });
+        }
+      });
       return undefined;
     };
 
-    if (!form.title.trim()) return fail("Title is required.");
-    if (!form.slug.trim()) return fail("Slug is required.");
+    if (!form.title.trim()) return fail("Title is required.", "field-title");
+    if (!form.slug.trim()) return fail("Slug is required.", "field-slug");
     if (!form.content.trim() || form.content.trim() === "<p></p>")
-      return fail("Content is required.");
-    if (!form.category) return fail("Category is required.");
+      return fail("Content is required.", "field-content");
+    if (!form.category) return fail("Category is required.", "field-category");
     if (coverImageStatus === "broken")
-      return fail("The cover image URL didn't load. Fix or remove it before saving.");
+      return fail("The cover image URL didn't load. Fix or remove it before saving.", "field-cover");
     if (ogImageStatus === "broken")
-      return fail("The social share image URL didn't load. Fix or remove it before saving.");
+      return fail("The social share image URL didn't load. Fix or remove it before saving.", "field-og");
 
     const status = statusOverride ?? form.status;
 
@@ -512,7 +525,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
           )}
 
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            <div className="md:col-span-2 space-y-2">
+            <div id="field-title" className="md:col-span-2 space-y-2 scroll-mt-24">
               <div className="flex items-center justify-between">
                 <Label className="text-zinc-300">Title *</Label>
                 <RangeCounter count={form.title.length} min={POST_TITLE_MIN} max={POST_TITLE_MAX} />
@@ -528,7 +541,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
               </p>
             </div>
 
-            <div className="space-y-2">
+            <div id="field-slug" className="space-y-2 scroll-mt-24">
               <div className="flex items-center justify-between">
                 <Label className="text-zinc-300">
                   Slug * <span className="text-zinc-500 text-xs font-normal">(URL part)</span>
@@ -549,7 +562,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
               </p>
             </div>
 
-            <div className="space-y-2">
+            <div id="field-category" className="space-y-2 scroll-mt-24">
               <Label className="text-zinc-300">Category *</Label>
               <Select
                 value={form.category || undefined}
@@ -619,7 +632,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
               />
             </div>
 
-            <div className="md:col-span-2 space-y-2">
+            <div id="field-cover" className="md:col-span-2 space-y-2 scroll-mt-24">
               <Label className="text-zinc-300">Cover Image</Label>
               <ImageUploadField
                 value={form.coverImage}
@@ -643,7 +656,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
               />
             </div>
 
-            <div className="md:col-span-2 space-y-2">
+            <div id="field-content" className="md:col-span-2 space-y-2 scroll-mt-24">
               <div className="flex items-center justify-between">
                 <Label className="text-zinc-300">Content *</Label>
                 <span className="text-xs text-zinc-500">
@@ -741,7 +754,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                     </p>
                   </div>
 
-                  <div className="space-y-2">
+                  <div id="field-og" className="space-y-2 scroll-mt-24">
                     <Label className="text-zinc-300">Social Share Image</Label>
                     <ImageUploadField
                       value={form.ogImage}
