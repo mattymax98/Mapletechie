@@ -110,7 +110,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   const [ogImageStatus, setOgImageStatus] = useState<ImagePreviewStatus>("idle");
   const hasBrokenImage = coverImageStatus === "broken" || ogImageStatus === "broken";
 
-  const [form, setForm] = useState({
+  const initialFormState = {
     title: "",
     slug: "",
     excerpt: "",
@@ -129,7 +129,8 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     ogImage: "",
     seriesId: 0,
     seriesPosition: 1,
-  });
+  };
+  const [form, setForm] = useState(initialFormState);
 
   const [seriesList, setSeriesList] = useState<Array<{ id: number; slug: string; title: string }>>([]);
   useEffect(() => {
@@ -168,11 +169,30 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   const [autoSlug, setAutoSlug] = useState(!isEditing);
   const [seoOpen, setSeoOpen] = useState(false);
   const hydratedRef = useRef(false);
+  const errorBannerRef = useRef<HTMLDivElement | null>(null);
+
+  // Local-draft autosave (protects unsaved work in the browser).
+  const draftKey = isEditing ? `mapletechie-draft:${postId}` : `mapletechie-draft:new`;
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [autosavedAt, setAutosavedAt] = useState<number | null>(null);
+  // Baseline = the canonical "clean" state. For new posts it's the empty
+  // initial form; for edits it's the hydrated server copy. Anything different
+  // counts as dirty and triggers the unsaved-changes warning.
+  const baselineRef = useRef<string>(JSON.stringify(initialFormState));
+  const savedSuccessfullyRef = useRef(false);
+  const clearLocalDraft = () => {
+    try {
+      localStorage.removeItem(draftKey);
+    } catch {
+      // ignore
+    }
+    setAutosavedAt(null);
+  };
 
   useEffect(() => {
     if (existingPost && !hydratedRef.current) {
       const ep = existingPost as any;
-      setForm({
+      const hydrated = {
         title: ep.title ?? "",
         slug: ep.slug ?? "",
         excerpt: ep.excerpt ?? "",
@@ -193,11 +213,96 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
         ogImage: ep.ogImage ?? "",
         seriesId: ep.seriesId ?? 0,
         seriesPosition: ep.seriesPosition ?? 1,
-      });
+      };
+      setForm(hydrated);
+      baselineRef.current = JSON.stringify(hydrated);
       setAutoSlug(false);
       hydratedRef.current = true;
     }
   }, [existingPost]);
+
+  // Restore any locally-autosaved draft. For new posts, runs once on mount.
+  // For edits, runs once after the server post has hydrated, so we can compare
+  // against the canonical baseline before offering to restore.
+  useEffect(() => {
+    if (draftRestored) return;
+    if (isEditing && !hydratedRef.current) return;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) {
+        setDraftRestored(true);
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      const savedForm = parsed?.form;
+      const savedAt = Number(parsed?.savedAt) || 0;
+      if (!savedForm) {
+        localStorage.removeItem(draftKey);
+        setDraftRestored(true);
+        return;
+      }
+      // For edits, only prompt if the saved draft actually differs from the
+      // server copy — otherwise it's stale noise.
+      if (isEditing && JSON.stringify(savedForm) === baselineRef.current) {
+        localStorage.removeItem(draftKey);
+        setDraftRestored(true);
+        return;
+      }
+      const when = savedAt ? new Date(savedAt).toLocaleString() : "earlier";
+      const ok = window.confirm(
+        `You have an unsaved local draft from ${when}.\n\nClick OK to restore it, or Cancel to discard it and use the saved version.`,
+      );
+      if (ok) {
+        setForm(savedForm);
+        setAutoSlug(false);
+        setAutosavedAt(savedAt || Date.now());
+      } else {
+        localStorage.removeItem(draftKey);
+      }
+    } catch {
+      // ignore corrupt drafts
+    }
+    setDraftRestored(true);
+  }, [draftRestored, isEditing, existingPost, draftKey]);
+
+  // Autosave the form to localStorage as the user types (debounced 800ms).
+  // Only writes when the form differs from the canonical baseline (empty
+  // initial state for new posts, hydrated server copy for edits) so we don't
+  // create bogus drafts just by visiting the page.
+  useEffect(() => {
+    if (!draftRestored) return;
+    if (savedSuccessfullyRef.current) return;
+    if (JSON.stringify(form) === baselineRef.current) return;
+    const t = setTimeout(() => {
+      try {
+        const now = Date.now();
+        localStorage.setItem(draftKey, JSON.stringify({ form, savedAt: now }));
+        setAutosavedAt(now);
+      } catch {
+        // ignore quota errors
+      }
+    }, 800);
+    return () => clearTimeout(t);
+  }, [form, draftKey, draftRestored]);
+
+  // Browser-level "you have unsaved changes" warning. Fires whenever the
+  // current form differs from the canonical baseline (covers every field,
+  // not just title/slug/content).
+  const isDirty =
+    draftRestored &&
+    !savedSuccessfullyRef.current &&
+    JSON.stringify(form) !== baselineRef.current;
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+      return "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
 
   useEffect(() => {
     if (isEditing) return;
@@ -235,12 +340,17 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   const createMutation = useCreatePost({
     mutation: {
       onSuccess: () => {
+        savedSuccessfullyRef.current = true;
+        clearLocalDraft();
         queryClient.invalidateQueries();
         navigate("/admin");
       },
       onError: (err: unknown) => {
         const msg = err instanceof Error ? err.message : "Failed to create post.";
         setError(msg);
+        requestAnimationFrame(() =>
+          errorBannerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
+        );
       },
     },
   });
@@ -248,12 +358,17 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   const updateMutation = useUpdatePost({
     mutation: {
       onSuccess: () => {
+        savedSuccessfullyRef.current = true;
+        clearLocalDraft();
         queryClient.invalidateQueries();
         navigate("/admin");
       },
       onError: (err: unknown) => {
         const msg = err instanceof Error ? err.message : "Failed to update post.";
         setError(msg);
+        requestAnimationFrame(() =>
+          errorBannerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
+        );
       },
     },
   });
@@ -262,15 +377,23 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     e.preventDefault();
     setError("");
 
-    if (!form.title.trim()) return setError("Title is required.");
-    if (!form.slug.trim()) return setError("Slug is required.");
+    const fail = (msg: string) => {
+      setError(msg);
+      requestAnimationFrame(() =>
+        errorBannerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
+      );
+      return undefined;
+    };
+
+    if (!form.title.trim()) return fail("Title is required.");
+    if (!form.slug.trim()) return fail("Slug is required.");
     if (!form.content.trim() || form.content.trim() === "<p></p>")
-      return setError("Content is required.");
-    if (!form.category) return setError("Category is required.");
+      return fail("Content is required.");
+    if (!form.category) return fail("Category is required.");
     if (coverImageStatus === "broken")
-      return setError("The cover image URL didn't load. Fix or remove it before saving.");
+      return fail("The cover image URL didn't load. Fix or remove it before saving.");
     if (ogImageStatus === "broken")
-      return setError("The social share image URL didn't load. Fix or remove it before saving.");
+      return fail("The social share image URL didn't load. Fix or remove it before saving.");
 
     const status = statusOverride ?? form.status;
 
@@ -369,9 +492,22 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
       <main className="max-w-4xl mx-auto px-4 py-8">
         <form onSubmit={(e) => submit(e)} className="space-y-6">
           {error && (
-            <div className="flex items-center gap-2 text-red-400 text-sm bg-red-900/20 border border-red-900 rounded p-3">
+            <div
+              ref={errorBannerRef}
+              className="flex items-center gap-2 text-red-400 text-sm bg-red-900/20 border border-red-900 rounded p-3"
+            >
               <AlertCircle className="w-4 h-4 shrink-0" />
               {error}
+            </div>
+          )}
+          {autosavedAt && !error && (
+            <div className="text-xs text-zinc-500 -mt-2">
+              Draft autosaved locally at{" "}
+              {new Date(autosavedAt).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+              . Your work is safe in this browser even if you close the tab.
             </div>
           )}
 

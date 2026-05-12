@@ -94,6 +94,14 @@ Dashboard, Posts (CRUD), Users, Profile, **Jobs** (`/admin/jobs` — full CRUD),
 - UI: `artifacts/tech-blog/src/pages/admin/AdminSendEmail.tsx` at `/admin/send-email`. Compose form with To/CC/BCC/Subject/Message, char counters, 4 starter templates (intro, press request, partnership, blank), plain-text body (line breaks preserved). Banners warn if the editor lacks an `@mapletechie.com` profile email. Nav icon (Send) appears in `AdminDashboard.tsx` for `isAdmin || canSendEmail`.
 - Editor onboarding: route the new `name@mapletechie.com` address in Cloudflare Email Routing (forward to their personal inbox + verify), then set that address on their profile in Manage Editors.
 
+## Editor safety net (May 2026)
+
+- **Local-draft autosave** in `AdminPostForm.tsx`: every form change is debounced (800 ms) and written to `localStorage` under `mapletechie-draft:new` (new posts) or `mapletechie-draft:<id>` (edits). On open, if a saved draft is found, the editor is prompted to restore or discard. Successful create/update clears the draft. A small "Draft autosaved locally at HH:MM" indicator appears under the form header.
+- **Unsaved-changes warning**: a `beforeunload` listener fires when the form is dirty (differs from the server baseline for edits, or has any non-empty title/slug/content for new posts), so closing the tab or navigating away surfaces the browser's native warning.
+- **Validation errors scroll into view**: `submit()` and both mutation `onError` handlers now `scrollIntoView` the red error banner so editors can't miss it (the prior silent-fail mode is what caused the May 2026 lost-post incident).
+- **Audit-log body snapshots** in `posts.ts`: `post.create` writes `{ snapshot: inserted }`, `post.update` writes `{ before, after }` (full raw rows), `post.delete` writes `{ snapshot: existing }`. JSONB column stores them; recovery is now a single SELECT against `audit_logs.details`.
+- **Unknown category slugs return 404**: `category-index.tsx` now renders the `NotFound` component once the categories list has loaded and the slug isn't in it. Stops Google from re-crawling thin shells like `/category/uncategorized/`.
+
 ## SEO Setup
 
 - `SEO` component: `artifacts/tech-blog/src/components/SEO.tsx`

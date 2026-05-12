@@ -6,15 +6,23 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { SEO } from "@/components/SEO";
+import NotFound from "@/pages/not-found";
 
 export default function CategoryIndex() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug || "";
 
+  const { data: categories, isLoading: categoriesLoading } = useListCategories();
   const { data: posts, isLoading } = useListPosts({ category: slug, limit: 20 });
-  const { data: categories } = useListCategories();
 
   const category = categories?.find(c => c.slug === slug);
+
+  // Once the category list has loaded, an unknown slug is a real 404 — render
+  // the NotFound page so search engines stop crawling thin/empty category
+  // shells like /category/uncategorized.
+  if (!categoriesLoading && categories && !category) {
+    return <NotFound />;
+  }
 
   return (
     <div className="w-full">
