@@ -20,6 +20,7 @@ import {
   Code2,
   Link as LinkIcon,
   Image as ImageIcon,
+  ImagePlus,
   AlignLeft,
   AlignCenter,
   AlignRight,
@@ -85,11 +86,23 @@ function Toolbar({ editor }: { editor: Editor }) {
   };
 
   const promptForImageUrl = () => {
-    const url = window.prompt("Paste image URL");
+    const url = window.prompt("Paste a direct image URL (must end in .jpg, .png, .webp, .gif, or .avif)");
     if (!url) return;
+    const trimmed = url.trim();
+    if (!/^https?:\/\//i.test(trimmed)) {
+      alert("Image URL must start with http:// or https://");
+      return;
+    }
+    const looksLikeImage = /\.(jpe?g|png|webp|gif|avif|svg)(\?.*)?$/i.test(trimmed);
+    if (!looksLikeImage) {
+      const proceed = window.confirm(
+        "That doesn't look like a direct image link — it looks like a page URL (e.g. a tweet, article, or video).\n\nIf you wanted to insert a link to that page, cancel and use the Link button (chain icon) instead.\n\nInsert it as an image anyway?",
+      );
+      if (!proceed) return;
+    }
     const alt = window.prompt("Image description / alt text") || "";
     const caption = window.prompt("Image caption (optional)") || "";
-    editor.chain().focus().setImage({ src: url, alt, title: caption }).run();
+    editor.chain().focus().setImage({ src: trimmed, alt, title: caption }).run();
   };
 
   const onPickImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -179,8 +192,8 @@ function Toolbar({ editor }: { editor: Editor }) {
       >
         <ImageIcon className="w-4 h-4" />
       </ToolbarButton>
-      <ToolbarButton title="Insert image by URL" onClick={promptForImageUrl}>
-        <LinkIcon className="w-4 h-4 -ml-1" />
+      <ToolbarButton title="Insert image by direct URL (must be a .jpg/.png/.webp file, not a tweet or article link)" onClick={promptForImageUrl}>
+        <ImagePlus className="w-4 h-4" />
       </ToolbarButton>
 
       <Divider />
