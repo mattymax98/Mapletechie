@@ -162,6 +162,65 @@ app.use((req, _res, next) => {
 // instead of always returning index.html — we want SEO-aware routing first.
 app.use(sirv(distDir, { single: false, dev: false, etag: true }));
 
+// --- Maintenance gate ---------------------------------------------------
+// When the site is in maintenance mode, public *page* requests must answer
+// with HTTP 503 (+ Retry-After) so crawlers treat the outage as temporary
+// rather than de-indexing real pages. Static assets (CSS/JS) are already
+// served above by sirv with 200, so the React app can still boot and render
+// the maintenance screen for human visitors. The /admin panel is exempt so
+// the site stays manageable while it's "down".
+interface MaintenanceStatus {
+  maintenance: boolean;
+  message: string | null;
+  eta: string | null;
+}
+
+let maintCache: { value: MaintenanceStatus; at: number } | null = null;
+const MAINT_TTL_MS = 10_000;
+
+async function getMaintenanceStatus(): Promise<MaintenanceStatus> {
+  if (maintCache && Date.now() - maintCache.at < MAINT_TTL_MS) {
+    return maintCache.value;
+  }
+  const status = await fetchJson<MaintenanceStatus>(
+    `${API_BASE}/api/settings/status`,
+    2000,
+  );
+  // Fail open: if the status endpoint is unreachable, don't take pages down.
+  // Only cache successful reads so a transient blip recovers quickly.
+  if (status) {
+    maintCache = { value: status, at: Date.now() };
+    return status;
+  }
+  return { maintenance: false, message: null, eta: null };
+}
+
+app.use(async (req, res, next) => {
+  // The admin panel must stay reachable while the public site is down.
+  if (req.path === "/admin" || req.path.startsWith("/admin/")) {
+    return next();
+  }
+  const status = await getMaintenanceStatus();
+  if (!status.maintenance) return next();
+
+  const seo = buildSeoBlock({
+    title: "We'll be right back | Mapletechie",
+    description:
+      status.message?.trim() ||
+      "Mapletechie is down for scheduled maintenance and will be back shortly.",
+    image: DEFAULT_OG_IMAGE,
+    url: SITE_URL,
+    type: "website",
+  });
+
+  res.status(503);
+  res.setHeader("Retry-After", "3600");
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
+  res.send(renderHtml(seo));
+});
+// -----------------------------------------------------------------------
+
 interface PostRecord {
   id: number;
   slug: string;
