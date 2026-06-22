@@ -372,10 +372,10 @@ export default function Home() {
           <aside className="lg:col-span-4 flex flex-col gap-10">
             {(loadingDiscussed || (discussedPosts && discussedPosts.length > 0)) && (
               <div className="bg-card border border-border p-6">
-                <h3 className="text-lg font-black uppercase tracking-tight flex items-center gap-2 mb-6 border-b border-border pb-4">
+                <h2 className="text-lg font-black uppercase tracking-tight flex items-center gap-2 mb-6 border-b border-border pb-4">
                   <MessageCircle className="h-5 w-5 text-primary" />
                   Most Discussed
-                </h3>
+                </h2>
                 <div className="flex flex-col gap-6">
                   {loadingDiscussed ? (
                     Array.from({ length: 4 }).map((_, i) => (
@@ -393,9 +393,9 @@ export default function Home() {
                         {idx + 1}
                       </span>
                       <div>
-                        <h4 className="font-bold leading-snug group-hover:text-primary transition-colors line-clamp-2 mb-1 text-sm">
+                        <h3 className="font-bold leading-snug group-hover:text-primary transition-colors line-clamp-2 mb-1 text-sm">
                           {post.title}
-                        </h4>
+                        </h3>
                         <div className="flex items-center text-xs text-muted-foreground gap-2 font-medium">
                           <span>{post.category}</span>
                           <span>&bull;</span>
