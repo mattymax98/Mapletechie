@@ -481,6 +481,93 @@ app.get(/^\/category\/([^\/]+)\/?$/, async (req, res, next) => {
 // These pages have fixed, well-known metadata AND a meaningful prerendered body
 // so AI crawlers and non-JS bots see actual content, not just a React shell.
 
+// Homepage prerender — serves meaningful HTML to AI crawlers and bots that
+// don't execute JavaScript. Human visitors always get the React SPA via the
+// catch-all handler below. The body includes the site h1, editorial tagline,
+// category links, and the latest published post list so crawlers can discover
+// internal links and understand the site's subject matter without JS rendering.
+app.get(/^\/?$/, async (req, res, next) => {
+  if (!isCrawler(req)) return next();
+  const description =
+    "Mapletechie — Your go-to source for tech news, gadget reviews, software deep dives, and the latest in AI, EVs, and cybersecurity.";
+  const seo = buildSeoBlock({
+    title: "Mapletechie — Tech News & Reviews",
+    description,
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/`,
+    type: "website",
+  });
+
+  // Organization + WebSite JSON-LD for the homepage entity signal.
+  const siteJsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": `${SITE_URL}/#website`,
+        name: "Mapletechie",
+        url: `${SITE_URL}/`,
+        description,
+        publisher: { "@id": `${SITE_URL}/#organization` },
+      },
+      {
+        "@type": "Organization",
+        "@id": `${SITE_URL}/#organization`,
+        name: "Mapletechie",
+        url: `${SITE_URL}/`,
+        logo: {
+          "@type": "ImageObject",
+          url: `${SITE_URL}/logo-favicon-v2.png`,
+          width: 512,
+          height: 512,
+        },
+        sameAs: ["https://x.com/mapletechie"],
+      },
+    ],
+  };
+  const siteJsonLdSafe = JSON.stringify(siteJsonLd).replace(/</g, "\\u003c");
+  const seoWithJsonLd = seo.replace(
+    "<!-- SEO_HEAD_END -->",
+    `    <script type="application/ld+json">${siteJsonLdSafe}</script>\n    <!-- SEO_HEAD_END -->`,
+  );
+
+  const posts = await fetchJson<PostSummary[]>(`${API_BASE}/api/posts?limit=10`);
+
+  const CATEGORIES = [
+    { slug: "ai-machine-learning", name: "AI & Machine Learning" },
+    { slug: "gadgets", name: "Gadgets" },
+    { slug: "cybersecurity", name: "Cybersecurity" },
+    { slug: "electric-vehicles", name: "Electric Vehicles" },
+    { slug: "software", name: "Software & Apps" },
+    { slug: "science-space", name: "Science & Space" },
+  ];
+  const categoryLinksHtml = CATEGORIES.map(
+    (c) =>
+      `<li><a href="${htmlEscape(`${SITE_URL}/category/${c.slug}`)}">${htmlEscape(c.name)}</a></li>`,
+  ).join("\n");
+
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>Mapletechie — Tech, told straight.</h1>
+  <p>${htmlEscape(description)}</p>
+  <p>No press junkets. No hype cycles. Sharp opinion, real reviews, and the context the spec sheets leave out. Independent tech journalism built in Canada.</p>
+  <h2>Explore by Category</h2>
+  <ul>
+${categoryLinksHtml}
+  </ul>
+  <h2>Latest Articles</h2>
+  ${renderPostList(posts ?? [], SITE_URL)}
+  <h2>About Us</h2>
+  <p>Mapletechie is an independent tech publication covering artificial intelligence, gadgets, cybersecurity, electric vehicles, and software. We write from Toronto with a global lens. <a href="${htmlEscape(`${SITE_URL}/about`)}">Learn more about Mapletechie</a>.</p>
+  <p><a href="${htmlEscape(`${SITE_URL}/blog`)}">Read all articles</a> &middot; <a href="${htmlEscape(`${SITE_URL}/contact`)}">Contact us</a></p>
+</main>`;
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=300, s-maxage=300");
+  res.send(renderHtml(seoWithJsonLd, body));
+});
+
 app.get(/^\/blog\/?$/, async (req, res, next) => {
   if (!isCrawler(req)) return next();
   const description =
