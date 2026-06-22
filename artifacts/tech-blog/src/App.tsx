@@ -10,9 +10,14 @@ import NotFound from "@/pages/not-found";
 
 import { Layout } from "@/components/layout/Layout";
 import Home from "@/pages/home";
-import BlogIndex from "@/pages/blog-index";
-import BlogPost from "@/pages/blog-post";
-import CategoryIndex from "@/pages/category-index";
+
+// Secondary public pages — split into their own chunks so the homepage doesn't
+// ship their JS on first load. The server prerenders each route's content into
+// #root, so the initial paint (and LCP) is unaffected; React swaps in once the
+// route chunk loads.
+const BlogIndex = lazy(() => import("@/pages/blog-index"));
+const BlogPost = lazy(() => import("@/pages/blog-post"));
+const CategoryIndex = lazy(() => import("@/pages/category-index"));
 
 // Rarely-used public pages — split into their own chunks.
 const Contact = lazy(() => import("@/pages/contact"));
