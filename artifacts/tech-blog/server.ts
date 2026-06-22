@@ -362,7 +362,7 @@ const KNOWN_SPA_ROUTES: RegExp[] = [
   /^\/series\/[^/]+\/?$/,
   /^\/careers\/?$/,
   /^\/careers\/[^/]+\/?$/,
-  /^\/(about|contact|advertise|search|privacy|terms|latest)\/?$/,
+  /^\/(about|contact|advertise|search|privacy|terms)\/?$/,
   /^\/admin(\/.*)?$/,
 ];
 
