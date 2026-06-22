@@ -7,6 +7,7 @@ export default function Privacy() {
       <SEO
         title="Privacy Policy — Mapletechies"
         description="How Mapletechies collects, uses, and protects your information."
+        url="/privacy"
       />
       <article className="container mx-auto px-4 md:px-6 py-12 md:py-20 max-w-3xl">
         <header className="mb-10">
