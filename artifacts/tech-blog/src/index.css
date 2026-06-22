@@ -105,7 +105,7 @@
   --popover: 0 0% 100%;
   --popover-foreground: 240 10% 3.9%;
   --popover-border: 240 5.9% 90%;
-  --primary: 21 90% 40%;
+  --primary: 21 90% 37%;
   --primary-foreground: 0 0% 100%;
   --secondary: 240 4.8% 95.9%;
   --secondary-foreground: 240 5.9% 10%;
@@ -117,7 +117,7 @@
   --destructive-foreground: 0 0% 98%;
   --border: 240 5.9% 90%;
   --input: 240 5.9% 90%;
-  --ring: 21 90% 42%;
+  --ring: 21 90% 37%;
   
   --sidebar: 0 0% 98%;
   --sidebar-foreground: 240 5.3% 26.1%;
