@@ -11,6 +11,39 @@ function buildVariantUrl(originalSrc: string, width: number): string {
 }
 
 /**
+ * Bundled brand cover/hero images that ship as static `.webp` files with
+ * pre-generated `-400` / `-800` width variants (the originals are 1408w). These
+ * are the seeded post covers (`/covers/*`) and the homepage hero fallback.
+ *
+ * Only these exact base names have width variants committed under `public/`, so
+ * the responsive `srcset` is gated to this set — any other `/covers/*` path is
+ * still normalized to `.webp` (below) but served as a single file, never an
+ * `-400`/`-800` URL that would 404. Admin-uploaded covers go to object storage
+ * (`/api/storage/objects/`), not here, so this set stays the full source list.
+ */
+const STATIC_COVER_VARIANTS = new Set([
+  "ai-trends",
+  "cybersecurity",
+  "ev-future",
+  "gadgets",
+  "laptops",
+  "quantum",
+  "software",
+  "hero-post",
+]);
+
+/**
+ * Normalize a bundled cover/hero path to its `.webp` form (rewriting any legacy
+ * `.png` so the browser never pays the 301 redirect hop), or null if the path
+ * isn't a bundled cover. Returns whether pre-generated width variants exist.
+ */
+function staticCoverWebp(src: string): { webp: string; hasVariants: boolean } | null {
+  const m = /^\/(?:covers|images)\/([^/]+)\.(?:png|webp)$/i.exec(src);
+  if (!m) return null;
+  return { webp: src.replace(/\.png$/i, ".webp"), hasVariants: STATIC_COVER_VARIANTS.has(m[1]) };
+}
+
+/**
  * Standard `sizes` hints for cover images in their common layout contexts.
  * These tell the browser how wide the image renders so it can pick the
  * smallest matching srcset variant.
@@ -38,11 +71,27 @@ export function responsiveCoverProps(
   src: string,
   sizes: string,
 ): { src: string; srcSet?: string; sizes?: string } {
-  if (!src.startsWith("/api/storage/objects/")) {
-    return { src };
+  if (src.startsWith("/api/storage/objects/")) {
+    const srcSet = VARIANT_WIDTHS.map((w) => `${buildVariantUrl(src, w)} ${w}w`).join(", ");
+    return { src, srcSet, sizes };
   }
-  const srcSet = VARIANT_WIDTHS.map((w) => `${buildVariantUrl(src, w)} ${w}w`).join(", ");
-  return { src, srcSet, sizes };
+  // Bundled brand covers/hero: serve the small pre-generated variant the layout
+  // actually needs (was shipping the full 1408w file to every viewport).
+  const cover = staticCoverWebp(src);
+  if (cover) {
+    if (!cover.hasVariants) {
+      // Normalize to .webp (no 301) but serve the single original file.
+      return { src: cover.webp };
+    }
+    const base = cover.webp.replace(/\.webp$/i, "");
+    const srcSet = [
+      `${base}-400.webp 400w`,
+      `${base}-800.webp 800w`,
+      `${cover.webp} 1408w`,
+    ].join(", ");
+    return { src: cover.webp, srcSet, sizes };
+  }
+  return { src };
 }
 
 export function applyResponsiveImages(root: HTMLElement | null): void {
