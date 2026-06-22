@@ -73,9 +73,9 @@ router.post("/newsletter/subscribe", newsletterLimiter, async (req, res): Promis
   try {
     await sendEmail({
       to: email,
-      subject: "Confirm your Mapletechies subscription",
+      subject: "Confirm your Mapletechie subscription",
       html: confirmEmailHtml(confirmUrl),
-      text: `Confirm your Mapletechies subscription:\n\n${confirmUrl}\n\nIf you didn't sign up, ignore this email.`,
+      text: `Confirm your Mapletechie subscription:\n\n${confirmUrl}\n\nIf you didn't sign up, ignore this email.`,
     });
   } catch (err) {
     logger.error({ err, email }, "Failed to send confirm email");
@@ -107,9 +107,9 @@ router.get("/newsletter/confirm", async (req, res): Promise<void> => {
     try {
       await sendEmail({
         to: sub.email,
-        subject: "You're in — welcome to Mapletechies",
+        subject: "You're in — welcome to Mapletechie",
         html: welcomeEmailHtml(unsubUrl),
-        text: `Welcome to the Mapletechies weekly. Unsubscribe any time: ${unsubUrl}`,
+        text: `Welcome to the Mapletechie weekly. Unsubscribe any time: ${unsubUrl}`,
       });
     } catch (err) {
       logger.error({ err }, "Failed to send welcome email");

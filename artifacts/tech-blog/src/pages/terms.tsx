@@ -5,7 +5,7 @@ export default function Terms() {
   return (
     <>
       <SEO
-        title="Terms of Service — Mapletechies"
+        title="Terms of Service — Mapletechie"
         description="The rules for using mapletechie.com."
         url="/terms"
       />
@@ -18,12 +18,12 @@ export default function Terms() {
 
         <div className="prose prose-invert prose-lg max-w-none prose-headings:font-serif prose-headings:font-black prose-a:text-primary">
           <p>
-            Welcome to Mapletechies. By using <strong>mapletechie.com</strong> (the "Site"), you agree to these Terms of Service. If you don't agree, please don't use the Site. Questions? Email <a href="mailto:hello@mapletechie.com">hello@mapletechie.com</a>.
+            Welcome to Mapletechie. By using <strong>mapletechie.com</strong> (the "Site"), you agree to these Terms of Service. If you don't agree, please don't use the Site. Questions? Email <a href="mailto:hello@mapletechie.com">hello@mapletechie.com</a>.
           </p>
 
           <h2>1. Who we are</h2>
           <p>
-            Mapletechies is an independent tech publication. The Site is operated by an independent editor and is not a registered company. References to "we," "us," and "our" refer to the editorial team behind the Site.
+            Mapletechie is an independent tech publication. The Site is operated by an independent editor and is not a registered company. References to "we," "us," and "our" refer to the editorial team behind the Site.
           </p>
 
           <h2>2. Use of the Site</h2>
@@ -41,7 +41,7 @@ export default function Terms() {
           </p>
           <ul>
             <li>The content is yours to share, accurate to the best of your knowledge, and not misleading.</li>
-            <li>You grant Mapletechies a non-exclusive, worldwide, royalty-free license to display, edit for clarity, and republish that content in connection with the Site (for example, featuring a reader review on a product page).</li>
+            <li>You grant Mapletechie a non-exclusive, worldwide, royalty-free license to display, edit for clarity, and republish that content in connection with the Site (for example, featuring a reader review on a product page).</li>
             <li>We may decline, edit, or remove submissions at our discretion — particularly anything that violates these Terms or our editorial standards.</li>
           </ul>
 
@@ -60,7 +60,7 @@ export default function Terms() {
 
           <h2>6. Intellectual property</h2>
           <p>
-            All articles, photography, illustrations, code, and design on the Site are the property of Mapletechies or used with permission, unless explicitly noted otherwise. You may quote short excerpts with attribution and a link back to the original article. For anything beyond fair use — including republication, translation, or commercial reuse — please email us.
+            All articles, photography, illustrations, code, and design on the Site are the property of Mapletechie or used with permission, unless explicitly noted otherwise. You may quote short excerpts with attribution and a link back to the original article. For anything beyond fair use — including republication, translation, or commercial reuse — please email us.
           </p>
           <p>
             Trademarks, logos, and brand names belonging to other companies appear on the Site for editorial purposes (reviews, news coverage) and remain the property of their respective owners.
@@ -78,7 +78,7 @@ export default function Terms() {
 
           <h2>9. Limitation of liability</h2>
           <p>
-            To the fullest extent permitted by law, Mapletechies and its editors are not liable for any indirect, incidental, or consequential damages arising from your use of the Site. Our total liability for any claim related to the Site will not exceed CAD $100.
+            To the fullest extent permitted by law, Mapletechie and its editors are not liable for any indirect, incidental, or consequential damages arising from your use of the Site. Our total liability for any claim related to the Site will not exceed CAD $100.
           </p>
 
           <h2>10. Termination</h2>

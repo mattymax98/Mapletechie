@@ -20,8 +20,8 @@ type ReplyTemplate = "forward" | "pass" | "clarify" | "blank";
 const REPLY_TEMPLATES: Record<ReplyTemplate, { label: string; subject: (jobTitle: string) => string; body: (firstName: string, jobTitle: string) => string }> = {
   forward: {
     label: "Move forward",
-    subject: () => `Your application to Mapletechies — next steps`,
-    body: (_fn, jt) => `Thanks for applying to the ${jt} role at Mapletechies. I read through your application and I'd like to learn more.
+    subject: () => `Your application to Mapletechie — next steps`,
+    body: (_fn, jt) => `Thanks for applying to the ${jt} role at Mapletechie. I read through your application and I'd like to learn more.
 
 Could you reply with:
 
@@ -33,8 +33,8 @@ No deadline pressure — take the time you need to put your best foot forward.`,
   },
   pass: {
     label: "Pass politely",
-    subject: () => `Your application to Mapletechies`,
-    body: (_fn, jt) => `Thanks for applying to the ${jt} role at Mapletechies and for the time you put into your submission.
+    subject: () => `Your application to Mapletechie`,
+    body: (_fn, jt) => `Thanks for applying to the ${jt} role at Mapletechie and for the time you put into your submission.
 
 After reviewing the applications we received, we've decided to move forward with other candidates whose backgrounds more closely matched what we're looking for right now. This isn't a reflection of your work — it's a small team and a narrow brief.
 
@@ -44,14 +44,14 @@ Wishing you the best.`,
   },
   clarify: {
     label: "Ask a question",
-    subject: () => `Quick question about your Mapletechies application`,
+    subject: () => `Quick question about your Mapletechie application`,
     body: (_fn, jt) => `Thanks for applying to the ${jt} role. Before I take this to the next round, I'd love to clarify one thing: [your question here].
 
 Once I have that I'll be back to you within a few days.`,
   },
   blank: {
     label: "Start blank",
-    subject: () => `Re: your Mapletechies application`,
+    subject: () => `Re: your Mapletechie application`,
     body: () => ``,
   },
 };

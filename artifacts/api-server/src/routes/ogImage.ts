@@ -91,7 +91,7 @@ interface OgRenderInput {
 
 /**
  * Renders a 1200x630 PNG share card with consistent Mapletechie branding:
- *   - "M" logo + "Mapletechies." wordmark in the top-left
+ *   - "M" logo + "Mapletechie." wordmark in the top-left
  *   - optional kicker (orange, uppercase)
  *   - large white title
  *   - optional subtitle (muted)
@@ -141,7 +141,7 @@ async function renderOgImage(input: OgRenderInput): Promise<Buffer> {
   <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#shade)"/>
   <rect x="60" y="55" width="56" height="56" fill="#f97316"/>
   <text x="78" y="100" font-family="Georgia, serif" font-size="44" font-weight="700" fill="#0a0a0a">M</text>
-  <text x="138" y="98" font-family="Georgia, serif" font-size="36" font-weight="600" fill="#ffffff">Maple<tspan fill="#f97316" font-style="italic">techies.</tspan></text>
+  <text x="138" y="98" font-family="Georgia, serif" font-size="36" font-weight="600" fill="#ffffff">Maple<tspan fill="#f97316" font-style="italic">techie.</tspan></text>
   ${kicker ? `<text x="60" y="${startY - 24}" font-family="Inter, system-ui, sans-serif" font-size="22" font-weight="700" fill="#f97316" letter-spacing="3">${escapeXml(kicker)}</text>` : ""}
   ${titleSvg}
   ${subtitleSvg}

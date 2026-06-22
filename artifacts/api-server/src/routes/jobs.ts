@@ -21,7 +21,7 @@ function applicationReplyHtml(args: {
     <div style="height:6px;background:#f97316;"></div>
     <div style="padding:32px 32px 8px 32px;">
       <div style="font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:700;color:#111;letter-spacing:-0.01em;">
-        Maple<span style="color:#f97316;font-style:italic;">techies</span>
+        Maple<span style="color:#f97316;font-style:italic;">techie</span>
       </div>
       <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-top:4px;">
         Careers · re: ${escapeHtml(args.jobTitle)}
@@ -32,10 +32,10 @@ function applicationReplyHtml(args: {
       <div style="margin:16px 0;">${safeMsg}</div>
       <p style="margin:24px 0 4px 0;">Best,</p>
       <p style="margin:0;font-weight:600;">${escapeHtml(args.senderName)}</p>
-      <p style="margin:0;color:#666;font-size:13px;">Mapletechies</p>
+      <p style="margin:0;color:#666;font-size:13px;">Mapletechie</p>
     </div>
     <div style="border-top:1px solid #eee;padding:16px 32px;font-size:12px;color:#888;">
-      You're receiving this because you applied to a role at Mapletechies.<br />
+      You're receiving this because you applied to a role at Mapletechie.<br />
       Reply directly to this email to reach us. <a href="${SITE_URL}/careers" style="color:#f97316;text-decoration:none;">mapletechie.com/careers</a>
     </div>
   </div>
@@ -54,7 +54,7 @@ ${args.message}
 
 Best,
 ${args.senderName}
-Mapletechies — re: ${args.jobTitle}
+Mapletechie — re: ${args.jobTitle}
 ${SITE_URL}/careers
 `;
 }
@@ -203,7 +203,7 @@ router.post("/admin/applications/:id/reply", adminAuth, requirePermission("jobs"
   const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, app.jobId));
   const jobTitle = job?.title || "your application";
 
-  const senderName = req.user?.displayName || req.user?.username || "The Mapletechies Team";
+  const senderName = req.user?.displayName || req.user?.username || "The Mapletechie Team";
 
   // Careers replies always send from and reply to the shared careers@ mailbox so
   // every editor replying to a candidate stays in one shared thread/inbox. The

@@ -5,8 +5,8 @@ export default function Privacy() {
   return (
     <>
       <SEO
-        title="Privacy Policy — Mapletechies"
-        description="How Mapletechies collects, uses, and protects your information."
+        title="Privacy Policy — Mapletechie"
+        description="How Mapletechie collects, uses, and protects your information."
         url="/privacy"
       />
       <article className="container mx-auto px-4 md:px-6 py-12 md:py-20 max-w-3xl">
@@ -18,7 +18,7 @@ export default function Privacy() {
 
         <div className="prose prose-invert prose-lg max-w-none prose-headings:font-serif prose-headings:font-black prose-a:text-primary">
           <p>
-            Mapletechies ("we," "us," or "our") runs the website at <strong>mapletechie.com</strong> (the "Site"). This Privacy Policy explains what information we collect when you visit the Site, how we use it, and the choices you have. We try to keep this short and plain — if anything is unclear, email us at <a href="mailto:hello@mapletechie.com">hello@mapletechie.com</a>.
+            Mapletechie ("we," "us," or "our") runs the website at <strong>mapletechie.com</strong> (the "Site"). This Privacy Policy explains what information we collect when you visit the Site, how we use it, and the choices you have. We try to keep this short and plain — if anything is unclear, email us at <a href="mailto:hello@mapletechie.com">hello@mapletechie.com</a>.
           </p>
 
           <h2>1. Information we collect</h2>
