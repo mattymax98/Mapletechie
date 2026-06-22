@@ -12,7 +12,7 @@ import { useAdmin } from "@/context/AdminContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlusCircle, Pencil, Trash2, LogOut, Eye, ExternalLink, Sparkles, Users, User as UserIcon, CheckCircle2, Inbox, Briefcase, Mail, ClipboardList, BarChart3, Send, Image as ImageIcon, Clock, Tag, FolderInput, Check } from "lucide-react";
+import { PlusCircle, Pencil, Trash2, LogOut, Eye, ExternalLink, Sparkles, Users, User as UserIcon, CheckCircle2, Inbox, Briefcase, Mail, ClipboardList, BarChart3, Send, Image as ImageIcon, Clock, Tag, FolderInput, Check, Settings } from "lucide-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -95,6 +95,7 @@ export default function AdminDashboard() {
             {canSendEmail && <NavIcon href="/admin/send-email" Icon={Send} label="Send Email" />}
             <NavIcon href="/admin/analytics" Icon={BarChart3} label="Analytics" />
             {isAdmin && <NavIcon href="/admin/audit" Icon={ClipboardList} label="Activity" />}
+            {isAdmin && <NavIcon href="/admin/settings" Icon={Settings} label="Settings" />}
             <NavIcon href="/" Icon={ExternalLink} label="View Site" />
             <Button
               variant="ghost"

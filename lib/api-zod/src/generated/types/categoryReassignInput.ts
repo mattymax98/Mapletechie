@@ -7,7 +7,7 @@
  */
 
 export interface CategoryReassignInput {
-  /** Existing category name on posts.category to move away from */
+  /** Existing category name to move posts away from */
   fromName: string;
   /** Destination category name (must already exist in categories) */
   toName: string;

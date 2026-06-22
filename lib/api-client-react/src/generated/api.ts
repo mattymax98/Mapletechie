@@ -46,6 +46,7 @@ import type {
   ListProductsParams,
   LoginBody,
   LoginResponse,
+  MaintenanceStatus,
   MediaItem,
   NewCommentInput,
   NewMediaInput,
@@ -64,11 +65,13 @@ import type {
   Review,
   ReviewBody,
   ReviewStatusUpdate,
+  SiteSettings,
   SiteSummary,
   SubmissionResponse,
   Subscriber,
   UpdateMeInput,
   UpdatePostInput,
+  UpdateSiteSettingsInput,
   UpdateUserInput,
   UploadUrlRequest,
   UploadUrlResponse,
@@ -1167,7 +1170,7 @@ export const useReassignCategoryPosts = <
 };
 
 /**
- * @summary Update a category (admin only). Renaming cascades to posts.category.
+ * @summary Update a category (admin only).
  */
 export const getUpdateCategoryUrl = (id: number) => {
   return `/api/admin/categories/${id}`;
@@ -1231,7 +1234,7 @@ export type UpdateCategoryMutationBody = BodyType<CategoryInput>;
 export type UpdateCategoryMutationError = ErrorType<unknown>;
 
 /**
- * @summary Update a category (admin only). Renaming cascades to posts.category.
+ * @summary Update a category (admin only).
  */
 export const useUpdateCategory = <
   TError = ErrorType<unknown>,
@@ -5872,3 +5875,239 @@ export function useAdminGetInboxCounts<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Public maintenance status (always available, never gated)
+ */
+export const getGetMaintenanceStatusUrl = () => {
+  return `/api/settings/status`;
+};
+
+export const getMaintenanceStatus = async (
+  options?: RequestInit,
+): Promise<MaintenanceStatus> => {
+  return customFetch<MaintenanceStatus>(getGetMaintenanceStatusUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMaintenanceStatusQueryKey = () => {
+  return [`/api/settings/status`] as const;
+};
+
+export const getGetMaintenanceStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMaintenanceStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMaintenanceStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMaintenanceStatusQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMaintenanceStatus>>
+  > = ({ signal }) => getMaintenanceStatus({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMaintenanceStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMaintenanceStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMaintenanceStatus>>
+>;
+export type GetMaintenanceStatusQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Public maintenance status (always available, never gated)
+ */
+
+export function useGetMaintenanceStatus<
+  TData = Awaited<ReturnType<typeof getMaintenanceStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMaintenanceStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMaintenanceStatusQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get site settings (admin only)
+ */
+export const getGetSiteSettingsUrl = () => {
+  return `/api/admin/settings`;
+};
+
+export const getSiteSettings = async (
+  options?: RequestInit,
+): Promise<SiteSettings> => {
+  return customFetch<SiteSettings>(getGetSiteSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSiteSettingsQueryKey = () => {
+  return [`/api/admin/settings`] as const;
+};
+
+export const getGetSiteSettingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSiteSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSiteSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSiteSettingsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getSiteSettings>>> = ({
+    signal,
+  }) => getSiteSettings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSiteSettings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSiteSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSiteSettings>>
+>;
+export type GetSiteSettingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get site settings (admin only)
+ */
+
+export function useGetSiteSettings<
+  TData = Awaited<ReturnType<typeof getSiteSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSiteSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSiteSettingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update site settings (admin only)
+ */
+export const getUpdateSiteSettingsUrl = () => {
+  return `/api/admin/settings`;
+};
+
+export const updateSiteSettings = async (
+  updateSiteSettingsInput: UpdateSiteSettingsInput,
+  options?: RequestInit,
+): Promise<SiteSettings> => {
+  return customFetch<SiteSettings>(getUpdateSiteSettingsUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateSiteSettingsInput),
+  });
+};
+
+export const getUpdateSiteSettingsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSiteSettings>>,
+    TError,
+    { data: BodyType<UpdateSiteSettingsInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSiteSettings>>,
+  TError,
+  { data: BodyType<UpdateSiteSettingsInput> },
+  TContext
+> => {
+  const mutationKey = ["updateSiteSettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSiteSettings>>,
+    { data: BodyType<UpdateSiteSettingsInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateSiteSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSiteSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSiteSettings>>
+>;
+export type UpdateSiteSettingsMutationBody = BodyType<UpdateSiteSettingsInput>;
+export type UpdateSiteSettingsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update site settings (admin only)
+ */
+export const useUpdateSiteSettings = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSiteSettings>>,
+    TError,
+    { data: BodyType<UpdateSiteSettingsInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateSiteSettings>>,
+  TError,
+  { data: BodyType<UpdateSiteSettingsInput> },
+  TContext
+> => {
+  return useMutation(getUpdateSiteSettingsMutationOptions(options));
+};

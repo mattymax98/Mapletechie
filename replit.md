@@ -102,6 +102,14 @@ Dashboard, Posts (CRUD), Users, Profile, **Jobs** (`/admin/jobs` — full CRUD),
 - **Audit-log body snapshots** in `posts.ts`: `post.create` writes `{ snapshot: inserted }`, `post.update` writes `{ before, after }` (full raw rows), `post.delete` writes `{ snapshot: existing }`. JSONB column stores them; recovery is now a single SELECT against `audit_logs.details`.
 - **Unknown category slugs return 404**: `category-index.tsx` now renders the `NotFound` component once the categories list has loaded and the slug isn't in it. Stops Google from re-crawling thin shells like `/category/uncategorized/`.
 
+## Site Maintenance Mode
+
+- Singleton `site_settings` table (`lib/db/src/schema/siteSettings.ts`): one row (`id=1`) holding `maintenanceMode` (bool), `maintenanceMessage`, `maintenanceEta`, `updatedAt`, `updatedBy`. Seeded at boot via `seedSiteSettings()` (after `seedCuratedCategories`).
+- Server logic in `artifacts/api-server/src/lib/siteSettings.ts`: `getMaintenanceState()` combines the DB row with the `MAINTENANCE_MODE` env break-glass override (env always wins, short-circuits before any DB read, and tolerates DB outage). The DB row is cached in-process 5s; any PUT busts the cache.
+- Middleware `publicMaintenanceGate` (`src/middlewares/maintenance.ts`) mounted before the API router in `app.ts`. When maintenance is active it returns `503` + `Retry-After: 3600` for public API paths, but exempts `/healthz`, `/admin/*` (incl. login + settings), and `/settings/*`. On a DB read error in the non-env path it fails open (serves the site).
+- Routes (`src/routes/settings.ts`): `GET /api/settings/status` — public, always-available, never gated (frontend polls it). `GET/PUT /api/admin/settings` — `adminAuth + requireRole("admin")`, PUT audit-logged as `settings.update`.
+- Frontend: `MaintenanceGate` (`artifacts/tech-blog/src/components/MaintenanceGate.tsx`) wraps the public route tree in `App.tsx`, polls `getMaintenanceStatus` every 30s, and shows `MaintenanceScreen.tsx` (on-brand dark/orange, Fraunces+Inter, wrench animation, message + ETA). Signed-in admins/editors bypass the gate. Admin UI at `/admin/settings` (`AdminSettings.tsx`, admin-only) — toggle + message/ETA fields, env-forced banner when the override is active. Nav icon (Settings) in `AdminDashboard.tsx` for admins.
+
 ## SEO Setup
 
 - `SEO` component: `artifacts/tech-blog/src/components/SEO.tsx`

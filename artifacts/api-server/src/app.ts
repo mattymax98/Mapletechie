@@ -3,6 +3,7 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { publicMaintenanceGate } from "./middlewares/maintenance";
 
 const app: Express = express();
 
@@ -36,6 +37,10 @@ app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
+// Public maintenance gate: when maintenance mode is on, public API requests
+// get a 503. Admin, health, and the public status endpoint stay exempt so the
+// site can still be managed and the frontend can poll its status.
+app.use("/api", publicMaintenanceGate);
 app.use("/api", router);
 
 export default app;

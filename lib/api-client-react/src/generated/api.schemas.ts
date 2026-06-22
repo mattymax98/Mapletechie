@@ -5,6 +5,28 @@
  * API specification for Tech Blog
  * OpenAPI spec version: 0.1.0
  */
+export interface MaintenanceStatus {
+  maintenance: boolean;
+  message?: string | null;
+  eta?: string | null;
+}
+
+export interface SiteSettings {
+  maintenanceMode: boolean;
+  maintenanceMessage?: string | null;
+  maintenanceEta?: string | null;
+  updatedAt?: string;
+  updatedBy?: string | null;
+  envForced: boolean;
+  effectiveMaintenance: boolean;
+}
+
+export interface UpdateSiteSettingsInput {
+  maintenanceMode?: boolean;
+  maintenanceMessage?: string | null;
+  maintenanceEta?: string | null;
+}
+
 export interface UploadUrlRequest {
   /** @minLength 1 */
   name: string;
@@ -326,7 +348,7 @@ export interface Category {
 }
 
 export interface CategoryReassignInput {
-  /** Existing category name on posts.category to move away from */
+  /** Existing category name to move posts away from */
   fromName: string;
   /** Destination category name (must already exist in categories) */
   toName: string;
