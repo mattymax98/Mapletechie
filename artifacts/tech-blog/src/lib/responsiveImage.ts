@@ -10,6 +10,41 @@ function buildVariantUrl(originalSrc: string, width: number): string {
   return originalSrc.replace(/^\/api\/storage\/objects\//, `/api/storage/img/${width}/objects/`);
 }
 
+/**
+ * Standard `sizes` hints for cover images in their common layout contexts.
+ * These tell the browser how wide the image renders so it can pick the
+ * smallest matching srcset variant.
+ */
+export const COVER_SIZES = {
+  /** Large hero (home featured, ~2/3 width on desktop). */
+  hero: "(min-width: 1024px) 66vw, 100vw",
+  /** Full-width article cover (max ~1152px container). */
+  full: "(min-width: 1152px) 1152px, 100vw",
+  /** 3-column card grid (blog index, category, related). */
+  grid3: "(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw",
+  /** 2-column card grid (home latest). */
+  grid2: "(min-width: 768px) 50vw, 100vw",
+  /** Narrow sidebar column (home sub-hero). */
+  sidebar: "(min-width: 1024px) 33vw, 100vw",
+} as const;
+
+/**
+ * Build responsive <img> props for a cover image. When the src points at our
+ * own object storage we attach a srcset of resizer variants + the given sizes
+ * hint, so phones fetch a small file and large/retina screens fetch a sharp one.
+ * External URLs and bundled fallback images are returned untouched.
+ */
+export function responsiveCoverProps(
+  src: string,
+  sizes: string,
+): { src: string; srcSet?: string; sizes?: string } {
+  if (!src.startsWith("/api/storage/objects/")) {
+    return { src };
+  }
+  const srcSet = VARIANT_WIDTHS.map((w) => `${buildVariantUrl(src, w)} ${w}w`).join(", ");
+  return { src, srcSet, sizes };
+}
+
 export function applyResponsiveImages(root: HTMLElement | null): void {
   if (!root) return;
   const imgs = Array.from(root.querySelectorAll<HTMLImageElement>("img"));

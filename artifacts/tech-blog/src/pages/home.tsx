@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
+import { responsiveCoverProps, COVER_SIZES } from "@/lib/responsiveImage";
 
 const PRINCIPLES = [
   { n: "01", t: "Independent.",   d: "No press junkets, no sponsored takes dressed up as reviews. We pay for our own gear and tell you what's actually true." },
@@ -92,7 +93,7 @@ export default function Home() {
                   decoding="async"
                   width={1200}
                   height={675}
-                  src={heroPost.coverImage || "/images/hero-post.webp"}
+                  {...responsiveCoverProps(heroPost.coverImage || "/images/hero-post.webp", COVER_SIZES.hero)}
                   alt={heroPost.title}
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
@@ -127,7 +128,7 @@ export default function Home() {
               <Link key={post.id} href={`/blog/${post.slug}`} className="group relative flex-1 overflow-hidden bg-muted min-h-[240px] flex flex-col justify-end p-6 border border-border">
                 <div className="absolute inset-0 z-0">
                   <img loading="lazy" decoding="async"
-                    src={post.coverImage || `/images/post-${idx + 1}.png`}
+                    {...responsiveCoverProps(post.coverImage || `/images/post-${idx + 1}.png`, COVER_SIZES.sidebar)}
                     alt={post.title}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
@@ -243,7 +244,7 @@ export default function Home() {
                             <img
                               loading="lazy"
                               decoding="async"
-                              src={post.coverImage || `/images/post-${(idx % 3) + 1}.png`}
+                              {...responsiveCoverProps(post.coverImage || `/images/post-${(idx % 3) + 1}.png`, COVER_SIZES.grid3)}
                               alt={post.title}
                               className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                             />
@@ -344,7 +345,7 @@ export default function Home() {
                   <Link href={`/blog/${post.slug}`} className="group flex flex-col gap-4">
                     <div className="overflow-hidden border border-border aspect-video bg-muted relative">
                       <img loading="lazy" decoding="async"
-                        src={post.coverImage || `/images/post-${(idx % 2) + 1}.png`}
+                        {...responsiveCoverProps(post.coverImage || `/images/post-${(idx % 2) + 1}.png`, COVER_SIZES.grid2)}
                         alt={post.title}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
