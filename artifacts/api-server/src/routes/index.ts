@@ -23,6 +23,7 @@ import commentsRouter from "./comments";
 import analyticsRouter from "./analytics";
 import sendEmailRouter from "./sendEmail";
 import mediaRouter from "./media";
+import settingsRouter from "./settings";
 
 const router: IRouter = Router();
 
@@ -50,5 +51,6 @@ router.use(commentsRouter);
 router.use(analyticsRouter);
 router.use(sendEmailRouter);
 router.use(mediaRouter);
+router.use(settingsRouter);
 
 export default router;

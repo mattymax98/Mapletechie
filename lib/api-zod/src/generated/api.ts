@@ -323,7 +323,7 @@ export const CreateCategoryBody = zod.object({
 export const ReassignCategoryPostsBody = zod.object({
   fromName: zod
     .string()
-    .describe("Existing category name on posts.category to move away from"),
+    .describe("Existing category name to move posts away from"),
   toName: zod
     .string()
     .describe("Destination category name (must already exist in categories)"),
@@ -334,7 +334,7 @@ export const ReassignCategoryPostsResponse = zod.object({
 });
 
 /**
- * @summary Update a category (admin only). Renaming cascades to posts.category.
+ * @summary Update a category (admin only).
  */
 export const UpdateCategoryParams = zod.object({
   id: zod.coerce.number(),
@@ -1357,4 +1357,45 @@ export const AdminGetInboxCountsResponse = zod.object({
   adInquiries: zod.number(),
   contacts: zod.number(),
   comments: zod.number(),
+});
+
+/**
+ * @summary Public maintenance status (always available, never gated)
+ */
+export const GetMaintenanceStatusResponse = zod.object({
+  maintenance: zod.boolean(),
+  message: zod.string().nullish(),
+  eta: zod.string().nullish(),
+});
+
+/**
+ * @summary Get site settings (admin only)
+ */
+export const GetSiteSettingsResponse = zod.object({
+  maintenanceMode: zod.boolean(),
+  maintenanceMessage: zod.string().nullish(),
+  maintenanceEta: zod.string().nullish(),
+  updatedAt: zod.coerce.date().optional(),
+  updatedBy: zod.string().nullish(),
+  envForced: zod.boolean(),
+  effectiveMaintenance: zod.boolean(),
+});
+
+/**
+ * @summary Update site settings (admin only)
+ */
+export const UpdateSiteSettingsBody = zod.object({
+  maintenanceMode: zod.boolean().optional(),
+  maintenanceMessage: zod.string().nullish(),
+  maintenanceEta: zod.string().nullish(),
+});
+
+export const UpdateSiteSettingsResponse = zod.object({
+  maintenanceMode: zod.boolean(),
+  maintenanceMessage: zod.string().nullish(),
+  maintenanceEta: zod.string().nullish(),
+  updatedAt: zod.coerce.date().optional(),
+  updatedBy: zod.string().nullish(),
+  envForced: zod.boolean(),
+  effectiveMaintenance: zod.boolean(),
 });

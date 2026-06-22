@@ -5,6 +5,7 @@ import { startScheduledPublishCron } from "./lib/scheduledPublish";
 import { startEditorWeeklyDigestCron } from "./lib/editorWeeklyDigest";
 import { seedCuratedCategories } from "./lib/seedCategories";
 import { auditPostCoverImages } from "./lib/coverImageValidation";
+import { seedSiteSettings } from "./lib/siteSettings";
 
 const rawPort = process.env["PORT"];
 
@@ -25,6 +26,7 @@ if (Number.isNaN(port) || port <= 0) {
 // process supervisor restarts us instead of serving with a broken schema.
 bootstrapAdmin()
   .then(() => seedCuratedCategories())
+  .then(() => seedSiteSettings())
   .then(() => auditPostCoverImages())
   .catch((err) => {
     logger.error({ err }, "Bootstrap failed — exiting");

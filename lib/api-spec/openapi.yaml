@@ -1289,8 +1289,75 @@ paths:
               schema:
                 $ref: "#/components/schemas/InboxCounts"
 
+  /settings/status:
+    get:
+      operationId: getMaintenanceStatus
+      tags: [settings]
+      summary: Public maintenance status (always available, never gated)
+      responses:
+        "200":
+          description: Maintenance status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceStatus"
+
+  /admin/settings:
+    get:
+      operationId: getSiteSettings
+      tags: [settings]
+      summary: Get site settings (admin only)
+      responses:
+        "200":
+          description: Site settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteSettings"
+    put:
+      operationId: updateSiteSettings
+      tags: [settings]
+      summary: Update site settings (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSiteSettingsInput"
+      responses:
+        "200":
+          description: Updated site settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteSettings"
+
 components:
   schemas:
+    MaintenanceStatus:
+      type: object
+      properties:
+        maintenance: { type: boolean }
+        message: { type: string, nullable: true }
+        eta: { type: string, nullable: true }
+      required: [maintenance]
+    SiteSettings:
+      type: object
+      properties:
+        maintenanceMode: { type: boolean }
+        maintenanceMessage: { type: string, nullable: true }
+        maintenanceEta: { type: string, nullable: true }
+        updatedAt: { type: string, format: date-time }
+        updatedBy: { type: string, nullable: true }
+        envForced: { type: boolean }
+        effectiveMaintenance: { type: boolean }
+      required: [maintenanceMode, envForced, effectiveMaintenance]
+    UpdateSiteSettingsInput:
+      type: object
+      properties:
+        maintenanceMode: { type: boolean }
+        maintenanceMessage: { type: string, nullable: true }
+        maintenanceEta: { type: string, nullable: true }
     UploadUrlRequest:
       type: object
       required: [name, size, contentType]

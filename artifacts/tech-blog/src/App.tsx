@@ -30,6 +30,7 @@ import AdminAnalytics from "@/pages/admin/AdminAnalytics";
 import AdminSendEmail from "@/pages/admin/AdminSendEmail";
 import AdminMedia from "@/pages/admin/AdminMedia";
 import AdminCategories from "@/pages/admin/AdminCategories";
+import AdminSettings from "@/pages/admin/AdminSettings";
 import Careers from "@/pages/careers";
 import CareerDetail from "@/pages/career-detail";
 import Advertise from "@/pages/advertise";
@@ -41,6 +42,7 @@ import Privacy from "@/pages/privacy";
 import Terms from "@/pages/terms";
 import { AdminProvider } from "@/context/AdminContext";
 import { AdminGuard } from "@/components/AdminGuard";
+import { MaintenanceGate } from "@/components/MaintenanceGate";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -97,6 +99,9 @@ function Router() {
       <Route path="/admin/send-email">
         <AdminGuard><AdminSendEmail /></AdminGuard>
       </Route>
+      <Route path="/admin/settings">
+        <AdminGuard adminOnly><AdminSettings /></AdminGuard>
+      </Route>
       <Route path="/admin/posts/new">
         <AdminGuard><AdminNewPost /></AdminGuard>
       </Route>
@@ -107,8 +112,9 @@ function Router() {
         <AdminGuard><AdminDashboard /></AdminGuard>
       </Route>
 
-      {/* Public routes — wrapped in Layout */}
+      {/* Public routes — wrapped in Layout, gated by maintenance mode */}
       <Route>
+        <MaintenanceGate>
         <Layout>
           <Switch>
             <Route path="/" component={Home} />
@@ -129,6 +135,7 @@ function Router() {
             <Route component={NotFound} />
           </Switch>
         </Layout>
+        </MaintenanceGate>
       </Route>
     </Switch>
   );
