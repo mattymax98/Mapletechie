@@ -13,17 +13,17 @@ const MAPLETECHIE_EMAIL_RE = /@mapletechie\.com$/i;
 const TEMPLATES: { label: string; subject: string; body: string }[] = [
   {
     label: "Intro / outreach",
-    subject: "Quick hello from Mapletechies",
-    body: "Hi [Name],\n\nI'm [Your name] at Mapletechies — we cover [topic] for [audience]. I came across [thing they did] and wanted to reach out about [reason].\n\nWould you have 20 minutes in the next two weeks for a quick call?\n\n",
+    subject: "Quick hello from Mapletechie",
+    body: "Hi [Name],\n\nI'm [Your name] at Mapletechie — we cover [topic] for [audience]. I came across [thing they did] and wanted to reach out about [reason].\n\nWould you have 20 minutes in the next two weeks for a quick call?\n\n",
   },
   {
     label: "Press / interview request",
-    subject: "Mapletechies — interview request on [topic]",
-    body: "Hi [Name],\n\nI'm working on a piece about [topic] for Mapletechies and would love to include your perspective. The angle is [angle], and I'd need about 30 minutes of your time, recorded for accuracy.\n\nIs there a window in the next week or two that works?\n\n",
+    subject: "Mapletechie — interview request on [topic]",
+    body: "Hi [Name],\n\nI'm working on a piece about [topic] for Mapletechie and would love to include your perspective. The angle is [angle], and I'd need about 30 minutes of your time, recorded for accuracy.\n\nIs there a window in the next week or two that works?\n\n",
   },
   {
     label: "Partnership / collab",
-    subject: "Possible collab between Mapletechies and [Company]",
+    subject: "Possible collab between Mapletechie and [Company]",
     body: "Hi [Name],\n\nLove what [Company] is doing with [thing]. We've been thinking about [collab idea] and I think there's a natural fit with our audience.\n\nHappy to share more details and a rough proposal — let me know if it's worth a 20-min chat.\n\n",
   },
   {
@@ -139,7 +139,7 @@ export default function AdminSendEmail() {
               </span>
             </p>
             <p className="text-xs text-zinc-500 mt-1">
-              Replies route back to your address. The Mapletechies header bar and a "Best, {me?.displayName}" sign-off are added automatically.
+              Replies route back to your address. The Mapletechie header bar and a "Best, {me?.displayName}" sign-off are added automatically.
             </p>
           </div>
         )}

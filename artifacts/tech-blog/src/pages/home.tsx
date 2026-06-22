@@ -432,7 +432,7 @@ export default function Home() {
               <div className="flex-1">
                 <p className="text-xs uppercase tracking-[0.25em] font-bold text-primary mb-2">A note from the editor</p>
                 <h2 className="font-serif text-3xl md:text-4xl font-black leading-[1.1] mb-4">
-                  I started Mapletechies because I was tired of reading the same review, twice.
+                  I started Mapletechie because I was tired of reading the same review, twice.
                 </h2>
                 <p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-3">
                   Every product launch produces a hundred articles that all sound exactly alike — because most of them were written from the same press kit. That's not journalism. That's stenography.

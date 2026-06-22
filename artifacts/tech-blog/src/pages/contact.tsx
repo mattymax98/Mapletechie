@@ -74,7 +74,7 @@ export default function Contact() {
           </h1>
           <p className="text-xl text-muted-foreground font-serif leading-relaxed mb-10 border-l-4 border-primary pl-6">
             Have a tip about a new startup? Want to submit a guest editorial? 
-            Or maybe you're interested in advertising with Mapletechies. Drop us a line.
+            Or maybe you're interested in advertising with Mapletechie. Drop us a line.
           </p>
 
           <div className="space-y-8 mt-12">

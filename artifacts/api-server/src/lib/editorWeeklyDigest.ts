@@ -50,12 +50,12 @@ function emailHtml(args: {
 <body style="margin:0;padding:32px 16px;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e5e5e5;">
 <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;margin:0 auto;background:#171717;border:1px solid #27272a;">
 <tr><td style="padding:28px 32px;border-bottom:1px solid #27272a;">
-<span style="color:#f97316;font-weight:900;font-size:22px;letter-spacing:-0.02em;">MAPLE<span style="color:#fafafa;">TECHIES</span></span>
+<span style="color:#f97316;font-weight:900;font-size:22px;letter-spacing:-0.02em;">MAPLE<span style="color:#fafafa;">TECHIE</span></span>
 <p style="margin:6px 0 0;color:#71717a;font-size:12px;text-transform:uppercase;letter-spacing:0.2em;font-weight:700;">Editor Weekly</p>
 </td></tr>
 <tr><td style="padding:28px 32px;">
 <h1 style="margin:0 0 12px;color:#fafafa;font-size:22px;">Hey ${escapeHtml(args.displayName)},</h1>
-<p style="margin:0 0 20px;color:#d4d4d8;line-height:1.6;font-size:15px;">Quick recap of the past 7 days at Mapletechies.</p>
+<p style="margin:0 0 20px;color:#d4d4d8;line-height:1.6;font-size:15px;">Quick recap of the past 7 days at Mapletechie.</p>
 <p style="margin:0 0 8px;color:#71717a;text-transform:uppercase;letter-spacing:0.2em;font-size:11px;font-weight:700;">Your posts this week</p>
 <ul style="margin:0 0 24px;padding-left:18px;color:#d4d4d8;font-size:14px;line-height:1.6;">${yourList}</ul>
 <p style="margin:0 0 8px;color:#71717a;text-transform:uppercase;letter-spacing:0.2em;font-size:11px;font-weight:700;">Site totals</p>
@@ -89,14 +89,14 @@ async function runDigest(): Promise<void> {
     try {
       await sendEmail({
         to: u.email,
-        subject: `Your week at Mapletechies — ${yours.length} post${yours.length === 1 ? "" : "s"}`,
+        subject: `Your week at Mapletechie — ${yours.length} post${yours.length === 1 ? "" : "s"}`,
         html: emailHtml({
           displayName: u.displayName || u.username,
           yourPosts: yours.map((p) => ({ title: p.title, slug: p.slug, viewCount: p.viewCount || 0 })),
           allPostCount: recentAll.length,
           siteTotalViews: yourViews,
         }),
-        text: `Hey ${u.displayName}, here's your week at Mapletechies. ${yours.length} of your posts went live, totalling ${yourViews} reads. Open ${SITE_URL}/admin/newsletter to compose this week's reader digest.`,
+        text: `Hey ${u.displayName}, here's your week at Mapletechie. ${yours.length} of your posts went live, totalling ${yourViews} reads. Open ${SITE_URL}/admin/newsletter to compose this week's reader digest.`,
       });
     } catch (err) {
       logger.error({ err, email: u.email }, "Editor digest send failed");

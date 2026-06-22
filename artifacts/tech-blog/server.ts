@@ -508,9 +508,9 @@ app.get(/^\/blog\/?$/, async (req, res, next) => {
 app.get(/^\/about\/?$/, (req, res, next) => {
   if (!isCrawler(req)) return next();
   const description =
-    "Mapletechies is an independent tech publication founded by Matthew Mbaka — covering AI, EVs, cybersecurity, and gadgets without the press-release filter.";
+    "Mapletechie is an independent tech publication founded by Matthew Mbaka — covering AI, EVs, cybersecurity, and gadgets without the press-release filter.";
   const seo = buildSeoBlock({
-    title: "About Mapletechies | Mapletechie",
+    title: "About Mapletechie | Mapletechie",
     description,
     image: DEFAULT_OG_IMAGE,
     url: `${SITE_URL}/about`,
@@ -518,7 +518,7 @@ app.get(/^\/about\/?$/, (req, res, next) => {
   });
   const body = `
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
-  <h1>About Mapletechies</h1>
+  <h1>About Mapletechie</h1>
   <p>${htmlEscape(description)}</p>
   <p>Mapletechie covers artificial intelligence, electric vehicles, cybersecurity, gadgets, and software — with opinionated, deeply reported journalism built on four principles: cover the story, not the press release; be clear about what we know and what we don't; explain the tech, not just the hype; and put readers first.</p>
   <p>Founded by Matthew Mbaka. Independent. Canadian.</p>
@@ -588,7 +588,7 @@ app.get(/^\/advertise\/?$/, (req, res, next) => {
 app.get(/^\/privacy\/?$/, (req, res, next) => {
   if (!isCrawler(req)) return next();
   const description =
-    "How Mapletechies collects, uses, and protects your information. Our privacy policy covers data, cookies, and your rights.";
+    "How Mapletechie collects, uses, and protects your information. Our privacy policy covers data, cookies, and your rights.";
   const seo = buildSeoBlock({
     title: "Privacy Policy | Mapletechie",
     description,

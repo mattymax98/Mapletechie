@@ -6,7 +6,7 @@ import type { Post } from "@workspace/db";
 // with its joined category name.
 export type PostWithCategory = Post & { category: string };
 
-const BRAND = "Mapletechies";
+const BRAND = "Mapletechie";
 const ORANGE = "#f97316";
 
 function shell(inner: string, footer: string): string {
@@ -16,7 +16,7 @@ function shell(inner: string, footer: string): string {
 <tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background:#171717;border:1px solid #27272a;">
 <tr><td style="padding:28px 32px;border-bottom:1px solid #27272a;">
-<a href="${SITE_URL}" style="text-decoration:none;color:${ORANGE};font-weight:900;font-size:22px;letter-spacing:-0.02em;">MAPLE<span style="color:#fafafa;">TECHIES</span></a>
+<a href="${SITE_URL}" style="text-decoration:none;color:${ORANGE};font-weight:900;font-size:22px;letter-spacing:-0.02em;">MAPLE<span style="color:#fafafa;">TECHIE</span></a>
 </td></tr>
 ${inner}
 <tr><td style="padding:24px 32px;border-top:1px solid #27272a;font-size:12px;color:#71717a;line-height:1.6;">
@@ -79,7 +79,7 @@ ${cover}
     .join("");
 
   const inner = `<tr><td style="padding:28px 32px 0;">
-<p style="margin:0;font-size:12px;letter-spacing:0.25em;text-transform:uppercase;color:#71717a;font-weight:700;">The Mapletechies Weekly · ${escapeHtml(weekLabel)}</p>
+<p style="margin:0;font-size:12px;letter-spacing:0.25em;text-transform:uppercase;color:#71717a;font-weight:700;">The Mapletechie Weekly · ${escapeHtml(weekLabel)}</p>
 </td></tr>
 ${editorBlock}
 ${postRows}`;

@@ -32,14 +32,14 @@ function composedHtml(args: { message: string; senderName: string }): string {
     <div style="height:6px;background:#f97316;"></div>
     <div style="padding:32px 32px 8px 32px;">
       <div style="font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:700;color:#111;letter-spacing:-0.01em;">
-        Maple<span style="color:#f97316;font-style:italic;">techies</span>
+        Maple<span style="color:#f97316;font-style:italic;">techie</span>
       </div>
     </div>
     <div style="padding:8px 32px 32px 32px;font-size:15px;line-height:1.6;color:#222;">
       <div style="margin:16px 0;">${safeMsg}</div>
       <p style="margin:24px 0 4px 0;">Best,</p>
       <p style="margin:0;font-weight:600;">${escapeHtml(args.senderName)}</p>
-      <p style="margin:0;color:#666;font-size:13px;">Mapletechies</p>
+      <p style="margin:0;color:#666;font-size:13px;">Mapletechie</p>
     </div>
     <div style="border-top:1px solid #eee;padding:16px 32px;font-size:12px;color:#888;">
       <a href="${SITE_URL}" style="color:#f97316;text-decoration:none;">mapletechie.com</a>
@@ -53,7 +53,7 @@ function composedText(args: { message: string; senderName: string }): string {
 
 Best,
 ${args.senderName}
-Mapletechies
+Mapletechie
 ${SITE_URL}
 `;
 }
@@ -65,7 +65,7 @@ router.post(
   emailSendLimiter,
   async (req, res): Promise<void> => {
     const senderEmail = (req.user?.email || "").trim();
-    const senderName = req.user?.displayName || req.user?.username || "Mapletechies";
+    const senderName = req.user?.displayName || req.user?.username || "Mapletechie";
 
     if (!senderEmail || !MAPLETECHIE_EMAIL_RE.test(senderEmail)) {
       res.status(400).json({
@@ -116,7 +116,7 @@ router.post(
       return;
     }
 
-    const safeDisplay = senderName.replace(/[<>"\r\n,]/g, " ").trim() || "Mapletechies";
+    const safeDisplay = senderName.replace(/[<>"\r\n,]/g, " ").trim() || "Mapletechie";
     const fromAddress = `${safeDisplay} <${senderEmail}>`;
 
     try {

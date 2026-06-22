@@ -13,7 +13,7 @@ const CATEGORY_TO_COVER: Record<string, string> = {
   "science-space": "/covers/quantum.webp",
 };
 
-const SYSTEM_PROMPT = `You are an expert tech journalist writing for Mapletechies, a tech blog inspired by The Verge and TechCrunch. Your writing is clear, engaging, well-researched, and avoids hype. You write for readers who want substance over fluff.
+const SYSTEM_PROMPT = `You are an expert tech journalist writing for Mapletechie, a tech blog inspired by The Verge and TechCrunch. Your writing is clear, engaging, well-researched, and avoids hype. You write for readers who want substance over fluff.
 
 Available categories (you MUST pick exactly one):
 - ai-machine-learning (AI & Machine Learning)
