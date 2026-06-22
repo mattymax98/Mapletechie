@@ -9,6 +9,7 @@ interface SEOProps {
   publishedTime?: string;
   author?: string;
   keywords?: string[];
+  noindex?: boolean;
 }
 
 const SITE_NAME = "Mapletechie";
@@ -26,6 +27,7 @@ export function SEO({
   publishedTime,
   author,
   keywords,
+  noindex = false,
 }: SEOProps) {
   const fullTitle = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} — Tech News & Reviews`;
   const canonicalUrl = url ? `${SITE_URL}${url}` : SITE_URL;
@@ -38,7 +40,11 @@ export function SEO({
       {keywords && keywords.length > 0 && (
         <meta name="keywords" content={keywords.join(", ")} />
       )}
-      <link rel="canonical" href={canonicalUrl} />
+      {noindex ? (
+        <meta name="robots" content="noindex, follow" />
+      ) : (
+        <link rel="canonical" href={canonicalUrl} />
+      )}
 
       {/* Open Graph */}
       <meta property="og:title" content={fullTitle} />

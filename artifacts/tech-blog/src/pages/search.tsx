@@ -87,7 +87,7 @@ export default function SearchPage() {
 
   return (
     <div className="container mx-auto px-4 md:px-6 py-12 md:py-16 max-w-4xl">
-      <SEO title="Search" description="Search articles on Mapletechie." />
+      <SEO title="Search" description="Search articles on Mapletechie." noindex />
       <p className="text-primary uppercase tracking-widest text-sm font-bold mb-3">Search</p>
       <h1 className="font-serif text-5xl md:text-6xl font-bold leading-tight mb-8">
         Find a story.

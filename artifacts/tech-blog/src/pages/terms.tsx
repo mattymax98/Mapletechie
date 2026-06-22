@@ -7,6 +7,7 @@ export default function Terms() {
       <SEO
         title="Terms of Service — Mapletechies"
         description="The rules for using mapletechie.com."
+        url="/terms"
       />
       <article className="container mx-auto px-4 md:px-6 py-12 md:py-20 max-w-3xl">
         <header className="mb-10">
