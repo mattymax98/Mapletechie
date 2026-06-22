@@ -189,6 +189,32 @@ function isCrawler(req: express.Request): boolean {
   return CRAWLER_RE.test(ua);
 }
 
+/** Send a crawler-safe 404 page. Includes noindex so the URL is de-indexed
+ *  even if a bot cached the URL before this visit. */
+function send404(res: express.Response, title = "Page Not Found"): void {
+  const seo = buildSeoBlock({
+    title: `${title} | Mapletechie`,
+    description: "The page you requested could not be found.",
+    image: DEFAULT_OG_IMAGE,
+    url: SITE_URL,
+    type: "website",
+  }).replace(
+    "<!-- SEO_HEAD_END -->",
+    `    <meta name="robots" content="noindex, nofollow" />\n    <!-- SEO_HEAD_END -->`,
+  );
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>${htmlEscape(title)}</h1>
+  <p>This page doesn't exist or has been removed.</p>
+  <p><a href="${htmlEscape(SITE_URL)}">Back to Mapletechie</a></p>
+</main>`;
+  res.status(404);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "no-store");
+  res.send(renderHtml(seo, body));
+}
+
 async function fetchJson<T>(url: string, timeoutMs = 4000): Promise<T | null> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -339,8 +365,7 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
     `${API_BASE}/api/posts/slug/${encodeURIComponent(slug)}`,
   );
   if (!post) {
-    // Unknown slug: fall through to the default SPA shell so 404 page renders.
-    return next();
+    return send404(res, "Article Not Found");
   }
 
   const url = `${SITE_URL}/blog/${post.slug}`;
@@ -449,7 +474,7 @@ app.get(/^\/category\/([^\/]+)\/?$/, async (req, res, next) => {
     fetchJson<PostSummary[]>(`${API_BASE}/api/posts?category=${encodeURIComponent(slug)}&limit=20`),
   ]);
   const cat = categories?.find((c) => c.slug === slug);
-  if (!cat) return next();
+  if (!cat) return send404(res, "Category Not Found");
 
   const title = `${cat.name} — News & Reviews | Mapletechie`;
   const description =
@@ -771,7 +796,7 @@ app.get(/^\/careers\/([^/]+)\/?$/, async (req, res, next) => {
   if (!slug) return next();
 
   const job = await fetchJson<JobRecord>(`${API_BASE}/api/jobs/${encodeURIComponent(slug)}`);
-  if (!job) return next();
+  if (!job) return send404(res, "Job Not Found");
 
   const locationStr = job.location ? ` · ${job.location}` : "";
   const description =
@@ -862,7 +887,7 @@ app.get(/^\/author\/([^/]+)\/?$/, async (req, res, next) => {
   const author = await fetchJson<AuthorRecord>(
     `${API_BASE}/api/authors/by-username/${encodeURIComponent(username)}`,
   );
-  if (!author) return next();
+  if (!author) return send404(res, "Author Not Found");
 
   const displayName = author.displayName || author.username;
   const description =
@@ -906,19 +931,23 @@ app.get(/^\/tag\/([^/]+)\/?$/, async (req, res, next) => {
     tag = rawTag;
   }
 
+  const posts = await fetchJson<PostSummary[]>(
+    `${API_BASE}/api/tags/${encodeURIComponent(tag)}/posts`,
+  );
+  // A tag with no posts is effectively non-existent — return 404 so crawlers
+  // don't index empty or misspelled tag archives.
+  if (!posts?.length) return send404(res, "Tag Not Found");
+
   const ogImage = `${SITE_URL}/api/og/tag/${encodeURIComponent(tag)}.png`;
   const description = `Every Mapletechie story tagged "${tag}" — tech news, reviews, and analysis.`;
 
-  const [seo, posts] = await Promise.all([
-    Promise.resolve(buildSeoBlock({
-      title: `#${tag} — Tag Archive | Mapletechie`,
-      description,
-      image: ogImage,
-      url: `${SITE_URL}/tag/${encodeURIComponent(tag)}`,
-      type: "website",
-    })),
-    fetchJson<PostSummary[]>(`${API_BASE}/api/tags/${encodeURIComponent(tag)}/posts`),
-  ]);
+  const seo = buildSeoBlock({
+    title: `#${tag} — Tag Archive | Mapletechie`,
+    description,
+    image: ogImage,
+    url: `${SITE_URL}/tag/${encodeURIComponent(tag)}`,
+    type: "website",
+  });
 
   const body = `
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
@@ -947,7 +976,7 @@ app.get(/^\/series\/([^/]+)\/?$/, async (req, res, next) => {
   const data = await fetchJson<{ series: SeriesRecord; posts: PostSummary[] }>(
     `${API_BASE}/api/series/${encodeURIComponent(slug)}`,
   );
-  if (!data?.series) return next();
+  if (!data?.series) return send404(res, "Series Not Found");
 
   const s = data.series;
   const description =
@@ -998,21 +1027,18 @@ app.get(/^\/search\/?$/, (req, res, next) => {
   res.send(renderHtml(seo));
 });
 
-// Routes the SPA actually handles (mirrors artifacts/tech-blog/src/App.tsx).
-// Anything that doesn't match returns the SPA shell with HTTP 404 so search
-// engines stop indexing typo / stale-backlink URLs like /news-updates as if
-// they were real pages. The React app still mounts and renders <NotFound />
-// for human visitors — only the status code changes.
+// Routes the SPA actually handles that are valid WITHOUT a database existence
+// check. Paths whose validity depends on a slug being present in the database
+// (/blog/:slug, /category/:slug, /author/:slug, /tag/:tag, /series/:slug,
+// /careers/:slug) are intentionally excluded. Requests to those patterns that
+// fall through from the crawler handlers above (non-crawler UAs, unrecognised
+// bots) reach the catch-all and receive HTTP 404 + SPA shell so the React app
+// can still mount and show the NotFound page for human visitors, while any
+// bot that didn't match CRAWLER_RE also gets the correct 404 status code.
 const KNOWN_SPA_ROUTES: RegExp[] = [
   /^\/$/,
   /^\/blog\/?$/,
-  /^\/blog\/[^/]+\/?$/,
-  /^\/category\/[^/]+\/?$/,
-  /^\/author\/[^/]+\/?$/,
-  /^\/tag\/[^/]+\/?$/,
-  /^\/series\/[^/]+\/?$/,
   /^\/careers\/?$/,
-  /^\/careers\/[^/]+\/?$/,
   /^\/(about|contact|advertise|search|privacy|terms)\/?$/,
   /^\/admin(\/.*)?$/,
 ];
