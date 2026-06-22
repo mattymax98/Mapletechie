@@ -1406,6 +1406,8 @@ components:
           type: string
         category:
           type: string
+        categorySlug:
+          type: string
         tags:
           type: array
           items:

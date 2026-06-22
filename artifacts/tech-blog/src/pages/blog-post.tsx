@@ -279,7 +279,7 @@ export default function BlogPost() {
           "@type": "ListItem",
           position: 3,
           name: post.category,
-          item: `${SITE_URL}/category/${post.category}`,
+          item: `${SITE_URL}/category/${post.categorySlug ?? post.category}`,
         },
         { "@type": "ListItem", position: 4, name: post.title, item: canonicalUrl },
       ].filter(Boolean),
@@ -356,7 +356,7 @@ export default function BlogPost() {
           {post.category && (
             <>
               <span>/</span>
-              <Link href={`/category/${post.category}`} className="hover:text-primary">
+              <Link href={`/category/${post.categorySlug ?? post.category}`} className="hover:text-primary">
                 {post.category}
               </Link>
             </>

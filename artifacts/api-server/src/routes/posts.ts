@@ -66,6 +66,7 @@ function cleanText(input: unknown): string | null {
 const postColumnsWithCategory = {
   ...getTableColumns(postsTable),
   category: categoriesTable.name,
+  categorySlug: categoriesTable.slug,
 };
 
 function postsBaseQuery() {
