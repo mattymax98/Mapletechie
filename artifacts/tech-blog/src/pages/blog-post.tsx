@@ -30,7 +30,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SEO } from "@/components/SEO";
 import { AuthorBio } from "@/components/AuthorBio";
 import { CommentsSection } from "@/components/CommentsSection";
-import { applyResponsiveImages } from "@/lib/responsiveImage";
+import { applyResponsiveImages, responsiveCoverProps, COVER_SIZES } from "@/lib/responsiveImage";
 import { SeriesBanner } from "@/components/SeriesBanner";
 
 const SITE_URL = "https://mapletechie.com";
@@ -412,7 +412,7 @@ export default function BlogPost() {
             decoding="async"
             width={1200}
             height={675}
-            src={post.coverImage || "/images/hero-post.webp"}
+            {...responsiveCoverProps(post.coverImage || "/images/hero-post.webp", COVER_SIZES.full)}
             alt={post.title}
             className="w-full h-full object-cover"
           />
@@ -477,7 +477,7 @@ export default function BlogPost() {
                     <img
                       loading="lazy"
                       decoding="async"
-                      src={rp.coverImage || `/images/post-${(idx % 2) + 1}.png`}
+                      {...responsiveCoverProps(rp.coverImage || `/images/post-${(idx % 2) + 1}.png`, COVER_SIZES.grid3)}
                       alt={rp.title}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />

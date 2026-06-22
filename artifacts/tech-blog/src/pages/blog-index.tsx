@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { responsiveCoverProps, COVER_SIZES } from "@/lib/responsiveImage";
 
 export default function BlogIndex() {
   const searchString = useSearch();
@@ -98,7 +99,7 @@ export default function BlogIndex() {
               <Link href={`/blog/${post.slug}`} className="group flex flex-col gap-4 h-full">
                 <div className="overflow-hidden border border-border aspect-[4/3] bg-muted relative">
                   <img loading="lazy" decoding="async" 
-                    src={post.coverImage || `/images/post-${(idx % 2) + 1}.png`} 
+                    {...responsiveCoverProps(post.coverImage || `/images/post-${(idx % 2) + 1}.png`, COVER_SIZES.grid3)} 
                     alt={post.title} 
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { SEO } from "@/components/SEO";
 import NotFound from "@/pages/not-found";
+import { responsiveCoverProps, COVER_SIZES } from "@/lib/responsiveImage";
 
 export default function CategoryIndex() {
   const params = useParams<{ slug: string }>();
@@ -78,7 +79,7 @@ export default function CategoryIndex() {
                 <Link href={`/blog/${post.slug}`} className="group flex flex-col gap-4 h-full border border-transparent hover:border-border p-2 -m-2 transition-colors">
                   <div className="overflow-hidden aspect-[4/3] bg-muted relative border border-border">
                     <img loading="lazy" decoding="async" 
-                      src={post.coverImage || `/images/post-${(idx % 2) + 1}.png`} 
+                      {...responsiveCoverProps(post.coverImage || `/images/post-${(idx % 2) + 1}.png`, COVER_SIZES.grid3)} 
                       alt={post.title} 
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
