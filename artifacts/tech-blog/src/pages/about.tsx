@@ -104,7 +104,7 @@ export default function About() {
               />
             ) : (
               <img
-                src={`${import.meta.env.BASE_URL}author-matthew.png`}
+                src={`${import.meta.env.BASE_URL}author-matthew.webp`}
                 alt={editor?.displayName || "Founding editor"}
                 className="w-full aspect-square object-cover border border-border"
               />

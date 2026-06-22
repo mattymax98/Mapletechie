@@ -216,10 +216,43 @@ app.use((req, _res, next) => {
   next();
 });
 
+// Legacy cover compatibility: the cover/hero/author images were migrated from
+// PNG to WebP. Any historical reference (old DB rows, cached HTML, external
+// links, bookmarks) to the now-deleted .png files is permanently redirected to
+// the .webp replacement so those images never 404.
+const LEGACY_PNG_RE = /^\/(?:covers\/.+|images\/.+|author-matthew)\.png$/i;
+app.get(LEGACY_PNG_RE, (req, res) => {
+  res.redirect(301, req.path.replace(/\.png$/i, ".webp"));
+});
+
 // Serve static assets (CSS, JS, images, public/* files) from the Vite build.
 // `single: false` so unmatched paths fall through to our route handlers
 // instead of always returning index.html — we want SEO-aware routing first.
-app.use(sirv(distDir, { single: false, dev: false, etag: true }));
+//
+// Cache strategy:
+//  - Vite-hashed assets under /assets/  -> immutable, 1 year (filename changes on rebuild)
+//  - self-hosted fonts (/fonts/*.woff2) -> immutable, 1 year (stable filenames, swap if updated)
+//  - images (png/jpg/webp/svg/ico/gif)  -> 1 week
+//  - HTML (and everything else)         -> always revalidated
+const ONE_YEAR = 60 * 60 * 24 * 365;
+const ONE_WEEK = 60 * 60 * 24 * 7;
+const IMAGE_RE = /\.(?:png|jpe?g|webp|gif|svg|ico|avif)$/i;
+app.use(
+  sirv(distDir, {
+    single: false,
+    dev: false,
+    etag: true,
+    setHeaders(res, pathname) {
+      if (pathname.startsWith("/assets/") || pathname.endsWith(".woff2")) {
+        res.setHeader("Cache-Control", `public, max-age=${ONE_YEAR}, immutable`);
+      } else if (IMAGE_RE.test(pathname)) {
+        res.setHeader("Cache-Control", `public, max-age=${ONE_WEEK}`);
+      } else if (pathname.endsWith(".html")) {
+        res.setHeader("Cache-Control", "no-cache");
+      }
+    },
+  }),
+);
 
 // --- Maintenance gate ---------------------------------------------------
 // When the site is in maintenance mode, public *page* requests must answer

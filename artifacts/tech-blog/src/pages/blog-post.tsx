@@ -407,9 +407,12 @@ export default function BlogPost() {
       <div className="w-full max-w-6xl mx-auto px-4 md:px-6 mb-12 mt-8">
         <div className="aspect-video w-full bg-muted border border-border">
           <img
-            loading="lazy"
+            loading="eager"
+            fetchPriority="high"
             decoding="async"
-            src={post.coverImage || "/images/hero-post.png"}
+            width={1200}
+            height={675}
+            src={post.coverImage || "/images/hero-post.webp"}
             alt={post.title}
             className="w-full h-full object-cover"
           />

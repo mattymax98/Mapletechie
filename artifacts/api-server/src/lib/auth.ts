@@ -57,7 +57,7 @@ export async function bootstrapAdmin(): Promise<void> {
     displayName: "Matthew Mbaka",
     email: "matthew@mapletechie.com",
     bio: "Founder and editor of Mapletechie. He covers AI, electric vehicles, cybersecurity, and consumer gadgets — translating complex tech into clear, actionable insight for readers who want to stay ahead.",
-    avatarUrl: "/author-matthew.png",
+    avatarUrl: "/author-matthew.webp",
     role: "admin",
     canPublishDirectly: true,
     canManageCategories: true,

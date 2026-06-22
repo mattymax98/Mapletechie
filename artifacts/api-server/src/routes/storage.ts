@@ -106,7 +106,10 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     //   return;
     // }
 
-    const response = await objectStorageService.downloadObject(objectFile);
+    // Uploaded objects are immutable (UUID filenames), so persisted post
+    // covers can be cached for a week rather than the default 1 hour.
+    const ONE_WEEK = 60 * 60 * 24 * 7;
+    const response = await objectStorageService.downloadObject(objectFile, ONE_WEEK);
 
     res.status(response.status);
     response.headers.forEach((value, key) => res.setHeader(key, value));
