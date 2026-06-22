@@ -50,7 +50,7 @@ export function Footer() {
                   <span className="absolute bottom-1 right-1 w-1 h-1 bg-primary-foreground rounded-full" />
                 </span>
                 <span className="font-serif font-black text-2xl leading-none tracking-tight text-foreground">
-                  Maple<span className="italic text-primary">techies</span><span className="text-primary">.</span>
+                  Maple<span className="italic text-primary">techie</span><span className="text-primary">.</span>
                 </span>
               </span>
             </Link>
@@ -60,7 +60,7 @@ export function Footer() {
           </div>
 
           <div>
-            <h4 className="font-bold uppercase tracking-wider mb-4 text-sm">Sections</h4>
+            <h2 className="font-bold uppercase tracking-wider mb-4 text-sm">Sections</h2>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li><Link href="/blog" className="hover:text-primary transition-colors">Latest News</Link></li>
               <li><Link href="/category/ai-machine-learning" className="hover:text-primary transition-colors">AI &amp; Machine Learning</Link></li>
@@ -71,7 +71,7 @@ export function Footer() {
           </div>
           
           <div>
-            <h4 className="font-bold uppercase tracking-wider mb-4 text-sm">Company</h4>
+            <h2 className="font-bold uppercase tracking-wider mb-4 text-sm">Company</h2>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li><Link href="/about" className="hover:text-primary transition-colors">About Us</Link></li>
               <li><Link href="/contact" className="hover:text-primary transition-colors">Contact</Link></li>
@@ -81,7 +81,7 @@ export function Footer() {
           </div>
           
           <div id="newsletter" className="scroll-mt-24">
-            <h4 className="font-bold uppercase tracking-wider mb-4 text-sm">Newsletter</h4>
+            <h2 className="font-bold uppercase tracking-wider mb-4 text-sm">Newsletter</h2>
             <p className="text-muted-foreground text-sm mb-4">Get the latest tech news delivered to your inbox daily. No spam, just signal.</p>
             <form className="flex gap-2" onSubmit={handleSubscribe}>
               <Input
@@ -106,7 +106,7 @@ export function Footer() {
         </div>
         
         <div className="mt-12 pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between text-xs text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} Mapletechies Media. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Mapletechie Media. All rights reserved.</p>
           <div className="flex gap-4 mt-4 md:mt-0">
             <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
             <Link href="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
