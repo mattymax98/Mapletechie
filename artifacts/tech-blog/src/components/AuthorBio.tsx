@@ -16,7 +16,7 @@ export function AuthorBio({ variant = "card", authorId, fallbackName, fallbackAv
   });
 
   const displayName = author?.displayName ?? fallbackName ?? "Mapletechie";
-  const avatarUrl = author?.avatarUrl ?? fallbackAvatar ?? `${import.meta.env.BASE_URL}author-matthew.png`;
+  const avatarUrl = author?.avatarUrl ?? fallbackAvatar ?? `${import.meta.env.BASE_URL}author-matthew.webp`;
   const bio = author?.bio ?? "Editor at Mapletechie — covering AI, electric vehicles, cybersecurity, and consumer gadgets.";
 
   if (variant === "inline") {

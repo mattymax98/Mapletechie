@@ -10,6 +10,7 @@ import {
 import { adminAuth } from "../middlewares/adminAuth";
 import { writeAuditLog } from "../lib/audit";
 import { validateCoverImage } from "../lib/coverImageValidation";
+import { isExternalImageUrl, persistExternalImage } from "../lib/persistExternalImage";
 import sanitizeHtml from "sanitize-html";
 
 const router = Router();
@@ -181,6 +182,15 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
   if (ogImageError) {
     res.status(400).json({ error: ogImageError });
     return;
+  }
+
+  // Pull externally-hosted cover/OG images onto our own object storage so the
+  // published site never depends on a third-party image host (best-effort).
+  if (isExternalImageUrl(body.coverImage)) {
+    body.coverImage = await persistExternalImage(body.coverImage);
+  }
+  if (isExternalImageUrl(body.ogImage)) {
+    body.ogImage = await persistExternalImage(body.ogImage);
   }
 
   let status: string;
@@ -430,7 +440,9 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
         res.status(400).json({ error: imgError });
         return;
       }
-      update[k] = body[k];
+      update[k] = isExternalImageUrl(body[k])
+        ? await persistExternalImage(body[k])
+        : body[k];
     } else {
       update[k] = body[k];
     }

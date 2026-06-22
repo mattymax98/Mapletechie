@@ -1,5 +1,5 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { trackPageView } from "@/lib/tracker";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -12,34 +12,39 @@ import { Layout } from "@/components/layout/Layout";
 import Home from "@/pages/home";
 import BlogIndex from "@/pages/blog-index";
 import BlogPost from "@/pages/blog-post";
-import Contact from "@/pages/contact";
 import CategoryIndex from "@/pages/category-index";
-import About from "@/pages/about";
-import AdminLogin from "@/pages/admin/AdminLogin";
-import AdminDashboard from "@/pages/admin/AdminDashboard";
-import AdminNewPost from "@/pages/admin/AdminNewPost";
-import AdminEditPost from "@/pages/admin/AdminEditPost";
-import AdminGenerate from "@/pages/admin/AdminGenerate";
-import AdminUsers from "@/pages/admin/AdminUsers";
-import AdminProfile from "@/pages/admin/AdminProfile";
-import AdminInbox from "@/pages/admin/AdminInbox";
-import AdminNewsletter from "@/pages/admin/AdminNewsletter";
-import AdminJobs from "@/pages/admin/AdminJobs";
-import AdminAudit from "@/pages/admin/AdminAudit";
-import AdminAnalytics from "@/pages/admin/AdminAnalytics";
-import AdminSendEmail from "@/pages/admin/AdminSendEmail";
-import AdminMedia from "@/pages/admin/AdminMedia";
-import AdminCategories from "@/pages/admin/AdminCategories";
-import AdminSettings from "@/pages/admin/AdminSettings";
-import Careers from "@/pages/careers";
-import CareerDetail from "@/pages/career-detail";
-import Advertise from "@/pages/advertise";
-import SearchPage from "@/pages/search";
-import AuthorPage from "@/pages/author";
-import TagPage from "@/pages/tag";
-import SeriesPage from "@/pages/series";
-import Privacy from "@/pages/privacy";
-import Terms from "@/pages/terms";
+
+// Rarely-used public pages — split into their own chunks.
+const Contact = lazy(() => import("@/pages/contact"));
+const About = lazy(() => import("@/pages/about"));
+const Careers = lazy(() => import("@/pages/careers"));
+const CareerDetail = lazy(() => import("@/pages/career-detail"));
+const Advertise = lazy(() => import("@/pages/advertise"));
+const SearchPage = lazy(() => import("@/pages/search"));
+const AuthorPage = lazy(() => import("@/pages/author"));
+const TagPage = lazy(() => import("@/pages/tag"));
+const SeriesPage = lazy(() => import("@/pages/series"));
+const Privacy = lazy(() => import("@/pages/privacy"));
+const Terms = lazy(() => import("@/pages/terms"));
+
+// Admin pages — never loaded for public visitors, so they ship as lazy chunks.
+const AdminLogin = lazy(() => import("@/pages/admin/AdminLogin"));
+const AdminDashboard = lazy(() => import("@/pages/admin/AdminDashboard"));
+const AdminNewPost = lazy(() => import("@/pages/admin/AdminNewPost"));
+const AdminEditPost = lazy(() => import("@/pages/admin/AdminEditPost"));
+const AdminGenerate = lazy(() => import("@/pages/admin/AdminGenerate"));
+const AdminUsers = lazy(() => import("@/pages/admin/AdminUsers"));
+const AdminProfile = lazy(() => import("@/pages/admin/AdminProfile"));
+const AdminInbox = lazy(() => import("@/pages/admin/AdminInbox"));
+const AdminNewsletter = lazy(() => import("@/pages/admin/AdminNewsletter"));
+const AdminJobs = lazy(() => import("@/pages/admin/AdminJobs"));
+const AdminAudit = lazy(() => import("@/pages/admin/AdminAudit"));
+const AdminAnalytics = lazy(() => import("@/pages/admin/AdminAnalytics"));
+const AdminSendEmail = lazy(() => import("@/pages/admin/AdminSendEmail"));
+const AdminMedia = lazy(() => import("@/pages/admin/AdminMedia"));
+const AdminCategories = lazy(() => import("@/pages/admin/AdminCategories"));
+const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
+
 import { AdminProvider } from "@/context/AdminContext";
 import { AdminGuard } from "@/components/AdminGuard";
 import { MaintenanceGate } from "@/components/MaintenanceGate";
@@ -61,8 +66,17 @@ function ScrollToTop() {
   return null;
 }
 
+function RouteFallback() {
+  return (
+    <div className="flex min-h-[50vh] items-center justify-center">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
+    </div>
+  );
+}
+
 function Router() {
   return (
+    <Suspense fallback={<RouteFallback />}>
     <Switch>
       {/* Admin routes — no Layout wrapper */}
       <Route path="/admin/login" component={AdminLogin} />
@@ -138,6 +152,7 @@ function Router() {
         </MaintenanceGate>
       </Route>
     </Switch>
+    </Suspense>
   );
 }
 

@@ -5,12 +5,12 @@ import { aiGenerateLimiter } from "../middlewares/rateLimit";
 const router = Router();
 
 const CATEGORY_TO_COVER: Record<string, string> = {
-  "ai-machine-learning": "/covers/ai-trends.png",
-  "cybersecurity": "/covers/cybersecurity.png",
-  "electric-vehicles": "/covers/ev-future.png",
-  "gadgets": "/covers/gadgets.png",
-  "software": "/covers/software.png",
-  "science-space": "/covers/quantum.png",
+  "ai-machine-learning": "/covers/ai-trends.webp",
+  "cybersecurity": "/covers/cybersecurity.webp",
+  "electric-vehicles": "/covers/ev-future.webp",
+  "gadgets": "/covers/gadgets.webp",
+  "software": "/covers/software.webp",
+  "science-space": "/covers/quantum.webp",
 };
 
 const SYSTEM_PROMPT = `You are an expert tech journalist writing for Mapletechies, a tech blog inspired by The Verge and TechCrunch. Your writing is clear, engaging, well-researched, and avoids hype. You write for readers who want substance over fluff.
@@ -101,7 +101,7 @@ router.post("/admin/generate-post", adminAuth, requireRole("admin"), aiGenerateL
     }
 
     const category = typeof parsed.category === "string" ? parsed.category : "gadgets";
-    const coverImage = CATEGORY_TO_COVER[category] ?? "/covers/gadgets.png";
+    const coverImage = CATEGORY_TO_COVER[category] ?? "/covers/gadgets.webp";
 
     res.json({
       title: String(parsed.title ?? "").slice(0, 200),

@@ -86,8 +86,13 @@ export default function Home() {
           ) : heroPost ? (
             <Link href={`/blog/${heroPost.slug}`} className="group relative col-span-1 lg:col-span-2 overflow-hidden bg-muted min-h-[400px] lg:min-h-[500px] flex flex-col justify-end p-6 md:p-10 border border-border">
               <div className="absolute inset-0 z-0">
-                <img loading="lazy" decoding="async"
-                  src={heroPost.coverImage || "/images/hero-post.png"}
+                <img
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="async"
+                  width={1200}
+                  height={675}
+                  src={heroPost.coverImage || "/images/hero-post.webp"}
                   alt={heroPost.title}
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
@@ -418,7 +423,7 @@ export default function Home() {
                   <img
                     loading="lazy"
                     decoding="async"
-                    src={editor?.avatarUrl || `${import.meta.env.BASE_URL}author-matthew.png`}
+                    src={editor?.avatarUrl || `${import.meta.env.BASE_URL}author-matthew.webp`}
                     alt={`${editor?.displayName || "Editor"}, Editor`}
                     className="w-full h-full object-cover"
                   />
