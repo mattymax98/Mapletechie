@@ -34,6 +34,14 @@
     <meta name="twitter:description" content="Your go-to source for tech news, gadget reviews, software deep dives, and the latest in AI, EVs, and cybersecurity." />
     <meta name="twitter:image" content="https://mapletechie.com/opengraph-v2.jpg" />
     <!-- SEO_HEAD_END -->
+
+    <!-- Site-level entity markup: WebSite + Organization.
+         Placed outside the SEO_HEAD block so it is present in both the
+         static shell (human visitors) and all crawler-prerendered responses.
+         Google recommends emitting these on every page of the site so the
+         publisher entity is strongly associated with the domain. -->
+    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"https://mapletechie.com/#website","name":"Mapletechie","url":"https://mapletechie.com/","description":"Your go-to source for tech news, gadget reviews, software deep dives, and the latest in AI, EVs, and cybersecurity.","publisher":{"@id":"https://mapletechie.com/#organization"}},{"@type":"Organization","@id":"https://mapletechie.com/#organization","name":"Mapletechie","url":"https://mapletechie.com/","logo":{"@type":"ImageObject","url":"https://mapletechie.com/logo-favicon-v2.png","width":512,"height":512},"sameAs":["https://x.com/mapletechie"]}]}</script>
+
     <!-- Fonts are self-hosted via @font-face in src/index.css (no render-blocking Google Fonts) -->
     <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/fonts/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin>
