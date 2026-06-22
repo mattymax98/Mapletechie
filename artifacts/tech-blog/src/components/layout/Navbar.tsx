@@ -42,7 +42,7 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md">
       <div className="container mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-6">
-          <Link href="/" className="flex items-center gap-2.5 group" aria-label="Mapletechies — home">
+          <Link href="/" className="flex items-center gap-2.5 group" aria-label="Mapletechie — home">
             <span
               aria-hidden="true"
               className="relative flex items-center justify-center h-10 w-10 bg-primary text-primary-foreground shadow-[3px_3px_0_0_hsl(var(--foreground))] transition-transform group-hover:-translate-y-[1px] group-hover:translate-x-[1px] group-hover:shadow-[2px_2px_0_0_hsl(var(--foreground))]"
@@ -51,7 +51,7 @@ export function Navbar() {
               <span className="absolute bottom-1 right-1 w-1 h-1 bg-primary-foreground rounded-full" />
             </span>
             <span className="font-serif font-black text-2xl md:text-[1.7rem] leading-none tracking-tight text-foreground">
-              Maple<span className="italic text-primary">techies</span><span className="text-primary">.</span>
+              Maple<span className="italic text-primary">techie</span><span className="text-primary">.</span>
             </span>
           </Link>
           
@@ -116,8 +116,11 @@ export function Navbar() {
             size="icon" 
             className="md:hidden"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={isMobileMenuOpen}
+            aria-controls="mobile-nav"
           >
-            {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {isMobileMenuOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
           </Button>
         </div>
       </div>
@@ -126,10 +129,12 @@ export function Navbar() {
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div 
+            id="mobile-nav"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             className="md:hidden overflow-hidden border-b border-border bg-background"
+            aria-hidden={!isMobileMenuOpen}
           >
             <nav className="flex flex-col p-4 gap-4 text-sm font-bold uppercase tracking-wider">
               <Link href="/" className="py-2 border-b border-border/50">Home</Link>
