@@ -27,9 +27,10 @@ if (!existsSync(indexHtmlPath)) {
 const indexHtml = readFileSync(indexHtmlPath, "utf-8");
 
 const SEO_BLOCK_RE = /<!-- SEO_HEAD_START -->[\s\S]*?<!-- SEO_HEAD_END -->/;
+const ROOT_RE = /<div id="root"><\/div>/;
 
 const CRAWLER_RE =
-  /facebookexternalhit|Facebot|LinkedInBot|Twitterbot|Slackbot|WhatsApp|TelegramBot|Discordbot|Pinterest|redditbot|Applebot|Googlebot|Google-InspectionTool|bingbot|DuckDuckBot|YandexBot|Baiduspider|SkypeUriPreview|vkShare|W3C_Validator|Embedly|Iframely|outbrain|quora link preview|showyoubot|Tumblr|XING-contenttabreceiver|Mediapartners-Google|AhrefsBot|SemrushBot|Sogou/i;
+  /facebookexternalhit|Facebot|LinkedInBot|Twitterbot|Slackbot|WhatsApp|TelegramBot|Discordbot|Pinterest|redditbot|Applebot|Googlebot|Google-InspectionTool|bingbot|DuckDuckBot|YandexBot|Baiduspider|SkypeUriPreview|vkShare|W3C_Validator|Embedly|Iframely|outbrain|quora link preview|showyoubot|Tumblr|XING-contenttabreceiver|Mediapartners-Google|AhrefsBot|SemrushBot|Sogou|GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-Web|anthropic-ai|PerplexityBot|Perplexity|cohere-ai|YouBot|Meta-ExternalAgent|Meta-ExternalFetcher|Diffbot|Bytespider|ia_archiver|CCBot|DataForSeoBot|PetalBot/i;
 
 function htmlEscape(s: unknown): string {
   return String(s ?? "").replace(
@@ -120,8 +121,66 @@ function buildSeoBlock(data: SeoData): string {
   return lines.join("\n");
 }
 
-function renderHtml(seoBlock: string): string {
-  return indexHtml.replace(SEO_BLOCK_RE, seoBlock);
+function renderHtml(seoBlock: string, bodyHtml?: string): string {
+  let html = indexHtml.replace(SEO_BLOCK_RE, seoBlock);
+  if (bodyHtml) {
+    html = html.replace(ROOT_RE, `<div id="root">${bodyHtml}</div>`);
+  }
+  return html;
+}
+
+/** Strip HTML tags, collapse whitespace, and truncate for use in plain text. */
+function stripHtml(html: string | null | undefined, maxLen = 0): string {
+  if (!html) return "";
+  const text = html
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+  return maxLen > 0 && text.length > maxLen ? text.slice(0, maxLen) + "…" : text;
+}
+
+interface PostSummary {
+  slug: string;
+  title: string;
+  excerpt?: string | null;
+  publishedAt?: string | null;
+  author?: string | null;
+  category?: string | null;
+}
+
+/** Build a <ul> post list for crawler-facing listing pages. */
+function renderPostList(posts: PostSummary[], siteUrl: string): string {
+  if (!posts.length) return "<p>No posts yet.</p>";
+  const items = posts
+    .slice(0, 20)
+    .map((p) => {
+      const date = p.publishedAt
+        ? new Date(p.publishedAt).toLocaleDateString("en-CA", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+        : "";
+      const meta = [p.author, date, p.category].filter(Boolean).join(" · ");
+      const excerpt = p.excerpt ? `<p>${htmlEscape(stripHtml(p.excerpt, 160))}</p>` : "";
+      return (
+        `<li style="margin-bottom:1.5em">` +
+        `<a href="${htmlEscape(`${siteUrl}/blog/${p.slug}`)}" style="font-size:1.1em;font-weight:600">${htmlEscape(p.title)}</a>` +
+        (meta ? `<br><small>${htmlEscape(meta)}</small>` : "") +
+        excerpt +
+        `</li>`
+      );
+    })
+    .join("\n");
+  return `<ul style="list-style:none;padding:0">${items}</ul>`;
 }
 
 function isCrawler(req: express.Request): boolean {
@@ -306,10 +365,38 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
     `    <script type="application/ld+json">${jsonLdSafe}</script>\n    <!-- SEO_HEAD_END -->`,
   );
 
+  // Render the full article body for crawlers that don't execute JavaScript.
+  // The content field is HTML from the editor; we keep it as-is so AI crawlers
+  // can read the full article text, but strip inline scripts for safety.
+  const safeContent = (post.content ?? "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "");
+  const publishedDate = post.publishedAt
+    ? new Date(post.publishedAt).toLocaleDateString("en-CA", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "";
+  const metaParts = [post.author, publishedDate, post.category].filter(Boolean);
+  const tagsHtml =
+    post.tags?.length
+      ? `<p style="color:#666;font-size:.85em">Tags: ${post.tags.map(htmlEscape).join(", ")}</p>`
+      : "";
+
+  const articleBody = `
+<article style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>${htmlEscape(post.title)}</h1>
+  ${metaParts.length ? `<p style="color:#666;font-size:.9em">${htmlEscape(metaParts.join(" · "))}</p>` : ""}
+  ${safeContent}
+  ${tagsHtml}
+  <p><a href="${htmlEscape(`${SITE_URL}/blog/${post.slug}`)}">Read on Mapletechie</a></p>
+</article>`;
+
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Vary", "User-Agent");
   res.setHeader("Cache-Control", "public, max-age=300, s-maxage=300");
-  res.send(renderHtml(seoWithJsonLd));
+  res.send(renderHtml(seoWithJsonLd, articleBody));
 });
 
 interface CategoryRecord {
@@ -324,7 +411,10 @@ app.get(/^\/category\/([^\/]+)\/?$/, async (req, res, next) => {
   const slug = req.params[0];
   if (!slug) return next();
 
-  const categories = await fetchJson<CategoryRecord[]>(`${API_BASE}/api/categories`);
+  const [categories, posts] = await Promise.all([
+    fetchJson<CategoryRecord[]>(`${API_BASE}/api/categories`),
+    fetchJson<PostSummary[]>(`${API_BASE}/api/posts?category=${encodeURIComponent(slug)}&limit=20`),
+  ]);
   const cat = categories?.find((c) => c.slug === slug);
   if (!cat) return next();
 
@@ -341,9 +431,402 @@ app.get(/^\/category\/([^\/]+)\/?$/, async (req, res, next) => {
     type: "website",
   });
 
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>${htmlEscape(cat.name)} — News &amp; Reviews</h1>
+  <p>${htmlEscape(description)}</p>
+  ${renderPostList(posts ?? [], SITE_URL)}
+</main>`;
+
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Vary", "User-Agent");
   res.setHeader("Cache-Control", "public, max-age=600, s-maxage=600");
+  res.send(renderHtml(seo, body));
+});
+
+// --- Static evergreen routes ------------------------------------------------
+// These pages have fixed, well-known metadata AND a meaningful prerendered body
+// so AI crawlers and non-JS bots see actual content, not just a React shell.
+
+app.get(/^\/blog\/?$/, async (req, res, next) => {
+  if (!isCrawler(req)) return next();
+  const description =
+    "The latest tech news, gadget reviews, AI coverage, and software deep dives from the Mapletechie team.";
+  const seo = buildSeoBlock({
+    title: "Blog — Tech News & Reviews | Mapletechie",
+    description,
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/blog`,
+    type: "website",
+  });
+  const posts = await fetchJson<PostSummary[]>(`${API_BASE}/api/posts?limit=20`);
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>Blog — Tech News &amp; Reviews</h1>
+  <p>${htmlEscape(description)}</p>
+  ${renderPostList(posts ?? [], SITE_URL)}
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=300, s-maxage=300");
+  res.send(renderHtml(seo, body));
+});
+
+app.get(/^\/about\/?$/, (req, res, next) => {
+  if (!isCrawler(req)) return next();
+  const description =
+    "Mapletechies is an independent tech publication founded by Matthew Mbaka — covering AI, EVs, cybersecurity, and gadgets without the press-release filter.";
+  const seo = buildSeoBlock({
+    title: "About Mapletechies | Mapletechie",
+    description,
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/about`,
+    type: "website",
+  });
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>About Mapletechies</h1>
+  <p>${htmlEscape(description)}</p>
+  <p>Mapletechie covers artificial intelligence, electric vehicles, cybersecurity, gadgets, and software — with opinionated, deeply reported journalism built on four principles: cover the story, not the press release; be clear about what we know and what we don't; explain the tech, not just the hype; and put readers first.</p>
+  <p>Founded by Matthew Mbaka. Independent. Canadian.</p>
+  <p><a href="${htmlEscape(SITE_URL)}">mapletechie.com</a></p>
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=3600, s-maxage=3600");
+  res.send(renderHtml(seo, body));
+});
+
+app.get(/^\/contact\/?$/, (req, res, next) => {
+  if (!isCrawler(req)) return next();
+  const description =
+    "Get in touch with the Mapletechie team. Send us your tips, stories, or advertising inquiries.";
+  const seo = buildSeoBlock({
+    title: "Contact Us | Mapletechie",
+    description,
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/contact`,
+    type: "website",
+  });
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>Contact Mapletechie</h1>
+  <p>${htmlEscape(description)}</p>
+  <ul>
+    <li>Editorial tips &amp; story leads: <a href="mailto:tips@mapletechie.com">tips@mapletechie.com</a></li>
+    <li>Advertising &amp; sponsorships: <a href="mailto:ads@mapletechie.com">ads@mapletechie.com</a></li>
+  </ul>
+  <p>You can also use the contact form at <a href="${htmlEscape(`${SITE_URL}/contact`)}">mapletechie.com/contact</a>.</p>
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=3600, s-maxage=3600");
+  res.send(renderHtml(seo, body));
+});
+
+app.get(/^\/advertise\/?$/, (req, res, next) => {
+  if (!isCrawler(req)) return next();
+  const description =
+    "Sponsored posts and newsletter sponsorships on Mapletechie. Reach engaged tech readers through clearly labeled editorial partnerships.";
+  const seo = buildSeoBlock({
+    title: "Partner with Us | Mapletechie",
+    description,
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/advertise`,
+    type: "website",
+  });
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>Partner with Mapletechie</h1>
+  <p>${htmlEscape(description)}</p>
+  <h2>Sponsorship options</h2>
+  <ul>
+    <li><strong>Sponsored posts</strong> — In-depth editorial content clearly labeled as sponsored.</li>
+    <li><strong>Newsletter sponsorships</strong> — Reach our subscriber list with a featured mention in the weekly digest.</li>
+  </ul>
+  <p>To discuss rates and availability, contact <a href="mailto:ads@mapletechie.com">ads@mapletechie.com</a> or fill out the inquiry form at <a href="${htmlEscape(`${SITE_URL}/advertise`)}">mapletechie.com/advertise</a>.</p>
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=3600, s-maxage=3600");
+  res.send(renderHtml(seo, body));
+});
+
+app.get(/^\/privacy\/?$/, (req, res, next) => {
+  if (!isCrawler(req)) return next();
+  const description =
+    "How Mapletechies collects, uses, and protects your information. Our privacy policy covers data, cookies, and your rights.";
+  const seo = buildSeoBlock({
+    title: "Privacy Policy | Mapletechie",
+    description,
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/privacy`,
+    type: "website",
+  });
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>Privacy Policy</h1>
+  <p>${htmlEscape(description)}</p>
+  <p>Mapletechie collects minimal data to operate the site: analytics (page views, referrers), contact form submissions, and newsletter subscriptions. We use Google AdSense for advertising. We do not sell personal data. You may request deletion of your data by contacting <a href="mailto:tips@mapletechie.com">tips@mapletechie.com</a>.</p>
+  <p>Full policy at <a href="${htmlEscape(`${SITE_URL}/privacy`)}">mapletechie.com/privacy</a>.</p>
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400");
+  res.send(renderHtml(seo, body));
+});
+
+app.get(/^\/terms\/?$/, (req, res, next) => {
+  if (!isCrawler(req)) return next();
+  const description =
+    "The rules for using mapletechie.com — including intellectual property rights, affiliate link disclosures, and usage terms.";
+  const seo = buildSeoBlock({
+    title: "Terms of Service | Mapletechie",
+    description,
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/terms`,
+    type: "website",
+  });
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>Terms of Service</h1>
+  <p>${htmlEscape(description)}</p>
+  <p>By using mapletechie.com you agree to these terms. All content on this site is owned by Mapletechie unless otherwise attributed. Some links may be affiliate links — we disclose this where applicable. Reproduction of articles requires written permission.</p>
+  <p>Full terms at <a href="${htmlEscape(`${SITE_URL}/terms`)}">mapletechie.com/terms</a>.</p>
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400");
+  res.send(renderHtml(seo, body));
+});
+
+app.get(/^\/careers\/?$/, async (req, res, next) => {
+  if (!isCrawler(req)) return next();
+  const description =
+    "Join Mapletechie. Help us build a tech publication readers actually trust. See our open roles and apply today.";
+  const seo = buildSeoBlock({
+    title: "Careers | Mapletechie",
+    description,
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/careers`,
+    type: "website",
+  });
+  const jobs = await fetchJson<JobRecord[]>(`${API_BASE}/api/jobs`);
+  const jobsHtml = jobs?.length
+    ? `<ul>${jobs.map((j) => {
+        const meta = [j.location, j.type].filter(Boolean).join(" · ");
+        return `<li><a href="${htmlEscape(`${SITE_URL}/careers/${j.slug}`)}">${htmlEscape(j.title)}</a>${meta ? ` — <small>${htmlEscape(meta)}</small>` : ""}</li>`;
+      }).join("\n")}</ul>`
+    : "<p>No open roles at this time. Check back soon.</p>";
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>Careers at Mapletechie</h1>
+  <p>${htmlEscape(description)}</p>
+  <h2>Open roles</h2>
+  ${jobsHtml}
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=600, s-maxage=600");
+  res.send(renderHtml(seo, body));
+});
+
+// --- Dynamic listing/archive routes -----------------------------------------
+
+interface JobRecord {
+  slug: string;
+  title: string;
+  location: string | null;
+  type: string | null;
+  description: string | null;
+}
+
+app.get(/^\/careers\/([^/]+)\/?$/, async (req, res, next) => {
+  if (!isCrawler(req)) return next();
+  const slug = req.params[0];
+  if (!slug) return next();
+
+  const job = await fetchJson<JobRecord>(`${API_BASE}/api/jobs/${encodeURIComponent(slug)}`);
+  if (!job) return next();
+
+  const locationStr = job.location ? ` · ${job.location}` : "";
+  const description =
+    stripHtml(job.description, 200) ||
+    `${job.title}${locationStr} — Apply at Mapletechie.`;
+
+  const safeJobDesc = (job.description ?? "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "");
+  const metaParts = [job.location, job.type].filter(Boolean);
+
+  const seo = buildSeoBlock({
+    title: `${job.title}${locationStr} | Mapletechie Careers`,
+    description,
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/careers/${job.slug}`,
+    type: "website",
+  });
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>${htmlEscape(job.title)}</h1>
+  ${metaParts.length ? `<p style="color:#666">${htmlEscape(metaParts.join(" · "))}</p>` : ""}
+  ${safeJobDesc}
+  <p><a href="${htmlEscape(`${SITE_URL}/careers/${job.slug}`)}">Apply on Mapletechie</a></p>
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=600, s-maxage=600");
+  res.send(renderHtml(seo, body));
+});
+
+interface AuthorRecord {
+  id: number;
+  username: string;
+  displayName: string | null;
+  bio: string | null;
+}
+
+app.get(/^\/author\/([^/]+)\/?$/, async (req, res, next) => {
+  if (!isCrawler(req)) return next();
+  const username = req.params[0];
+  if (!username) return next();
+
+  const author = await fetchJson<AuthorRecord>(
+    `${API_BASE}/api/authors/by-username/${encodeURIComponent(username)}`,
+  );
+  if (!author) return next();
+
+  const displayName = author.displayName || author.username;
+  const description =
+    author.bio?.trim() ||
+    `Articles by ${displayName} on Mapletechie — tech news, reviews, and analysis.`;
+  const ogImage = `${SITE_URL}/api/og/author/${encodeURIComponent(author.username)}.png`;
+
+  const [seo, posts] = await Promise.all([
+    Promise.resolve(buildSeoBlock({
+      title: `${displayName} — Author | Mapletechie`,
+      description,
+      image: ogImage,
+      url: `${SITE_URL}/author/${author.username}`,
+      type: "website",
+    })),
+    fetchJson<PostSummary[]>(`${API_BASE}/api/authors/${author.id}/posts`),
+  ]);
+
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>${htmlEscape(displayName)}</h1>
+  ${author.bio ? `<p>${htmlEscape(author.bio)}</p>` : ""}
+  <h2>Articles by ${htmlEscape(displayName)}</h2>
+  ${renderPostList(posts ?? [], SITE_URL)}
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=600, s-maxage=600");
+  res.send(renderHtml(seo, body));
+});
+
+app.get(/^\/tag\/([^/]+)\/?$/, async (req, res, next) => {
+  if (!isCrawler(req)) return next();
+  const rawTag = req.params[0];
+  if (!rawTag) return next();
+
+  let tag: string;
+  try {
+    tag = decodeURIComponent(rawTag);
+  } catch {
+    tag = rawTag;
+  }
+
+  const ogImage = `${SITE_URL}/api/og/tag/${encodeURIComponent(tag)}.png`;
+  const description = `Every Mapletechie story tagged "${tag}" — tech news, reviews, and analysis.`;
+
+  const [seo, posts] = await Promise.all([
+    Promise.resolve(buildSeoBlock({
+      title: `#${tag} — Tag Archive | Mapletechie`,
+      description,
+      image: ogImage,
+      url: `${SITE_URL}/tag/${encodeURIComponent(tag)}`,
+      type: "website",
+    })),
+    fetchJson<PostSummary[]>(`${API_BASE}/api/tags/${encodeURIComponent(tag)}/posts`),
+  ]);
+
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>#${htmlEscape(tag)}</h1>
+  <p>${htmlEscape(description)}</p>
+  ${renderPostList(posts ?? [], SITE_URL)}
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=600, s-maxage=600");
+  res.send(renderHtml(seo, body));
+});
+
+interface SeriesRecord {
+  slug: string;
+  title: string;
+  description: string | null;
+  coverImage: string | null;
+}
+
+app.get(/^\/series\/([^/]+)\/?$/, async (req, res, next) => {
+  if (!isCrawler(req)) return next();
+  const slug = req.params[0];
+  if (!slug) return next();
+
+  const data = await fetchJson<{ series: SeriesRecord; posts: PostSummary[] }>(
+    `${API_BASE}/api/series/${encodeURIComponent(slug)}`,
+  );
+  if (!data?.series) return next();
+
+  const s = data.series;
+  const description =
+    s.description?.trim() ||
+    `A multi-part series on Mapletechie: ${s.title}.`;
+  const ogImage = s.coverImage
+    ? absUrl(s.coverImage, `${SITE_URL}/api/og/series/${encodeURIComponent(s.slug)}.png`)
+    : `${SITE_URL}/api/og/series/${encodeURIComponent(s.slug)}.png`;
+
+  const seo = buildSeoBlock({
+    title: `${s.title} — Series | Mapletechie`,
+    description,
+    image: ogImage,
+    url: `${SITE_URL}/series/${s.slug}`,
+    type: "website",
+  });
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>${htmlEscape(s.title)}</h1>
+  ${s.description ? `<p>${htmlEscape(s.description)}</p>` : ""}
+  <h2>Articles in this series</h2>
+  ${renderPostList(data.posts ?? [], SITE_URL)}
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=600, s-maxage=600");
+  res.send(renderHtml(seo, body));
+});
+
+// /search is intentionally excluded from crawler prerendering — the client
+// sets noindex and the content is always query-dependent. Return the default
+// SPA shell with a noindex meta override to make intent explicit.
+app.get(/^\/search\/?$/, (req, res, next) => {
+  if (!isCrawler(req)) return next();
+  const seo = buildSeoBlock({
+    title: "Search | Mapletechie",
+    description: "Search articles on Mapletechie.",
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/search`,
+    type: "website",
+  }).replace(
+    "<!-- SEO_HEAD_END -->",
+    `    <meta name="robots" content="noindex, follow" />\n    <!-- SEO_HEAD_END -->`,
+  );
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "no-store");
   res.send(renderHtml(seo));
 });
 
