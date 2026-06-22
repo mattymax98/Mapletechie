@@ -159,12 +159,12 @@ export default function Home() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
             {[
-              { slug: "ai-machine-learning", name: "AI & ML", desc: "The models, the labs, the real-world impact." },
+              { slug: "ai", name: "AI", desc: "The models, the labs, the real-world impact." },
               { slug: "gadgets", name: "Gadgets", desc: "Phones, laptops, wearables — reviewed sharp." },
-              { slug: "cybersecurity", name: "Cybersecurity", desc: "Breaches, defenses, and what it costs you." },
-              { slug: "electric-vehicles", name: "EVs", desc: "Cars, batteries, and the road ahead." },
-              { slug: "software", name: "Software", desc: "Apps, operating systems, dev culture." },
-              { slug: "science-space", name: "Science & Space", desc: "Missions, discoveries, the long view." },
+              { slug: "reviews", name: "Reviews", desc: "Honest takes on the gear that matters." },
+              { slug: "news", name: "News", desc: "Breaking stories and what they mean for you." },
+              { slug: "software", name: "Software & Apps", desc: "Apps, operating systems, dev culture." },
+              { slug: "gaming", name: "Gaming", desc: "Consoles, PC, and the culture around them." },
             ].map((cat) => (
               <Link
                 key={cat.slug}

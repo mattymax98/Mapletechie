@@ -63,10 +63,10 @@ export function Footer() {
             <h2 className="font-bold uppercase tracking-wider mb-4 text-sm">Sections</h2>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li><Link href="/blog" className="hover:text-primary transition-colors">Latest News</Link></li>
-              <li><Link href="/category/ai-machine-learning" className="hover:text-primary transition-colors">AI &amp; Machine Learning</Link></li>
+              <li><Link href="/category/ai" className="hover:text-primary transition-colors">AI</Link></li>
               <li><Link href="/category/gadgets" className="hover:text-primary transition-colors">Gadgets</Link></li>
-              <li><Link href="/category/cybersecurity" className="hover:text-primary transition-colors">Cybersecurity</Link></li>
-              <li><Link href="/category/electric-vehicles" className="hover:text-primary transition-colors">Electric Vehicles</Link></li>
+              <li><Link href="/category/reviews" className="hover:text-primary transition-colors">Reviews</Link></li>
+              <li><Link href="/category/gaming" className="hover:text-primary transition-colors">Gaming</Link></li>
             </ul>
           </div>
           
