@@ -1,14 +1,18 @@
 import { useRoute, Link } from "wouter";
 import { useState } from "react";
 import { useGetJobBySlug, useSubmitApplication } from "@workspace/api-client-react";
+import { Helmet } from "react-helmet-async";
 import { SEO } from "@/components/SEO";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, MapPin, Clock, Briefcase, CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
+
+const SITE_URL = "https://mapletechie.com";
 
 function blockToList(text: string) {
   return text
@@ -74,9 +78,49 @@ export default function CareerDetail() {
     );
   }
 
+  const jobPostingLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "JobPosting",
+    title: job.title,
+    description: job.description,
+    hiringOrganization: {
+      "@type": "Organization",
+      name: "Mapletechie",
+      sameAs: "https://mapletechie.com",
+    },
+    jobLocation: {
+      "@type": "Place",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: job.location ?? "Remote",
+      },
+    },
+    identifier: {
+      "@type": "PropertyValue",
+      name: "Mapletechie",
+      value: job.slug,
+    },
+    url: `${SITE_URL}/careers/${job.slug}`,
+  };
+  if (job.employmentType) {
+    jobPostingLd.employmentType = job.employmentType;
+  }
+  if (job.compensation) {
+    jobPostingLd.baseSalary = {
+      "@type": "MonetaryAmount",
+      description: job.compensation,
+    };
+  }
+  if ((job as any).createdAt) {
+    jobPostingLd.datePosted = new Date((job as any).createdAt).toISOString().slice(0, 10);
+  }
+
   return (
     <div className="container mx-auto px-4 md:px-6 py-12 md:py-16">
       <SEO title={`${job.title} — Careers`} description={job.summary} url={`/careers/${job.slug}`} />
+      <Helmet>
+        <script type="application/ld+json">{JSON.stringify(jobPostingLd)}</script>
+      </Helmet>
 
       <div className="max-w-4xl mx-auto">
         <Link href="/careers">

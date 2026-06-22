@@ -671,7 +671,11 @@ interface JobRecord {
   title: string;
   location: string | null;
   type: string | null;
+  employmentType: string | null;
+  compensation: string | null;
+  summary: string | null;
   description: string | null;
+  createdAt: string | null;
 }
 
 app.get(/^\/careers\/([^/]+)\/?$/, async (req, res, next) => {
@@ -690,7 +694,7 @@ app.get(/^\/careers\/([^/]+)\/?$/, async (req, res, next) => {
   const safeJobDesc = (job.description ?? "")
     .replace(/<script[\s\S]*?<\/script>/gi, "")
     .replace(/<style[\s\S]*?<\/style>/gi, "");
-  const metaParts = [job.location, job.type].filter(Boolean);
+  const metaParts = [job.location, job.employmentType ?? job.type].filter(Boolean);
 
   const seo = buildSeoBlock({
     title: `${job.title}${locationStr} | Mapletechie Careers`,
@@ -699,6 +703,50 @@ app.get(/^\/careers\/([^/]+)\/?$/, async (req, res, next) => {
     url: `${SITE_URL}/careers/${job.slug}`,
     type: "website",
   });
+
+  const jobPostingLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "JobPosting",
+    title: job.title,
+    description: job.description ?? description,
+    hiringOrganization: {
+      "@type": "Organization",
+      name: "Mapletechie",
+      sameAs: "https://mapletechie.com",
+    },
+    jobLocation: {
+      "@type": "Place",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: job.location ?? "Remote",
+      },
+    },
+    identifier: {
+      "@type": "PropertyValue",
+      name: "Mapletechie",
+      value: job.slug,
+    },
+    url: `${SITE_URL}/careers/${job.slug}`,
+  };
+  if (job.employmentType ?? job.type) {
+    jobPostingLd.employmentType = job.employmentType ?? job.type;
+  }
+  if (job.compensation) {
+    jobPostingLd.baseSalary = {
+      "@type": "MonetaryAmount",
+      description: job.compensation,
+    };
+  }
+  if (job.createdAt) {
+    jobPostingLd.datePosted = job.createdAt.slice(0, 10);
+  }
+
+  const jsonLdSafe = JSON.stringify(jobPostingLd).replace(/</g, "\\u003c");
+  const seoWithJsonLd = seo.replace(
+    "<!-- SEO_HEAD_END -->",
+    `    <script type="application/ld+json">${jsonLdSafe}</script>\n    <!-- SEO_HEAD_END -->`,
+  );
+
   const body = `
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>${htmlEscape(job.title)}</h1>
@@ -709,7 +757,7 @@ app.get(/^\/careers\/([^/]+)\/?$/, async (req, res, next) => {
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Vary", "User-Agent");
   res.setHeader("Cache-Control", "public, max-age=600, s-maxage=600");
-  res.send(renderHtml(seo, body));
+  res.send(renderHtml(seoWithJsonLd, body));
 });
 
 interface AuthorRecord {
