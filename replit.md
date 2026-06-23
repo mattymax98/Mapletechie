@@ -117,6 +117,7 @@ Dashboard, Posts (CRUD), Users, Profile, **Jobs** (`/admin/jobs` — full CRUD),
 - Dynamic sitemap: `GET /api/sitemap.xml`
 - robots.txt: `artifacts/tech-blog/public/robots.txt` (points sitemap to mapletechie.com)
 - Site domain constant in SEO.tsx: update `SITE_URL` when deploying
+- Homepage LCP: a server handler in `artifacts/tech-blog/server.ts` (registered **before** the sirv middleware, which otherwise serves `/` as static index.html and shadows it) injects a `<link rel="preload" as="image" fetchpriority="high">` with responsive `imagesrcset`/`imagesizes` for the current featured post's cover, so the hero image downloads before React boots. Built via `buildHeroPreloadLink` reusing `responsiveCoverProps(..., COVER_SIZES.hero)` to match the hero `<img>` exactly. Crawlers/empty-featured fall through unchanged.
 
 ## API Spec
 

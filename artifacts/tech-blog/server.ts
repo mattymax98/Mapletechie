@@ -3,6 +3,7 @@ import sirv from "sirv";
 import path from "node:path";
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { responsiveCoverProps, COVER_SIZES } from "./src/lib/responsiveImage";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -229,6 +230,37 @@ async function fetchJson<T>(url: string, timeoutMs = 4000): Promise<T | null> {
   }
 }
 
+/** Minimal shape we read off /api/posts/featured for the homepage hero. */
+interface FeaturedPost {
+  coverImage?: string | null;
+}
+
+/**
+ * Build an LCP-priority `<link rel="preload" as="image">` for the homepage
+ * featured hero cover. Mirrors `responsiveCoverProps(..., COVER_SIZES.hero)` so
+ * the preloaded variant matches the <img> React renders (no duplicate/oversized
+ * download). Returns "" when there is no usable cover. The trailing newline keeps
+ * the injected head tidy.
+ */
+function buildHeroPreloadLink(coverImage: string | null | undefined): string {
+  const { src, srcSet, sizes } = responsiveCoverProps(
+    coverImage || "/images/hero-post.webp",
+    COVER_SIZES.hero,
+  );
+  if (!src) return "";
+  const attrs = [
+    'rel="preload"',
+    'as="image"',
+    `href="${htmlEscape(src)}"`,
+    srcSet ? `imagesrcset="${htmlEscape(srcSet)}"` : "",
+    srcSet && sizes ? `imagesizes="${htmlEscape(sizes)}"` : "",
+    'fetchpriority="high"',
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return `    <link ${attrs}>\n`;
+}
+
 const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
@@ -263,6 +295,26 @@ app.get(LEGACY_PNG_RE, (req, res) => {
 const ONE_YEAR = 60 * 60 * 24 * 365;
 const ONE_WEEK = 60 * 60 * 24 * 7;
 const IMAGE_RE = /\.(?:png|jpe?g|webp|gif|svg|ico|avif)$/i;
+// Homepage SPA shell for human visitors — inject an LCP-priority preload hint for
+// the featured hero cover so the browser starts downloading it before React boots
+// and fetches /api/posts/featured. Registered BEFORE sirv because sirv would
+// otherwise serve the static index.html for `/` and shadow this. Crawlers fall
+// through to sirv (and the catch-all) and get the unmodified shell, unchanged.
+app.get(/^\/?$/, async (req, res, next) => {
+  if (isCrawler(req)) return next();
+  const featured = await fetchJson<FeaturedPost[]>(`${API_BASE}/api/posts/featured`);
+  const heroPost = featured?.[0];
+  // No featured post -> the homepage renders no hero image, so emit no hint
+  // (avoids preloading the fallback cover that nothing on the page will use).
+  if (!heroPost) return next();
+  const preload = buildHeroPreloadLink(heroPost.coverImage);
+  if (!preload) return next();
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=60, s-maxage=60");
+  res.send(indexHtml.replace("<!-- SEO_HEAD_END -->", `${preload}    <!-- SEO_HEAD_END -->`));
+});
+
 app.use(
   sirv(distDir, {
     single: false,
