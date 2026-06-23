@@ -85,6 +85,35 @@ const POST_LIST = [
   },
 ];
 
+const AUTHOR = {
+  id: 7,
+  username: "matthew",
+  displayName: "Matthew Mbaka",
+  bio: "Founding editor of Mapletechie, covering AI and Canadian tech.",
+};
+
+const TAG = "ai";
+
+const SERIES = {
+  slug: "ai-revolution",
+  title: "The AI Revolution",
+  description: "A multi-part deep dive into the AI boom.",
+  coverImage: "/covers/ai-future.webp",
+};
+
+const JOB = {
+  slug: "senior-editor",
+  title: "Senior Editor",
+  location: "Toronto, ON",
+  type: "Full-time",
+  employmentType: "FULL_TIME",
+  compensation: "$90k–$120k",
+  summary: "Lead our editorial coverage.",
+  description:
+    "<p>We're looking for a senior editor to lead coverage of AI and gadgets.</p>",
+  createdAt: "2026-01-10T12:00:00.000Z",
+};
+
 /** Build a tiny stand-in for the API server the prerenderer fetches from. */
 function startMockApi(): Promise<{ server: ReturnType<typeof express>; close: () => Promise<void>; port: number }> {
   const api = express();
@@ -104,6 +133,31 @@ function startMockApi(): Promise<{ server: ReturnType<typeof express>; close: ()
   });
   api.get("/api/posts", (_req, res) => {
     res.json(POST_LIST);
+  });
+  api.get("/api/authors/by-username/:username", (req, res) => {
+    if (req.params.username === AUTHOR.username) return res.json(AUTHOR);
+    res.status(404).json({ error: "not found" });
+  });
+  api.get("/api/authors/:id/posts", (req, res) => {
+    if (Number(req.params.id) === AUTHOR.id) return res.json(POST_LIST);
+    res.json([]);
+  });
+  api.get("/api/tags/:tag/posts", (req, res) => {
+    if (req.params.tag === TAG) return res.json(POST_LIST);
+    res.json([]);
+  });
+  api.get("/api/series/:slug", (req, res) => {
+    if (req.params.slug === SERIES.slug) {
+      return res.json({ series: SERIES, posts: POST_LIST });
+    }
+    res.status(404).json({ error: "not found" });
+  });
+  api.get("/api/jobs", (_req, res) => {
+    res.json([JOB]);
+  });
+  api.get("/api/jobs/:slug", (req, res) => {
+    if (req.params.slug === JOB.slug) return res.json(JOB);
+    res.status(404).json({ error: "not found" });
   });
 
   return new Promise((resolve) => {
@@ -306,6 +360,117 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
     });
   });
 
+  describe("author /author/:username", () => {
+    it("serves a prerendered author page + listing to Googlebot", async () => {
+      const { status, body } = await get(`/author/${AUTHOR.username}`, GOOGLEBOT_UA);
+      expect(status).toBe(200);
+      expect(body).toContain(`<h1>${AUTHOR.displayName}</h1>`);
+      expect(body).toContain("Founding editor of Mapletechie");
+      expect(body).toContain(`${SITE_URL}/blog/${FEATURED_POST.slug}`);
+      expect(body).not.toContain('<div id="root"></div>');
+    });
+
+    it("serves the SPA shell (not the prerendered page) to a normal browser", async () => {
+      const { status, body } = await get(`/author/${AUTHOR.username}`, BROWSER_UA);
+      expect(status).toBe(404);
+      expect(body).toContain('<div id="root">');
+      expect(body).not.toContain("Founding editor of Mapletechie");
+    });
+
+    it("returns a noindex 404 to Googlebot for an unknown author", async () => {
+      const { status, body } = await get("/author/nobody", GOOGLEBOT_UA);
+      expect(status).toBe(404);
+      expect(body).toContain("noindex");
+    });
+  });
+
+  describe("tag /tag/:tag", () => {
+    it("serves a prerendered tag archive + listing to Googlebot", async () => {
+      const { status, body } = await get(`/tag/${TAG}`, GOOGLEBOT_UA);
+      expect(status).toBe(200);
+      expect(body).toContain(`<h1>#${TAG}</h1>`);
+      expect(body).toContain(`${SITE_URL}/blog/${FEATURED_POST.slug}`);
+      expect(body).not.toContain('<div id="root"></div>');
+    });
+
+    it("serves the SPA shell (not the prerendered archive) to a normal browser", async () => {
+      const { status, body } = await get(`/tag/${TAG}`, BROWSER_UA);
+      expect(status).toBe(404);
+      expect(body).toContain('<div id="root">');
+      expect(body).not.toContain(`${SITE_URL}/blog/${FEATURED_POST.slug}`);
+    });
+
+    it("returns a noindex 404 to Googlebot for a tag with no posts", async () => {
+      const { status, body } = await get("/tag/nonexistent", GOOGLEBOT_UA);
+      expect(status).toBe(404);
+      expect(body).toContain("noindex");
+    });
+  });
+
+  describe("series /series/:slug", () => {
+    it("serves a prerendered series page + listing to Googlebot", async () => {
+      const { status, body } = await get(`/series/${SERIES.slug}`, GOOGLEBOT_UA);
+      expect(status).toBe(200);
+      expect(body).toContain(`<h1>${SERIES.title}</h1>`);
+      expect(body).toContain("Articles in this series");
+      expect(body).toContain(`${SITE_URL}/blog/${FEATURED_POST.slug}`);
+      expect(body).not.toContain('<div id="root"></div>');
+    });
+
+    it("serves the SPA shell (not the prerendered page) to a normal browser", async () => {
+      const { status, body } = await get(`/series/${SERIES.slug}`, BROWSER_UA);
+      expect(status).toBe(404);
+      expect(body).toContain('<div id="root">');
+      expect(body).not.toContain("Articles in this series");
+    });
+
+    it("returns a noindex 404 to Googlebot for an unknown series", async () => {
+      const { status, body } = await get("/series/nonexistent", GOOGLEBOT_UA);
+      expect(status).toBe(404);
+      expect(body).toContain("noindex");
+    });
+  });
+
+  describe("careers /careers and /careers/:slug", () => {
+    it("serves a prerendered careers listing to Googlebot", async () => {
+      const { status, body } = await get("/careers", GOOGLEBOT_UA);
+      expect(status).toBe(200);
+      expect(body).toContain("Careers at Mapletechie");
+      expect(body).toContain(`${SITE_URL}/careers/${JOB.slug}`);
+      expect(body).not.toContain('<div id="root"></div>');
+    });
+
+    it("serves the SPA shell to a normal browser at /careers", async () => {
+      // /careers IS a known SPA route, so browsers get a 200 + shell.
+      const { status, body } = await get("/careers", BROWSER_UA);
+      expect(status).toBe(200);
+      expect(body).toContain('<div id="root">');
+      expect(body).not.toContain("Careers at Mapletechie");
+    });
+
+    it("serves the full job posting + JSON-LD to Googlebot", async () => {
+      const { status, body } = await get(`/careers/${JOB.slug}`, GOOGLEBOT_UA);
+      expect(status).toBe(200);
+      expect(body).toContain(`<h1>${JOB.title}</h1>`);
+      expect(body).toContain('"@type":"JobPosting"');
+      expect(body).toContain("senior editor to lead coverage");
+      expect(body).not.toContain('<div id="root"></div>');
+    });
+
+    it("serves the SPA shell (not the prerendered job) to a normal browser", async () => {
+      const { status, body } = await get(`/careers/${JOB.slug}`, BROWSER_UA);
+      expect(status).toBe(404);
+      expect(body).toContain('<div id="root">');
+      expect(body).not.toContain('"@type":"JobPosting"');
+    });
+
+    it("returns a noindex 404 to Googlebot for an unknown job", async () => {
+      const { status, body } = await get("/careers/not-a-real-job", GOOGLEBOT_UA);
+      expect(status).toBe(404);
+      expect(body).toContain("noindex");
+    });
+  });
+
   describe("static asset fallthrough", () => {
     it("serves /robots.txt from sirv (not the SPA shell)", async () => {
       const { status, body } = await get("/robots.txt", GOOGLEBOT_UA);
@@ -324,6 +489,11 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       "/about",
       "/contact",
       "/advertise",
+      `/author/${AUTHOR.username}`,
+      `/tag/${TAG}`,
+      `/series/${SERIES.slug}`,
+      "/careers",
+      `/careers/${JOB.slug}`,
     ];
     it.each(prerendered)("%s does not return an empty #root to Googlebot", async (route) => {
       const { body } = await get(route, GOOGLEBOT_UA);
