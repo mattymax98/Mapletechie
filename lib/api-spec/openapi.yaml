@@ -1799,8 +1799,14 @@ components:
       properties:
         id:
           type: integer
+        username:
+          type: string
         displayName:
           type: string
+        role:
+          type: string
+        postCount:
+          type: integer
         bio:
           type: string
         avatarUrl:

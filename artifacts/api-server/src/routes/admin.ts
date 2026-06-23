@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, usersTable, type User } from "@workspace/db";
-import { and, eq } from "drizzle-orm";
+import { db, usersTable, postsTable, type User } from "@workspace/db";
+import { and, eq, count } from "drizzle-orm";
 import {
   hashPassword,
   verifyPassword,
@@ -300,10 +300,21 @@ router.get("/editors", async (_req, res): Promise<void> => {
     .from(usersTable)
     .where(eq(usersTable.isActive, true))
     .orderBy(usersTable.id);
+  const counts = await db
+    .select({ authorId: postsTable.authorId, n: count() })
+    .from(postsTable)
+    .where(eq(postsTable.status, "published"))
+    .groupBy(postsTable.authorId);
+  const countMap = new Map<number, number>();
+  for (const c of counts) {
+    if (c.authorId != null) countMap.set(c.authorId, Number(c.n));
+  }
   res.json(
     users.map((u) => ({
       id: u.id,
+      username: u.username,
       displayName: u.displayName,
+      role: u.role,
       bio: u.bio,
       avatarUrl: u.avatarUrl,
       twitterUrl: u.twitterUrl,
@@ -311,6 +322,7 @@ router.get("/editors", async (_req, res): Promise<void> => {
       instagramUrl: u.instagramUrl,
       githubUrl: u.githubUrl,
       websiteUrl: u.websiteUrl,
+      postCount: countMap.get(u.id) ?? 0,
     }))
   );
 });

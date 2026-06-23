@@ -60,7 +60,15 @@ Seeded with: 6 posts, 6 categories, 6 products, 1 job (`senior-editor`).
 
 ## Public Pages (Mapletechie)
 
-Home, Latest, Blog Post, Category, Shop, About, Contact, **Careers** (`/careers`, `/careers/:slug`), **Advertise** (`/advertise`), **Reader Reviews** (`/reviews`).
+Home, Latest, Blog Post, Category, Shop, About, Contact, **Our Team** (`/team`), **Careers** (`/careers`, `/careers/:slug`), **Advertise** (`/advertise`), **Reader Reviews** (`/reviews`).
+
+### Our Team (`/team`)
+- `our-team.tsx` masthead grid of all active editors via `useListEditors`. Cards show avatar, "Founding Editor" badge (role `admin`), published-post count, bio, and socials; link to `/author/:username` when a username is present.
+- Backed by `GET /editors` (`artifacts/api-server/src/routes/admin.ts`), extended to also return `username`, `role`, and `postCount` (grouped count of `status='published'` posts by `authorId`). These three were added as optional fields on the shared OpenAPI `AuthorProfile` schema.
+- Linked from the navbar (desktop + mobile) and footer "Company" column.
+
+### Category colors
+- Category accent colors live in the DB `categories.color` column and render through `CategoryChip` (`readableTextColor` picks accessible text). The curated palette in `seedCategories.ts` and all existing rows use a warm, brand-aligned set (orange/amber-biased, moderate saturation) rather than a saturated rainbow, so chips read as one family with the orange brand. Admins can still override per-category colors in the admin UI.
 
 ## Admin Pages
 
