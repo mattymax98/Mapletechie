@@ -1,14 +1,26 @@
-import { useGetFeaturedPosts, useGetLatestPosts, useGetTrendingPosts, useGetFeaturedEditor } from "@workspace/api-client-react";
+import {
+  useGetFeaturedPosts,
+  useGetLatestPosts,
+  useGetTrendingPosts,
+  useGetFeaturedEditor,
+  useListCategories,
+  useListPosts,
+  useSubscribeNewsletter,
+} from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { SEO } from "@/components/SEO";
 import { Link } from "wouter";
 import { format } from "date-fns";
-import { ArrowRight, Clock, MessageCircle } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ArrowRight, Clock, MessageCircle, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
+import { useToast } from "@/hooks/use-toast";
 import { responsiveCoverProps, COVER_SIZES } from "@/lib/responsiveImage";
+import { CategoryChip } from "@/components/CategoryChip";
+import { DEFAULT_CATEGORY_COLOR } from "@/lib/categoryColors";
 
 const PRINCIPLES = [
   { n: "01", t: "Independent.",   d: "No press junkets, no sponsored takes dressed up as reviews. We pay for our own gear and tell you what's actually true." },
@@ -22,6 +34,7 @@ export default function Home() {
   const { data: latestPosts, isLoading: loadingLatest } = useGetLatestPosts({ limit: 6 });
   const { data: trendingPosts, isLoading: loadingTrending } = useGetTrendingPosts();
   const { data: editor } = useGetFeaturedEditor();
+  const { data: categories } = useListCategories();
   const { data: discussedPosts, isLoading: loadingDiscussed } = useQuery({
     queryKey: ["posts", "most-discussed"],
     queryFn: async () => {
@@ -34,6 +47,12 @@ export default function Home() {
 
   const heroPost = featuredPosts?.[0];
   const subHeroPosts = featuredPosts?.slice(1, 3) || [];
+
+  // Top categories (by published post count) for the magazine sections below.
+  const sectionCategories = (categories ?? [])
+    .filter((c) => (c.postCount ?? 0) > 0)
+    .sort((a, b) => (b.postCount ?? 0) - (a.postCount ?? 0))
+    .slice(0, 4);
 
   return (
     <div className="w-full">
@@ -100,9 +119,7 @@ export default function Home() {
                 <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/40 to-transparent" />
               </div>
               <div className="relative z-10 max-w-3xl">
-                <Badge className="bg-primary text-primary-foreground hover:bg-primary rounded-none uppercase font-bold tracking-wider mb-4 border-none">
-                  {heroPost.category}
-                </Badge>
+                <CategoryChip category={heroPost.category} variant="solid" className="mb-4" />
                 <h3 className="text-3xl md:text-5xl font-serif font-black leading-[1.05] text-white mb-4 group-hover:text-primary transition-colors line-clamp-3">
                   {heroPost.title}
                 </h3>
@@ -135,9 +152,7 @@ export default function Home() {
                   <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/30 to-transparent" />
                 </div>
                 <div className="relative z-10">
-                  <Badge variant="outline" className="text-white border-white/30 rounded-none uppercase font-bold text-[10px] tracking-wider mb-2 bg-black/20 backdrop-blur-sm">
-                    {post.category}
-                  </Badge>
+                  <CategoryChip category={post.category} variant="solid" className="mb-2" />
                   <h3 className="text-xl font-serif font-bold leading-tight text-white group-hover:text-primary transition-colors line-clamp-2">
                     {post.title}
                   </h3>
@@ -148,44 +163,43 @@ export default function Home() {
         </section>
       </div>
 
-      {/* ============ EXPLORE BY CATEGORY ============ */}
-      <section className="border-t border-border bg-background">
-        <div className="container mx-auto px-4 md:px-6 py-14 md:py-16">
-          <div className="flex items-end justify-between mb-8 border-b border-border pb-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.25em] font-bold text-primary mb-1">Explore</p>
-              <h2 className="text-3xl md:text-4xl font-serif font-black tracking-tight">Pick your beat</h2>
+      {/* ============ EXPLORE BY CATEGORY (real, colored) ============ */}
+      {(categories?.length ?? 0) > 0 && (
+        <section className="border-t border-border bg-background">
+          <div className="container mx-auto px-4 md:px-6 py-12 md:py-14">
+            <div className="flex items-end justify-between mb-8 border-b border-border pb-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] font-bold text-primary mb-1">Explore</p>
+                <h2 className="text-3xl md:text-4xl font-serif font-black tracking-tight">Pick your beat</h2>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {categories?.map((cat) => {
+                const color = cat.color || DEFAULT_CATEGORY_COLOR;
+                return (
+                  <Link
+                    key={cat.id}
+                    href={`/category/${cat.slug}`}
+                    className="group inline-flex items-center gap-2 border border-border hover:border-transparent px-4 py-2.5 transition-colors bg-card/30 hover:text-white"
+                    style={{ ["--cat-color" as any]: color }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = color)}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "")}
+                    data-testid={`home-category-${cat.slug}`}
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} aria-hidden />
+                    <span className="font-bold uppercase tracking-wider text-sm">{cat.name}</span>
+                    {(cat.postCount ?? 0) > 0 && (
+                      <span className="text-xs opacity-60 font-medium">{cat.postCount}</span>
+                    )}
+                  </Link>
+                );
+              })}
             </div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-            {[
-              { slug: "ai", name: "AI", desc: "The models, the labs, the real-world impact." },
-              { slug: "gadgets", name: "Gadgets", desc: "Phones, laptops, wearables — reviewed sharp." },
-              { slug: "reviews", name: "Reviews", desc: "Honest takes on the gear that matters." },
-              { slug: "news", name: "News", desc: "Breaking stories and what they mean for you." },
-              { slug: "software", name: "Software & Apps", desc: "Apps, operating systems, dev culture." },
-              { slug: "gaming", name: "Gaming", desc: "Consoles, PC, and the culture around them." },
-            ].map((cat) => (
-              <Link
-                key={cat.slug}
-                href={`/category/${cat.slug}`}
-                className="group block border border-border p-5 md:p-6 hover:border-primary transition-colors bg-card/30"
-                data-testid={`home-category-${cat.slug}`}
-              >
-                <h3 className="font-serif font-black text-xl md:text-2xl mb-2 group-hover:text-primary transition-colors leading-tight">
-                  {cat.name}
-                </h3>
-                <p className="text-muted-foreground text-sm mb-4 leading-relaxed line-clamp-2">{cat.desc}</p>
-                <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-primary">
-                  Read <ArrowRight className="h-3 w-3" />
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
-      {/* ============ TOP ARTICLES (rotated label) ============ */}
+      {/* ============ EDITOR'S PICKS (rotated label) ============ */}
       {(() => {
         const topPosts = trendingPosts?.slice(0, 4) || [];
         if (!loadingTrending && topPosts.length === 0) return null;
@@ -203,11 +217,11 @@ export default function Home() {
                       <div className="flex items-center gap-3 mb-2">
                         <span className="block w-8 h-px bg-primary" />
                         <span className="text-[10px] uppercase tracking-[0.4em] font-bold text-primary">
-                          What's Hot
+                          Hand-picked
                         </span>
                       </div>
                       <h2 className="font-serif font-black tracking-tight text-6xl lg:text-7xl leading-[0.9]">
-                        Top <span className="italic text-primary">Articles</span>
+                        Editor's <span className="italic text-primary">Picks</span>
                       </h2>
                     </div>
                   </div>
@@ -216,11 +230,11 @@ export default function Home() {
                     <div className="flex items-center gap-3 mb-3">
                       <span className="block w-8 h-px bg-primary" />
                       <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-primary">
-                        What's Hot
+                        Hand-picked
                       </span>
                     </div>
                     <h2 className="font-serif font-black tracking-tight text-4xl leading-none">
-                      Top <span className="italic text-primary">Articles</span>
+                      Editor's <span className="italic text-primary">Picks</span>
                     </h2>
                   </div>
                 </div>
@@ -255,12 +269,7 @@ export default function Home() {
                               </span>
                             </div>
                             <div className="absolute bottom-0 left-0 right-0 p-4">
-                              <Badge
-                                variant="outline"
-                                className="text-white border-white/40 rounded-none uppercase font-bold text-[10px] tracking-wider mb-2 bg-black/30 backdrop-blur-sm"
-                              >
-                                {post.category}
-                              </Badge>
+                              <CategoryChip category={post.category} variant="solid" className="mb-2" />
                               <h3 className="text-base lg:text-lg font-serif font-bold leading-tight text-white group-hover:text-primary transition-colors line-clamp-3">
                                 {post.title}
                               </h3>
@@ -281,6 +290,11 @@ export default function Home() {
           </section>
         );
       })()}
+
+      {/* ============ PER-CATEGORY MAGAZINE SECTIONS ============ */}
+      {sectionCategories.map((cat) => (
+        <CategorySection key={cat.id} category={cat} />
+      ))}
 
       {/* ============ WHAT WE BELIEVE ============ */}
       <section className="border-y border-border bg-card/30">
@@ -351,10 +365,10 @@ export default function Home() {
                       />
                     </div>
                     <div>
-                      <div className="flex items-center gap-3 mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                        <span className="text-primary">{post.category}</span>
+                      <div className="flex items-center gap-3 mb-2 text-xs text-muted-foreground">
+                        <CategoryChip category={post.category} variant="dot" className="text-xs" />
                         <span>&bull;</span>
-                        <span>{format(new Date(post.publishedAt), 'MMM dd')}</span>
+                        <span className="font-bold uppercase tracking-wider">{format(new Date(post.publishedAt), 'MMM dd')}</span>
                       </div>
                       <h3 className="text-xl font-serif font-bold leading-tight group-hover:text-primary transition-colors line-clamp-2 mb-2">
                         {post.title}
@@ -397,7 +411,7 @@ export default function Home() {
                           {post.title}
                         </h3>
                         <div className="flex items-center text-xs text-muted-foreground gap-2 font-medium">
-                          <span>{post.category}</span>
+                          <CategoryChip category={post.category} variant="dot" className="text-[11px]" />
                           <span>&bull;</span>
                           <span className="flex items-center gap-1">
                             <MessageCircle className="h-3 w-3" /> {post.commentCount} {post.commentCount === 1 ? "comment" : "comments"}
@@ -413,6 +427,9 @@ export default function Home() {
           </aside>
         </div>
       </div>
+
+      {/* ============ NEWSLETTER CTA ============ */}
+      <HomeNewsletter />
 
       {/* ============ EDITOR'S NOTE ============ */}
       <section className="border-t border-border bg-gradient-to-br from-background via-card/40 to-background">
@@ -453,5 +470,187 @@ export default function Home() {
         </div>
       </section>
     </div>
+  );
+}
+
+/**
+ * A magazine-style section for a single category: a large lead story plus a
+ * short list of recent headlines, accented with the category's color. Renders
+ * nothing if the category has no published posts.
+ */
+function CategorySection({
+  category,
+}: {
+  category: { id: number; name: string; slug: string; color?: string | null; postCount?: number };
+}) {
+  const { data: posts, isLoading } = useListPosts({ category: category.slug, limit: 4 });
+  if (!isLoading && (!posts || posts.length === 0)) return null;
+  const color = category.color || DEFAULT_CATEGORY_COLOR;
+  const lead = posts?.[0];
+  const rest = posts?.slice(1, 4) ?? [];
+
+  return (
+    <section className="border-t border-border bg-background">
+      <div className="container mx-auto px-4 md:px-6 py-14 md:py-16">
+        <div className="flex items-end justify-between mb-8 border-b border-border pb-4">
+          <div className="flex items-center gap-3">
+            <span className="block w-1.5 h-8 rounded-none shrink-0" style={{ backgroundColor: color }} aria-hidden />
+            <h2 className="text-2xl md:text-3xl font-serif font-black tracking-tight">{category.name}</h2>
+          </div>
+          <Link
+            href={`/category/${category.slug}`}
+            className="text-sm font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground flex items-center gap-1"
+          >
+            View all <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+
+        {isLoading ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <Skeleton className="aspect-video rounded-none" />
+            <div className="flex flex-col gap-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 rounded-none" />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-10">
+            {lead && (
+              <Link href={`/blog/${lead.slug}`} className="group flex flex-col gap-4">
+                <div className="overflow-hidden border border-border aspect-video bg-muted relative">
+                  <img
+                    loading="lazy"
+                    decoding="async"
+                    {...responsiveCoverProps(lead.coverImage || "/images/hero-post.webp", COVER_SIZES.grid2)}
+                    alt={lead.title}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute top-3 left-3">
+                    <CategoryChip category={lead.category} variant="solid" />
+                  </div>
+                </div>
+                <h3 className="text-2xl font-serif font-black leading-tight group-hover:text-primary transition-colors line-clamp-2">
+                  {lead.title}
+                </h3>
+                <p className="text-muted-foreground text-sm line-clamp-2">{lead.excerpt}</p>
+                <div className="flex items-center text-xs text-muted-foreground font-medium uppercase tracking-wide gap-3">
+                  <span>{lead.author}</span>
+                  <span className="w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                  <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {lead.readTime} min</span>
+                </div>
+              </Link>
+            )}
+
+            <div className="flex flex-col divide-y divide-border">
+              {rest.length === 0 ? (
+                <p className="text-muted-foreground text-sm">More {category.name} stories coming soon.</p>
+              ) : (
+                rest.map((post) => (
+                  <Link key={post.id} href={`/blog/${post.slug}`} className="group flex gap-4 py-4 first:pt-0 items-start">
+                    <div className="w-24 h-20 shrink-0 overflow-hidden border border-border bg-muted">
+                      <img
+                        loading="lazy"
+                        decoding="async"
+                        {...responsiveCoverProps(post.coverImage || "/images/hero-post.webp", COVER_SIZES.sidebar)}
+                        alt={post.title}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-serif font-bold leading-snug group-hover:text-primary transition-colors line-clamp-2 mb-1">
+                        {post.title}
+                      </h4>
+                      <div className="flex items-center text-xs text-muted-foreground gap-2 font-medium uppercase tracking-wide">
+                        <span>{post.author}</span>
+                        <span className="w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                        <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {post.readTime} min</span>
+                      </div>
+                    </div>
+                  </Link>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Prominent on-brand newsletter signup, reusing the same subscribe mutation as
+ * the footer form.
+ */
+function HomeNewsletter() {
+  const [email, setEmail] = useState("");
+  const { toast } = useToast();
+  const submit = useSubscribeNewsletter();
+
+  const handleSubscribe = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = email.trim();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      toast({ title: "Enter a valid email", variant: "destructive" });
+      return;
+    }
+    submit.mutate(
+      { data: { email: trimmed, source: "home" } },
+      {
+        onSuccess: (res) => {
+          toast({
+            title: "Almost there",
+            description: res?.message || "Check your inbox to confirm your subscription.",
+          });
+          setEmail("");
+        },
+        onError: () => {
+          toast({
+            title: "Something went wrong",
+            description: "Please try again in a moment.",
+            variant: "destructive",
+          });
+        },
+      },
+    );
+  };
+
+  return (
+    <section className="border-t border-border bg-primary text-primary-foreground">
+      <div className="container mx-auto px-4 md:px-6 py-16 md:py-20">
+        <div className="max-w-3xl mx-auto text-center">
+          <div className="inline-flex items-center justify-center gap-2 mb-4">
+            <Mail className="h-5 w-5" />
+            <span className="text-xs uppercase tracking-[0.3em] font-bold">The Mapletechie Brief</span>
+          </div>
+          <h2 className="font-serif font-black tracking-tight text-3xl md:text-5xl leading-[1.05] mb-4">
+            The week in tech, told straight.
+          </h2>
+          <p className="text-primary-foreground/80 text-base md:text-lg leading-relaxed mb-8 max-w-2xl mx-auto">
+            One email. The stories that actually matter, the reviews worth reading, and the context the headlines skip. No spam — just signal.
+          </p>
+          <form className="flex flex-col sm:flex-row gap-3 max-w-lg mx-auto" onSubmit={handleSubscribe}>
+            <Input
+              type="email"
+              placeholder="you@email.com"
+              className="rounded-none bg-background text-foreground h-12 flex-1"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              data-testid="input-home-newsletter-email"
+            />
+            <Button
+              type="submit"
+              variant="secondary"
+              className="rounded-none font-bold uppercase tracking-wider h-12 px-8 bg-background text-foreground hover:bg-background/90"
+              disabled={submit.isPending}
+              data-testid="button-home-newsletter-join"
+            >
+              {submit.isPending ? "Joining…" : "Subscribe"}
+            </Button>
+          </form>
+        </div>
+      </div>
+    </section>
   );
 }

@@ -5,6 +5,7 @@ import { Clock, BookOpen } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { SEO } from "@/components/SEO";
+import { CategoryChip } from "@/components/CategoryChip";
 
 interface SeriesRow {
   id: number;
@@ -122,9 +123,7 @@ export default function SeriesPage() {
                 </div>
                 <div className="flex-1">
                   {p.category && (
-                    <p className="text-xs uppercase tracking-widest font-bold text-primary mb-1">
-                      {p.category}
-                    </p>
+                    <CategoryChip category={p.category} variant="dot" className="text-xs mb-1" />
                   )}
                   <h3 className="text-xl md:text-2xl font-bold leading-tight group-hover:text-primary mb-2">
                     {p.title}

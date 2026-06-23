@@ -42,6 +42,11 @@ pnpm workspace monorepo using TypeScript. Contains "Mapletechie" (mapletechie.co
 - The public `GET /api/posts*` endpoints filter to `status='published'`. Only the owner/admin sees scheduled rows in `/api/admin/posts`.
 - UI: `AdminPostForm` shows a "Schedule for later" datetime-local picker. Picking a future time switches the submit to "Schedule Post"; the dashboard list shows a blue Scheduled badge with the run time.
 
+### Posts: review toolkit
+- Optional review fields on `posts` (`lib/db/src/schema/posts.ts`): `rating` (doublePrecision, 0–5, nullable), `pros` (text[], default []), `cons` (text[], default []), `verdict` (text, nullable). Server clamps rating to 0–5 and `cleanText`s verdict/pros/cons in both POST insert and PUT `allowed` paths (`artifacts/api-server/src/routes/posts.ts`).
+- Exposed through OpenAPI `Post`/`NewPostInput`/`UpdatePostInput`. Editors fill them in the "Review toolkit" section of `AdminPostForm.tsx` (rating number input; verdict/pros/cons textareas, pros/cons one-per-line).
+- Rendered on `blog-post.tsx` via `VerdictBox` + `RatingStars` (orange-bordered card before the article body: verdict, partial-fill star rating, green pros / red cons). Returns null when the post has no review data, so regular posts are unaffected.
+
 ### Media library
 - New `media` table (`src/lib/db/src/schema/media.ts`): `id, url, filename, mime_type, size, uploader_id, created_at`.
 - Routes: `GET/POST /api/admin/media` (any authed editor) and `DELETE /api/admin/media/:id` (admin or original uploader).

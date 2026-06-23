@@ -1441,6 +1441,20 @@ components:
           type: integer
         isFeatured:
           type: boolean
+        rating:
+          type: number
+          nullable: true
+        pros:
+          type: array
+          items:
+            type: string
+        cons:
+          type: array
+          items:
+            type: string
+        verdict:
+          type: string
+          nullable: true
         publishedAt:
           type: string
           format: date-time
@@ -1508,6 +1522,20 @@ components:
             type: string
         ogImage:
           type: string
+        rating:
+          type: number
+          nullable: true
+        pros:
+          type: array
+          items:
+            type: string
+        cons:
+          type: array
+          items:
+            type: string
+        verdict:
+          type: string
+          nullable: true
       required:
         - title
         - slug
@@ -1560,6 +1588,20 @@ components:
             type: string
         ogImage:
           type: string
+        rating:
+          type: number
+          nullable: true
+        pros:
+          type: array
+          items:
+            type: string
+        cons:
+          type: array
+          items:
+            type: string
+        verdict:
+          type: string
+          nullable: true
         publishedAt:
           type: string
           format: date-time

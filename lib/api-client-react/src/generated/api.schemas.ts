@@ -76,6 +76,10 @@ export interface Post {
   readTime: number;
   viewCount: number;
   isFeatured: boolean;
+  rating?: number | null;
+  pros?: string[];
+  cons?: string[];
+  verdict?: string | null;
   publishedAt: string;
   createdAt: string;
 }
@@ -108,6 +112,10 @@ export interface NewPostInput {
   seoDescription?: string;
   seoKeywords?: string[];
   ogImage?: string;
+  rating?: number | null;
+  pros?: string[];
+  cons?: string[];
+  verdict?: string | null;
 }
 
 export type UpdatePostInputStatus =
@@ -138,6 +146,10 @@ export interface UpdatePostInput {
   seoDescription?: string;
   seoKeywords?: string[];
   ogImage?: string;
+  rating?: number | null;
+  pros?: string[];
+  cons?: string[];
+  verdict?: string | null;
   publishedAt?: string;
 }
 

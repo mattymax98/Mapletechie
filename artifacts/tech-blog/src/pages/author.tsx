@@ -5,6 +5,7 @@ import { Clock, Twitter, Linkedin, Instagram, Github, Globe } from "lucide-react
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { SEO } from "@/components/SEO";
+import { CategoryChip } from "@/components/CategoryChip";
 
 interface AuthorProfile {
   id: number;
@@ -183,9 +184,7 @@ export default function AuthorPage() {
                 </div>
                 <div>
                   {p.category && (
-                    <p className="text-xs uppercase tracking-widest font-bold text-primary mb-1">
-                      {p.category}
-                    </p>
+                    <CategoryChip category={p.category} variant="dot" className="text-xs mb-1" />
                   )}
                   <h3 className="text-xl font-bold leading-tight group-hover:text-primary line-clamp-3 mb-2">
                     {p.title}
