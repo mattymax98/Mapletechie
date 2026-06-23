@@ -115,11 +115,18 @@ const JOB = {
 };
 
 /** Build a tiny stand-in for the API server the prerenderer fetches from. */
-function startMockApi(): Promise<{ server: ReturnType<typeof express>; close: () => Promise<void>; port: number }> {
+function startMockApi(
+  opts: { maintenance?: boolean } = {},
+): Promise<{ server: ReturnType<typeof express>; close: () => Promise<void>; port: number }> {
   const api = express();
+  const maintenance = opts.maintenance ?? false;
 
   api.get("/api/settings/status", (_req, res) => {
-    res.json({ maintenance: false, message: null, eta: null });
+    res.json({
+      maintenance,
+      message: maintenance ? "Upgrading our servers — back shortly." : null,
+      eta: maintenance ? "2026-06-23T18:00:00.000Z" : null,
+    });
   });
   api.get("/api/posts/featured", (_req, res) => {
     res.json([FEATURED_POST]);
@@ -176,6 +183,48 @@ function startMockApi(): Promise<{ server: ReturnType<typeof express>; close: ()
 let serverProc: ChildProcess | undefined;
 let mockApi: Awaited<ReturnType<typeof startMockApi>> | undefined;
 let baseUrl = "";
+const serverBundle = path.join(techBlogDir, "dist", "server.mjs");
+
+/**
+ * Boot an extra production prerender-server instance pointed at a given API base.
+ * Used by the maintenance suite so each scenario gets a fresh process with its
+ * own in-process maintenance-status cache (sidestepping the ~10s TTL on the
+ * primary server). Returns the base URL and a kill function.
+ */
+async function startPrerenderServer(
+  apiBase: string,
+): Promise<{ baseUrl: string; close: () => void }> {
+  const port = await getFreePort();
+  const url = `http://127.0.0.1:${port}`;
+  const proc = spawn("node", [serverBundle], {
+    cwd: techBlogDir,
+    env: {
+      ...process.env,
+      PORT: String(port),
+      API_BASE: apiBase,
+      SITE_URL,
+      NODE_ENV: "production",
+    },
+    stdio: "inherit",
+  });
+  await waitForServer(`${url}/robots.txt`);
+  return {
+    baseUrl: url,
+    close: () => {
+      if (!proc.killed) proc.kill("SIGTERM");
+    },
+  };
+}
+
+/** Like `get`, but against an explicit base URL (for extra server instances). */
+async function getFrom(
+  base: string,
+  pathname: string,
+  ua: string,
+): Promise<{ status: number; body: string; headers: Headers }> {
+  const r = await fetch(`${base}${pathname}`, { headers: { "user-agent": ua } });
+  return { status: r.status, body: await r.text(), headers: r.headers };
+}
 
 /** Poll the booting prerender server until it answers (or time out). */
 async function waitForServer(url: string, timeoutMs = 15_000): Promise<void> {
@@ -202,7 +251,6 @@ beforeAll(async () => {
   //    (vite.config.ts throws without them). We only build if the artifacts
   //    are missing OR always rebuild the server so the test reflects current
   //    source. Building both is the safe, faithful path the task calls for.
-  const serverBundle = path.join(techBlogDir, "dist", "server.mjs");
   const indexHtml = path.join(techBlogDir, "dist", "public", "index.html");
   if (!existsSync(serverBundle) || !existsSync(indexHtml)) {
     execFileSync("pnpm", ["run", "build"], {
@@ -500,6 +548,91 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body, `${route} served the bare SPA shell to a crawler`).not.toContain(
         '<div id="root"></div>',
       );
+    });
+  });
+});
+
+// This suite proves the maintenance gate reports a *temporary* outage (HTTP 503
+// + Retry-After) to crawlers and browsers during maintenance, instead of
+// serving a 200 that risks de-indexing real pages — while keeping /admin
+// reachable and static assets (robots.txt) served. Each scenario boots its own
+// dedicated server process so the maintenance state is fixed at boot and the
+// server's ~10s in-process status cache never has to be waited out.
+describe("maintenance gate — temporary-outage signal during maintenance", () => {
+  let maintApi: Awaited<ReturnType<typeof startMockApi>> | undefined;
+  let maintServer: { baseUrl: string; close: () => void } | undefined;
+  let failOpenServer: { baseUrl: string; close: () => void } | undefined;
+  let deadApiBase = "";
+
+  beforeAll(async () => {
+    // 1. A mock API stuck in maintenance, plus a server pointed at it.
+    maintApi = await startMockApi({ maintenance: true });
+    maintServer = await startPrerenderServer(`http://127.0.0.1:${maintApi.port}`);
+
+    // 2. A server pointed at a dead API port (nothing listening) so the status
+    //    fetch fails — the gate must fail OPEN and keep serving the site.
+    const deadPort = await getFreePort();
+    deadApiBase = `http://127.0.0.1:${deadPort}`;
+    failOpenServer = await startPrerenderServer(deadApiBase);
+  }, 120_000);
+
+  afterAll(() => {
+    maintServer?.close();
+    failOpenServer?.close();
+    return maintApi?.close();
+  });
+
+  describe("public pages return 503 + Retry-After while down", () => {
+    // `/about` and `/blog` flow through the gate for BOTH crawlers and browsers
+    // (the homepage `/` is special-cased by the hero-preload handler for
+    // browsers, so it's covered separately below for crawlers only).
+    const publicPaths = ["/about", "/blog", `/blog/${ARTICLE.slug}`, `/category/${CATEGORY.slug}`];
+
+    for (const ua of [
+      { name: "Googlebot", value: GOOGLEBOT_UA },
+      { name: "a browser", value: BROWSER_UA },
+    ]) {
+      it.each(publicPaths)(`%s returns 503 + Retry-After to ${ua.name}`, async (route) => {
+        const { status, headers, body } = await getFrom(maintServer!.baseUrl, route, ua.value);
+        expect(status, `${route} should be 503 during maintenance`).toBe(503);
+        expect(headers.get("retry-after")).toBe("3600");
+        // The maintenance shell must not leak the prerendered article/listing.
+        expect(body).not.toContain('"@type":"NewsArticle"');
+      });
+    }
+
+    it("homepage / returns 503 + Retry-After to Googlebot", async () => {
+      const { status, headers } = await getFrom(maintServer!.baseUrl, "/", GOOGLEBOT_UA);
+      expect(status).toBe(503);
+      expect(headers.get("retry-after")).toBe("3600");
+    });
+  });
+
+  describe("admin panel and static assets stay reachable while down", () => {
+    it.each(["/admin", "/admin/login"])("%s is NOT gated (stays reachable)", async (route) => {
+      const { status } = await getFrom(maintServer!.baseUrl, route, BROWSER_UA);
+      expect(status, `${route} must stay reachable during maintenance`).not.toBe(503);
+      expect(status).toBe(200);
+    });
+
+    it("/robots.txt is still served (200) by static middleware", async () => {
+      const { status, body } = await getFrom(maintServer!.baseUrl, "/robots.txt", GOOGLEBOT_UA);
+      expect(status).toBe(200);
+      expect(body).toContain("User-agent");
+    });
+  });
+
+  describe("gate fails open when the status endpoint is unreachable", () => {
+    it.each(["/about", "/blog"])("%s serves the site (not 503) to a browser", async (route) => {
+      const { status } = await getFrom(failOpenServer!.baseUrl, route, BROWSER_UA);
+      expect(status, `${route} should fail open when status is unreachable`).not.toBe(503);
+      expect(status).toBe(200);
+    });
+
+    it("/about serves prerendered content (not 503) to Googlebot", async () => {
+      const { status, body } = await getFrom(failOpenServer!.baseUrl, "/about", GOOGLEBOT_UA);
+      expect(status).toBe(200);
+      expect(body).toContain("About Mapletechie");
     });
   });
 });
