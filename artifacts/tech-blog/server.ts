@@ -315,22 +315,32 @@ app.get(/^\/?$/, async (req, res, next) => {
   res.send(indexHtml.replace("<!-- SEO_HEAD_END -->", `${preload}    <!-- SEO_HEAD_END -->`));
 });
 
-app.use(
-  sirv(distDir, {
-    single: false,
-    dev: false,
-    etag: true,
-    setHeaders(res, pathname) {
-      if (pathname.startsWith("/assets/") || pathname.endsWith(".woff2")) {
-        res.setHeader("Cache-Control", `public, max-age=${ONE_YEAR}, immutable`);
-      } else if (IMAGE_RE.test(pathname)) {
-        res.setHeader("Cache-Control", `public, max-age=${ONE_WEEK}`);
-      } else if (pathname.endsWith(".html")) {
-        res.setHeader("Cache-Control", "no-cache");
-      }
-    },
-  }),
-);
+const serveStatic = sirv(distDir, {
+  single: false,
+  dev: false,
+  etag: true,
+  setHeaders(res, pathname) {
+    if (pathname.startsWith("/assets/") || pathname.endsWith(".woff2")) {
+      res.setHeader("Cache-Control", `public, max-age=${ONE_YEAR}, immutable`);
+    } else if (IMAGE_RE.test(pathname)) {
+      res.setHeader("Cache-Control", `public, max-age=${ONE_WEEK}`);
+    } else if (pathname.endsWith(".html")) {
+      res.setHeader("Cache-Control", "no-cache");
+    }
+  },
+});
+
+// The homepage `/` is intentionally NOT served by sirv. sirv maps `/` to the
+// static index.html (the bare SPA shell), which would shadow BOTH the human
+// hero-preload handler registered above AND the crawler homepage prerender
+// route registered below (the maintenance gate and the `/` crawler route both
+// run after this point). Skipping `/` here lets those dedicated homepage
+// handlers own the root URL while every other static asset still falls through
+// to sirv normally.
+app.use((req, res, next) => {
+  if (req.path === "/") return next();
+  return serveStatic(req, res, next);
+});
 
 // --- Maintenance gate ---------------------------------------------------
 // When the site is in maintenance mode, public *page* requests must answer
