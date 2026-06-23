@@ -246,7 +246,10 @@ export interface UpdateMeInput {
 
 export interface AuthorProfile {
   id: number;
+  username?: string;
   displayName: string;
+  role?: string;
+  postCount?: number;
   bio?: string;
   avatarUrl?: string;
   twitterUrl?: string;

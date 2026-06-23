@@ -786,7 +786,10 @@ export const GetAuthorParams = zod.object({
 
 export const GetAuthorResponse = zod.object({
   id: zod.number(),
+  username: zod.string().optional(),
   displayName: zod.string(),
+  role: zod.string().optional(),
+  postCount: zod.number().optional(),
   bio: zod.string().optional(),
   avatarUrl: zod.string().optional(),
   twitterUrl: zod.string().optional(),
@@ -801,7 +804,10 @@ export const GetAuthorResponse = zod.object({
  */
 export const ListEditorsResponseItem = zod.object({
   id: zod.number(),
+  username: zod.string().optional(),
   displayName: zod.string(),
+  role: zod.string().optional(),
+  postCount: zod.number().optional(),
   bio: zod.string().optional(),
   avatarUrl: zod.string().optional(),
   twitterUrl: zod.string().optional(),
@@ -953,7 +959,10 @@ export const AdminSendOneOffEmailResponse = zod.object({
  */
 export const GetFeaturedEditorResponse = zod.object({
   id: zod.number(),
+  username: zod.string().optional(),
   displayName: zod.string(),
+  role: zod.string().optional(),
+  postCount: zod.number().optional(),
   bio: zod.string().optional(),
   avatarUrl: zod.string().optional(),
   twitterUrl: zod.string().optional(),
