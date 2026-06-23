@@ -26,5 +26,9 @@ export interface UpdatePostInput {
   seoDescription?: string;
   seoKeywords?: string[];
   ogImage?: string;
+  rating?: number | null;
+  pros?: string[];
+  cons?: string[];
+  verdict?: string | null;
   publishedAt?: Date;
 }

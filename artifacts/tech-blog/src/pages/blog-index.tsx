@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { responsiveCoverProps, COVER_SIZES } from "@/lib/responsiveImage";
+import { CategoryChip } from "@/components/CategoryChip";
 
 export default function BlogIndex() {
   const searchString = useSearch();
@@ -103,8 +104,8 @@ export default function BlogIndex() {
                     alt={post.title} 
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
-                  <div className="absolute top-3 left-3 bg-background/90 backdrop-blur text-xs font-bold uppercase tracking-wider px-2 py-1">
-                    {post.category}
+                  <div className="absolute top-3 left-3">
+                    <CategoryChip category={post.category} variant="solid" />
                   </div>
                 </div>
                 <div className="flex-1 flex flex-col">

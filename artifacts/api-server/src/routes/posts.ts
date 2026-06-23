@@ -241,6 +241,17 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     seriesId: typeof body.seriesId === "number" ? body.seriesId : null,
     seriesPosition:
       typeof body.seriesPosition === "number" ? body.seriesPosition : null,
+    rating:
+      typeof body.rating === "number" && !Number.isNaN(body.rating)
+        ? Math.max(0, Math.min(5, body.rating))
+        : null,
+    pros: Array.isArray(body.pros)
+      ? (body.pros as unknown[]).map((p) => cleanText(p)).filter((p): p is string => !!p)
+      : [],
+    cons: Array.isArray(body.cons)
+      ? (body.cons as unknown[]).map((c) => cleanText(c)).filter((c): c is string => !!c)
+      : [],
+    verdict: cleanText(body.verdict),
     status,
     scheduledFor,
     seoTitle: cleanText(body.seoTitle),
@@ -408,6 +419,10 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     "seoDescription",
     "seoKeywords",
     "ogImage",
+    "rating",
+    "pros",
+    "cons",
+    "verdict",
   ] as const;
 
   const update: Record<string, unknown> = {};
@@ -417,8 +432,17 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     if (!(k in body)) continue;
     if (k === "content") {
       update[k] = cleanHtml(body[k]);
-    } else if (k === "seoTitle" || k === "seoDescription") {
+    } else if (k === "seoTitle" || k === "seoDescription" || k === "verdict") {
       update[k] = cleanText(body[k]);
+    } else if (k === "rating") {
+      update[k] =
+        typeof body[k] === "number" && !Number.isNaN(body[k])
+          ? Math.max(0, Math.min(5, body[k]))
+          : null;
+    } else if (k === "pros" || k === "cons") {
+      update[k] = Array.isArray(body[k])
+        ? body[k].map((v: unknown) => cleanText(v)).filter((v: unknown): v is string => !!v)
+        : [];
     } else if (k === "seoKeywords") {
       update[k] = Array.isArray(body[k])
         ? body[k].map((v: unknown) => cleanText(v)).filter((v: unknown): v is string => !!v)

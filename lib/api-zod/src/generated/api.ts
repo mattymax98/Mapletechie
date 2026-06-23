@@ -48,6 +48,10 @@ export const ListPostsResponseItem = zod.object({
   readTime: zod.number(),
   viewCount: zod.number(),
   isFeatured: zod.boolean(),
+  rating: zod.number().nullish(),
+  pros: zod.array(zod.string()).optional(),
+  cons: zod.array(zod.string()).optional(),
+  verdict: zod.string().nullish(),
   publishedAt: zod.coerce.date(),
   createdAt: zod.coerce.date(),
 });
@@ -75,6 +79,10 @@ export const CreatePostBody = zod.object({
   seoDescription: zod.string().optional(),
   seoKeywords: zod.array(zod.string()).optional(),
   ogImage: zod.string().optional(),
+  rating: zod.number().nullish(),
+  pros: zod.array(zod.string()).optional(),
+  cons: zod.array(zod.string()).optional(),
+  verdict: zod.string().nullish(),
 });
 
 /**
@@ -106,6 +114,10 @@ export const GetPostResponse = zod.object({
   readTime: zod.number(),
   viewCount: zod.number(),
   isFeatured: zod.boolean(),
+  rating: zod.number().nullish(),
+  pros: zod.array(zod.string()).optional(),
+  cons: zod.array(zod.string()).optional(),
+  verdict: zod.string().nullish(),
   publishedAt: zod.coerce.date(),
   createdAt: zod.coerce.date(),
 });
@@ -136,6 +148,10 @@ export const UpdatePostBody = zod.object({
   seoDescription: zod.string().optional(),
   seoKeywords: zod.array(zod.string()).optional(),
   ogImage: zod.string().optional(),
+  rating: zod.number().nullish(),
+  pros: zod.array(zod.string()).optional(),
+  cons: zod.array(zod.string()).optional(),
+  verdict: zod.string().nullish(),
   publishedAt: zod.coerce.date().optional(),
 });
 
@@ -161,6 +177,10 @@ export const UpdatePostResponse = zod.object({
   readTime: zod.number(),
   viewCount: zod.number(),
   isFeatured: zod.boolean(),
+  rating: zod.number().nullish(),
+  pros: zod.array(zod.string()).optional(),
+  cons: zod.array(zod.string()).optional(),
+  verdict: zod.string().nullish(),
   publishedAt: zod.coerce.date(),
   createdAt: zod.coerce.date(),
 });
@@ -201,6 +221,10 @@ export const GetPostBySlugResponse = zod.object({
   readTime: zod.number(),
   viewCount: zod.number(),
   isFeatured: zod.boolean(),
+  rating: zod.number().nullish(),
+  pros: zod.array(zod.string()).optional(),
+  cons: zod.array(zod.string()).optional(),
+  verdict: zod.string().nullish(),
   publishedAt: zod.coerce.date(),
   createdAt: zod.coerce.date(),
 });
@@ -230,6 +254,10 @@ export const GetFeaturedPostsResponseItem = zod.object({
   readTime: zod.number(),
   viewCount: zod.number(),
   isFeatured: zod.boolean(),
+  rating: zod.number().nullish(),
+  pros: zod.array(zod.string()).optional(),
+  cons: zod.array(zod.string()).optional(),
+  verdict: zod.string().nullish(),
   publishedAt: zod.coerce.date(),
   createdAt: zod.coerce.date(),
 });
@@ -266,6 +294,10 @@ export const GetLatestPostsResponseItem = zod.object({
   readTime: zod.number(),
   viewCount: zod.number(),
   isFeatured: zod.boolean(),
+  rating: zod.number().nullish(),
+  pros: zod.array(zod.string()).optional(),
+  cons: zod.array(zod.string()).optional(),
+  verdict: zod.string().nullish(),
   publishedAt: zod.coerce.date(),
   createdAt: zod.coerce.date(),
 });
@@ -296,6 +328,10 @@ export const GetTrendingPostsResponseItem = zod.object({
   readTime: zod.number(),
   viewCount: zod.number(),
   isFeatured: zod.boolean(),
+  rating: zod.number().nullish(),
+  pros: zod.array(zod.string()).optional(),
+  cons: zod.array(zod.string()).optional(),
+  verdict: zod.string().nullish(),
   publishedAt: zod.coerce.date(),
   createdAt: zod.coerce.date(),
 });
@@ -732,6 +768,10 @@ export const ListAdminPostsResponseItem = zod.object({
   readTime: zod.number(),
   viewCount: zod.number(),
   isFeatured: zod.boolean(),
+  rating: zod.number().nullish(),
+  pros: zod.array(zod.string()).optional(),
+  cons: zod.array(zod.string()).optional(),
+  verdict: zod.string().nullish(),
   publishedAt: zod.coerce.date(),
   createdAt: zod.coerce.date(),
 });

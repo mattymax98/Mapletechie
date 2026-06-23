@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { Input } from "@/components/ui/input";
 import { Search as SearchIcon, Loader2 } from "lucide-react";
 import { SEO } from "@/components/SEO";
+import { CategoryChip } from "@/components/CategoryChip";
 import { format } from "date-fns";
 
 interface PostRow {
@@ -146,9 +147,7 @@ export default function SearchPage() {
               data-testid={`link-result-${p.slug}`}
             >
               {p.category && (
-                <p className="text-xs uppercase tracking-widest text-primary font-bold mb-1">
-                  {p.category}
-                </p>
+                <CategoryChip category={p.category} variant="dot" className="text-xs mb-1" />
               )}
               <h2 className="font-serif text-2xl md:text-3xl font-bold leading-snug mb-2">
                 {highlight(p.title)}

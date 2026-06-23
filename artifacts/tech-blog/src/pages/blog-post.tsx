@@ -32,6 +32,7 @@ import { AuthorBio } from "@/components/AuthorBio";
 import { CommentsSection } from "@/components/CommentsSection";
 import { applyResponsiveImages, responsiveCoverProps, COVER_SIZES } from "@/lib/responsiveImage";
 import { SeriesBanner } from "@/components/SeriesBanner";
+import { CategoryChip } from "@/components/CategoryChip";
 
 const SITE_URL = "https://mapletechie.com";
 
@@ -67,6 +68,96 @@ function PostContent({
       className="prose prose-lg dark:prose-invert max-w-none prose-headings:font-black prose-headings:tracking-tight prose-a:text-primary hover:prose-a:text-primary/80 prose-img:border prose-img:border-border font-serif leading-relaxed prose-headings:scroll-mt-24"
       dangerouslySetInnerHTML={{ __html: html }}
     />
+  );
+}
+
+function RatingStars({ rating }: { rating: number }) {
+  return (
+    <div className="flex items-center gap-1" aria-label={`Rated ${rating} out of 5`}>
+      {[0, 1, 2, 3, 4].map((i) => {
+        const fill = Math.max(0, Math.min(1, rating - i));
+        return (
+          <span key={i} className="relative inline-block text-2xl leading-none">
+            <span className="text-muted-foreground/30">★</span>
+            <span
+              className="absolute inset-0 overflow-hidden text-primary"
+              style={{ width: `${fill * 100}%` }}
+            >
+              ★
+            </span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function VerdictBox({
+  rating,
+  pros,
+  cons,
+  verdict,
+}: {
+  rating: number | null | undefined;
+  pros: string[] | null | undefined;
+  cons: string[] | null | undefined;
+  verdict: string | null | undefined;
+}) {
+  const hasRating = typeof rating === "number" && Number.isFinite(rating);
+  const prosList = (pros ?? []).filter(Boolean);
+  const consList = (cons ?? []).filter(Boolean);
+  const hasVerdict = !!(verdict && verdict.trim());
+  if (!hasRating && !hasVerdict && prosList.length === 0 && consList.length === 0) {
+    return null;
+  }
+  return (
+    <aside className="mb-12 border-2 border-primary bg-primary/5" data-testid="verdict-box">
+      <div className="flex flex-wrap items-center justify-between gap-4 p-5 md:p-6 border-b-2 border-primary">
+        <div>
+          <p className="text-xs uppercase tracking-widest font-bold text-primary mb-1">The verdict</p>
+          {hasVerdict && (
+            <p className="text-lg md:text-xl font-serif font-medium leading-snug">{verdict}</p>
+          )}
+        </div>
+        {hasRating && (
+          <div className="flex flex-col items-end shrink-0">
+            <span className="text-4xl font-black tabular-nums leading-none">{rating!.toFixed(1)}</span>
+            <RatingStars rating={rating!} />
+            <span className="text-xs uppercase tracking-widest text-muted-foreground mt-1">out of 5</span>
+          </div>
+        )}
+      </div>
+      {(prosList.length > 0 || consList.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-primary/30">
+          {prosList.length > 0 && (
+            <div className="p-5 md:p-6 bg-background">
+              <p className="text-xs uppercase tracking-widest font-bold text-emerald-500 mb-3">Pros</p>
+              <ul className="space-y-2">
+                {prosList.map((p, i) => (
+                  <li key={i} className="flex gap-2 text-sm md:text-base">
+                    <span className="text-emerald-500 font-bold shrink-0">+</span>
+                    <span>{p}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {consList.length > 0 && (
+            <div className="p-5 md:p-6 bg-background">
+              <p className="text-xs uppercase tracking-widest font-bold text-rose-500 mb-3">Cons</p>
+              <ul className="space-y-2">
+                {consList.map((c, i) => (
+                  <li key={i} className="flex gap-2 text-sm md:text-base">
+                    <span className="text-rose-500 font-bold shrink-0">−</span>
+                    <span>{c}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </aside>
   );
 }
 
@@ -364,9 +455,7 @@ export default function BlogPost() {
         </nav>
 
         <div className="flex items-center gap-3 mb-6">
-          <Badge className="bg-primary text-primary-foreground hover:bg-primary rounded-none uppercase font-bold tracking-wider border-none">
-            {post.category}
-          </Badge>
+          <CategoryChip category={post.category} slug={post.categorySlug} variant="solid" className="text-xs px-3 py-1.5" />
           <span className="text-sm font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
             <Clock className="h-3 w-3" /> {post.readTime} min read
           </span>
@@ -422,6 +511,12 @@ export default function BlogPost() {
       {/* Content */}
       <div className="container mx-auto px-4 md:px-6 max-w-3xl mb-20">
         <TableOfContents headings={headings} />
+        <VerdictBox
+          rating={(post as any).rating}
+          pros={(post as any).pros}
+          cons={(post as any).cons}
+          verdict={(post as any).verdict}
+        />
         <PostContent html={post.content} onHeadingsExtracted={setHeadings} />
 
         {/* Inline newsletter CTA */}

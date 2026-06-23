@@ -29,6 +29,10 @@ export interface Post {
   readTime: number;
   viewCount: number;
   isFeatured: boolean;
+  rating?: number | null;
+  pros?: string[];
+  cons?: string[];
+  verdict?: string | null;
   publishedAt: Date;
   createdAt: Date;
 }

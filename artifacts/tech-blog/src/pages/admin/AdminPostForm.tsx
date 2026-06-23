@@ -129,6 +129,10 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     ogImage: "",
     seriesId: 0,
     seriesPosition: 1,
+    rating: "",
+    pros: "",
+    cons: "",
+    verdict: "",
   };
   const [form, setForm] = useState(initialFormState);
 
@@ -213,6 +217,10 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
         ogImage: ep.ogImage ?? "",
         seriesId: ep.seriesId ?? 0,
         seriesPosition: ep.seriesPosition ?? 1,
+        rating: ep.rating != null ? String(ep.rating) : "",
+        pros: Array.isArray(ep.pros) ? ep.pros.join("\n") : "",
+        cons: Array.isArray(ep.cons) ? ep.cons.join("\n") : "",
+        verdict: ep.verdict ?? "",
       };
       setForm(hydrated);
       baselineRef.current = JSON.stringify(hydrated);
@@ -444,6 +452,10 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
       ogImage: form.ogImage.trim() || null,
       seriesId: form.seriesId > 0 ? form.seriesId : null,
       seriesPosition: form.seriesId > 0 ? form.seriesPosition : null,
+      rating: form.rating.trim() ? Number(form.rating) : null,
+      pros: form.pros.split("\n").map((s) => s.trim()).filter(Boolean),
+      cons: form.cons.split("\n").map((s) => s.trim()).filter(Boolean),
+      verdict: form.verdict.trim() || null,
     };
     if (form.excerpt.trim()) payload.excerpt = form.excerpt.trim();
     if (form.coverImage.trim()) payload.coverImage = form.coverImage.trim();
@@ -825,6 +837,66 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                     }
                     disabled={form.seriesId === 0}
                     className="bg-zinc-950 border-zinc-700 text-white focus:border-orange-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="md:col-span-2 border border-zinc-800 rounded-lg p-4 bg-zinc-950 space-y-4">
+              <div>
+                <p className="text-sm font-medium text-white">Review toolkit <span className="text-zinc-500 font-normal">(optional)</span></p>
+                <p className="text-xs text-zinc-500 mt-1">
+                  For reviews: add a score, the bottom-line verdict, and pros/cons. Leave blank for regular posts.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs text-zinc-400">Rating (0–5)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={5}
+                    step={0.1}
+                    value={form.rating}
+                    onChange={(e) => setForm((f) => ({ ...f, rating: e.target.value }))}
+                    placeholder="e.g. 4.5"
+                    className="bg-zinc-900 border-zinc-700 text-white max-w-[160px]"
+                    data-testid="input-rating"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs text-zinc-400">Verdict</Label>
+                <Textarea
+                  value={form.verdict}
+                  onChange={(e) => setForm((f) => ({ ...f, verdict: e.target.value }))}
+                  placeholder="The bottom line — who should buy this and why."
+                  rows={3}
+                  className="bg-zinc-900 border-zinc-700 text-white"
+                  data-testid="input-verdict"
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs text-zinc-400">Pros <span className="text-zinc-600">(one per line)</span></Label>
+                  <Textarea
+                    value={form.pros}
+                    onChange={(e) => setForm((f) => ({ ...f, pros: e.target.value }))}
+                    placeholder={"Great battery life\nBright display"}
+                    rows={4}
+                    className="bg-zinc-900 border-zinc-700 text-white"
+                    data-testid="input-pros"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-zinc-400">Cons <span className="text-zinc-600">(one per line)</span></Label>
+                  <Textarea
+                    value={form.cons}
+                    onChange={(e) => setForm((f) => ({ ...f, cons: e.target.value }))}
+                    placeholder={"Expensive\nNo headphone jack"}
+                    rows={4}
+                    className="bg-zinc-900 border-zinc-700 text-white"
+                    data-testid="input-cons"
                   />
                 </div>
               </div>
