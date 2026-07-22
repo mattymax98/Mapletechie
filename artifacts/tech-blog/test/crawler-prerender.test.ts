@@ -449,6 +449,49 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
     });
   });
 
+  describe("legacy WordPress paths return 410 Gone", () => {
+    const legacyPaths = [
+      "/wp-content/plugins/userfeedback-lite/assets/vue",
+      "/wp-admin/",
+      "/wp-includes/js/jquery.js",
+      "/wp-json/wp/v2/posts",
+      "/wp-login.php",
+      "/xmlrpc.php",
+      "/feed",
+      "/old-page.php",
+    ];
+
+    it.each(legacyPaths)("returns a noindex 410 to Googlebot for %s", async (p) => {
+      const { status, body } = await get(p, GOOGLEBOT_UA);
+      expect(status).toBe(410);
+      expect(body).toContain("noindex");
+      expect(body).not.toContain('<div id="root"></div>');
+    });
+
+    it("returns 410 to a browser UA too (no soft SPA shell)", async () => {
+      const { status, body } = await get(
+        "/wp-content/plugins/userfeedback-lite/assets/vue",
+        BROWSER_UA,
+      );
+      expect(status).toBe(410);
+      expect(body).not.toContain('<div id="root"></div>');
+    });
+
+    it("does not affect normal unknown paths (still 404)", async () => {
+      const { status } = await get("/some-random-unknown-page", GOOGLEBOT_UA);
+      expect(status).toBe(404);
+    });
+
+    it.each([
+      "/wp-administer",
+      "/blog/history-of-php.php",
+      "/feedback",
+    ])("does not falsely 410 near-miss path %s", async (p) => {
+      const { status } = await get(p, GOOGLEBOT_UA);
+      expect(status).toBe(404);
+    });
+  });
+
   describe("author /author/:username", () => {
     it("serves a prerendered author page + listing to Googlebot", async () => {
       const { status, body } = await get(`/author/${AUTHOR.username}`, GOOGLEBOT_UA);
