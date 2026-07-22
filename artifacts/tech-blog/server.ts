@@ -356,7 +356,10 @@ interface MaintenanceStatus {
 }
 
 let maintCache: { value: MaintenanceStatus; at: number } | null = null;
-const MAINT_TTL_MS = 10_000;
+// Overridable via env so tests can exercise cache expiry without a 10s wait.
+const MAINT_TTL_MS = Number(process.env.MAINT_TTL_MS) > 0
+  ? Number(process.env.MAINT_TTL_MS)
+  : 10_000;
 
 async function getMaintenanceStatus(): Promise<MaintenanceStatus> {
   if (maintCache && Date.now() - maintCache.at < MAINT_TTL_MS) {
