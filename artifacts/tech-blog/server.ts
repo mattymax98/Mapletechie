@@ -191,8 +191,13 @@ function isCrawler(req: express.Request): boolean {
 }
 
 /** Send a crawler-safe 404 page. Includes noindex so the URL is de-indexed
- *  even if a bot cached the URL before this visit. */
-function send404(res: express.Response, title = "Page Not Found"): void {
+ *  even if a bot cached the URL before this visit. Pass status 410 for
+ *  permanently-removed legacy URLs (tells Google to drop them faster). */
+function send404(
+  res: express.Response,
+  title = "Page Not Found",
+  status: 404 | 410 = 404,
+): void {
   const seo = buildSeoBlock({
     title: `${title} | Mapletechie`,
     description: "The page you requested could not be found.",
@@ -209,7 +214,7 @@ function send404(res: express.Response, title = "Page Not Found"): void {
   <p>This page doesn't exist or has been removed.</p>
   <p><a href="${htmlEscape(SITE_URL)}">Back to Mapletechie</a></p>
 </main>`;
-  res.status(404);
+  res.status(status);
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Vary", "User-Agent");
   res.setHeader("Cache-Control", "no-store");
@@ -1115,6 +1120,23 @@ const KNOWN_SPA_ROUTES: RegExp[] = [
 function isKnownSpaRoute(pathname: string): boolean {
   return KNOWN_SPA_ROUTES.some((re) => re.test(pathname));
 }
+
+// Legacy WordPress paths from the pre-migration site (wp-content, wp-admin,
+// xmlrpc.php, PHP files, feeds). These will never exist again — return
+// 410 Gone (with noindex) to every client so search engines drop them from
+// the index quickly instead of retrying a soft-404 shell indefinitely.
+// Segment-bounded so real routes can never be falsely matched (e.g.
+// /wp-administer or /blog/history-of-php.php stay normal 404s).
+const LEGACY_WP_RE =
+  /^\/(?:wp-(?:admin|content|includes|json)(?:\/.*)?|wp-login\.php|xmlrpc\.php|feed\/?|[^/]+\.php)$/i;
+
+app.all(/.*/, (req, res, next) => {
+  if (LEGACY_WP_RE.test(req.path)) {
+    send404(res, "Page Permanently Removed", 410);
+    return;
+  }
+  next();
+});
 
 // SPA fallback — every other GET returns the unmodified index.html so React Router takes over.
 // Vary: User-Agent because /blog/* and /category/* above branch on UA, so any shared
