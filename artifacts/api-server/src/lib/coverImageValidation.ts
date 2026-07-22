@@ -31,6 +31,10 @@ export function isMissingLocalCoverImage(cover: unknown): boolean {
   const trimmed = cover.trim();
   if (!trimmed) return false;
   if (!trimmed.startsWith("/")) return false;
+  // Object-storage-served paths (uploads, persisted external images) are
+  // handled by the API's /storage routes, not files under tech-blog/public —
+  // never treat them as missing local files.
+  if (/^\/api\//i.test(trimmed)) return false;
   // Strip query string / hash before checking the filesystem.
   const cleanPath = trimmed.split(/[?#]/, 1)[0];
   // Decode %20 etc. and prevent path traversal.
