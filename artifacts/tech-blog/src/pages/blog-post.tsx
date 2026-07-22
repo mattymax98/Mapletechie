@@ -494,7 +494,10 @@ export default function BlogPost() {
 
       {/* Cover Image */}
       <div className="w-full max-w-6xl mx-auto px-4 md:px-6 mb-12 mt-8">
-        <div className="aspect-video w-full bg-muted border border-border">
+        <div className="w-full bg-muted border border-border">
+          {/* Fluid cover: rendered at the image's natural aspect ratio (no 16:9
+              crop), so pasted images of any shape display uncropped at full
+              quality. width/height are only a pre-load layout hint. */}
           <img
             loading="eager"
             fetchPriority="high"
@@ -503,7 +506,7 @@ export default function BlogPost() {
             height={675}
             {...responsiveCoverProps(post.coverImage || "/images/hero-post.webp", COVER_SIZES.full)}
             alt={post.title}
-            className="w-full h-full object-cover"
+            className="w-full h-auto"
           />
         </div>
       </div>
