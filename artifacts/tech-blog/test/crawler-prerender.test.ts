@@ -626,10 +626,10 @@ describe("maintenance gate — temporary-outage signal during maintenance", () =
   });
 
   describe("public pages return 503 + Retry-After while down", () => {
-    // `/about` and `/blog` flow through the gate for BOTH crawlers and browsers
-    // (the homepage `/` is special-cased by the hero-preload handler for
-    // browsers, so it's covered separately below for crawlers only).
-    const publicPaths = ["/about", "/blog", `/blog/${ARTICLE.slug}`, `/category/${CATEGORY.slug}`];
+    // All public pages — including the homepage `/`, whose hero-preload
+    // handler defers to the gate during maintenance — flow through the gate
+    // for BOTH crawlers and browsers.
+    const publicPaths = ["/", "/about", "/blog", `/blog/${ARTICLE.slug}`, `/category/${CATEGORY.slug}`];
 
     for (const ua of [
       { name: "Googlebot", value: GOOGLEBOT_UA },
@@ -643,12 +643,6 @@ describe("maintenance gate — temporary-outage signal during maintenance", () =
         expect(body).not.toContain('"@type":"NewsArticle"');
       });
     }
-
-    it("homepage / returns 503 + Retry-After to Googlebot", async () => {
-      const { status, headers } = await getFrom(maintServer!.baseUrl, "/", GOOGLEBOT_UA);
-      expect(status).toBe(503);
-      expect(headers.get("retry-after")).toBe("3600");
-    });
   });
 
   describe("admin panel and static assets stay reachable while down", () => {

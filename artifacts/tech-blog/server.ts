@@ -302,6 +302,10 @@ const IMAGE_RE = /\.(?:png|jpe?g|webp|gif|svg|ico|avif)$/i;
 // through to sirv (and the catch-all) and get the unmodified shell, unchanged.
 app.get(/^\/?$/, async (req, res, next) => {
   if (isCrawler(req)) return next();
+  // During maintenance, defer to the maintenance gate below so `/` answers
+  // 503 + Retry-After for browsers too, consistent with every other public page.
+  const maint = await getMaintenanceStatus();
+  if (maint.maintenance) return next();
   const featured = await fetchJson<FeaturedPost[]>(`${API_BASE}/api/posts/featured`);
   const heroPost = featured?.[0];
   // No featured post -> the homepage renders no hero image, so emit no hint
