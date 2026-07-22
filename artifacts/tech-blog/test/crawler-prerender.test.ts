@@ -400,6 +400,36 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).not.toContain('<div id="root"></div>');
     });
 
+    it("prerenders /privacy for Googlebot", async () => {
+      const { status, body } = await get("/privacy", GOOGLEBOT_UA);
+      expect(status).toBe(200);
+      expect(body).toContain("<h1>Privacy Policy</h1>");
+      expect(body).not.toContain('<div id="root"></div>');
+    });
+
+    it("serves the SPA shell to a normal browser at /privacy", async () => {
+      // /privacy IS a known SPA route, so browsers get a 200 + shell.
+      const { status, body } = await get("/privacy", BROWSER_UA);
+      expect(status).toBe(200);
+      expect(body).toContain('<div id="root">');
+      expect(body).not.toContain("<h1>Privacy Policy</h1>");
+    });
+
+    it("prerenders /terms for Googlebot", async () => {
+      const { status, body } = await get("/terms", GOOGLEBOT_UA);
+      expect(status).toBe(200);
+      expect(body).toContain("<h1>Terms of Service</h1>");
+      expect(body).not.toContain('<div id="root"></div>');
+    });
+
+    it("serves the SPA shell to a normal browser at /terms", async () => {
+      // /terms IS a known SPA route, so browsers get a 200 + shell.
+      const { status, body } = await get("/terms", BROWSER_UA);
+      expect(status).toBe(200);
+      expect(body).toContain('<div id="root">');
+      expect(body).not.toContain("<h1>Terms of Service</h1>");
+    });
+
     it("serves /search as a noindex SPA shell to Googlebot", async () => {
       const { status, body } = await get("/search", GOOGLEBOT_UA);
       expect(status).toBe(200);
@@ -537,6 +567,8 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       "/about",
       "/contact",
       "/advertise",
+      "/privacy",
+      "/terms",
       `/author/${AUTHOR.username}`,
       `/tag/${TAG}`,
       `/series/${SERIES.slug}`,
