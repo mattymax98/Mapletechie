@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, pageViewsTable } from "@workspace/db";
-import { sql, gte, and, isNotNull, desc } from "drizzle-orm";
+import { db, pageViewsTable, postsTable } from "@workspace/db";
+import { sql, gte, and, isNotNull, desc, eq } from "drizzle-orm";
 import { adminAuth } from "../middlewares/adminAuth";
 import { logger } from "../lib/logger";
 import { extractIp, lookupCountry } from "../lib/geoip";
@@ -83,6 +83,16 @@ router.post("/track", async (req, res): Promise<void> => {
       sessionId,
       userAgent,
     });
+
+    // Keep the public per-post counter in sync: every tracked (bot-filtered,
+    // rate-limited) view of a post bumps posts.view_count, which is what the
+    // article page displays.
+    if (postSlug) {
+      await db
+        .update(postsTable)
+        .set({ viewCount: sql`${postsTable.viewCount} + 1` })
+        .where(eq(postsTable.slug, postSlug));
+    }
   } catch (err) {
     logger.warn({ err }, "track failed");
   }
