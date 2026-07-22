@@ -201,7 +201,9 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
         slug: ep.slug ?? "",
         excerpt: ep.excerpt ?? "",
         content: ep.content ?? "",
-        category: ep.category ?? "",
+        // The API returns the display name under `category` and the slug under
+        // `categorySlug`; the Select is keyed by slug, so prefer the slug.
+        category: ep.categorySlug ?? ep.category ?? "",
         author: ep.author ?? "",
         authorId: ep.authorId ?? 0,
         coverImage: ep.coverImage ?? "",
