@@ -117,9 +117,15 @@ const JOB = {
 /** Build a tiny stand-in for the API server the prerenderer fetches from. */
 function startMockApi(
   opts: { maintenance?: boolean } = {},
-): Promise<{ server: ReturnType<typeof express>; close: () => Promise<void>; port: number }> {
+): Promise<{
+  server: ReturnType<typeof express>;
+  close: () => Promise<void>;
+  port: number;
+  setMaintenance: (on: boolean) => void;
+}> {
   const api = express();
-  const maintenance = opts.maintenance ?? false;
+  // Mutable so the recovery suite can flip maintenance off mid-test.
+  let maintenance = opts.maintenance ?? false;
 
   api.get("/api/settings/status", (_req, res) => {
     res.json({
@@ -173,6 +179,9 @@ function startMockApi(
       resolve({
         server: api,
         port,
+        setMaintenance: (on: boolean) => {
+          maintenance = on;
+        },
         close: () =>
           new Promise<void>((r) => httpServer.close(() => r())),
       });
@@ -193,6 +202,7 @@ const serverBundle = path.join(techBlogDir, "dist", "server.mjs");
  */
 async function startPrerenderServer(
   apiBase: string,
+  extraEnv: Record<string, string> = {},
 ): Promise<{ baseUrl: string; close: () => void }> {
   const port = await getFreePort();
   const url = `http://127.0.0.1:${port}`;
@@ -204,6 +214,7 @@ async function startPrerenderServer(
       API_BASE: apiBase,
       SITE_URL,
       NODE_ENV: "production",
+      ...extraEnv,
     },
     stdio: "inherit",
   });
@@ -667,4 +678,67 @@ describe("maintenance gate — temporary-outage signal during maintenance", () =
       expect(body).toContain("About Mapletechie");
     });
   });
+});
+
+// Recovery path: when maintenance is flipped back OFF, the server must stop
+// answering 503 and serve real content again once its in-process status cache
+// expires. The 503 responses must carry `Cache-Control: no-store` so shared
+// caches/CDNs never pin the outage page past the maintenance window. The
+// server's cache TTL is shrunk via the MAINT_TTL_MS env override so the test
+// exercises real cache expiry without a 10-second wait.
+describe("maintenance gate — recovery after maintenance ends", () => {
+  const SHORT_TTL_MS = 500;
+  let api: Awaited<ReturnType<typeof startMockApi>> | undefined;
+  let server: { baseUrl: string; close: () => void } | undefined;
+
+  beforeAll(async () => {
+    // Boot in maintenance mode with a short status-cache TTL.
+    api = await startMockApi({ maintenance: true });
+    server = await startPrerenderServer(`http://127.0.0.1:${api.port}`, {
+      MAINT_TTL_MS: String(SHORT_TTL_MS),
+    });
+  }, 120_000);
+
+  afterAll(() => {
+    server?.close();
+    return api?.close();
+  });
+
+  it("serves 503 with Cache-Control: no-store while down, then recovers to 200 with real content", async () => {
+    // 1. While down: public pages are 503 and explicitly uncacheable.
+    for (const route of ["/", "/about", `/blog/${ARTICLE.slug}`]) {
+      const { status, headers } = await getFrom(server!.baseUrl, route, GOOGLEBOT_UA);
+      expect(status, `${route} should be 503 during maintenance`).toBe(503);
+      expect(
+        headers.get("cache-control"),
+        `${route} 503 must be no-store so CDNs never cache the outage page`,
+      ).toBe("no-store");
+      expect(headers.get("retry-after")).toBe("3600");
+    }
+    // A browser hit gets the same uncacheable 503.
+    const browserDown = await getFrom(server!.baseUrl, "/about", BROWSER_UA);
+    expect(browserDown.status).toBe(503);
+    expect(browserDown.headers.get("cache-control")).toBe("no-store");
+
+    // 2. Maintenance ends.
+    api!.setMaintenance(false);
+
+    // 3. Wait out the server's in-process status cache TTL (plus margin) so
+    //    the next request re-fetches the (now healthy) status.
+    await new Promise((r) => setTimeout(r, SHORT_TTL_MS + 300));
+
+    // 4. Recovered: real prerendered content for crawlers…
+    const article = await getFrom(server!.baseUrl, `/blog/${ARTICLE.slug}`, GOOGLEBOT_UA);
+    expect(article.status, "article should be 200 after maintenance ends").toBe(200);
+    expect(article.body).toContain(ARTICLE.title);
+    expect(article.body).toContain('"@type":"NewsArticle"');
+
+    const about = await getFrom(server!.baseUrl, "/about", GOOGLEBOT_UA);
+    expect(about.status).toBe(200);
+    expect(about.body).toContain("About Mapletechie");
+
+    // …and the normal SPA shell (not a 503) for browsers.
+    const browserUp = await getFrom(server!.baseUrl, "/about", BROWSER_UA);
+    expect(browserUp.status).toBe(200);
+  }, 30_000);
 });
