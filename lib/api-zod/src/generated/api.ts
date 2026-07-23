@@ -556,6 +556,7 @@ export const AdminLoginResponse = zod.object({
     canManageEditors: zod.boolean().optional(),
     canSendEmail: zod.boolean().optional(),
     canManageCategories: zod.boolean().optional(),
+    canEditOthersPosts: zod.boolean().optional(),
     isActive: zod.boolean(),
   }),
 });
@@ -590,6 +591,7 @@ export const GetCurrentUserResponse = zod.object({
   canManageEditors: zod.boolean().optional(),
   canSendEmail: zod.boolean().optional(),
   canManageCategories: zod.boolean().optional(),
+  canEditOthersPosts: zod.boolean().optional(),
   isActive: zod.boolean(),
 });
 
@@ -665,6 +667,7 @@ export const UpdateCurrentUserResponse = zod.object({
   canManageEditors: zod.boolean().optional(),
   canSendEmail: zod.boolean().optional(),
   canManageCategories: zod.boolean().optional(),
+  canEditOthersPosts: zod.boolean().optional(),
   isActive: zod.boolean(),
 });
 
@@ -691,6 +694,7 @@ export const ListUsersResponseItem = zod.object({
   canManageEditors: zod.boolean().optional(),
   canSendEmail: zod.boolean().optional(),
   canManageCategories: zod.boolean().optional(),
+  canEditOthersPosts: zod.boolean().optional(),
   isActive: zod.boolean(),
 });
 export const ListUsersResponse = zod.array(ListUsersResponseItem);
@@ -718,6 +722,7 @@ export const CreateUserBody = zod.object({
   canManageEditors: zod.boolean().optional(),
   canSendEmail: zod.boolean().optional(),
   canManageCategories: zod.boolean().optional(),
+  canEditOthersPosts: zod.boolean().optional(),
 });
 
 /**
@@ -781,6 +786,7 @@ export const UpdateUserBody = zod
       canManageEditors: zod.boolean().optional(),
       canSendEmail: zod.boolean().optional(),
       canManageCategories: zod.boolean().optional(),
+      canEditOthersPosts: zod.boolean().optional(),
       isActive: zod.boolean().optional(),
     }),
   );
@@ -805,6 +811,7 @@ export const UpdateUserResponse = zod.object({
   canManageEditors: zod.boolean().optional(),
   canSendEmail: zod.boolean().optional(),
   canManageCategories: zod.boolean().optional(),
+  canEditOthersPosts: zod.boolean().optional(),
   isActive: zod.boolean(),
 });
 
@@ -816,7 +823,7 @@ export const DeleteUserParams = zod.object({
 });
 
 /**
- * @summary List posts visible to current user (own for editors, all for admin)
+ * @summary List posts visible to current user (own for editors; all for admins and editors who can edit others' posts)
  */
 export const ListAdminPostsResponseItem = zod.object({
   id: zod.number(),

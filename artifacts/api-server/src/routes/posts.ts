@@ -134,11 +134,12 @@ router.get("/posts", async (req, res): Promise<void> => {
   res.json(posts);
 });
 
-// Admin posts list — returns ALL posts (drafts included). Editors see their own; admins see everyone's.
+// Admin posts list — returns ALL posts (drafts included). Editors see their
+// own; admins and editors with canEditOthersPosts see everyone's.
 router.get("/admin/posts", adminAuth, async (req, res): Promise<void> => {
   const user = req.user;
   let posts;
-  if (user && user.role !== "admin") {
+  if (user && user.role !== "admin" && !user.canEditOthersPosts) {
     posts = await postsBaseQuery()
       .where(eq(postsTable.authorId, user.id))
       .orderBy(desc(postsTable.createdAt));
@@ -397,7 +398,12 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
   }
 
   const user = req.user;
-  if (user && user.role !== "admin" && existing.authorId !== user.id) {
+  if (
+    user &&
+    user.role !== "admin" &&
+    !user.canEditOthersPosts &&
+    existing.authorId !== user.id
+  ) {
     res.status(403).json({ error: "You can only edit your own posts" });
     return;
   }
@@ -582,7 +588,12 @@ router.post("/admin/posts/bulk-reassign", adminAuth, async (req, res): Promise<v
     return;
   }
   const user = req.user;
-  if (user && user.role !== "admin" && rows.some((p) => p.authorId !== user.id)) {
+  if (
+    user &&
+    user.role !== "admin" &&
+    !user.canEditOthersPosts &&
+    rows.some((p) => p.authorId !== user.id)
+  ) {
     res.status(403).json({ error: "You can only move your own posts" });
     return;
   }

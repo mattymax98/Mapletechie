@@ -46,6 +46,7 @@ export default function AdminDashboard() {
   const canInbox = isAdmin || !!u?.canViewInbox;
   const canEditors = isAdmin || !!u?.canManageEditors;
   const canSendEmail = isAdmin || !!u?.canSendEmail;
+  const seesAllPosts = isAdmin || !!u?.canEditOthersPosts;
   const canCategories = isAdmin || !!u?.canManageCategories;
 
   const deleteMutation = useDeletePost({
@@ -160,7 +161,7 @@ export default function AdminDashboard() {
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-white">{isAdmin ? "All Posts" : "Your Posts"}</h1>
+            <h1 className="text-2xl font-bold text-white">{seesAllPosts ? "All Posts" : "Your Posts"}</h1>
             <p className="text-zinc-400 text-sm mt-1">
               {posts?.length ?? 0} posts
               {!isAdmin && !user?.canPublishDirectly && " — your posts save as drafts pending admin approval"}
@@ -205,7 +206,7 @@ export default function AdminDashboard() {
                   </th>
                   <th className="text-left text-xs text-zinc-400 font-medium uppercase tracking-wider px-4 py-3">Title</th>
                   <th className="text-left text-xs text-zinc-400 font-medium uppercase tracking-wider px-4 py-3">Status</th>
-                  {isAdmin && (
+                  {seesAllPosts && (
                     <th className="text-left text-xs text-zinc-400 font-medium uppercase tracking-wider px-4 py-3 hidden md:table-cell">Author</th>
                   )}
                   <th className="text-left text-xs text-zinc-400 font-medium uppercase tracking-wider px-4 py-3 hidden md:table-cell">Category</th>
@@ -244,7 +245,7 @@ export default function AdminDashboard() {
                         <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">Published</Badge>
                       )}
                     </td>
-                    {isAdmin && (
+                    {seesAllPosts && (
                       <td className="px-4 py-3 hidden md:table-cell">
                         <span className="text-xs text-zinc-400">{post.author}</span>
                       </td>
@@ -316,15 +317,17 @@ export default function AdminDashboard() {
                             <Pencil className="w-4 h-4" />
                           </Button>
                         </Link>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(post.id, post.title)}
-                          className="h-8 w-8 p-0 text-zinc-400 hover:text-red-400"
-                          disabled={deleteMutation.isPending}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {(isAdmin || post.authorId === user?.id) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(post.id, post.title)}
+                            className="h-8 w-8 p-0 text-zinc-400 hover:text-red-400"
+                            disabled={deleteMutation.isPending}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>

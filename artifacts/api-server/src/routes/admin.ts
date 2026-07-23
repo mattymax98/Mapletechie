@@ -151,6 +151,7 @@ router.post("/admin/users", adminAuth, requirePermission("editors"), async (req,
     canManageEditors,
     canSendEmail,
     canManageCategories,
+    canEditOthersPosts,
   } = req.body ?? {};
 
   if (typeof username !== "string" || username.trim().length < 2) {
@@ -204,6 +205,7 @@ router.post("/admin/users", adminAuth, requirePermission("editors"), async (req,
       canManageEditors: callerIsAdmin ? !!canManageEditors : false,
       canSendEmail: callerIsAdmin ? !!canSendEmail : false,
       canManageCategories: callerIsAdmin ? !!canManageCategories : false,
+      canEditOthersPosts: callerIsAdmin ? !!canEditOthersPosts : false,
       isActive: true,
     })
     .returning();
@@ -252,6 +254,7 @@ router.put("/admin/users/:id", adminAuth, requirePermission("editors"), async (r
     "canManageEditors",
     "canSendEmail",
     "canManageCategories",
+    "canEditOthersPosts",
   ] as const;
 
   const update: Partial<User> = {};

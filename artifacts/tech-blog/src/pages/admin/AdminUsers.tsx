@@ -47,6 +47,7 @@ interface UserRow {
   canManageEditors?: boolean;
   canSendEmail?: boolean;
   canManageCategories?: boolean;
+  canEditOthersPosts?: boolean;
   isActive: boolean;
 }
 
@@ -70,6 +71,7 @@ const emptyForm = {
   canManageEditors: false,
   canSendEmail: false,
   canManageCategories: false,
+  canEditOthersPosts: false,
   isActive: true,
 };
 
@@ -137,6 +139,7 @@ export default function AdminUsers() {
       canManageEditors: !!u.canManageEditors,
       canSendEmail: !!u.canSendEmail,
       canManageCategories: !!u.canManageCategories,
+      canEditOthersPosts: !!u.canEditOthersPosts,
       isActive: u.isActive,
     });
     setRich(richProfileFromUser(u as any));
@@ -364,6 +367,12 @@ export default function AdminUsers() {
                     desc="Compose and send emails from the admin panel as their own @mapletechie.com address."
                     checked={form.canSendEmail}
                     onChange={(v) => setForm({ ...form, canSendEmail: v })}
+                  />
+                  <PermissionToggle
+                    label="Edit Others' Posts"
+                    desc="Open and edit any editor's article. The byline stays with the original author, and every change is recorded in the Activity log. Deleting stays limited to their own posts."
+                    checked={form.canEditOthersPosts}
+                    onChange={(v) => setForm({ ...form, canEditOthersPosts: v })}
                   />
                   <PermissionToggle
                     label="Manage Categories"

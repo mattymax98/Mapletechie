@@ -26,5 +26,6 @@ export type UpdateUserInput = RichProfileFields & {
   canManageEditors?: boolean;
   canSendEmail?: boolean;
   canManageCategories?: boolean;
+  canEditOthersPosts?: boolean;
   isActive?: boolean;
 };
