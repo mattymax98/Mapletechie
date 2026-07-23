@@ -33,6 +33,7 @@ import { CommentsSection } from "@/components/CommentsSection";
 import { applyResponsiveImages, makeArticleHtmlResponsive, responsiveCoverProps, socialImageUrl, COVER_SIZES } from "@/lib/responsiveImage";
 import { SeriesBanner } from "@/components/SeriesBanner";
 import { CategoryChip } from "@/components/CategoryChip";
+import { buildArticleJsonLd } from "@/lib/articleSchema";
 
 const SITE_URL = "https://mapletechie.com";
 
@@ -341,29 +342,12 @@ export default function BlogPost() {
 
   const canonicalUrl = post ? `${SITE_URL}/blog/${post.slug}` : SITE_URL;
 
-  const jsonLd = useMemo(() => {
-    if (!post) return null;
-    return {
-      "@context": "https://schema.org",
-      "@type": "BlogPosting",
-      mainEntityOfPage: { "@type": "WebPage", "@id": canonicalUrl },
-      headline: post.title,
-      description: post.excerpt || undefined,
-      image: post.coverImage ? [post.coverImage.startsWith("http") ? post.coverImage : `${SITE_URL}${post.coverImage}`] : undefined,
-      datePublished: post.publishedAt,
-      dateModified: post.publishedAt,
-      author: { "@type": "Person", name: post.author },
-      publisher: {
-        "@type": "Organization",
-        name: "Mapletechie",
-        logo: { "@type": "ImageObject", url: `${SITE_URL}/logo-favicon-v2.png` },
-      },
-      articleSection: post.category || undefined,
-      keywords: (post as any).seoKeywords && (post as any).seoKeywords.length
-        ? (post as any).seoKeywords.join(", ")
-        : undefined,
-    };
-  }, [post, canonicalUrl]);
+  // Shared with the crawler prerender server so the schema browsers emit is
+  // byte-for-byte what Google gets in the prerendered HTML.
+  const jsonLd = useMemo(
+    () => (post ? buildArticleJsonLd(post, { siteUrl: SITE_URL }) : null),
+    [post],
+  );
 
   const breadcrumbsLd = useMemo(() => {
     if (!post) return null;

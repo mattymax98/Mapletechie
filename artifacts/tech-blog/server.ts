@@ -9,6 +9,7 @@ import {
   visibleProfileLinks,
   type AuthorRichProfile,
 } from "./src/lib/personSchema";
+import { buildArticleJsonLd } from "./src/lib/articleSchema";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -471,29 +472,7 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
   // this client-side for human visitors, but Googlebot does not always render
   // JS during indexing — emitting it server-side as well guarantees it lands
   // in the initial HTML for crawlers.
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "NewsArticle",
-    headline: title,
-    description,
-    image: [image],
-    datePublished: post.publishedAt ?? undefined,
-    dateModified: post.updatedAt ?? post.publishedAt ?? undefined,
-    author: post.author
-      ? { "@type": "Person", name: post.author }
-      : undefined,
-    publisher: {
-      "@type": "Organization",
-      name: "Mapletechie",
-      logo: {
-        "@type": "ImageObject",
-        url: `${SITE_URL}/logo-favicon-v2.png`,
-      },
-    },
-    mainEntityOfPage: { "@type": "WebPage", "@id": url },
-    articleSection: post.category ?? undefined,
-    keywords: post.tags?.join(", "),
-  };
+  const jsonLd = buildArticleJsonLd(post, { siteUrl: SITE_URL });
   // JSON.stringify escapes quotes; we additionally escape `<` so the JSON
   // body cannot prematurely close the surrounding <script> tag.
   const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
