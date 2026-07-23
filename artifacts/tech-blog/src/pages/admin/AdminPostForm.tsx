@@ -29,6 +29,8 @@ import {
   Search,
   ChevronDown,
   ChevronUp,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
@@ -170,6 +172,40 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   };
 
   const [error, setError] = useState("");
+
+  const generateCoverWithAI = async () => {
+    const prompt = aiPrompt.trim() || form.title.trim();
+    if (!prompt) {
+      setAiError("Give the post a title or describe the image first.");
+      return;
+    }
+    setAiError("");
+    setAiGenerating(true);
+    try {
+      const r = await fetch("/api/admin/generate-cover-image", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setAiError(data.error || `Generation failed (HTTP ${r.status})`);
+        return;
+      }
+      setForm((f) => ({ ...f, coverImage: data.url }));
+    } catch (e: any) {
+      setAiError(e?.message ?? "Generation failed. Try again.");
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiError, setAiError] = useState("");
   const [autoSlug, setAutoSlug] = useState(!isEditing);
   const [seoOpen, setSeoOpen] = useState(false);
   const hydratedRef = useRef(false);
@@ -654,6 +690,38 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                 onStatusChange={setCoverImageStatus}
                 helpText="Upload from your device or paste a URL. Recommended: 1200×630."
               />
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 space-y-2">
+                <div className="flex items-center gap-2 text-orange-400 text-xs font-medium uppercase tracking-wide">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Generate with AI
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    placeholder={form.title ? `e.g. ${form.title}` : "Describe the cover image you want…"}
+                    className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500 flex-1"
+                    disabled={aiGenerating}
+                  />
+                  <Button
+                    type="button"
+                    onClick={generateCoverWithAI}
+                    disabled={aiGenerating || !(aiPrompt.trim() || form.title.trim())}
+                    className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shrink-0"
+                  >
+                    {aiGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    {aiGenerating ? "Generating…" : "Generate"}
+                  </Button>
+                </div>
+                <p className="text-xs text-zinc-500">
+                  Leave blank to use the post title. Takes ~30 seconds; the image is saved to your Media library.
+                </p>
+                {aiError && (
+                  <p className="text-xs text-red-400 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {aiError}
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="md:col-span-2 space-y-2">

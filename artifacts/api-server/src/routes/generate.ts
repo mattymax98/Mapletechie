@@ -1,8 +1,13 @@
 import { Router } from "express";
+import sharp from "sharp";
+import { db, mediaTable } from "@workspace/db";
 import { adminAuth, requireRole } from "../middlewares/adminAuth";
-import { aiGenerateLimiter } from "../middlewares/rateLimit";
+import { aiGenerateLimiter, aiImageLimiter } from "../middlewares/rateLimit";
+import { ObjectStorageService } from "../lib/objectStorage";
+import { logger } from "../lib/logger";
 
 const router = Router();
+const objectStorageService = new ObjectStorageService();
 
 const CATEGORY_TO_COVER: Record<string, string> = {
   "ai-machine-learning": "/covers/ai-trends.webp",
@@ -121,6 +126,79 @@ router.post("/admin/generate-post", adminAuth, requireRole("admin"), aiGenerateL
   } catch (e) {
     console.error("Generate post error:", e);
     res.status(500).json({ error: "Failed to generate post" });
+  }
+});
+
+// AI cover-image generation — available to every signed-in editor/admin so
+// the whole team can produce high-quality covers. The image is generated
+// with gpt-image-1, converted to webp, stored in object storage, and
+// registered in the Media library like any other upload.
+router.post("/admin/generate-cover-image", adminAuth, aiImageLimiter, async (req, res): Promise<void> => {
+  const { prompt } = req.body ?? {};
+  if (typeof prompt !== "string" || prompt.trim().length < 3) {
+    res.status(400).json({ error: "Describe the image you want (min 3 characters)" });
+    return;
+  }
+  if (prompt.length > 2000) {
+    res.status(400).json({ error: "Prompt is too long (max 2000 characters)" });
+    return;
+  }
+
+  if (!process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+    res.status(500).json({ error: "AI image service is not configured" });
+    return;
+  }
+
+  try {
+    // Lazy import: the SDK client throws at module load if its env vars are
+    // missing — importing here keeps a misconfiguration from crashing the
+    // whole API at startup and scopes the failure to this endpoint.
+    const { generateImageBuffer } = await import("@workspace/integrations-openai-ai-server/image");
+    const styled =
+      `Editorial blog cover image, wide 3:2 format, for a premium tech publication. ` +
+      `${prompt.trim()}. Clean modern composition, strong focal point, no text, no words, no watermarks, no logos.`;
+    // Landscape master; the on-demand resizer serves smaller variants.
+    const png = await generateImageBuffer(styled, "1536x1024");
+
+    const webp = await sharp(png)
+      .webp({ quality: 90, smartSubsample: true })
+      .toBuffer();
+
+    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+    const putResp = await fetch(uploadURL, {
+      method: "PUT",
+      headers: { "Content-Type": "image/webp" },
+      body: webp,
+    });
+    if (!putResp.ok) {
+      logger.warn({ status: putResp.status }, "generate-cover-image: storage upload failed");
+      res.status(502).json({ error: "Image was generated but could not be stored. Try again." });
+      return;
+    }
+
+    const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+    const servingPath = `/api/storage${objectPath}`;
+
+    // Best-effort Media-library registration so the image can be reused.
+    try {
+      await db.insert(mediaTable).values({
+        url: servingPath,
+        filename: `ai-cover-${Date.now()}.webp`,
+        mimeType: "image/webp",
+        size: webp.byteLength,
+        source: `ai:gpt-image-1 — ${prompt.trim().slice(0, 500)}`,
+        uploaderId: req.user?.id ?? null,
+        uploaderName: req.user?.displayName ?? null,
+      }).onConflictDoNothing({ target: mediaTable.url });
+    } catch (err) {
+      logger.warn({ err }, "generate-cover-image: media-library registration failed");
+    }
+
+    logger.info({ user: req.user?.id, bytes: webp.byteLength }, "generate-cover-image: stored AI cover");
+    res.json({ url: servingPath });
+  } catch (e) {
+    logger.error({ err: e }, "generate-cover-image: failed");
+    res.status(502).json({ error: "Image generation failed. Try again in a moment." });
   }
 });
 
