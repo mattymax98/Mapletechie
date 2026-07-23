@@ -30,15 +30,23 @@ function cleanText(value: unknown, field: string): string | null {
   return t || null;
 }
 
+// Looks like a bare domain the user forgot the scheme on, e.g.
+// "linkedin.com/in/jane" or "www.example.ca?x=1".
+const BARE_DOMAIN_RE = /^[a-z0-9-]+(\.[a-z0-9-]+)+([/?#].*)?$/i;
+
 function cleanHttpUrl(value: unknown, field: string): string {
   if (typeof value !== "string") throw new RichProfileError(`${field} must be a string URL`);
-  const t = value.trim();
+  let t = value.trim();
   if (t.length > 500) throw new RichProfileError(`${field} is too long`);
+  // Forgive a missing scheme: normalize bare domains to https.
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(t) && BARE_DOMAIN_RE.test(t)) {
+    t = `https://${t}`;
+  }
   let parsed: URL;
   try {
     parsed = new URL(t);
   } catch {
-    throw new RichProfileError(`${field} must be a valid URL`);
+    throw new RichProfileError(`${field} must be a valid URL (e.g. https://example.com)`);
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
     throw new RichProfileError(`${field} must start with http:// or https://`);
