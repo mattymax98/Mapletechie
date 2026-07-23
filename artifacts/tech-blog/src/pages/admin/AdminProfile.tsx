@@ -8,6 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Save, AlertCircle, CheckCircle } from "lucide-react";
 import { ImageUploadField } from "@/components/ImageUploadField";
+import {
+  RichProfileFieldsEditor,
+  emptyRichProfile,
+  richProfileFromUser,
+  richProfileToPayload,
+  type RichProfileFormValue,
+} from "@/components/admin/RichProfileFields";
 
 export default function AdminProfile() {
   const { user, refreshUser } = useAdmin();
@@ -23,6 +30,7 @@ export default function AdminProfile() {
     websiteUrl: "",
     password: "",
   });
+  const [rich, setRich] = useState<RichProfileFormValue>(emptyRichProfile);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
   useEffect(() => {
@@ -39,6 +47,7 @@ export default function AdminProfile() {
         websiteUrl: user.websiteUrl ?? "",
         password: "",
       });
+      setRich(richProfileFromUser(user as any));
     }
   }, [user]);
 
@@ -57,7 +66,7 @@ export default function AdminProfile() {
     e.preventDefault();
     setMsg(null);
     const { password, ...rest } = form;
-    const payload: any = { ...rest };
+    const payload: any = { ...rest, ...richProfileToPayload(rich) };
     if (password.length >= 6) payload.password = password;
     else if (password.length > 0) {
       setMsg({ kind: "err", text: "Password must be at least 6 characters (or leave blank to keep current)." });
@@ -132,6 +141,10 @@ export default function AdminProfile() {
             <div className="space-y-2"><Label>Instagram</Label><Input value={form.instagramUrl} onChange={(e) => setForm({ ...form, instagramUrl: e.target.value })} placeholder="https://instagram.com/you" className="bg-zinc-900 border-zinc-700" /></div>
             <div className="space-y-2"><Label>GitHub</Label><Input value={form.githubUrl} onChange={(e) => setForm({ ...form, githubUrl: e.target.value })} placeholder="https://github.com/you" className="bg-zinc-900 border-zinc-700" /></div>
             <div className="space-y-2 md:col-span-2"><Label>Personal Website</Label><Input value={form.websiteUrl} onChange={(e) => setForm({ ...form, websiteUrl: e.target.value })} placeholder="https://yoursite.com" className="bg-zinc-900 border-zinc-700" /></div>
+
+            <div className="md:col-span-2 pt-4 border-t border-zinc-800">
+              <RichProfileFieldsEditor value={rich} onChange={setRich} />
+            </div>
 
             <div className="space-y-2 md:col-span-2 pt-4 border-t border-zinc-800">
               <Label>Change Password</Label>

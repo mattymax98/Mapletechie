@@ -5,8 +5,9 @@
  * API specification for Tech Blog
  * OpenAPI spec version: 0.1.0
  */
+import type { RichProfileFields } from "./richProfileFields";
 
-export interface AuthorProfile {
+export type AuthorProfile = RichProfileFields & {
   id: number;
   username?: string;
   displayName: string;
@@ -19,4 +20,4 @@ export interface AuthorProfile {
   instagramUrl?: string;
   githubUrl?: string;
   websiteUrl?: string;
-}
+};

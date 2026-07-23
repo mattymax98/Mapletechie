@@ -5,8 +5,9 @@
  * API specification for Tech Blog
  * OpenAPI spec version: 0.1.0
  */
+import type { RichProfileFields } from "./richProfileFields";
 
-export interface UpdateUserInput {
+export type UpdateUserInput = RichProfileFields & {
   password?: string;
   displayName?: string;
   email?: string;
@@ -26,4 +27,4 @@ export interface UpdateUserInput {
   canSendEmail?: boolean;
   canManageCategories?: boolean;
   isActive?: boolean;
-}
+};

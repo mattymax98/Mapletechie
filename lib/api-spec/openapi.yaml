@@ -1770,7 +1770,84 @@ components:
         - password
         - displayName
 
+    ProfileOrganization:
+      type: object
+      properties:
+        name:
+          type: string
+        url:
+          type: string
+      required:
+        - name
+
+    ProfileMembership:
+      type: object
+      properties:
+        name:
+          type: string
+        parentOrganization:
+          type: string
+      required:
+        - name
+
+    ProfileLink:
+      type: object
+      properties:
+        label:
+          type: string
+        url:
+          type: string
+      required:
+        - label
+        - url
+
+    RichProfileFields:
+      type: object
+      properties:
+        alternateName:
+          type: string
+          nullable: true
+        jobTitle:
+          type: string
+          nullable: true
+        locationCity:
+          type: string
+          nullable: true
+        locationRegion:
+          type: string
+          nullable: true
+        locationCountry:
+          type: string
+          nullable: true
+        education:
+          type: array
+          nullable: true
+          items:
+            type: string
+        knowsAbout:
+          type: array
+          nullable: true
+          items:
+            type: string
+        organizations:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/ProfileOrganization"
+        memberships:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/ProfileMembership"
+        profileLinks:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/ProfileLink"
+
     UpdateUserInput:
+      allOf:
+        - $ref: "#/components/schemas/RichProfileFields"
       type: object
       properties:
         password:
@@ -1813,6 +1890,8 @@ components:
           type: boolean
 
     UpdateMeInput:
+      allOf:
+        - $ref: "#/components/schemas/RichProfileFields"
       type: object
       properties:
         password:
@@ -1837,6 +1916,8 @@ components:
           type: string
 
     AuthorProfile:
+      allOf:
+        - $ref: "#/components/schemas/RichProfileFields"
       type: object
       properties:
         id:

@@ -2,6 +2,13 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { ImageUploadField } from "@/components/ImageUploadField";
 import {
+  RichProfileFieldsEditor,
+  emptyRichProfile,
+  richProfileFromUser,
+  richProfileToPayload,
+  type RichProfileFormValue,
+} from "@/components/admin/RichProfileFields";
+import {
   useListUsers,
   useCreateUser,
   useUpdateUser,
@@ -73,6 +80,7 @@ export default function AdminUsers() {
   const [editing, setEditing] = useState<UserRow | null>(null);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ ...emptyForm });
+  const [rich, setRich] = useState<RichProfileFormValue>(emptyRichProfile);
   const [error, setError] = useState("");
 
   const invalidate = () => queryClient.invalidateQueries();
@@ -97,11 +105,13 @@ export default function AdminUsers() {
     setEditing(null);
     setCreating(false);
     setForm({ ...emptyForm });
+    setRich(emptyRichProfile);
     setError("");
   };
 
   const openCreate = () => {
     setForm({ ...emptyForm });
+    setRich(emptyRichProfile);
     setError("");
     setCreating(true);
   };
@@ -129,6 +139,7 @@ export default function AdminUsers() {
       canManageCategories: !!u.canManageCategories,
       isActive: u.isActive,
     });
+    setRich(richProfileFromUser(u as any));
     setError("");
     setEditing(u);
   };
@@ -144,7 +155,7 @@ export default function AdminUsers() {
     } else if (editing) {
       // email + username are immutable post-creation; never send them in updates.
       const { username: _u, password, email: _e, ...rest } = form;
-      const payload: any = { ...rest };
+      const payload: any = { ...rest, ...richProfileToPayload(rich) };
       if (password.length >= 6) payload.password = password;
       updateMut.mutate({ id: editing.id, data: payload });
     }
@@ -307,6 +318,12 @@ export default function AdminUsers() {
               <div className="space-y-2"><Label>Instagram URL</Label><Input value={form.instagramUrl} onChange={(e) => setForm({ ...form, instagramUrl: e.target.value })} placeholder="https://instagram.com/..." className="bg-zinc-800 border-zinc-700" /></div>
               <div className="space-y-2"><Label>GitHub URL</Label><Input value={form.githubUrl} onChange={(e) => setForm({ ...form, githubUrl: e.target.value })} placeholder="https://github.com/..." className="bg-zinc-800 border-zinc-700" /></div>
               <div className="space-y-2 col-span-2"><Label>Personal Website</Label><Input value={form.websiteUrl} onChange={(e) => setForm({ ...form, websiteUrl: e.target.value })} placeholder="https://..." className="bg-zinc-800 border-zinc-700" /></div>
+
+              {!creating && (
+                <div className="col-span-2 pt-4 border-t border-zinc-800">
+                  <RichProfileFieldsEditor value={rich} onChange={setRich} />
+                </div>
+              )}
 
               <div className="col-span-2 flex items-center justify-between p-3 bg-zinc-800 rounded border border-zinc-700">
                 <div>

@@ -1,4 +1,22 @@
-import { pgTable, serial, integer, text, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+
+/** An organization the editor works for or belongs to. */
+export interface ProfileOrganization {
+  name: string;
+  url?: string;
+}
+
+/** A membership in an organization, optionally under a parent org. */
+export interface ProfileMembership {
+  name: string;
+  parentOrganization?: string;
+}
+
+/** A public reference link shown on the author page and used as sameAs. */
+export interface ProfileLink {
+  label: string;
+  url: string;
+}
 
 export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -13,6 +31,17 @@ export const usersTable = pgTable("users", {
   instagramUrl: text("instagram_url"),
   githubUrl: text("github_url"),
   websiteUrl: text("website_url"),
+  // Structured profile fields for Person schema markup on author pages.
+  alternateName: text("alternate_name"),
+  jobTitle: text("job_title"),
+  locationCity: text("location_city"),
+  locationRegion: text("location_region"),
+  locationCountry: text("location_country"),
+  education: jsonb("education").$type<string[]>(),
+  knowsAbout: jsonb("knows_about").$type<string[]>(),
+  organizations: jsonb("organizations").$type<ProfileOrganization[]>(),
+  memberships: jsonb("memberships").$type<ProfileMembership[]>(),
+  profileLinks: jsonb("profile_links").$type<ProfileLink[]>(),
   role: text("role").notNull().default("editor"),
   canPublishDirectly: boolean("can_publish_directly").notNull().default(false),
   canManageShop: boolean("can_manage_shop").notNull().default(false),
