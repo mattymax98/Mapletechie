@@ -80,6 +80,24 @@ export const aiGenerateLimiter = rateLimit({
 });
 
 /**
+ * Per-editor AI image generation: 20 images / hour, keyed on the
+ * authenticated user id (IP fallback). Image generation bills real credits,
+ * so the limit must follow the account, not the network address.
+ */
+export const aiImageLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: (req: Request, res) => {
+    const id = req.user?.id;
+    if (id) return `user:${id}`;
+    return `ip:${ipKeyGenerator(req.ip ?? "")}`;
+  },
+  message: json429("AI image generation"),
+});
+
+/**
  * Per-editor outbound email limit: 50 messages / 24 hours, keyed on the
  * authenticated user id. Falls back to IP if (somehow) the user isn't on the
  * request — which should never happen because adminAuth runs first.
