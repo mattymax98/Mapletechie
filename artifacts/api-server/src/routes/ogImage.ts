@@ -151,7 +151,7 @@ async function renderOgImage(input: OgRenderInput): Promise<Buffer> {
 
   const coverBuf = await fetchCoverBuffer(input.coverImage);
 
-  let base: sharp.Sharp;
+  let base: ReturnType<typeof sharp>;
   if (coverBuf) {
     base = sharp(coverBuf).resize(WIDTH, HEIGHT, { fit: "cover", position: "centre" });
   } else {
