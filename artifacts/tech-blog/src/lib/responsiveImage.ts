@@ -12,13 +12,14 @@ function buildVariantUrl(originalSrc: string, width: number): string {
 
 /**
  * Bundled brand cover/hero images that ship as static `.webp` files with
- * pre-generated `-400` / `-800` width variants (the originals are 1408w). These
- * are the seeded post covers (`/covers/*`) and the homepage hero fallback.
+ * pre-generated `-400` / `-800` / `-1600` width variants (the masters are
+ * 2400w). These are the seeded post covers (`/covers/*`) and the homepage
+ * hero fallback.
  *
  * Only these exact base names have width variants committed under `public/`, so
  * the responsive `srcset` is gated to this set — any other `/covers/*` path is
- * still normalized to `.webp` (below) but served as a single file, never an
- * `-400`/`-800` URL that would 404. Admin-uploaded covers go to object storage
+ * still normalized to `.webp` (below) but served as a single file, never a
+ * width-variant URL that would 404. Admin-uploaded covers go to object storage
  * (`/api/storage/objects/`), not here, so this set stays the full source list.
  */
 const STATIC_COVER_VARIANTS = new Set([
@@ -76,7 +77,7 @@ export function responsiveCoverProps(
     return { src, srcSet, sizes };
   }
   // Bundled brand covers/hero: serve the small pre-generated variant the layout
-  // actually needs (was shipping the full 1408w file to every viewport).
+  // actually needs (the 2400w master is only fetched by large retina screens).
   const cover = staticCoverWebp(src);
   if (cover) {
     if (!cover.hasVariants) {
@@ -87,7 +88,8 @@ export function responsiveCoverProps(
     const srcSet = [
       `${base}-400.webp 400w`,
       `${base}-800.webp 800w`,
-      `${cover.webp} 1408w`,
+      `${base}-1600.webp 1600w`,
+      `${cover.webp} 2400w`,
     ].join(", ");
     return { src: cover.webp, srcSet, sizes };
   }
