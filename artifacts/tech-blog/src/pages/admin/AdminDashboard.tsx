@@ -23,10 +23,10 @@ function NavIcon({ href, Icon, label }: { href: string; Icon: any; label: string
         variant="ghost"
         size="sm"
         title={label}
-        className="text-zinc-400 hover:text-white h-9 w-9 xl:w-auto xl:px-3 p-0 xl:gap-2"
+        className="text-zinc-400 hover:text-white h-9 w-9 2xl:w-auto 2xl:px-3 p-0 2xl:gap-2"
       >
         <Icon className="w-4 h-4" />
-        <span className="hidden xl:inline text-xs">{label}</span>
+        <span className="hidden 2xl:inline text-xs">{label}</span>
       </Button>
     </Link>
   );
@@ -74,7 +74,7 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-black text-white">
       <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between gap-3">
+        <div className="mx-auto px-3 sm:px-4 min-h-14 py-1.5 flex items-center justify-between gap-x-3 gap-y-0 flex-wrap">
           <Link href="/admin">
             <div className="flex items-baseline gap-2 leading-none whitespace-nowrap shrink-0 cursor-pointer">
               <span className="text-base sm:text-lg font-bold tracking-tight">
@@ -84,7 +84,7 @@ export default function AdminDashboard() {
               <span className="text-zinc-300 text-xs sm:text-sm font-medium tracking-tight">Admin</span>
             </div>
           </Link>
-          <nav className="flex items-center gap-0.5 min-w-0">
+          <nav className="flex items-center gap-0.5 min-w-0 flex-wrap justify-end">
             <NavIcon href="/admin/profile" Icon={UserIcon} label="Profile" />
             {canEditors && <NavIcon href="/admin/users" Icon={Users} label="Editors" />}
             <NavIcon href="/admin/media" Icon={ImageIcon} label="Media" />
@@ -102,10 +102,10 @@ export default function AdminDashboard() {
               size="sm"
               onClick={logout}
               title="Sign out"
-              className="text-zinc-400 hover:text-red-400 h-9 w-9 sm:w-auto sm:px-3 p-0 sm:gap-2"
+              className="text-zinc-400 hover:text-red-400 h-9 w-9 2xl:w-auto 2xl:px-3 p-0 2xl:gap-2"
             >
               <LogOut className="w-4 h-4" />
-              <span className="hidden xl:inline text-xs">Sign out</span>
+              <span className="hidden 2xl:inline text-xs">Sign out</span>
             </Button>
           </nav>
         </div>
