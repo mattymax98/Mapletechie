@@ -547,6 +547,79 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
   res.json(updated);
 });
 
+// Bulk-move a set of posts to another category in one call. Admins can move
+// any posts; editors only their own. Mirrors the postCount refresh done by
+// the single-post update path and /admin/categories/reassign-posts.
+router.post("/admin/posts/bulk-reassign", adminAuth, async (req, res): Promise<void> => {
+  const body = req.body ?? {};
+  const rawIds = Array.isArray(body.postIds) ? body.postIds : null;
+  if (!rawIds || rawIds.length === 0 || rawIds.length > 200) {
+    res.status(400).json({ error: "postIds must be a non-empty array (max 200)" });
+    return;
+  }
+  const postIds: number[] = [...new Set<number>(rawIds.map((v: unknown) => Number(v)))].filter(
+    (n): n is number => Number.isInteger(n) && n > 0,
+  );
+  if (postIds.length === 0) {
+    res.status(400).json({ error: "postIds must contain valid ids" });
+    return;
+  }
+
+  const resolved = await resolveCategory(body.category);
+  if (!resolved) {
+    res.status(400).json({ error: `Unknown category: ${String(body.category)}` });
+    return;
+  }
+
+  const rows = await db.select().from(postsTable).where(inArray(postsTable.id, postIds));
+  if (rows.length !== postIds.length) {
+    res.status(404).json({ error: "One or more posts not found" });
+    return;
+  }
+  const user = req.user;
+  if (user && user.role !== "admin" && rows.some((p) => p.authorId !== user.id)) {
+    res.status(403).json({ error: "You can only move your own posts" });
+    return;
+  }
+
+  const toMove = rows.filter((p) => p.categoryId !== resolved.id);
+  const affectedCategoryIds = new Set<number>([resolved.id]);
+  for (const p of toMove) {
+    if (typeof p.categoryId === "number") affectedCategoryIds.add(p.categoryId);
+  }
+
+  if (toMove.length > 0) {
+    await db.transaction(async (tx) => {
+      await tx
+        .update(postsTable)
+        .set({ categoryId: resolved.id })
+        .where(inArray(postsTable.id, toMove.map((p) => p.id)));
+      for (const catId of affectedCategoryIds) {
+        const [{ count }] = await tx
+          .select({ count: sql<number>`count(*)::int` })
+          .from(postsTable)
+          .where(eq(postsTable.categoryId, catId));
+        await tx
+          .update(categoriesTable)
+          .set({ postCount: count })
+          .where(eq(categoriesTable.id, catId));
+      }
+    });
+    await writeAuditLog(req, {
+      action: "posts.bulk_reassign",
+      entityType: "post",
+      summary: `Moved ${toMove.length} post(s) to category "${resolved.name}"`,
+      details: {
+        postIds: toMove.map((p) => p.id),
+        toCategoryId: resolved.id,
+        toCategory: resolved.name,
+      },
+    });
+  }
+
+  res.json({ movedCount: toMove.length });
+});
+
 router.delete("/posts/:id", adminAuth, async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (Number.isNaN(id)) {

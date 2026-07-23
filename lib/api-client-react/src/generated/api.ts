@@ -29,6 +29,8 @@ import type {
   ApplicationReplyBody,
   AuditLog,
   AuthorProfile,
+  BulkReassignInput,
+  BulkReassignPosts200,
   Category,
   CategoryInput,
   CategoryReassignInput,
@@ -2569,6 +2571,92 @@ export function useListAdminPosts<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Move a set of posts to another category in one call (editors limited to own posts)
+ */
+export const getBulkReassignPostsUrl = () => {
+  return `/api/admin/posts/bulk-reassign`;
+};
+
+export const bulkReassignPosts = async (
+  bulkReassignInput: BulkReassignInput,
+  options?: RequestInit,
+): Promise<BulkReassignPosts200> => {
+  return customFetch<BulkReassignPosts200>(getBulkReassignPostsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(bulkReassignInput),
+  });
+};
+
+export const getBulkReassignPostsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkReassignPosts>>,
+    TError,
+    { data: BodyType<BulkReassignInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bulkReassignPosts>>,
+  TError,
+  { data: BodyType<BulkReassignInput> },
+  TContext
+> => {
+  const mutationKey = ["bulkReassignPosts"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bulkReassignPosts>>,
+    { data: BodyType<BulkReassignInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return bulkReassignPosts(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BulkReassignPostsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bulkReassignPosts>>
+>;
+export type BulkReassignPostsMutationBody = BodyType<BulkReassignInput>;
+export type BulkReassignPostsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Move a set of posts to another category in one call (editors limited to own posts)
+ */
+export const useBulkReassignPosts = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkReassignPosts>>,
+    TError,
+    { data: BodyType<BulkReassignInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof bulkReassignPosts>>,
+  TError,
+  { data: BodyType<BulkReassignInput> },
+  TContext
+> => {
+  return useMutation(getBulkReassignPostsMutationOptions(options));
+};
 
 /**
  * @summary Get a public author profile by id

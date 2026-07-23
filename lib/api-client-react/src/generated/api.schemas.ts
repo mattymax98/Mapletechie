@@ -363,6 +363,16 @@ export interface Category {
   color?: string;
 }
 
+export interface BulkReassignInput {
+  /**
+   * @minItems 1
+   * @maxItems 200
+   */
+  postIds: number[];
+  /** Destination category slug, name, or id */
+  category: string;
+}
+
 export interface CategoryReassignInput {
   /** Existing category name to move posts away from */
   fromName: string;
@@ -612,6 +622,10 @@ export type ListProductsParams = {
 
 export type AdminLogout200 = {
   success?: boolean;
+};
+
+export type BulkReassignPosts200 = {
+  movedCount: number;
 };
 
 export type ListCommentsParams = {

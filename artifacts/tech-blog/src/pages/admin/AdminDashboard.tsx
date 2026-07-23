@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Link } from "wouter";
-import { useListAdminPosts, useDeletePost, useUpdatePost, useListCategories } from "@workspace/api-client-react";
+import { useListAdminPosts, useDeletePost, useUpdatePost, useListCategories, useBulkReassignPosts } from "@workspace/api-client-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,7 +13,9 @@ import { useAdmin } from "@/context/AdminContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlusCircle, Pencil, Trash2, LogOut, Eye, ExternalLink, Sparkles, Users, User as UserIcon, CheckCircle2, Inbox, Briefcase, Mail, ClipboardList, BarChart3, Send, Image as ImageIcon, Clock, Tag, FolderInput, Check, Settings } from "lucide-react";
+import { PlusCircle, Pencil, Trash2, LogOut, Eye, ExternalLink, Sparkles, Users, User as UserIcon, CheckCircle2, Inbox, Briefcase, Mail, ClipboardList, BarChart3, Send, Image as ImageIcon, Clock, Tag, FolderInput, Check, Settings, X } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -69,6 +72,49 @@ export default function AdminDashboard() {
 
   const handleChangeCategory = (id: number, categorySlug: string) => {
     updateMutation.mutate({ id, data: { category: categorySlug } as any });
+  };
+
+  const { toast } = useToast();
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const bulkMutation = useBulkReassignPosts({
+    mutation: {
+      onSuccess: (result: any, vars: any) => {
+        const dest = categories?.find((c: any) => c.slug === vars?.data?.category);
+        toast({
+          title: `Moved ${result?.movedCount ?? 0} post${(result?.movedCount ?? 0) === 1 ? "" : "s"}`,
+          description: dest ? `Now in "${dest.name}".` : undefined,
+        });
+        setSelectedIds(new Set());
+        queryClient.invalidateQueries();
+      },
+      onError: (err: any) => {
+        toast({
+          title: "Couldn't move posts",
+          description: err?.message || "Please try again.",
+          variant: "destructive",
+        });
+      },
+    },
+  });
+
+  const toggleSelected = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const allSelected = !!posts?.length && selectedIds.size === posts.length;
+  const toggleAll = () => {
+    if (allSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set((posts ?? []).map((p: any) => p.id)));
+  };
+
+  const handleBulkMove = (categorySlug: string) => {
+    if (selectedIds.size === 0 || bulkMutation.isPending) return;
+    bulkMutation.mutate({ data: { postIds: [...selectedIds], category: categorySlug } });
   };
 
   return (
@@ -149,6 +195,14 @@ export default function AdminDashboard() {
             <table className="w-full">
               <thead className="bg-zinc-900 border-b border-zinc-800">
                 <tr>
+                  <th className="w-10 px-3 py-3">
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={toggleAll}
+                      aria-label="Select all posts"
+                      className="border-zinc-600 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                    />
+                  </th>
                   <th className="text-left text-xs text-zinc-400 font-medium uppercase tracking-wider px-4 py-3">Title</th>
                   <th className="text-left text-xs text-zinc-400 font-medium uppercase tracking-wider px-4 py-3">Status</th>
                   {isAdmin && (
@@ -161,7 +215,15 @@ export default function AdminDashboard() {
               </thead>
               <tbody className="divide-y divide-zinc-800">
                 {posts?.map((post: any) => (
-                  <tr key={post.id} className="hover:bg-zinc-900/50 transition-colors">
+                  <tr key={post.id} className={`transition-colors ${selectedIds.has(post.id) ? "bg-orange-500/5 hover:bg-orange-500/10" : "hover:bg-zinc-900/50"}`}>
+                    <td className="w-10 px-3 py-3">
+                      <Checkbox
+                        checked={selectedIds.has(post.id)}
+                        onCheckedChange={() => toggleSelected(post.id)}
+                        aria-label={`Select "${post.title}"`}
+                        className="border-zinc-600 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                      />
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-white font-medium line-clamp-1">{post.title}</span>
@@ -277,6 +339,48 @@ export default function AdminDashboard() {
                 </Link>
               </div>
             )}
+          </div>
+        )}
+
+        {selectedIds.size > 0 && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 rounded-full border border-zinc-700 bg-zinc-900/95 backdrop-blur px-4 py-2 shadow-xl shadow-black/50">
+            <span className="text-sm text-zinc-300 whitespace-nowrap">
+              {selectedIds.size} selected
+            </span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  className="bg-orange-500 hover:bg-orange-600 text-white gap-2 rounded-full"
+                  disabled={bulkMutation.isPending || !categories?.length}
+                >
+                  <FolderInput className="w-4 h-4" />
+                  {bulkMutation.isPending ? "Moving..." : "Move to..."}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" side="top" className="bg-zinc-950 border-zinc-800 text-white max-h-80 overflow-y-auto">
+                <DropdownMenuLabel className="text-xs text-zinc-400">Move {selectedIds.size} post{selectedIds.size === 1 ? "" : "s"} to</DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-zinc-800" />
+                {categories?.map((c: any) => (
+                  <DropdownMenuItem
+                    key={c.id}
+                    onClick={() => handleBulkMove(c.slug)}
+                    className="text-xs cursor-pointer focus:bg-zinc-900 focus:text-white"
+                  >
+                    {c.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedIds(new Set())}
+              className="h-8 w-8 p-0 rounded-full text-zinc-400 hover:text-white"
+              title="Clear selection"
+            >
+              <X className="w-4 h-4" />
+            </Button>
           </div>
         )}
       </main>
