@@ -9,7 +9,12 @@ import {
   visibleProfileLinks,
   type AuthorRichProfile,
 } from "./src/lib/personSchema";
-import { buildArticleJsonLd, buildBreadcrumbJsonLd } from "./src/lib/articleSchema";
+import {
+  buildArticleJsonLd,
+  buildBreadcrumbJsonLd,
+  buildCategoryBreadcrumbJsonLd,
+  buildAuthorBreadcrumbJsonLd,
+} from "./src/lib/articleSchema";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -552,6 +557,15 @@ app.get(/^\/category\/([^\/]+)\/?$/, async (req, res, next) => {
     type: "website",
   });
 
+  // BreadcrumbList (Home > Blog > Category) — emitted server-side so Google
+  // gets the trail without rendering JS; the SPA emits the same schema.
+  const breadcrumbLd = buildCategoryBreadcrumbJsonLd(cat, { siteUrl: SITE_URL });
+  const breadcrumbSafe = JSON.stringify(breadcrumbLd).replace(/</g, "\\u003c");
+  const seoWithJsonLd = seo.replace(
+    "<!-- SEO_HEAD_END -->",
+    `    <script type="application/ld+json">${breadcrumbSafe}</script>\n    <!-- SEO_HEAD_END -->`,
+  );
+
   const body = `
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>${htmlEscape(cat.name)} — News &amp; Reviews</h1>
@@ -562,7 +576,7 @@ app.get(/^\/category\/([^\/]+)\/?$/, async (req, res, next) => {
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Vary", "User-Agent");
   res.setHeader("Cache-Control", "public, max-age=600, s-maxage=600");
-  res.send(renderHtml(seo, body));
+  res.send(renderHtml(seoWithJsonLd, body));
 });
 
 // --- Static evergreen routes ------------------------------------------------
@@ -978,11 +992,24 @@ app.get(/^\/author\/([^/]+)\/?$/, async (req, res, next) => {
     // JSON.stringify escapes quotes; additionally escape `<` so the JSON body
     // cannot prematurely close the surrounding <script> tag.
     const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
-    seoFinal = seo.replace(
+    seoFinal = seoFinal.replace(
       "<!-- SEO_HEAD_END -->",
       `    <script type="application/ld+json">${jsonLdSafe}</script>\n    <!-- SEO_HEAD_END -->`,
     );
   }
+  // BreadcrumbList (Home > Authors > Name) — always emitted, even for authors
+  // with no structured profile fields; the SPA emits the same schema.
+  const authorBreadcrumbLd = buildAuthorBreadcrumbJsonLd(author, {
+    siteUrl: SITE_URL,
+  });
+  const authorBreadcrumbSafe = JSON.stringify(authorBreadcrumbLd).replace(
+    /</g,
+    "\\u003c",
+  );
+  seoFinal = seoFinal.replace(
+    "<!-- SEO_HEAD_END -->",
+    `    <script type="application/ld+json">${authorBreadcrumbSafe}</script>\n    <!-- SEO_HEAD_END -->`,
+  );
   const links = visibleProfileLinks(author);
   if (links.length) {
     profileLinksHtml = `<ul>${links

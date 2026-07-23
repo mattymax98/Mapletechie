@@ -445,6 +445,26 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).not.toContain('<div id="root"></div>');
     });
 
+    it("emits the BreadcrumbList JSON-LD (Home > Blog > Category) in the prerendered HTML", async () => {
+      const { body } = await get(`/category/${CATEGORY.slug}`, GOOGLEBOT_UA);
+      const scripts = [
+        ...body.matchAll(
+          /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g,
+        ),
+      ].map((m) => JSON.parse(m[1]));
+      const crumbs = scripts.find((s) => s["@type"] === "BreadcrumbList");
+      expect(crumbs).toBeDefined();
+      expect(
+        crumbs!.itemListElement.map((i: { name: string }) => i.name),
+      ).toEqual(["Home", "Blog", CATEGORY.name]);
+      expect(
+        crumbs!.itemListElement.map((i: { position: number }) => i.position),
+      ).toEqual([1, 2, 3]);
+      expect(crumbs!.itemListElement[2].item).toBe(
+        `${SITE_URL}/category/${CATEGORY.slug}`,
+      );
+    });
+
     it("returns a noindex 404 to Googlebot for an unknown category", async () => {
       const { status, body } = await get("/category/nonexistent", GOOGLEBOT_UA);
       expect(status).toBe(404);
@@ -618,6 +638,38 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       // Visible links back up the sameAs claims.
       expect(body).toContain('href="https://townzest.ca"');
       expect(body).toContain("Canadian Youth Road Safety Council");
+    });
+
+    it("emits the BreadcrumbList JSON-LD (Home > Authors > Name) in the prerendered HTML", async () => {
+      const { body } = await get(`/author/${AUTHOR.username}`, GOOGLEBOT_UA);
+      const scripts = [
+        ...body.matchAll(
+          /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g,
+        ),
+      ].map((m) => JSON.parse(m[1]));
+      const crumbs = scripts.find((s) => s["@type"] === "BreadcrumbList");
+      expect(crumbs).toBeDefined();
+      expect(
+        crumbs!.itemListElement.map((i: { name: string }) => i.name),
+      ).toEqual(["Home", "Authors", AUTHOR.displayName]);
+      expect(crumbs!.itemListElement[1].item).toBe(`${SITE_URL}/team`);
+      expect(crumbs!.itemListElement[2].item).toBe(
+        `${SITE_URL}/author/${AUTHOR.username}`,
+      );
+    });
+
+    it("emits the BreadcrumbList even for an author with no structured profile fields", async () => {
+      const { body } = await get(`/author/${PLAIN_AUTHOR.username}`, GOOGLEBOT_UA);
+      const scripts = [
+        ...body.matchAll(
+          /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g,
+        ),
+      ].map((m) => JSON.parse(m[1]));
+      const crumbs = scripts.find((s) => s["@type"] === "BreadcrumbList");
+      expect(crumbs).toBeDefined();
+      expect(
+        crumbs!.itemListElement.map((i: { name: string }) => i.name),
+      ).toEqual(["Home", "Authors", PLAIN_AUTHOR.displayName]);
     });
 
     it("returns a noindex 404 to Googlebot for an unknown author", async () => {

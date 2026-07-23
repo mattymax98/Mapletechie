@@ -84,7 +84,7 @@ export function buildBreadcrumbJsonLd(
   const siteUrl = (opts.siteUrl || DEFAULT_SITE_URL).replace(/\/+$/, "");
   const url = `${siteUrl}/blog/${post.slug}`;
 
-  const crumbs: { name: string; item: string }[] = [
+  const crumbs: BreadcrumbItem[] = [
     { name: "Home", item: siteUrl },
     { name: "Blog", item: `${siteUrl}/blog` },
   ];
@@ -96,6 +96,22 @@ export function buildBreadcrumbJsonLd(
   }
   crumbs.push({ name: post.title, item: url });
 
+  return buildTrailBreadcrumbJsonLd(crumbs);
+}
+
+export interface BreadcrumbItem {
+  name: string;
+  item: string;
+}
+
+/**
+ * Generic BreadcrumbList JSON-LD builder. Pass the full crumb trail (including
+ * "Home"); positions are assigned sequentially. Shared by the post, category,
+ * and author breadcrumb builders so every page emits an identical schema shape.
+ */
+export function buildTrailBreadcrumbJsonLd(
+  crumbs: BreadcrumbItem[],
+): Record<string, unknown> {
   return {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -106,4 +122,40 @@ export function buildBreadcrumbJsonLd(
       item: c.item,
     })),
   };
+}
+
+/**
+ * BreadcrumbList (Home > Blog > Category) for a category archive page.
+ * Shared by the crawler prerender server and the SPA category page.
+ */
+export function buildCategoryBreadcrumbJsonLd(
+  category: { name: string; slug: string },
+  opts: { siteUrl?: string } = {},
+): Record<string, unknown> {
+  const siteUrl = (opts.siteUrl || DEFAULT_SITE_URL).replace(/\/+$/, "");
+  return buildTrailBreadcrumbJsonLd([
+    { name: "Home", item: siteUrl },
+    { name: "Blog", item: `${siteUrl}/blog` },
+    { name: category.name, item: `${siteUrl}/category/${category.slug}` },
+  ]);
+}
+
+/**
+ * BreadcrumbList (Home > Authors > Name) for an author profile page.
+ * "Authors" points at the /team roster page, the site's author index.
+ * Shared by the crawler prerender server and the SPA author page.
+ */
+export function buildAuthorBreadcrumbJsonLd(
+  author: { username: string; displayName?: string | null },
+  opts: { siteUrl?: string } = {},
+): Record<string, unknown> {
+  const siteUrl = (opts.siteUrl || DEFAULT_SITE_URL).replace(/\/+$/, "");
+  return buildTrailBreadcrumbJsonLd([
+    { name: "Home", item: siteUrl },
+    { name: "Authors", item: `${siteUrl}/team` },
+    {
+      name: author.displayName || author.username,
+      item: `${siteUrl}/author/${author.username}`,
+    },
+  ]);
 }
