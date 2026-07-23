@@ -30,7 +30,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SEO } from "@/components/SEO";
 import { AuthorBio } from "@/components/AuthorBio";
 import { CommentsSection } from "@/components/CommentsSection";
-import { applyResponsiveImages, makeArticleHtmlResponsive, responsiveCoverProps, COVER_SIZES } from "@/lib/responsiveImage";
+import { applyResponsiveImages, makeArticleHtmlResponsive, responsiveCoverProps, socialImageUrl, COVER_SIZES } from "@/lib/responsiveImage";
 import { SeriesBanner } from "@/components/SeriesBanner";
 import { CategoryChip } from "@/components/CategoryChip";
 
@@ -422,7 +422,7 @@ export default function BlogPost() {
       <SEO
         title={(post as any).seoTitle || post.title}
         description={(post as any).seoDescription || post.excerpt || undefined}
-        image={(post as any).ogImage || `${SITE_URL}/api/og/post/${post.slug}.png`}
+        image={socialImageUrl((post as any).ogImage) || `${SITE_URL}/api/og/post/${post.slug}.png`}
         url={`/blog/${post.slug}`}
         type="article"
         publishedTime={post.publishedAt ?? undefined}
