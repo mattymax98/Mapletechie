@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Save, AlertCircle, CheckCircle } from "lucide-react";
+import { ArrowLeft, Save } from "lucide-react";
+import ErrorBanner from "@/components/ErrorBanner";
 import { ImageUploadField } from "@/components/ImageUploadField";
 import {
   RichProfileFieldsEditor,
@@ -90,12 +91,7 @@ export default function AdminProfile() {
 
       <main className="max-w-3xl mx-auto px-4 py-8">
         <form onSubmit={submit} className="space-y-6">
-          {msg && (
-            <div className={`flex items-center gap-2 text-sm rounded p-3 border ${msg.kind === "ok" ? "text-green-400 bg-green-900/20 border-green-900/40" : "text-red-400 bg-red-900/20 border-red-900"}`}>
-              {msg.kind === "ok" ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-              {msg.text}
-            </div>
-          )}
+          <ErrorBanner message={msg?.text} kind={msg?.kind === "ok" ? "success" : "error"} />
 
           <div className="flex items-center gap-4 p-4 bg-zinc-900 rounded-lg border border-zinc-800">
             <div className="w-20 h-20 rounded-full overflow-hidden bg-zinc-800 border-2 border-orange-500">

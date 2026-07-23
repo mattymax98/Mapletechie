@@ -14,6 +14,7 @@ import {
   Bar,
 } from "recharts";
 import { format, parseISO } from "date-fns";
+import ErrorBanner from "@/components/ErrorBanner";
 
 const TOKEN_KEY = "mapletechie_admin_token";
 
@@ -138,9 +139,7 @@ export default function AdminAnalytics() {
           </div>
         </div>
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-4 rounded">{error}</div>
-        )}
+        <ErrorBanner message={error} />
 
         {/* Stat cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

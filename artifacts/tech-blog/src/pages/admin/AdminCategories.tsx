@@ -39,6 +39,7 @@ import {
   ArrowRightLeft,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import ErrorBanner from "@/components/ErrorBanner";
 
 // Slugs from artifacts/api-server/src/lib/seedCategories.ts. Mirror this list
 // when the curated set changes server-side.
@@ -394,11 +395,7 @@ export default function AdminCategories() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {error && (
-              <div className="flex items-center gap-2 text-red-400 text-sm bg-red-900/20 border border-red-900 rounded p-3">
-                <AlertCircle className="w-4 h-4 shrink-0" /> {error}
-              </div>
-            )}
+            <ErrorBanner message={error} />
 
             <div className="space-y-2">
               <Label>Name *</Label>

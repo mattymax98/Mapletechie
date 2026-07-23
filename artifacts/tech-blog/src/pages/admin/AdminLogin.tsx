@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Lock, AlertCircle } from "lucide-react";
+import { Lock } from "lucide-react";
+import ErrorBanner from "@/components/ErrorBanner";
 
 export default function AdminLogin() {
   const [username, setUsername] = useState("");
@@ -91,12 +92,7 @@ export default function AdminLogin() {
               />
             </div>
 
-            {error && (
-              <div className="flex items-center gap-2 text-red-400 text-sm bg-red-900/20 border border-red-900 rounded p-3">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                {error}
-              </div>
-            )}
+            <ErrorBanner message={error} />
 
             <Button
               type="submit"
