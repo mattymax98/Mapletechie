@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, postsTable, usersTable, pageViewsTable, commentsTable, categoriesTable } from "@workspace/db";
+import { db, postsTable, usersTable, pageViewsTable, commentsTable, categoriesTable, auditLogsTable } from "@workspace/db";
 import { eq, desc, and, gte, sql, inArray, or, getTableColumns } from "drizzle-orm";
 import {
   ListPostsQueryParams,
@@ -7,7 +7,7 @@ import {
   GetPostBySlugParams,
   GetLatestPostsQueryParams,
 } from "@workspace/api-zod";
-import { adminAuth } from "../middlewares/adminAuth";
+import { adminAuth, requireRole } from "../middlewares/adminAuth";
 import { writeAuditLog } from "../lib/audit";
 import { validateCoverImage } from "../lib/coverImageValidation";
 import { isExternalImageUrl, persistExternalImage } from "../lib/persistExternalImage";
@@ -618,6 +618,124 @@ router.post("/admin/posts/bulk-reassign", adminAuth, async (req, res): Promise<v
   }
 
   res.json({ movedCount: toMove.length });
+});
+
+// Restore a deleted post from the newest audit-log snapshot (post.delete
+// snapshot, or post.update "after" / post.create snapshot if delete wasn't
+// logged). Admin only. Re-inserts the row with its original id so slugs,
+// comments (keyed by slug), and old links keep working.
+router.post("/admin/posts/:id/restore", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+
+  const [alive] = await db.select().from(postsTable).where(eq(postsTable.id, id));
+  if (alive) {
+    res.status(409).json({ error: "Post still exists — nothing to restore" });
+    return;
+  }
+
+  const entries = await db
+    .select()
+    .from(auditLogsTable)
+    .where(and(eq(auditLogsTable.entityType, "post"), eq(auditLogsTable.entityId, String(id))))
+    .orderBy(desc(auditLogsTable.id))
+    .limit(20);
+
+  let snapshot: Record<string, unknown> | null = null;
+  for (const entry of entries) {
+    const d = entry.details as Record<string, unknown> | null;
+    const candidate = (d?.snapshot ?? d?.after) as Record<string, unknown> | undefined;
+    if (candidate && typeof candidate === "object" && candidate.title && candidate.slug) {
+      snapshot = candidate;
+      break;
+    }
+  }
+  if (!snapshot) {
+    res.status(404).json({ error: "No audit snapshot found for this post" });
+    return;
+  }
+
+  // Make sure the snapshot's category still exists; fail loudly if not so the
+  // operator can pass nothing silently.
+  const categoryId = Number(snapshot.categoryId);
+  const [cat] = Number.isInteger(categoryId)
+    ? await db.select().from(categoriesTable).where(eq(categoriesTable.id, categoryId))
+    : [];
+  if (!cat) {
+    res.status(400).json({
+      error: `Snapshot category id ${String(snapshot.categoryId)} no longer exists — recreate the category first`,
+    });
+    return;
+  }
+
+  // Guard against a different post now occupying the slug.
+  const [slugClash] = await db.select().from(postsTable).where(eq(postsTable.slug, String(snapshot.slug)));
+  if (slugClash) {
+    res.status(409).json({ error: `Slug "${String(snapshot.slug)}" is already used by post ${slugClash.id}` });
+    return;
+  }
+
+  const toDate = (v: unknown): Date | null => {
+    if (!v) return null;
+    const d = new Date(v as string);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+
+  const values = {
+    id,
+    title: String(snapshot.title),
+    slug: String(snapshot.slug),
+    excerpt: typeof snapshot.excerpt === "string" ? snapshot.excerpt : "",
+    content: typeof snapshot.content === "string" ? snapshot.content : "",
+    coverImage: (snapshot.coverImage as string | null) ?? null,
+    categoryId: cat.id,
+    tags: Array.isArray(snapshot.tags) ? (snapshot.tags as string[]) : [],
+    author: typeof snapshot.author === "string" ? snapshot.author : "Mapletechie",
+    authorAvatar: (snapshot.authorAvatar as string | null) ?? null,
+    authorId: typeof snapshot.authorId === "number" ? snapshot.authorId : null,
+    readTime: typeof snapshot.readTime === "number" ? snapshot.readTime : 5,
+    isFeatured: !!snapshot.isFeatured,
+    seriesId: typeof snapshot.seriesId === "number" ? snapshot.seriesId : null,
+    seriesPosition: typeof snapshot.seriesPosition === "number" ? snapshot.seriesPosition : null,
+    rating: typeof snapshot.rating === "number" ? snapshot.rating : null,
+    pros: Array.isArray(snapshot.pros) ? (snapshot.pros as string[]) : [],
+    cons: Array.isArray(snapshot.cons) ? (snapshot.cons as string[]) : [],
+    verdict: (snapshot.verdict as string | null) ?? null,
+    // Restore as a draft so an admin reviews before it goes live again.
+    status: "draft",
+    scheduledFor: null,
+    seoTitle: (snapshot.seoTitle as string | null) ?? null,
+    seoDescription: (snapshot.seoDescription as string | null) ?? null,
+    seoKeywords: Array.isArray(snapshot.seoKeywords) ? (snapshot.seoKeywords as string[]) : [],
+    ogImage: (snapshot.ogImage as string | null) ?? null,
+    viewCount: typeof snapshot.viewCount === "number" ? snapshot.viewCount : 0,
+    publishedAt: toDate(snapshot.publishedAt),
+    createdAt: toDate(snapshot.createdAt) ?? new Date(),
+  };
+
+  await db.transaction(async (tx) => {
+    await tx.insert(postsTable).values(values as never);
+    // Keep the serial sequence ahead of explicitly-inserted ids.
+    await tx.execute(sql`select setval(pg_get_serial_sequence('posts','id'), (select max(id) from posts))`);
+    const [{ count }] = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(postsTable)
+      .where(eq(postsTable.categoryId, cat.id));
+    await tx.update(categoriesTable).set({ postCount: count }).where(eq(categoriesTable.id, cat.id));
+  });
+
+  const [restored] = await postsBaseQuery().where(eq(postsTable.id, id));
+  await writeAuditLog(req, {
+    action: "post.restore",
+    entityType: "post",
+    entityId: id,
+    summary: `Restored post "${values.title}" from audit snapshot (as draft)`,
+    details: { snapshot: values },
+  });
+  res.status(201).json(restored);
 });
 
 router.delete("/posts/:id", adminAuth, async (req, res): Promise<void> => {
