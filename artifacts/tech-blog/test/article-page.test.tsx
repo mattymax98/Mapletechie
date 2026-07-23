@@ -6,7 +6,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Router, Route } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import BlogPost from "../src/pages/blog-post";
-import { buildArticleJsonLd, type ArticleSchemaPost } from "../src/lib/articleSchema";
+import {
+  buildArticleJsonLd,
+  buildBreadcrumbJsonLd,
+  type ArticleSchemaPost,
+} from "../src/lib/articleSchema";
 
 // Component tests for the browser-side article page: the NewsArticle JSON-LD
 // it emits via Helmet must be byte-for-byte the same schema the crawler
@@ -158,6 +162,11 @@ describe("BlogPost NewsArticle JSON-LD", () => {
 
     await waitFor(() => expect(ldScriptsOfType("BreadcrumbList")).toHaveLength(1));
     const crumbs = JSON.parse(ldScriptsOfType("BreadcrumbList")[0].textContent!);
+    // The browser script must be byte-for-byte what the crawler prerender
+    // serves — both call the shared buildBreadcrumbJsonLd.
+    expect(crumbs).toEqual(
+      JSON.parse(JSON.stringify(buildBreadcrumbJsonLd(post as ArticleSchemaPost))),
+    );
     expect(crumbs.itemListElement.map((i: { name: string }) => i.name)).toEqual([
       "Home",
       "Blog",

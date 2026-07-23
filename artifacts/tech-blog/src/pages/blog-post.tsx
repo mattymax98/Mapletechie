@@ -33,7 +33,7 @@ import { CommentsSection } from "@/components/CommentsSection";
 import { applyResponsiveImages, makeArticleHtmlResponsive, responsiveCoverProps, socialImageUrl, COVER_SIZES } from "@/lib/responsiveImage";
 import { SeriesBanner } from "@/components/SeriesBanner";
 import { CategoryChip } from "@/components/CategoryChip";
-import { buildArticleJsonLd } from "@/lib/articleSchema";
+import { buildArticleJsonLd, buildBreadcrumbJsonLd } from "@/lib/articleSchema";
 
 const SITE_URL = "https://mapletechie.com";
 
@@ -349,24 +349,10 @@ export default function BlogPost() {
     [post],
   );
 
-  const breadcrumbsLd = useMemo(() => {
-    if (!post) return null;
-    return {
-      "@context": "https://schema.org",
-      "@type": "BreadcrumbList",
-      itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
-        { "@type": "ListItem", position: 2, name: "Blog", item: `${SITE_URL}/blog` },
-        post.category && {
-          "@type": "ListItem",
-          position: 3,
-          name: post.category,
-          item: `${SITE_URL}/category/${post.categorySlug ?? post.category}`,
-        },
-        { "@type": "ListItem", position: 4, name: post.title, item: canonicalUrl },
-      ].filter(Boolean),
-    };
-  }, [post, canonicalUrl]);
+  const breadcrumbsLd = useMemo(
+    () => (post ? buildBreadcrumbJsonLd(post, { siteUrl: SITE_URL }) : null),
+    [post],
+  );
 
   if (isLoading) {
     return (
