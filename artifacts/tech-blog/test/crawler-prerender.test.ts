@@ -116,6 +116,15 @@ const PLAIN_AUTHOR = {
   id: 8,
   username: "plainjane",
   displayName: "Jane Plain",
+  bio: null,
+};
+
+// Author with only a bio filled in — a bio alone is enough to emit Person
+// JSON-LD (description), even with no other structured profile fields.
+const BIO_ONLY_AUTHOR = {
+  id: 9,
+  username: "bioonly",
+  displayName: "Bio Only",
   bio: "Writes about gadgets.",
 };
 
@@ -177,6 +186,7 @@ function startMockApi(
   api.get("/api/authors/by-username/:username", (req, res) => {
     if (req.params.username === AUTHOR.username) return res.json(AUTHOR);
     if (req.params.username === PLAIN_AUTHOR.username) return res.json(PLAIN_AUTHOR);
+    if (req.params.username === BIO_ONLY_AUTHOR.username) return res.json(BIO_ONLY_AUTHOR);
     res.status(404).json({ error: "not found" });
   });
   api.get("/api/authors/:id/posts", (req, res) => {
@@ -561,6 +571,18 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       for (const [, json] of scripts) {
         expect(JSON.parse(json)["@type"]).not.toBe("Person");
       }
+    });
+
+    it("emits Person JSON-LD with the bio for an author with only a bio", async () => {
+      const { status, body } = await get(`/author/${BIO_ONLY_AUTHOR.username}`, GOOGLEBOT_UA);
+      expect(status).toBe(200);
+      const scripts = [...body.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/gs)];
+      const person = scripts
+        .map(([, json]) => JSON.parse(json))
+        .find((d) => d["@type"] === "Person");
+      expect(person).toBeDefined();
+      expect(person!.name).toBe(BIO_ONLY_AUTHOR.displayName);
+      expect(person!.description).toBe(BIO_ONLY_AUTHOR.bio);
     });
 
     it("emits Person JSON-LD with alternateName and profile links for the founder", async () => {
