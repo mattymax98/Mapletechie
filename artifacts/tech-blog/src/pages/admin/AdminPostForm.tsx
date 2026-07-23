@@ -616,7 +616,14 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
               <Label className="text-zinc-300">Category *</Label>
               <Select
                 value={form.category || undefined}
-                onValueChange={(v) => setForm((f) => ({ ...f, category: v }))}
+                onValueChange={(v) => {
+                  // Radix Select fires onValueChange("") when the controlled
+                  // value has no matching item yet (e.g. categories still
+                  // loading right after hydration). Ignore it — a user can
+                  // never legitimately pick an empty value.
+                  if (!v) return;
+                  setForm((f) => ({ ...f, category: v }));
+                }}
               >
                 <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500">
                   <SelectValue placeholder="Select a category">
@@ -643,6 +650,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                 <Select
                   value={form.authorId ? String(form.authorId) : ""}
                   onValueChange={(v) => {
+                    if (!v) return; // see category select: ignore Radix's spurious "" reset
                     const id = Number(v);
                     const ed = editors?.find((e) => e.id === id);
                     setForm((f) => ({ ...f, authorId: id, author: ed?.displayName ?? f.author }));
