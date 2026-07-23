@@ -9,7 +9,7 @@ import {
   visibleProfileLinks,
   type AuthorRichProfile,
 } from "./src/lib/personSchema";
-import { buildArticleJsonLd } from "./src/lib/articleSchema";
+import { buildArticleJsonLd, buildBreadcrumbJsonLd } from "./src/lib/articleSchema";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -428,6 +428,7 @@ interface PostRecord {
   coverImage: string | null;
   ogImage?: string | null;
   category: string | null;
+  categorySlug?: string | null;
   tags: string[] | null;
   publishedAt: string | null;
   updatedAt?: string | null;
@@ -473,12 +474,16 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
   // JS during indexing — emitting it server-side as well guarantees it lands
   // in the initial HTML for crawlers.
   const jsonLd = buildArticleJsonLd(post, { siteUrl: SITE_URL });
+  const breadcrumbLd = buildBreadcrumbJsonLd(post, { siteUrl: SITE_URL });
   // JSON.stringify escapes quotes; we additionally escape `<` so the JSON
   // body cannot prematurely close the surrounding <script> tag.
-  const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
+  const ldSafe = (obj: Record<string, unknown>) =>
+    JSON.stringify(obj).replace(/</g, "\\u003c");
   const seoWithJsonLd = seo.replace(
     "<!-- SEO_HEAD_END -->",
-    `    <script type="application/ld+json">${jsonLdSafe}</script>\n    <!-- SEO_HEAD_END -->`,
+    `    <script type="application/ld+json">${ldSafe(jsonLd)}</script>\n` +
+      `    <script type="application/ld+json">${ldSafe(breadcrumbLd)}</script>\n` +
+      `    <!-- SEO_HEAD_END -->`,
   );
 
   // Render the full article body for crawlers that don't execute JavaScript.

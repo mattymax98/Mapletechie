@@ -397,6 +397,24 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).not.toContain('<div id="root"></div>');
     });
 
+    it("emits the BreadcrumbList JSON-LD in the prerendered HTML", async () => {
+      const { body } = await get(`/blog/${ARTICLE.slug}`, GOOGLEBOT_UA);
+      const scripts = [
+        ...body.matchAll(
+          /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g,
+        ),
+      ].map((m) => JSON.parse(m[1]));
+      const crumbs = scripts.find((s) => s["@type"] === "BreadcrumbList");
+      expect(crumbs).toBeDefined();
+      expect(
+        crumbs!.itemListElement.map((i: { name: string }) => i.name),
+      ).toEqual(["Home", "Blog", ARTICLE.category, ARTICLE.title]);
+      expect(crumbs!.itemListElement.map((i: { position: number }) => i.position)).toEqual([
+        1, 2, 3, 4,
+      ]);
+      expect(crumbs!.itemListElement[3].item).toBe(`${SITE_URL}/blog/${ARTICLE.slug}`);
+    });
+
     it("serves the SPA shell (not the prerendered article) to a normal browser", async () => {
       // Note: /blog/:slug isn't in KNOWN_SPA_ROUTES (its validity depends on a
       // DB lookup), so the catch-all returns a soft 404 + the SPA shell for

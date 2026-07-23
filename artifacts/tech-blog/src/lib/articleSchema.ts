@@ -18,6 +18,7 @@ export interface ArticleSchemaPost {
   coverImage?: string | null;
   ogImage?: string | null;
   category?: string | null;
+  categorySlug?: string | null;
   tags?: string[] | null;
   publishedAt?: string | null;
   updatedAt?: string | null;
@@ -66,5 +67,43 @@ export function buildArticleJsonLd(
     mainEntityOfPage: { "@type": "WebPage", "@id": url },
     articleSection: post.category ?? undefined,
     keywords: post.tags?.join(", "),
+  };
+}
+
+/**
+ * Builds the schema.org BreadcrumbList (Home > Blog > Category > Title) for a
+ * post. Shared by the crawler prerender server and the SPA blog-post page so
+ * Google sees the same trail whether or not it renders JavaScript. The
+ * category crumb is omitted when the post has no category; positions stay
+ * sequential either way.
+ */
+export function buildBreadcrumbJsonLd(
+  post: ArticleSchemaPost,
+  opts: { siteUrl?: string } = {},
+): Record<string, unknown> {
+  const siteUrl = (opts.siteUrl || DEFAULT_SITE_URL).replace(/\/+$/, "");
+  const url = `${siteUrl}/blog/${post.slug}`;
+
+  const crumbs: { name: string; item: string }[] = [
+    { name: "Home", item: siteUrl },
+    { name: "Blog", item: `${siteUrl}/blog` },
+  ];
+  if (post.category) {
+    crumbs.push({
+      name: post.category,
+      item: `${siteUrl}/category/${post.categorySlug ?? post.category}`,
+    });
+  }
+  crumbs.push({ name: post.title, item: url });
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: crumbs.map((c, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: c.name,
+      item: c.item,
+    })),
   };
 }
