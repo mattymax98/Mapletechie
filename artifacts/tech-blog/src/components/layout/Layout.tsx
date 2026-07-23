@@ -1,7 +1,6 @@
 import { ReactNode } from "react";
 import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
-import { motion } from "framer-motion";
 import { useLocation } from "wouter";
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -10,16 +9,12 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col w-full selection:bg-primary selection:text-primary-foreground">
       <Navbar />
-      <motion.main 
-        key={location}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -10 }}
-        transition={{ duration: 0.3 }}
-        className="flex-1 w-full"
-      >
+      {/* Keyed on location so the CSS entrance animation replays on route
+          change — same fade/slide the old framer-motion <motion.main> did,
+          without shipping the animation library on first load. */}
+      <main key={location} className="flex-1 w-full animate-page-enter">
         {children}
-      </motion.main>
+      </main>
       <Footer />
     </div>
   );

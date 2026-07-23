@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 
 export function Navbar() {
   const { theme, setTheme, resolvedTheme } = useTheme();
@@ -126,28 +125,30 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Menu */}
-      <AnimatePresence>
-        {isMobileMenuOpen && (
-          <motion.div 
-            id="mobile-nav"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="md:hidden overflow-hidden border-b border-border bg-background"
-            aria-hidden={!isMobileMenuOpen}
-          >
-            <nav className="flex flex-col p-4 gap-4 text-sm font-bold uppercase tracking-wider">
-              <Link href="/" className="py-2 border-b border-border/50">Home</Link>
-              <Link href="/blog" className="py-2 border-b border-border/50">Latest Posts</Link>
-              <Link href="/team" className="py-2 border-b border-border/50">Our Team</Link>
-              <Link href="/about" className="py-2 border-b border-border/50">About</Link>
-              <Link href="/contact" className="py-2 border-b border-border/50">Contact Us</Link>
-              <Button className="w-full mt-4 rounded-none" onClick={scrollToNewsletter}>Subscribe Now</Button>
-            </nav>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Mobile Menu — CSS grid-rows collapse (replaces framer-motion
+          height/opacity animation, incl. the exit transition). The element
+          stays mounted; when closed it is 0-height, transparent, and inert. */}
+      <div
+        id="mobile-nav"
+        className={`md:hidden grid bg-background transition-[grid-template-rows,opacity,visibility] duration-300 ease-out ${
+          isMobileMenuOpen
+            ? "grid-rows-[1fr] opacity-100 visible border-b border-border"
+            : "grid-rows-[0fr] opacity-0 invisible pointer-events-none"
+        }`}
+        aria-hidden={!isMobileMenuOpen}
+        inert={!isMobileMenuOpen || undefined}
+      >
+        <div className="overflow-hidden min-h-0">
+          <nav className="flex flex-col p-4 gap-4 text-sm font-bold uppercase tracking-wider">
+            <Link href="/" className="py-2 border-b border-border/50">Home</Link>
+            <Link href="/blog" className="py-2 border-b border-border/50">Latest Posts</Link>
+            <Link href="/team" className="py-2 border-b border-border/50">Our Team</Link>
+            <Link href="/about" className="py-2 border-b border-border/50">About</Link>
+            <Link href="/contact" className="py-2 border-b border-border/50">Contact Us</Link>
+            <Button className="w-full mt-4 rounded-none" onClick={scrollToNewsletter}>Subscribe Now</Button>
+          </nav>
+        </div>
+      </div>
     </header>
   );
 }

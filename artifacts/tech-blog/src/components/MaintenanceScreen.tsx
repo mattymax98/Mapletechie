@@ -1,5 +1,4 @@
 import { Helmet } from "react-helmet-async";
-import { motion } from "framer-motion";
 import { Wrench, Coffee } from "lucide-react";
 
 /**
@@ -21,25 +20,16 @@ export function MaintenanceScreen({
         <meta name="robots" content="noindex" />
       </Helmet>
 
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-lg text-center"
-      >
+      <div className="w-full max-w-lg text-center animate-fade-in-up">
         <div className="flex items-baseline justify-center gap-2 leading-none mb-10">
           <span className="text-2xl font-bold tracking-tight">
             <span className="text-orange-500">MAPLE</span>TECHIE
           </span>
         </div>
 
-        <motion.div
-          animate={{ rotate: [0, -12, 12, -12, 0] }}
-          transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-          className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-orange-500/10 border border-orange-500/30 mb-8"
-        >
+        <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-orange-500/10 border border-orange-500/30 mb-8 animate-wrench-wiggle">
           <Wrench className="w-9 h-9 text-orange-500" />
-        </motion.div>
+        </div>
 
         <h1 className="font-serif text-3xl sm:text-4xl font-bold tracking-tight mb-4">
           We're tinkering under the hood.
@@ -61,7 +51,7 @@ export function MaintenanceScreen({
           <Coffee className="w-3.5 h-3.5" />
           <span>This page refreshes itself — no need to hit reload.</span>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

@@ -16,7 +16,7 @@ import { ArrowRight, Clock, MessageCircle, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { motion } from "framer-motion";
+import { Reveal } from "@/components/Reveal";
 import { useToast } from "@/hooks/use-toast";
 import { responsiveCoverProps, COVER_SIZES } from "@/lib/responsiveImage";
 import { CategoryChip } from "@/components/CategoryChip";
@@ -349,13 +349,7 @@ export default function Home() {
                   </div>
                 ))
               ) : latestPosts?.map((post, idx) => (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.4, delay: idx * 0.08 }}
-                  key={post.id}
-                >
+                <Reveal key={post.id} delay={idx * 80}>
                   <Link href={`/blog/${post.slug}`} className="group flex flex-col gap-4">
                     <div className="overflow-hidden border border-border aspect-video bg-muted relative">
                       <img loading="lazy" decoding="async"
@@ -378,7 +372,7 @@ export default function Home() {
                       </p>
                     </div>
                   </Link>
-                </motion.div>
+                </Reveal>
               ))}
             </div>
           </div>
