@@ -4,8 +4,10 @@ import { format } from "date-fns";
 import { Clock, Twitter, Linkedin, Instagram, Github, Globe } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Helmet } from "react-helmet-async";
 import { SEO } from "@/components/SEO";
 import { CategoryChip } from "@/components/CategoryChip";
+import { MATTHEW_USERNAME, MATTHEW_PROFILE_LINKS, matthewPersonJsonLd } from "@/lib/personSchema";
 
 interface AuthorProfile {
   id: number;
@@ -105,6 +107,13 @@ export default function AuthorPage() {
         image={`/api/og/author/${encodeURIComponent(author.username)}.png`}
         url={`/author/${author.username}`}
       />
+      {author.username === MATTHEW_USERNAME && (
+        <Helmet>
+          <script type="application/ld+json">
+            {JSON.stringify(matthewPersonJsonLd({ bio: author.bio }))}
+          </script>
+        </Helmet>
+      )}
 
       <div className="bg-card border-b border-border py-16 md:py-20">
         <div className="container mx-auto px-4 md:px-6 max-w-4xl flex flex-col md:flex-row items-start gap-8">
@@ -129,9 +138,26 @@ export default function AuthorPage() {
               {author.displayName}
             </h1>
             {author.bio && (
-              <p className="text-lg text-muted-foreground font-serif leading-relaxed mb-5 max-w-2xl">
+              <p className="text-lg text-muted-foreground font-serif leading-relaxed mb-5 max-w-2xl whitespace-pre-line">
                 {author.bio}
               </p>
+            )}
+            {author.username === MATTHEW_USERNAME && (
+              <div className="flex gap-2 flex-wrap mb-5">
+                {MATTHEW_PROFILE_LINKS.map((l) => (
+                  <Button
+                    key={l.url}
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="rounded-none border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors uppercase tracking-wider text-xs font-bold"
+                  >
+                    <a href={l.url} target="_blank" rel="me noopener noreferrer">
+                      {l.label}
+                    </a>
+                  </Button>
+                ))}
+              </div>
             )}
             {socials.length > 0 && (
               <div className="flex gap-2 flex-wrap">

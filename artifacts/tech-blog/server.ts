@@ -4,6 +4,7 @@ import path from "node:path";
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { responsiveCoverProps, COVER_SIZES } from "./src/lib/responsiveImage";
+import { MATTHEW_USERNAME, MATTHEW_PROFILE_LINKS, matthewPersonJsonLd } from "./src/lib/personSchema";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -980,17 +981,35 @@ app.get(/^\/author\/([^/]+)\/?$/, async (req, res, next) => {
     fetchJson<PostSummary[]>(`${API_BASE}/api/authors/${author.id}/posts`),
   ]);
 
+  // Person structured data + visible reference links for the founder profile.
+  let seoFinal = seo;
+  let profileLinksHtml = "";
+  if (author.username === MATTHEW_USERNAME) {
+    const jsonLd = matthewPersonJsonLd({ bio: author.bio, siteUrl: SITE_URL });
+    // JSON.stringify escapes quotes; additionally escape `<` so the JSON body
+    // cannot prematurely close the surrounding <script> tag.
+    const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
+    seoFinal = seo.replace(
+      "<!-- SEO_HEAD_END -->",
+      `    <script type="application/ld+json">${jsonLdSafe}</script>\n    <!-- SEO_HEAD_END -->`,
+    );
+    profileLinksHtml = `<ul>${MATTHEW_PROFILE_LINKS.map(
+      (l) => `<li><a href="${htmlEscape(l.url)}" rel="me noopener">${htmlEscape(l.label)}</a></li>`,
+    ).join("")}</ul>`;
+  }
+
   const body = `
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>${htmlEscape(displayName)}</h1>
   ${author.bio ? `<p>${htmlEscape(author.bio)}</p>` : ""}
+  ${profileLinksHtml}
   <h2>Articles by ${htmlEscape(displayName)}</h2>
   ${renderPostList(posts ?? [], SITE_URL)}
 </main>`;
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Vary", "User-Agent");
   res.setHeader("Cache-Control", "public, max-age=600, s-maxage=600");
-  res.send(renderHtml(seo, body));
+  res.send(renderHtml(seoFinal, body));
 });
 
 app.get(/^\/tag\/([^/]+)\/?$/, async (req, res, next) => {
