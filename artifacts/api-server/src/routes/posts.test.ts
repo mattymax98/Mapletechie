@@ -171,8 +171,8 @@ describe("POST /posts — external image persistence", () => {
     });
 
     expect(status).toBe(201);
-    expect(persistExternalImage).toHaveBeenCalledWith("https://images.unsplash.com/photo-1.jpg");
-    expect(persistExternalImage).toHaveBeenCalledWith("https://images.unsplash.com/og-2.jpg");
+    expect(persistExternalImage).toHaveBeenCalledWith("https://images.unsplash.com/photo-1.jpg", expect.objectContaining({ uploaderId: 1 }));
+    expect(persistExternalImage).toHaveBeenCalledWith("https://images.unsplash.com/og-2.jpg", expect.objectContaining({ uploaderId: 1 }));
     expect(String(captured.insertValues?.coverImage)).toMatch(/^\/api\/storage\/objects\//);
     expect(String(captured.insertValues?.ogImage)).toMatch(/^\/api\/storage\/objects\//);
   });
@@ -206,7 +206,7 @@ describe("PUT /posts/:id — external image persistence", () => {
     });
 
     expect(status).toBe(200);
-    expect(persistExternalImage).toHaveBeenCalledWith("https://cdn.example.com/new-cover.png");
+    expect(persistExternalImage).toHaveBeenCalledWith("https://cdn.example.com/new-cover.png", expect.objectContaining({ uploaderId: 1 }));
     expect(String(captured.updateSet?.coverImage)).toMatch(/^\/api\/storage\/objects\//);
   });
 

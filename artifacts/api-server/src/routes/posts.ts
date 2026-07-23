@@ -186,11 +186,12 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
 
   // Pull externally-hosted cover/OG images onto our own object storage so the
   // published site never depends on a third-party image host (best-effort).
+  const persistCtx = { uploaderId: user?.id ?? null, uploaderName: user?.displayName ?? null };
   if (isExternalImageUrl(body.coverImage)) {
-    body.coverImage = await persistExternalImage(body.coverImage);
+    body.coverImage = await persistExternalImage(body.coverImage, persistCtx);
   }
   if (isExternalImageUrl(body.ogImage)) {
-    body.ogImage = await persistExternalImage(body.ogImage);
+    body.ogImage = await persistExternalImage(body.ogImage, persistCtx);
   }
 
   let status: string;
@@ -231,7 +232,7 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     excerpt: typeof body.excerpt === "string" && body.excerpt.trim() ? body.excerpt.trim() : "",
     // Sanitize first, then pull externally-hosted body images onto our own
     // storage (best-effort — failures keep the original URL, never block).
-    content: await persistExternalImagesInHtml(cleanHtml(body.content)),
+    content: await persistExternalImagesInHtml(cleanHtml(body.content), persistCtx),
     coverImage: body.coverImage ?? null,
     categoryId: resolvedCategory.id,
     tags: Array.isArray(body.tags) ? body.tags : [],
@@ -400,6 +401,7 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     res.status(403).json({ error: "You can only edit your own posts" });
     return;
   }
+  const persistCtx = { uploaderId: user?.id ?? null, uploaderName: user?.displayName ?? null };
 
   const body = req.body ?? {};
   const allowed = [
@@ -434,7 +436,7 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     if (!(k in body)) continue;
     if (k === "content") {
       // Sanitize first, then re-host external body images (best-effort).
-      update[k] = await persistExternalImagesInHtml(cleanHtml(body[k]));
+      update[k] = await persistExternalImagesInHtml(cleanHtml(body[k]), persistCtx);
     } else if (k === "seoTitle" || k === "seoDescription" || k === "verdict") {
       update[k] = cleanText(body[k]);
     } else if (k === "rating") {
@@ -468,7 +470,7 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
         return;
       }
       update[k] = isExternalImageUrl(body[k])
-        ? await persistExternalImage(body[k])
+        ? await persistExternalImage(body[k], persistCtx)
         : body[k];
     } else {
       update[k] = body[k];

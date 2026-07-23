@@ -1,8 +1,15 @@
 import sharp from "sharp";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+import { db, mediaTable } from "@workspace/db";
 import { ObjectStorageService } from "./objectStorage";
 import { logger } from "./logger";
+
+/** Who triggered the re-host, for Media-library attribution. */
+export interface PersistContext {
+  uploaderId?: number | null;
+  uploaderName?: string | null;
+}
 
 const objectStorageService = new ObjectStorageService();
 
@@ -101,7 +108,10 @@ export function isExternalImageUrl(cover: unknown): cover is string {
  * untouched. Best-effort per image: any failure keeps the original URL, and
  * duplicate URLs are only fetched once. Never throws.
  */
-export async function persistExternalImagesInHtml(html: string): Promise<string> {
+export async function persistExternalImagesInHtml(
+  html: string,
+  ctx?: PersistContext,
+): Promise<string> {
   if (!html || !html.includes("<img")) return html;
   try {
     const srcRe = /(<img\b[^>]*\bsrc=")([^"]+)(")/gi;
@@ -114,7 +124,7 @@ export async function persistExternalImagesInHtml(html: string): Promise<string>
 
     const replacements = new Map<string, string>();
     for (const url of externals) {
-      const persisted = await persistExternalImage(url);
+      const persisted = await persistExternalImage(url, ctx);
       if (persisted !== url) replacements.set(url, persisted);
     }
     if (replacements.size === 0) return html;
@@ -130,7 +140,54 @@ export async function persistExternalImagesInHtml(html: string): Promise<string>
   }
 }
 
-export async function persistExternalImage(url: string): Promise<string> {
+/**
+ * Derive a readable Media-library filename from the source URL's basename,
+ * normalized to the .webp extension we re-encode to.
+ */
+function mediaFilenameFromUrl(url: string): string {
+  let base = "";
+  try {
+    const segments = new URL(url).pathname.split("/").filter(Boolean);
+    base = decodeURIComponent(segments[segments.length - 1] ?? "");
+  } catch {
+    /* fall through to default */
+  }
+  base = base
+    .replace(/\.[a-z0-9]{2,5}$/i, "") // drop original extension
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120);
+  return `${base || "external-image"}.webp`;
+}
+
+/**
+ * Best-effort: register a freshly re-hosted image in the Media library so
+ * editors can see, reuse, and manage the copy. Skips silently if a row for
+ * the same serving URL already exists (dedupes re-saves of the same post).
+ */
+async function registerInMediaLibrary(
+  servingPath: string,
+  sourceUrl: string,
+  bytes: number,
+  ctx?: PersistContext,
+): Promise<void> {
+  try {
+    // media.url is UNIQUE — onConflictDoNothing makes dedupe race-safe.
+    await db.insert(mediaTable).values({
+      url: servingPath,
+      filename: mediaFilenameFromUrl(sourceUrl),
+      mimeType: "image/webp",
+      size: bytes,
+      source: sourceUrl.slice(0, 2000),
+      uploaderId: ctx?.uploaderId ?? null,
+      uploaderName: ctx?.uploaderName ?? null,
+    }).onConflictDoNothing({ target: mediaTable.url });
+  } catch (err) {
+    logger.warn({ err, servingPath }, "persistExternalImage: media-library registration failed");
+  }
+}
+
+export async function persistExternalImage(url: string, ctx?: PersistContext): Promise<string> {
   try {
     let hostname: string;
     try {
@@ -191,7 +248,9 @@ export async function persistExternalImage(url: string): Promise<string> {
 
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
     logger.info({ url, objectPath }, "persistExternalImage: stored external cover locally");
-    return `/api/storage${objectPath}`;
+    const servingPath = `/api/storage${objectPath}`;
+    await registerInMediaLibrary(servingPath, url, webp.byteLength, ctx);
+    return servingPath;
   } catch (err) {
     logger.warn({ err, url }, "persistExternalImage: failed, keeping original URL");
     return url;

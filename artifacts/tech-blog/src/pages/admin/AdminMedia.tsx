@@ -15,6 +15,7 @@ interface MediaItem {
   mimeType?: string | null;
   size?: number | null;
   uploaderName?: string | null;
+  source?: string | null;
   createdAt: string;
 }
 
@@ -155,6 +156,19 @@ export default function AdminMedia() {
                   <p className="text-[11px] text-zinc-500">
                     {item.uploaderName || "Unknown"} · {format(new Date(item.createdAt), "MMM d")}
                   </p>
+                  {item.source && (
+                    <p className="text-[11px] text-zinc-600 truncate" title={item.source}>
+                      saved from{" "}
+                      <a
+                        href={item.source}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline hover:text-orange-400"
+                      >
+                        {(() => { try { return new URL(item.source).hostname; } catch { return item.source; } })()}
+                      </a>
+                    </p>
+                  )}
                   <div className="flex gap-1 pt-1">
                     <Button size="sm" variant="ghost" onClick={() => copyUrl(item.url)} className="h-7 px-2 text-zinc-400 hover:text-orange-400 gap-1 text-xs flex-1">
                       <Copy className="w-3 h-3" /> URL

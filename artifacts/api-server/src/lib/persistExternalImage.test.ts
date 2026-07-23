@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Silence the pino logger during tests.
+vi.mock("@workspace/db", () => ({
+  db: {
+    insert: () => ({ values: () => ({ onConflictDoNothing: async () => undefined }) }),
+  },
+  mediaTable: {},
+}));
+
 vi.mock("./logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
