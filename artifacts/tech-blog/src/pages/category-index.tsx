@@ -50,6 +50,17 @@ export default function CategoryIndex() {
       {/* Category Header */}
       <div className="bg-card border-b border-border py-16 md:py-24 text-center">
         <div className="container mx-auto px-4">
+          {/* Visible breadcrumb matching the BreadcrumbList JSON-LD above */}
+          <nav
+            className="flex items-center justify-center gap-2 text-xs uppercase tracking-widest font-bold text-muted-foreground mb-6"
+            aria-label="Breadcrumb"
+          >
+            <Link href="/" className="hover:text-primary">Home</Link>
+            <span>/</span>
+            <Link href="/blog" className="hover:text-primary">Blog</Link>
+            <span>/</span>
+            <span className="text-foreground">{category?.name || slug.replace(/-/g, " ")}</span>
+          </nav>
           <h1 className="text-5xl md:text-7xl font-black uppercase tracking-tighter mb-4">
             {category?.name || slug.replace('-', ' ')}
           </h1>
