@@ -57,7 +57,7 @@ function isHttpUrl(url: string): boolean {
  * Editors sometimes save bare domains ("mapletechie.com"); prepend https://
  * when the value looks like a hostname, otherwise skip it entirely.
  */
-function normalizeHttpUrl(raw: string | null | undefined): string | null {
+export function normalizeHttpUrl(raw: string | null | undefined): string | null {
   const trimmed = raw?.trim();
   if (!trimmed) return null;
   const candidate = isHttpUrl(trimmed) ? trimmed : `https://${trimmed}`;
