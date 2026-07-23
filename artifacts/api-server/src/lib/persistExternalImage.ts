@@ -94,6 +94,42 @@ export function isExternalImageUrl(cover: unknown): cover is string {
  * non-image response, ...), the original URL is returned and a warning is
  * logged. Post creation/update must never be blocked by this.
  */
+/**
+ * Rewrite sanitized article HTML so every <img src="..."> pointing at an
+ * external host is downloaded, re-encoded, and served from our own storage.
+ * Local/relative paths, our own domain, and already-persisted storage URLs are
+ * untouched. Best-effort per image: any failure keeps the original URL, and
+ * duplicate URLs are only fetched once. Never throws.
+ */
+export async function persistExternalImagesInHtml(html: string): Promise<string> {
+  if (!html || !html.includes("<img")) return html;
+  try {
+    const srcRe = /(<img\b[^>]*\bsrc=")([^"]+)(")/gi;
+    const externals = new Set<string>();
+    for (const m of html.matchAll(srcRe)) {
+      const src = m[2].replace(/&amp;/g, "&");
+      if (isExternalImageUrl(src)) externals.add(src);
+    }
+    if (externals.size === 0) return html;
+
+    const replacements = new Map<string, string>();
+    for (const url of externals) {
+      const persisted = await persistExternalImage(url);
+      if (persisted !== url) replacements.set(url, persisted);
+    }
+    if (replacements.size === 0) return html;
+
+    return html.replace(srcRe, (full, pre: string, src: string, post: string) => {
+      const decoded = src.replace(/&amp;/g, "&");
+      const persisted = replacements.get(decoded);
+      return persisted ? `${pre}${persisted}${post}` : full;
+    });
+  } catch (err) {
+    logger.warn({ err }, "persistExternalImagesInHtml: failed, keeping original HTML");
+    return html;
+  }
+}
+
 export async function persistExternalImage(url: string): Promise<string> {
   try {
     let hostname: string;
@@ -112,7 +148,12 @@ export async function persistExternalImage(url: string): Promise<string> {
     const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
     let resp: Response;
     try {
-      resp = await fetch(url, { signal: ctrl.signal, redirect: "follow" });
+      resp = await fetch(url, {
+        signal: ctrl.signal,
+        redirect: "follow",
+        // Some hosts (e.g. Wikimedia) reject requests without a UA.
+        headers: { "User-Agent": "MapletechieBot/1.0 (+https://mapletechie.com)" },
+      });
     } finally {
       clearTimeout(timer);
     }

@@ -10,7 +10,7 @@ import {
 import { adminAuth, requireRole } from "../middlewares/adminAuth";
 import { writeAuditLog } from "../lib/audit";
 import { validateCoverImage } from "../lib/coverImageValidation";
-import { isExternalImageUrl, persistExternalImage } from "../lib/persistExternalImage";
+import { isExternalImageUrl, persistExternalImage, persistExternalImagesInHtml } from "../lib/persistExternalImage";
 import sanitizeHtml from "sanitize-html";
 
 const router = Router();
@@ -229,7 +229,9 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     title: String(body.title).trim(),
     slug: String(body.slug).trim(),
     excerpt: typeof body.excerpt === "string" && body.excerpt.trim() ? body.excerpt.trim() : "",
-    content: cleanHtml(body.content),
+    // Sanitize first, then pull externally-hosted body images onto our own
+    // storage (best-effort — failures keep the original URL, never block).
+    content: await persistExternalImagesInHtml(cleanHtml(body.content)),
     coverImage: body.coverImage ?? null,
     categoryId: resolvedCategory.id,
     tags: Array.isArray(body.tags) ? body.tags : [],
@@ -431,7 +433,8 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
   for (const k of allowed) {
     if (!(k in body)) continue;
     if (k === "content") {
-      update[k] = cleanHtml(body[k]);
+      // Sanitize first, then re-host external body images (best-effort).
+      update[k] = await persistExternalImagesInHtml(cleanHtml(body[k]));
     } else if (k === "seoTitle" || k === "seoDescription" || k === "verdict") {
       update[k] = cleanText(body[k]);
     } else if (k === "rating") {
