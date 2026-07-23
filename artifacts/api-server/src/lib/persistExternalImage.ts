@@ -15,7 +15,10 @@ const objectStorageService = new ObjectStorageService();
 
 const MAX_BYTES = 25 * 1024 * 1024; // refuse absurdly large remote files
 const FETCH_TIMEOUT_MS = 15_000;
-const MAX_WIDTH = 1600;
+// Keep enough resolution for a full-width article cover on retina displays
+// (~1152 CSS px × 2 DPR). The on-demand resizer still serves phones small
+// variants, so a large stored master costs nothing on mobile.
+const MAX_WIDTH = 2400;
 
 /**
  * SSRF guard: returns true if `ip` falls inside a private, loopback,
@@ -232,7 +235,9 @@ export async function persistExternalImage(url: string, ctx?: PersistContext): P
     const webp = await sharp(Buffer.from(arrayBuf))
       .rotate()
       .resize({ width: MAX_WIDTH, withoutEnlargement: true })
-      .webp({ quality: 80 })
+      // High quality for the stored master — every derived variant re-encodes
+      // from this file, so generation loss here is baked into everything.
+      .webp({ quality: 90, smartSubsample: true })
       .toBuffer();
 
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();

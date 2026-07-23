@@ -37,7 +37,9 @@ router.get("/storage/img/:width/objects/*path", async (req: Request, res: Respon
     const transformer = sharp()
       .rotate() // honour EXIF orientation
       .resize({ width, withoutEnlargement: true, fit: "inside" })
-      .webp({ quality: 88 });
+      // quality 92 + smartSubsample keeps fine detail/text edges crisp; the
+      // size increase vs q88 is modest and variants are immutable-cached.
+      .webp({ quality: 92, smartSubsample: true });
 
     res.setHeader("Content-Type", "image/webp");
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
