@@ -9,6 +9,7 @@ import { SEO } from "@/components/SEO";
 import { CategoryChip } from "@/components/CategoryChip";
 import {
   buildPersonJsonLd,
+  normalizeHttpUrl,
   visibleProfileLinks,
   type AuthorRichProfile,
 } from "@/lib/personSchema";
@@ -95,13 +96,15 @@ export default function AuthorPage() {
     );
   }
 
+  // Same normalization/validation as the JSON-LD path (socialProfileUrls):
+  // bare domains get https:// prepended, malformed values are dropped.
   const socials = [
-    { url: author.twitterUrl, Icon: Twitter, title: "Twitter / X" },
-    { url: author.linkedinUrl, Icon: Linkedin, title: "LinkedIn" },
-    { url: author.instagramUrl, Icon: Instagram, title: "Instagram" },
-    { url: author.githubUrl, Icon: Github, title: "GitHub" },
-    { url: author.websiteUrl, Icon: Globe, title: "Website" },
-  ].filter((l) => !!l.url && l.url.trim() !== "");
+    { url: normalizeHttpUrl(author.twitterUrl), Icon: Twitter, title: "Twitter / X" },
+    { url: normalizeHttpUrl(author.linkedinUrl), Icon: Linkedin, title: "LinkedIn" },
+    { url: normalizeHttpUrl(author.instagramUrl), Icon: Instagram, title: "Instagram" },
+    { url: normalizeHttpUrl(author.githubUrl), Icon: Github, title: "GitHub" },
+    { url: normalizeHttpUrl(author.websiteUrl), Icon: Globe, title: "Website" },
+  ].filter((l): l is typeof l & { url: string } => l.url !== null);
 
   const personJsonLd = buildPersonJsonLd(author);
   const profileLinks = visibleProfileLinks(author);
@@ -175,7 +178,7 @@ export default function AuthorPage() {
                     className="rounded-none border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
                     title={`${author.displayName} on ${title}`}
                   >
-                    <a href={url!} target="_blank" rel="noopener noreferrer">
+                    <a href={url} target="_blank" rel="noopener noreferrer">
                       <Icon className="h-4 w-4" />
                     </a>
                   </Button>

@@ -165,3 +165,43 @@ describe("AuthorPage reference-link buttons", () => {
     expect(container.querySelectorAll('a[rel~="me"]')).toHaveLength(0);
   });
 });
+
+describe("AuthorPage social icon row", () => {
+  const socialAuthor: ApiAuthor = {
+    ...plainAuthor,
+    id: 3,
+    username: "sociable",
+    displayName: "Sociable Sam",
+    twitterUrl: "https://x.com/sam", // valid — kept as-is
+    linkedinUrl: "linkedin.com/in/sam", // bare domain — https:// prepended
+    instagramUrl: "javascript:alert(1)", // unsafe scheme — dropped
+    githubUrl: "not a url", // malformed — dropped
+    websiteUrl: "   ", // blank — dropped
+  };
+
+  it("normalizes and validates icon links like socialProfileUrls", async () => {
+    mockApi(socialAuthor);
+    const { findByRole, queryByTitle, getByTitle } = renderAuthorPage("sociable");
+    await findByRole("heading", { name: "Sociable Sam" });
+
+    const twitter = getByTitle("Sociable Sam on Twitter / X");
+    expect(twitter.getAttribute("href")).toBe("https://x.com/sam");
+
+    const linkedin = getByTitle("Sociable Sam on LinkedIn");
+    expect(linkedin.getAttribute("href")).toBe("https://linkedin.com/in/sam");
+
+    expect(queryByTitle("Sociable Sam on Instagram")).toBeNull();
+    expect(queryByTitle("Sociable Sam on GitHub")).toBeNull();
+    expect(queryByTitle("Sociable Sam on Website")).toBeNull();
+  });
+
+  it("renders no icon row when every social field is empty", async () => {
+    mockApi(plainAuthor);
+    const { findByRole, queryByTitle } = renderAuthorPage("plainjoe");
+    await findByRole("heading", { name: "Plain Joe" });
+
+    for (const t of ["Twitter / X", "LinkedIn", "Instagram", "GitHub", "Website"]) {
+      expect(queryByTitle(`Plain Joe on ${t}`)).toBeNull();
+    }
+  });
+});
