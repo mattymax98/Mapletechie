@@ -14,6 +14,7 @@ import {
   buildBreadcrumbJsonLd,
   buildCategoryBreadcrumbJsonLd,
   buildAuthorBreadcrumbJsonLd,
+  buildTrailBreadcrumbJsonLd,
 } from "./src/lib/articleSchema";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1064,6 +1065,19 @@ app.get(/^\/tag\/([^/]+)\/?$/, async (req, res, next) => {
     type: "website",
   });
 
+  // BreadcrumbList (Home > Blog > #tag) — emitted server-side so Google
+  // gets the trail without rendering JS; the SPA emits the same schema.
+  const breadcrumbLd = buildTrailBreadcrumbJsonLd([
+    { name: "Home", item: SITE_URL },
+    { name: "Blog", item: `${SITE_URL}/blog` },
+    { name: `#${tag}`, item: `${SITE_URL}/tag/${encodeURIComponent(tag)}` },
+  ]);
+  const breadcrumbSafe = JSON.stringify(breadcrumbLd).replace(/</g, "\\u003c");
+  const seoWithJsonLd = seo.replace(
+    "<!-- SEO_HEAD_END -->",
+    `    <script type="application/ld+json">${breadcrumbSafe}</script>\n    <!-- SEO_HEAD_END -->`,
+  );
+
   const body = `
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>#${htmlEscape(tag)}</h1>
@@ -1073,7 +1087,7 @@ app.get(/^\/tag\/([^/]+)\/?$/, async (req, res, next) => {
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Vary", "User-Agent");
   res.setHeader("Cache-Control", "public, max-age=600, s-maxage=600");
-  res.send(renderHtml(seo, body));
+  res.send(renderHtml(seoWithJsonLd, body));
 });
 
 interface SeriesRecord {
@@ -1108,6 +1122,23 @@ app.get(/^\/series\/([^/]+)\/?$/, async (req, res, next) => {
     url: `${SITE_URL}/series/${s.slug}`,
     type: "website",
   });
+
+  // BreadcrumbList (Home > Blog > Series) — emitted server-side so Google
+  // gets the trail without rendering JS; the SPA emits the same schema.
+  const seriesBreadcrumbLd = buildTrailBreadcrumbJsonLd([
+    { name: "Home", item: SITE_URL },
+    { name: "Blog", item: `${SITE_URL}/blog` },
+    { name: s.title, item: `${SITE_URL}/series/${s.slug}` },
+  ]);
+  const seriesBreadcrumbSafe = JSON.stringify(seriesBreadcrumbLd).replace(
+    /</g,
+    "\\u003c",
+  );
+  const seoWithJsonLd = seo.replace(
+    "<!-- SEO_HEAD_END -->",
+    `    <script type="application/ld+json">${seriesBreadcrumbSafe}</script>\n    <!-- SEO_HEAD_END -->`,
+  );
+
   const body = `
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>${htmlEscape(s.title)}</h1>
@@ -1118,7 +1149,7 @@ app.get(/^\/series\/([^/]+)\/?$/, async (req, res, next) => {
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Vary", "User-Agent");
   res.setHeader("Cache-Control", "public, max-age=600, s-maxage=600");
-  res.send(renderHtml(seo, body));
+  res.send(renderHtml(seoWithJsonLd, body));
 });
 
 // /search is intentionally excluded from crawler prerendering — the client
