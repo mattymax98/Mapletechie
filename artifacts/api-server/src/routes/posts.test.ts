@@ -102,7 +102,11 @@ vi.mock("../lib/coverImageValidation", () => ({ validateCoverImage: () => null }
 const persistExternalImage = vi.fn(async (url: string) => `/api/storage/objects/persisted-${url.length}`);
 vi.mock("../lib/persistExternalImage", async (importActual) => {
   const actual = await importActual<typeof import("../lib/persistExternalImage")>();
-  return { isExternalImageUrl: actual.isExternalImageUrl, persistExternalImage };
+  return {
+    isExternalImageUrl: actual.isExternalImageUrl,
+    persistExternalImage,
+    persistExternalImagesInHtml: actual.persistExternalImagesInHtml,
+  };
 });
 
 // --- Build an app mounting the real posts router --------------------------

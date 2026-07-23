@@ -44,7 +44,7 @@ function imageGetResponse(): Response {
 }
 
 // Import after mocks are registered.
-const { isExternalImageUrl, persistExternalImage } = await import("./persistExternalImage");
+const { isExternalImageUrl, persistExternalImage, persistExternalImagesInHtml } = await import("./persistExternalImage");
 
 describe("isExternalImageUrl", () => {
   it("returns true for external http(s) URLs", () => {
@@ -201,5 +201,80 @@ describe("persistExternalImage — success", () => {
     expect((putCall?.[1] as { headers?: Record<string, string> })?.headers?.["Content-Type"]).toBe(
       "image/webp",
     );
+  });
+});
+
+describe("persistExternalImagesInHtml", () => {
+  beforeEach(() => {
+    lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+    getObjectEntityUploadURL.mockResolvedValue(
+      "https://storage.googleapis.com/bucket/.private/uploads/abc-123",
+    );
+    normalizeObjectEntityPath.mockReturnValue("/objects/abc-123");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  function successfulFetch() {
+    return vi.fn(async (_input: unknown, init?: { method?: string }) => {
+      if (init?.method === "PUT") {
+        return { ok: true, status: 200, headers: { get: () => null } } as unknown as Response;
+      }
+      return imageGetResponse();
+    });
+  }
+
+  it("rewrites external img srcs to local storage paths", async () => {
+    vi.stubGlobal("fetch", successfulFetch());
+    const html = `<p>hi</p><img src="https://example.com/a.png" alt="a">`;
+    const out = await persistExternalImagesInHtml(html);
+    expect(out).toContain(`src="/api/storage/objects/abc-123"`);
+    expect(out).not.toContain("example.com");
+    expect(out).toContain("<p>hi</p>");
+  });
+
+  it("leaves local, storage, and own-domain srcs untouched and skips fetching them", async () => {
+    const fetchSpy = successfulFetch();
+    vi.stubGlobal("fetch", fetchSpy);
+    const html =
+      `<img src="/covers/a.webp"><img src="/api/storage/objects/xyz">` +
+      `<img src="https://mapletechie.com/covers/b.webp">`;
+    const out = await persistExternalImagesInHtml(html);
+    expect(out).toBe(html);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("fetches duplicate external URLs only once", async () => {
+    const fetchSpy = successfulFetch();
+    vi.stubGlobal("fetch", fetchSpy);
+    const html = `<img src="https://example.com/a.png"><img src="https://example.com/a.png">`;
+    const out = await persistExternalImagesInHtml(html);
+    // one GET + one PUT, not two of each
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(out.match(/\/api\/storage\/objects\/abc-123/g)).toHaveLength(2);
+  });
+
+  it("keeps the original URL when persistence fails (non-fatal)", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new Error("network down");
+    }));
+    const html = `<img src="https://example.com/a.png"><img src="/covers/local.webp">`;
+    const out = await persistExternalImagesInHtml(html);
+    expect(out).toBe(html);
+  });
+
+  it("handles entity-encoded ampersands in src attributes", async () => {
+    vi.stubGlobal("fetch", successfulFetch());
+    const html = `<img src="https://example.com/a.png?w=100&amp;h=50">`;
+    const out = await persistExternalImagesInHtml(html);
+    expect(out).toContain(`src="/api/storage/objects/abc-123"`);
+  });
+
+  it("returns HTML unchanged when there are no images", async () => {
+    const html = "<p>no images here</p>";
+    await expect(persistExternalImagesInHtml(html)).resolves.toBe(html);
   });
 });
