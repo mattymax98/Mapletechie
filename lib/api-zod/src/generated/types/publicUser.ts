@@ -26,5 +26,6 @@ export interface PublicUser {
   canManageEditors?: boolean;
   canSendEmail?: boolean;
   canManageCategories?: boolean;
+  canEditOthersPosts?: boolean;
   isActive: boolean;
 }

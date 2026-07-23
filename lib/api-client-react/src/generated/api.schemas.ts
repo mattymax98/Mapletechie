@@ -178,6 +178,7 @@ export interface PublicUser {
   canManageEditors?: boolean;
   canSendEmail?: boolean;
   canManageCategories?: boolean;
+  canEditOthersPosts?: boolean;
   isActive: boolean;
 }
 
@@ -207,6 +208,7 @@ export interface NewUserInput {
   canManageEditors?: boolean;
   canSendEmail?: boolean;
   canManageCategories?: boolean;
+  canEditOthersPosts?: boolean;
 }
 
 export interface ProfileOrganization {
@@ -256,6 +258,7 @@ export type UpdateUserInput = RichProfileFields & {
   canManageEditors?: boolean;
   canSendEmail?: boolean;
   canManageCategories?: boolean;
+  canEditOthersPosts?: boolean;
   isActive?: boolean;
 };
 

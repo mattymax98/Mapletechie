@@ -31,6 +31,7 @@ let insertReturn: unknown[] = [];
 
 const db = {
   select: vi.fn(() => makeSelectChain(selectQueue)),
+  delete: vi.fn(() => ({ where: vi.fn(async () => undefined) })),
   insert: vi.fn(() => ({
     values: vi.fn((v: Record<string, unknown>) => {
       captured.insertValues = v;
@@ -79,16 +80,20 @@ vi.mock("@workspace/api-zod", () => ({
   GetLatestPostsQueryParams: { safeParse: () => ({ success: true, data: {} }) },
 }));
 
-// Inject an admin user; bypass real session lookup.
+// Inject a configurable user; bypass real session lookup. Tests can swap
+// `currentUser` to simulate editors with/without permissions.
+const ADMIN_USER = {
+  id: 1,
+  role: "admin",
+  displayName: "Matthew",
+  avatarUrl: null,
+  canPublishDirectly: true,
+  canEditOthersPosts: false,
+};
+let currentUser: Record<string, unknown> = { ...ADMIN_USER };
 vi.mock("../middlewares/adminAuth", () => ({
   adminAuth: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
-    req.user = {
-      id: 1,
-      role: "admin",
-      displayName: "Matthew",
-      avatarUrl: null,
-      canPublishDirectly: true,
-    } as unknown as express.Request["user"];
+    req.user = currentUser as unknown as express.Request["user"];
     next();
   },
   requireRole: () => (_req: unknown, _res: unknown, next: () => void) => next(),
@@ -124,7 +129,7 @@ function makeApp() {
 import { createServer } from "node:http";
 async function request(
   app: express.Express,
-  method: "POST" | "PUT",
+  method: "POST" | "PUT" | "DELETE",
   path: string,
   body: unknown,
 ): Promise<{ status: number; json: any }> {
@@ -136,7 +141,7 @@ async function request(
     const resp = await fetch(`http://127.0.0.1:${port}${path}`, {
       method,
       headers: { "Content-Type": "application/json", Authorization: "Bearer test" },
-      body: JSON.stringify(body),
+      body: method === "DELETE" ? undefined : JSON.stringify(body),
     });
     const json = await resp.json().catch(() => null);
     return { status: resp.status, json };
@@ -149,6 +154,7 @@ const CATEGORY_ROW = { id: 7, name: "AI", slug: "ai", postCount: 0 };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  currentUser = { ...ADMIN_USER };
   selectQueue = [];
   insertReturn = [];
   captured.insertValues = undefined;
@@ -221,5 +227,86 @@ describe("PUT /posts/:id — external image persistence", () => {
     expect(status).toBe(200);
     expect(persistExternalImage).not.toHaveBeenCalled();
     expect(captured.updateSet?.coverImage).toBe("/covers/keep.webp");
+  });
+});
+
+// --- Ownership / canEditOthersPosts permission ----------------------------
+
+const auditMock = (await import("../lib/audit")).writeAuditLog as ReturnType<typeof vi.fn>;
+
+describe("PUT /posts/:id — ownership & canEditOthersPosts", () => {
+  const colleaguePost = { id: 42, authorId: 9, categoryId: 7, title: "Colleague's", status: "published" };
+
+  it("rejects an editor without the permission editing a colleague's post", async () => {
+    currentUser = { id: 2, role: "editor", displayName: "Ed", canPublishDirectly: true, canEditOthersPosts: false };
+    selectQueue = [[colleaguePost]];
+
+    const { status, json } = await request(makeApp(), "PUT", "/posts/42", { title: "Hijacked" });
+
+    expect(status).toBe(403);
+    expect(json.error).toMatch(/own posts/i);
+    expect(captured.updateSet).toBeUndefined();
+  });
+
+  it("allows a trusted editor (canEditOthersPosts) to update a colleague's post and audits their identity", async () => {
+    currentUser = { id: 2, role: "editor", displayName: "Trusted Ed", canPublishDirectly: true, canEditOthersPosts: true };
+    selectQueue = [[colleaguePost], [{ ...colleaguePost, title: "Fixed" }], [{ ...colleaguePost, title: "Fixed" }]];
+
+    const { status } = await request(makeApp(), "PUT", "/posts/42", { title: "Fixed" });
+
+    expect(status).toBe(200);
+    expect(captured.updateSet?.title).toBe("Fixed");
+    // Byline is untouched: no author fields in the update (only admins may change them).
+    expect(captured.updateSet).not.toHaveProperty("author");
+    expect(captured.updateSet).not.toHaveProperty("authorId");
+    // Audit log is written from the trusted editor's request identity.
+    expect(auditMock).toHaveBeenCalledWith(
+      expect.objectContaining({ user: expect.objectContaining({ id: 2 }) }),
+      expect.objectContaining({ action: "post.update" }),
+    );
+  });
+
+  it("still lets an editor update their own post without the permission", async () => {
+    currentUser = { id: 9, role: "editor", displayName: "Owner", canPublishDirectly: true, canEditOthersPosts: false };
+    selectQueue = [[colleaguePost], [{ ...colleaguePost }], [{ ...colleaguePost }]];
+
+    const { status } = await request(makeApp(), "PUT", "/posts/42", { title: "Mine" });
+
+    expect(status).toBe(200);
+  });
+});
+
+describe("DELETE /posts/:id — stays owner/admin only", () => {
+  const colleaguePost = { id: 42, authorId: 9, title: "Colleague's" };
+
+  it("rejects deleting a colleague's post even with canEditOthersPosts", async () => {
+    currentUser = { id: 2, role: "editor", displayName: "Trusted Ed", canEditOthersPosts: true };
+    selectQueue = [[colleaguePost]];
+
+    const { status, json } = await request(makeApp(), "DELETE", "/posts/42", undefined);
+
+    expect(status).toBe(403);
+    expect(json.error).toMatch(/own posts/i);
+    expect(db.delete).not.toHaveBeenCalled();
+  });
+
+  it("rejects deleting a colleague's post without the permission", async () => {
+    currentUser = { id: 2, role: "editor", displayName: "Ed", canEditOthersPosts: false };
+    selectQueue = [[colleaguePost]];
+
+    const { status } = await request(makeApp(), "DELETE", "/posts/42", undefined);
+
+    expect(status).toBe(403);
+    expect(db.delete).not.toHaveBeenCalled();
+  });
+
+  it("allows the owner to delete their own post", async () => {
+    currentUser = { id: 9, role: "editor", displayName: "Owner", canEditOthersPosts: false };
+    selectQueue = [[colleaguePost]];
+
+    const { status } = await request(makeApp(), "DELETE", "/posts/42", undefined);
+
+    expect(status).toBe(204);
+    expect(db.delete).toHaveBeenCalled();
   });
 });

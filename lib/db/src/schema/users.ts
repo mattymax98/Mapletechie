@@ -50,6 +50,7 @@ export const usersTable = pgTable("users", {
   canManageEditors: boolean("can_manage_editors").notNull().default(false),
   canSendEmail: boolean("can_send_email").notNull().default(false),
   canManageCategories: boolean("can_manage_categories").notNull().default(false),
+  canEditOthersPosts: boolean("can_edit_others_posts").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

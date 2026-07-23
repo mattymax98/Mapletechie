@@ -570,7 +570,7 @@ paths:
     get:
       operationId: listAdminPosts
       tags: [admin]
-      summary: List posts visible to current user (own for editors, all for admin)
+      summary: List posts visible to current user (own for editors; all for admins and editors who can edit others' posts)
       responses:
         "200":
           description: Posts
@@ -1700,6 +1700,8 @@ components:
           type: boolean
         canManageCategories:
           type: boolean
+        canEditOthersPosts:
+          type: boolean
         isActive:
           type: boolean
       required:
@@ -1764,6 +1766,8 @@ components:
         canSendEmail:
           type: boolean
         canManageCategories:
+          type: boolean
+        canEditOthersPosts:
           type: boolean
       required:
         - username
@@ -1885,6 +1889,8 @@ components:
         canSendEmail:
           type: boolean
         canManageCategories:
+          type: boolean
+        canEditOthersPosts:
           type: boolean
         isActive:
           type: boolean

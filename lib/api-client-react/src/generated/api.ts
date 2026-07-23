@@ -2498,7 +2498,7 @@ export const useDeleteUser = <
 };
 
 /**
- * @summary List posts visible to current user (own for editors, all for admin)
+ * @summary List posts visible to current user (own for editors; all for admins and editors who can edit others' posts)
  */
 export const getListAdminPostsUrl = () => {
   return `/api/admin/posts`;
@@ -2549,7 +2549,7 @@ export type ListAdminPostsQueryResult = NonNullable<
 export type ListAdminPostsQueryError = ErrorType<unknown>;
 
 /**
- * @summary List posts visible to current user (own for editors, all for admin)
+ * @summary List posts visible to current user (own for editors; all for admins and editors who can edit others' posts)
  */
 
 export function useListAdminPosts<
