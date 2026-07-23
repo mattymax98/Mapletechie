@@ -90,6 +90,33 @@ const AUTHOR = {
   username: "matthew",
   displayName: "Matthew Mbaka",
   bio: "Founding editor of Mapletechie, covering AI and Canadian tech.",
+  // Structured profile fields (drive the Person JSON-LD).
+  alternateName: "Matthew Mbaka Ogbu",
+  jobTitle: "Founder & Editor, Mapletechie",
+  locationCity: "Thunder Bay",
+  locationRegion: "ON",
+  locationCountry: "CA",
+  education: ["Abia State University", "Lakehead University"],
+  knowsAbout: ["Technology Journalism", "Road Safety"],
+  organizations: [
+    { name: "Mapletechie", url: "https://mapletechie.com" },
+    { name: "TownZest", url: "https://townzest.ca" },
+  ],
+  memberships: [
+    { name: "Canadian Youth Road Safety Council", parentOrganization: "Parachute" },
+  ],
+  profileLinks: [
+    { label: "TownZest", url: "https://townzest.ca" },
+    { label: "Canadian Youth Road Safety Council", url: "https://example.com/council" },
+  ],
+};
+
+/** An author with no structured profile fields — must get no Person JSON-LD. */
+const PLAIN_AUTHOR = {
+  id: 8,
+  username: "plainjane",
+  displayName: "Jane Plain",
+  bio: "Writes about gadgets.",
 };
 
 const TAG = "ai";
@@ -149,6 +176,7 @@ function startMockApi(
   });
   api.get("/api/authors/by-username/:username", (req, res) => {
     if (req.params.username === AUTHOR.username) return res.json(AUTHOR);
+    if (req.params.username === PLAIN_AUTHOR.username) return res.json(PLAIN_AUTHOR);
     res.status(404).json({ error: "not found" });
   });
   api.get("/api/authors/:id/posts", (req, res) => {
@@ -523,6 +551,16 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(status).toBe(404);
       expect(body).toContain('<div id="root">');
       expect(body).not.toContain("Founding editor of Mapletechie");
+    });
+
+    it("emits no Person JSON-LD for an author without structured profile fields", async () => {
+      const { status, body } = await get(`/author/${PLAIN_AUTHOR.username}`, GOOGLEBOT_UA);
+      expect(status).toBe(200);
+      expect(body).toContain(`<h1>${PLAIN_AUTHOR.displayName}</h1>`);
+      const scripts = [...body.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/gs)];
+      for (const [, json] of scripts) {
+        expect(JSON.parse(json)["@type"]).not.toBe("Person");
+      }
     });
 
     it("emits Person JSON-LD with alternateName and profile links for the founder", async () => {

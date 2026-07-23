@@ -30,6 +30,16 @@ router.get("/authors/by-username/:username", async (req, res): Promise<void> => 
     instagramUrl: user.instagramUrl,
     githubUrl: user.githubUrl,
     websiteUrl: user.websiteUrl,
+    alternateName: user.alternateName,
+    jobTitle: user.jobTitle,
+    locationCity: user.locationCity,
+    locationRegion: user.locationRegion,
+    locationCountry: user.locationCountry,
+    education: user.education,
+    knowsAbout: user.knowsAbout,
+    organizations: user.organizations,
+    memberships: user.memberships,
+    profileLinks: user.profileLinks,
   });
 });
 

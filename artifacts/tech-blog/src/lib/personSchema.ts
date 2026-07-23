@@ -1,61 +1,111 @@
 /**
- * Person structured data (JSON-LD) for founder/editor profile pages.
+ * Person structured data (JSON-LD) for author profile pages.
  *
- * Currently only Matthew's author page carries a Person schema — the facts
- * below (alternate name, education, organizations, memberships) are not
- * stored in the users table, so they live here as a single source shared by
- * the crawler prerender server (server.ts) and the SPA author page.
+ * Built from the structured profile fields each editor fills in on their
+ * admin Profile page (alternate name, job title, location, education,
+ * organizations, memberships, reference links). Shared by the crawler
+ * prerender server (server.ts) and the SPA author page so both emit the
+ * same schema.
  */
 
-export const MATTHEW_USERNAME = "matthew";
+export interface AuthorRichProfile {
+  username: string;
+  displayName?: string | null;
+  bio?: string | null;
+  alternateName?: string | null;
+  jobTitle?: string | null;
+  locationCity?: string | null;
+  locationRegion?: string | null;
+  locationCountry?: string | null;
+  education?: string[] | null;
+  knowsAbout?: string[] | null;
+  organizations?: { name: string; url?: string }[] | null;
+  memberships?: { name: string; parentOrganization?: string }[] | null;
+  profileLinks?: { label: string; url: string }[] | null;
+}
 
-/** Public links that back up the schema's claims, also rendered visibly. */
-export const MATTHEW_PROFILE_LINKS = [
-  { label: "TownZest", url: "https://townzest.ca" },
-  {
-    label: "Canadian Youth Road Safety Council",
-    url: "https://www.linkedin.com/posts/cyrsw2025-ourfutureroads-share-7385038629305454592-O87s",
-  },
-] as const;
+/** True when the author filled in at least one structured profile field. */
+export function hasRichProfile(a: AuthorRichProfile): boolean {
+  return Boolean(
+    a.alternateName ||
+      a.jobTitle ||
+      a.locationCity ||
+      a.locationRegion ||
+      a.locationCountry ||
+      a.education?.length ||
+      a.knowsAbout?.length ||
+      a.organizations?.length ||
+      a.memberships?.length ||
+      a.profileLinks?.length,
+  );
+}
 
-export function matthewPersonJsonLd(opts: { bio?: string | null; siteUrl?: string } = {}) {
+/** Only ever link to http(s) URLs (the API validates too; belt and braces). */
+function isHttpUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url);
+}
+
+/** Public reference links to render visibly on the author page. */
+export function visibleProfileLinks(a: AuthorRichProfile): { label: string; url: string }[] {
+  return (a.profileLinks ?? []).filter((l) => l.label && l.url && isHttpUrl(l.url));
+}
+
+/**
+ * Builds a schema.org Person object from an author's profile fields.
+ * Returns null when the author has no structured fields filled in.
+ */
+export function buildPersonJsonLd(
+  author: AuthorRichProfile,
+  opts: { siteUrl?: string } = {},
+): Record<string, unknown> | null {
+  if (!hasRichProfile(author)) return null;
   const siteUrl = (opts.siteUrl || "https://mapletechie.com").replace(/\/+$/, "");
-  const bio = opts.bio?.trim();
+  const bio = author.bio?.trim();
+
+  const address =
+    author.locationCity || author.locationRegion || author.locationCountry
+      ? {
+          "@type": "PostalAddress",
+          ...(author.locationCity ? { addressLocality: author.locationCity } : {}),
+          ...(author.locationRegion ? { addressRegion: author.locationRegion } : {}),
+          ...(author.locationCountry ? { addressCountry: author.locationCountry } : {}),
+        }
+      : null;
+
+  const alumniOf = (author.education ?? []).map((name) => ({
+    "@type": "EducationalOrganization",
+    name,
+  }));
+
+  const worksFor = (author.organizations ?? []).map((o) => ({
+    "@type": "Organization",
+    name: o.name,
+    ...(o.url && isHttpUrl(o.url) ? { url: o.url } : {}),
+  }));
+
+  const memberOf = (author.memberships ?? []).map((m) => ({
+    "@type": "Organization",
+    name: m.name,
+    ...(m.parentOrganization
+      ? { parentOrganization: { "@type": "Organization", name: m.parentOrganization } }
+      : {}),
+  }));
+
+  const sameAs = visibleProfileLinks(author).map((l) => l.url);
+
   return {
     "@context": "https://schema.org",
     "@type": "Person",
-    name: "Matthew Mbaka",
-    alternateName: "Matthew Mbaka Ogbu",
-    jobTitle: "Founder & Editor, Mapletechie",
-    url: `${siteUrl}/author/${MATTHEW_USERNAME}`,
+    name: author.displayName || author.username,
+    ...(author.alternateName ? { alternateName: author.alternateName } : {}),
+    ...(author.jobTitle ? { jobTitle: author.jobTitle } : {}),
+    url: `${siteUrl}/author/${encodeURIComponent(author.username)}`,
     ...(bio ? { description: bio } : {}),
-    address: {
-      "@type": "PostalAddress",
-      addressLocality: "Thunder Bay",
-      addressRegion: "ON",
-      addressCountry: "CA",
-    },
-    alumniOf: [
-      { "@type": "EducationalOrganization", name: "Abia State University" },
-      { "@type": "EducationalOrganization", name: "Lakehead University" },
-    ],
-    knowsAbout: [
-      "Electrical and Electronics Engineering",
-      "Web Design",
-      "Technology Journalism",
-      "Social Work",
-      "Road Safety",
-    ],
-    worksFor: [
-      { "@type": "Organization", name: "Mapletechie", url: siteUrl },
-      { "@type": "Organization", name: "TownZest", url: "https://townzest.ca" },
-    ],
-    memberOf: {
-      "@type": "Organization",
-      name: "Canadian Youth Road Safety Council",
-      parentOrganization: { "@type": "Organization", name: "Parachute" },
-    },
-    affiliation: { "@type": "Organization", name: "Canadian Red Cross" },
-    sameAs: MATTHEW_PROFILE_LINKS.map((l) => l.url),
+    ...(address ? { address } : {}),
+    ...(alumniOf.length ? { alumniOf: alumniOf.length === 1 ? alumniOf[0] : alumniOf } : {}),
+    ...(author.knowsAbout?.length ? { knowsAbout: author.knowsAbout } : {}),
+    ...(worksFor.length ? { worksFor: worksFor.length === 1 ? worksFor[0] : worksFor } : {}),
+    ...(memberOf.length ? { memberOf: memberOf.length === 1 ? memberOf[0] : memberOf } : {}),
+    ...(sameAs.length ? { sameAs } : {}),
   };
 }

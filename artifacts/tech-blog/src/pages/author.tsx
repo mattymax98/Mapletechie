@@ -7,9 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Helmet } from "react-helmet-async";
 import { SEO } from "@/components/SEO";
 import { CategoryChip } from "@/components/CategoryChip";
-import { MATTHEW_USERNAME, MATTHEW_PROFILE_LINKS, matthewPersonJsonLd } from "@/lib/personSchema";
+import {
+  buildPersonJsonLd,
+  visibleProfileLinks,
+  type AuthorRichProfile,
+} from "@/lib/personSchema";
 
-interface AuthorProfile {
+interface AuthorProfile extends AuthorRichProfile {
   id: number;
   username: string;
   displayName: string;
@@ -99,6 +103,9 @@ export default function AuthorPage() {
     { url: author.websiteUrl, Icon: Globe, title: "Website" },
   ].filter((l) => !!l.url && l.url.trim() !== "");
 
+  const personJsonLd = buildPersonJsonLd(author);
+  const profileLinks = visibleProfileLinks(author);
+
   return (
     <div className="w-full">
       <SEO
@@ -107,11 +114,9 @@ export default function AuthorPage() {
         image={`/api/og/author/${encodeURIComponent(author.username)}.png`}
         url={`/author/${author.username}`}
       />
-      {author.username === MATTHEW_USERNAME && (
+      {personJsonLd && (
         <Helmet>
-          <script type="application/ld+json">
-            {JSON.stringify(matthewPersonJsonLd({ bio: author.bio }))}
-          </script>
+          <script type="application/ld+json">{JSON.stringify(personJsonLd)}</script>
         </Helmet>
       )}
 
@@ -142,9 +147,9 @@ export default function AuthorPage() {
                 {author.bio}
               </p>
             )}
-            {author.username === MATTHEW_USERNAME && (
+            {profileLinks.length > 0 && (
               <div className="flex gap-2 flex-wrap mb-5">
-                {MATTHEW_PROFILE_LINKS.map((l) => (
+                {profileLinks.map((l) => (
                   <Button
                     key={l.url}
                     asChild

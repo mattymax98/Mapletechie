@@ -4,7 +4,11 @@ import path from "node:path";
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { responsiveCoverProps, COVER_SIZES } from "./src/lib/responsiveImage";
-import { MATTHEW_USERNAME, MATTHEW_PROFILE_LINKS, matthewPersonJsonLd } from "./src/lib/personSchema";
+import {
+  buildPersonJsonLd,
+  visibleProfileLinks,
+  type AuthorRichProfile,
+} from "./src/lib/personSchema";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -947,7 +951,7 @@ app.get(/^\/careers\/([^/]+)\/?$/, async (req, res, next) => {
   res.send(renderHtml(seoWithJsonLd, body));
 });
 
-interface AuthorRecord {
+interface AuthorRecord extends AuthorRichProfile {
   id: number;
   username: string;
   displayName: string | null;
@@ -981,11 +985,12 @@ app.get(/^\/author\/([^/]+)\/?$/, async (req, res, next) => {
     fetchJson<PostSummary[]>(`${API_BASE}/api/authors/${author.id}/posts`),
   ]);
 
-  // Person structured data + visible reference links for the founder profile.
+  // Person structured data + visible reference links, generated from the
+  // structured profile fields the editor filled in (if any).
   let seoFinal = seo;
   let profileLinksHtml = "";
-  if (author.username === MATTHEW_USERNAME) {
-    const jsonLd = matthewPersonJsonLd({ bio: author.bio, siteUrl: SITE_URL });
+  const jsonLd = buildPersonJsonLd(author, { siteUrl: SITE_URL });
+  if (jsonLd) {
     // JSON.stringify escapes quotes; additionally escape `<` so the JSON body
     // cannot prematurely close the surrounding <script> tag.
     const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
@@ -993,9 +998,15 @@ app.get(/^\/author\/([^/]+)\/?$/, async (req, res, next) => {
       "<!-- SEO_HEAD_END -->",
       `    <script type="application/ld+json">${jsonLdSafe}</script>\n    <!-- SEO_HEAD_END -->`,
     );
-    profileLinksHtml = `<ul>${MATTHEW_PROFILE_LINKS.map(
-      (l) => `<li><a href="${htmlEscape(l.url)}" rel="me noopener">${htmlEscape(l.label)}</a></li>`,
-    ).join("")}</ul>`;
+  }
+  const links = visibleProfileLinks(author);
+  if (links.length) {
+    profileLinksHtml = `<ul>${links
+      .map(
+        (l) =>
+          `<li><a href="${htmlEscape(l.url)}" rel="me noopener">${htmlEscape(l.label)}</a></li>`,
+      )
+      .join("")}</ul>`;
   }
 
   const body = `

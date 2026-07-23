@@ -11,6 +11,7 @@ import {
 import { adminAuth, requirePermission } from "../middlewares/adminAuth";
 import { writeAuditLog, writeAuditLogForUser } from "../lib/audit";
 import { loginLimiter } from "../middlewares/rateLimit";
+import { sanitizeRichProfile, RichProfileError } from "../lib/richProfile";
 
 const router = Router();
 
@@ -95,6 +96,16 @@ router.put("/admin/me", adminAuth, async (req, res): Promise<void> => {
   const update: Partial<User> = {};
   for (const k of allowed) {
     if (k in req.body) (update as Record<string, unknown>)[k] = req.body[k];
+  }
+
+  try {
+    Object.assign(update, sanitizeRichProfile(req.body));
+  } catch (err) {
+    if (err instanceof RichProfileError) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    throw err;
   }
 
   if (typeof req.body.password === "string" && req.body.password.length >= 6) {
@@ -246,6 +257,15 @@ router.put("/admin/users/:id", adminAuth, requirePermission("editors"), async (r
   const update: Partial<User> = {};
   for (const k of baseAllowed) {
     if (k in req.body) (update as Record<string, unknown>)[k] = req.body[k];
+  }
+  try {
+    Object.assign(update, sanitizeRichProfile(req.body));
+  } catch (err) {
+    if (err instanceof RichProfileError) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    throw err;
   }
   if (callerIsAdmin) {
     for (const k of adminOnly) {

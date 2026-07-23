@@ -5,8 +5,9 @@
  * API specification for Tech Blog
  * OpenAPI spec version: 0.1.0
  */
+import type { RichProfileFields } from "./richProfileFields";
 
-export interface UpdateMeInput {
+export type UpdateMeInput = RichProfileFields & {
   password?: string;
   displayName?: string;
   email?: string;
@@ -17,4 +18,4 @@ export interface UpdateMeInput {
   instagramUrl?: string;
   githubUrl?: string;
   websiteUrl?: string;
-}
+};

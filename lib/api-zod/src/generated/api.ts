@@ -596,18 +596,54 @@ export const GetCurrentUserResponse = zod.object({
 /**
  * @summary Update the current user's own profile
  */
-export const UpdateCurrentUserBody = zod.object({
-  password: zod.string().optional(),
-  displayName: zod.string().optional(),
-  email: zod.string().optional(),
-  bio: zod.string().optional(),
-  avatarUrl: zod.string().optional(),
-  twitterUrl: zod.string().optional(),
-  linkedinUrl: zod.string().optional(),
-  instagramUrl: zod.string().optional(),
-  githubUrl: zod.string().optional(),
-  websiteUrl: zod.string().optional(),
-});
+export const UpdateCurrentUserBody = zod
+  .object({
+    alternateName: zod.string().nullish(),
+    jobTitle: zod.string().nullish(),
+    locationCity: zod.string().nullish(),
+    locationRegion: zod.string().nullish(),
+    locationCountry: zod.string().nullish(),
+    education: zod.array(zod.string()).nullish(),
+    knowsAbout: zod.array(zod.string()).nullish(),
+    organizations: zod
+      .array(
+        zod.object({
+          name: zod.string(),
+          url: zod.string().optional(),
+        }),
+      )
+      .nullish(),
+    memberships: zod
+      .array(
+        zod.object({
+          name: zod.string(),
+          parentOrganization: zod.string().optional(),
+        }),
+      )
+      .nullish(),
+    profileLinks: zod
+      .array(
+        zod.object({
+          label: zod.string(),
+          url: zod.string(),
+        }),
+      )
+      .nullish(),
+  })
+  .and(
+    zod.object({
+      password: zod.string().optional(),
+      displayName: zod.string().optional(),
+      email: zod.string().optional(),
+      bio: zod.string().optional(),
+      avatarUrl: zod.string().optional(),
+      twitterUrl: zod.string().optional(),
+      linkedinUrl: zod.string().optional(),
+      instagramUrl: zod.string().optional(),
+      githubUrl: zod.string().optional(),
+      websiteUrl: zod.string().optional(),
+    }),
+  );
 
 export const UpdateCurrentUserResponse = zod.object({
   id: zod.number(),
@@ -691,27 +727,63 @@ export const UpdateUserParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const UpdateUserBody = zod.object({
-  password: zod.string().optional(),
-  displayName: zod.string().optional(),
-  email: zod.string().optional(),
-  bio: zod.string().optional(),
-  avatarUrl: zod.string().optional(),
-  twitterUrl: zod.string().optional(),
-  linkedinUrl: zod.string().optional(),
-  instagramUrl: zod.string().optional(),
-  githubUrl: zod.string().optional(),
-  websiteUrl: zod.string().optional(),
-  role: zod.string().optional(),
-  canPublishDirectly: zod.boolean().optional(),
-  canManageShop: zod.boolean().optional(),
-  canManageJobs: zod.boolean().optional(),
-  canViewInbox: zod.boolean().optional(),
-  canManageEditors: zod.boolean().optional(),
-  canSendEmail: zod.boolean().optional(),
-  canManageCategories: zod.boolean().optional(),
-  isActive: zod.boolean().optional(),
-});
+export const UpdateUserBody = zod
+  .object({
+    alternateName: zod.string().nullish(),
+    jobTitle: zod.string().nullish(),
+    locationCity: zod.string().nullish(),
+    locationRegion: zod.string().nullish(),
+    locationCountry: zod.string().nullish(),
+    education: zod.array(zod.string()).nullish(),
+    knowsAbout: zod.array(zod.string()).nullish(),
+    organizations: zod
+      .array(
+        zod.object({
+          name: zod.string(),
+          url: zod.string().optional(),
+        }),
+      )
+      .nullish(),
+    memberships: zod
+      .array(
+        zod.object({
+          name: zod.string(),
+          parentOrganization: zod.string().optional(),
+        }),
+      )
+      .nullish(),
+    profileLinks: zod
+      .array(
+        zod.object({
+          label: zod.string(),
+          url: zod.string(),
+        }),
+      )
+      .nullish(),
+  })
+  .and(
+    zod.object({
+      password: zod.string().optional(),
+      displayName: zod.string().optional(),
+      email: zod.string().optional(),
+      bio: zod.string().optional(),
+      avatarUrl: zod.string().optional(),
+      twitterUrl: zod.string().optional(),
+      linkedinUrl: zod.string().optional(),
+      instagramUrl: zod.string().optional(),
+      githubUrl: zod.string().optional(),
+      websiteUrl: zod.string().optional(),
+      role: zod.string().optional(),
+      canPublishDirectly: zod.boolean().optional(),
+      canManageShop: zod.boolean().optional(),
+      canManageJobs: zod.boolean().optional(),
+      canViewInbox: zod.boolean().optional(),
+      canManageEditors: zod.boolean().optional(),
+      canSendEmail: zod.boolean().optional(),
+      canManageCategories: zod.boolean().optional(),
+      isActive: zod.boolean().optional(),
+    }),
+  );
 
 export const UpdateUserResponse = zod.object({
   id: zod.number(),
@@ -805,38 +877,110 @@ export const GetAuthorParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const GetAuthorResponse = zod.object({
-  id: zod.number(),
-  username: zod.string().optional(),
-  displayName: zod.string(),
-  role: zod.string().optional(),
-  postCount: zod.number().optional(),
-  bio: zod.string().optional(),
-  avatarUrl: zod.string().optional(),
-  twitterUrl: zod.string().optional(),
-  linkedinUrl: zod.string().optional(),
-  instagramUrl: zod.string().optional(),
-  githubUrl: zod.string().optional(),
-  websiteUrl: zod.string().optional(),
-});
+export const GetAuthorResponse = zod
+  .object({
+    alternateName: zod.string().nullish(),
+    jobTitle: zod.string().nullish(),
+    locationCity: zod.string().nullish(),
+    locationRegion: zod.string().nullish(),
+    locationCountry: zod.string().nullish(),
+    education: zod.array(zod.string()).nullish(),
+    knowsAbout: zod.array(zod.string()).nullish(),
+    organizations: zod
+      .array(
+        zod.object({
+          name: zod.string(),
+          url: zod.string().optional(),
+        }),
+      )
+      .nullish(),
+    memberships: zod
+      .array(
+        zod.object({
+          name: zod.string(),
+          parentOrganization: zod.string().optional(),
+        }),
+      )
+      .nullish(),
+    profileLinks: zod
+      .array(
+        zod.object({
+          label: zod.string(),
+          url: zod.string(),
+        }),
+      )
+      .nullish(),
+  })
+  .and(
+    zod.object({
+      id: zod.number(),
+      username: zod.string().optional(),
+      displayName: zod.string(),
+      role: zod.string().optional(),
+      postCount: zod.number().optional(),
+      bio: zod.string().optional(),
+      avatarUrl: zod.string().optional(),
+      twitterUrl: zod.string().optional(),
+      linkedinUrl: zod.string().optional(),
+      instagramUrl: zod.string().optional(),
+      githubUrl: zod.string().optional(),
+      websiteUrl: zod.string().optional(),
+    }),
+  );
 
 /**
  * @summary List all active editors (public)
  */
-export const ListEditorsResponseItem = zod.object({
-  id: zod.number(),
-  username: zod.string().optional(),
-  displayName: zod.string(),
-  role: zod.string().optional(),
-  postCount: zod.number().optional(),
-  bio: zod.string().optional(),
-  avatarUrl: zod.string().optional(),
-  twitterUrl: zod.string().optional(),
-  linkedinUrl: zod.string().optional(),
-  instagramUrl: zod.string().optional(),
-  githubUrl: zod.string().optional(),
-  websiteUrl: zod.string().optional(),
-});
+export const ListEditorsResponseItem = zod
+  .object({
+    alternateName: zod.string().nullish(),
+    jobTitle: zod.string().nullish(),
+    locationCity: zod.string().nullish(),
+    locationRegion: zod.string().nullish(),
+    locationCountry: zod.string().nullish(),
+    education: zod.array(zod.string()).nullish(),
+    knowsAbout: zod.array(zod.string()).nullish(),
+    organizations: zod
+      .array(
+        zod.object({
+          name: zod.string(),
+          url: zod.string().optional(),
+        }),
+      )
+      .nullish(),
+    memberships: zod
+      .array(
+        zod.object({
+          name: zod.string(),
+          parentOrganization: zod.string().optional(),
+        }),
+      )
+      .nullish(),
+    profileLinks: zod
+      .array(
+        zod.object({
+          label: zod.string(),
+          url: zod.string(),
+        }),
+      )
+      .nullish(),
+  })
+  .and(
+    zod.object({
+      id: zod.number(),
+      username: zod.string().optional(),
+      displayName: zod.string(),
+      role: zod.string().optional(),
+      postCount: zod.number().optional(),
+      bio: zod.string().optional(),
+      avatarUrl: zod.string().optional(),
+      twitterUrl: zod.string().optional(),
+      linkedinUrl: zod.string().optional(),
+      instagramUrl: zod.string().optional(),
+      githubUrl: zod.string().optional(),
+      websiteUrl: zod.string().optional(),
+    }),
+  );
 export const ListEditorsResponse = zod.array(ListEditorsResponseItem);
 
 /**
@@ -978,20 +1122,56 @@ export const AdminSendOneOffEmailResponse = zod.object({
 /**
  * @summary Get the founding/featured editor (public)
  */
-export const GetFeaturedEditorResponse = zod.object({
-  id: zod.number(),
-  username: zod.string().optional(),
-  displayName: zod.string(),
-  role: zod.string().optional(),
-  postCount: zod.number().optional(),
-  bio: zod.string().optional(),
-  avatarUrl: zod.string().optional(),
-  twitterUrl: zod.string().optional(),
-  linkedinUrl: zod.string().optional(),
-  instagramUrl: zod.string().optional(),
-  githubUrl: zod.string().optional(),
-  websiteUrl: zod.string().optional(),
-});
+export const GetFeaturedEditorResponse = zod
+  .object({
+    alternateName: zod.string().nullish(),
+    jobTitle: zod.string().nullish(),
+    locationCity: zod.string().nullish(),
+    locationRegion: zod.string().nullish(),
+    locationCountry: zod.string().nullish(),
+    education: zod.array(zod.string()).nullish(),
+    knowsAbout: zod.array(zod.string()).nullish(),
+    organizations: zod
+      .array(
+        zod.object({
+          name: zod.string(),
+          url: zod.string().optional(),
+        }),
+      )
+      .nullish(),
+    memberships: zod
+      .array(
+        zod.object({
+          name: zod.string(),
+          parentOrganization: zod.string().optional(),
+        }),
+      )
+      .nullish(),
+    profileLinks: zod
+      .array(
+        zod.object({
+          label: zod.string(),
+          url: zod.string(),
+        }),
+      )
+      .nullish(),
+  })
+  .and(
+    zod.object({
+      id: zod.number(),
+      username: zod.string().optional(),
+      displayName: zod.string(),
+      role: zod.string().optional(),
+      postCount: zod.number().optional(),
+      bio: zod.string().optional(),
+      avatarUrl: zod.string().optional(),
+      twitterUrl: zod.string().optional(),
+      linkedinUrl: zod.string().optional(),
+      instagramUrl: zod.string().optional(),
+      githubUrl: zod.string().optional(),
+      websiteUrl: zod.string().optional(),
+    }),
+  );
 
 /**
  * @summary Request a presigned URL for file upload

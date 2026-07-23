@@ -209,7 +209,35 @@ export interface NewUserInput {
   canManageCategories?: boolean;
 }
 
-export interface UpdateUserInput {
+export interface ProfileOrganization {
+  name: string;
+  url?: string;
+}
+
+export interface ProfileMembership {
+  name: string;
+  parentOrganization?: string;
+}
+
+export interface ProfileLink {
+  label: string;
+  url: string;
+}
+
+export interface RichProfileFields {
+  alternateName?: string | null;
+  jobTitle?: string | null;
+  locationCity?: string | null;
+  locationRegion?: string | null;
+  locationCountry?: string | null;
+  education?: string[] | null;
+  knowsAbout?: string[] | null;
+  organizations?: ProfileOrganization[] | null;
+  memberships?: ProfileMembership[] | null;
+  profileLinks?: ProfileLink[] | null;
+}
+
+export type UpdateUserInput = RichProfileFields & {
   password?: string;
   displayName?: string;
   email?: string;
@@ -229,9 +257,9 @@ export interface UpdateUserInput {
   canSendEmail?: boolean;
   canManageCategories?: boolean;
   isActive?: boolean;
-}
+};
 
-export interface UpdateMeInput {
+export type UpdateMeInput = RichProfileFields & {
   password?: string;
   displayName?: string;
   email?: string;
@@ -242,9 +270,9 @@ export interface UpdateMeInput {
   instagramUrl?: string;
   githubUrl?: string;
   websiteUrl?: string;
-}
+};
 
-export interface AuthorProfile {
+export type AuthorProfile = RichProfileFields & {
   id: number;
   username?: string;
   displayName: string;
@@ -257,7 +285,7 @@ export interface AuthorProfile {
   instagramUrl?: string;
   githubUrl?: string;
   websiteUrl?: string;
-}
+};
 
 export interface NewsletterSubscribeBody {
   email: string;
