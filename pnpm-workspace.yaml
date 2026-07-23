@@ -62,7 +62,7 @@ catalog:
   tailwind-merge: ^3.3.1
   tailwindcss: ^4.1.14
   tsx: ^4.21.0
-  vite: ^7.3.2
+  vite: ^7.3.5
   zod: ^3.25.76
 
 autoInstallPeers: false
@@ -156,4 +156,31 @@ overrides:
   "@expo/ngrok-bin>@expo/ngrok-bin-win32-x64": "-"
   # drizzle-kit uses esbuild internally on an older version that's vulnerable, this overrides it
   "@esbuild-kit/esm-loader": "npm:tsx@^4.21.0"
-  esbuild: "0.27.3"
+  esbuild: "^0.28.1"
+
+  # ============================================================================
+  # SECURITY: Transitive dependency overrides to fix CVEs
+  # ============================================================================
+  brace-expansion: "^2.1.2"
+  yaml: "^2.8.3"
+  path-to-regexp: "^8.4.0"
+  lodash: "^4.18.1"
+  postcss: "^8.5.10"
+  fast-uri: "^3.1.4"
+  ip-address: "^10.1.1"
+  fast-xml-builder: "^1.1.7"
+  "@tootallnate/once": "^2.0.1"
+  uuid: ">=11.1.1"
+  qs: "^6.15.2"
+  form-data: "^2.5.6"
+  markdown-it: "^14.2.0"
+  linkify-it: "^5.0.2"
+  js-yaml: "^4.3.0"
+  "@babel/core": "^7.29.6"
+  body-parser: "^2.3.0"
+  # picomatch: path-specific overrides because v2 and v4 are in use simultaneously
+  "micromatch>picomatch": "^2.3.2"
+  "vitest>picomatch": "^4.0.4"
+  "vite>picomatch": "^4.0.4"
+  # vitest bundles its own vite; override it to the patched version
+  "vitest>vite": "^7.3.5"
