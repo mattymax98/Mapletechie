@@ -24,6 +24,15 @@ describe("sanitizeRichProfile", () => {
     ).toThrow(RichProfileError);
   });
 
+  it("normalizes bare-domain URLs to https", () => {
+    expect(
+      sanitizeRichProfile({ profileLinks: [{ label: "LI", url: "linkedin.com/in/jane" }] }).profileLinks,
+    ).toEqual([{ label: "LI", url: "https://linkedin.com/in/jane" }]);
+    expect(
+      sanitizeRichProfile({ organizations: [{ name: "Acme", url: "www.acme.ca" }] }).organizations,
+    ).toEqual([{ name: "Acme", url: "https://www.acme.ca" }]);
+  });
+
   it("drops org extra keys and optional empty urls", () => {
     const u = sanitizeRichProfile({
       organizations: [{ name: " Acme ", url: "", __proto__: { hacked: true }, evil: 1 }],
