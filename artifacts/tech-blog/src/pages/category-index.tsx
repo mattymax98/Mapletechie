@@ -6,6 +6,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { SEO } from "@/components/SEO";
+import { Helmet } from "react-helmet-async";
+import { buildCategoryBreadcrumbJsonLd } from "@/lib/articleSchema";
 import NotFound from "@/pages/not-found";
 import { responsiveCoverProps, COVER_SIZES } from "@/lib/responsiveImage";
 
@@ -36,6 +38,15 @@ export default function CategoryIndex() {
         image={`/api/og/category/${encodeURIComponent(slug)}.png`}
         url={`/category/${slug}`}
       />
+      {/* BreadcrumbList (Home > Blog > Category) — same schema the crawler
+          prerender emits server-side, so Google sees an identical trail. */}
+      {category && (
+        <Helmet>
+          <script type="application/ld+json">
+            {JSON.stringify(buildCategoryBreadcrumbJsonLd(category))}
+          </script>
+        </Helmet>
+      )}
       {/* Category Header */}
       <div className="bg-card border-b border-border py-16 md:py-24 text-center">
         <div className="container mx-auto px-4">

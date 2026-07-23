@@ -13,6 +13,7 @@ import {
   visibleProfileLinks,
   type AuthorRichProfile,
 } from "@/lib/personSchema";
+import { buildAuthorBreadcrumbJsonLd } from "@/lib/articleSchema";
 
 interface AuthorProfile extends AuthorRichProfile {
   id: number;
@@ -122,6 +123,13 @@ export default function AuthorPage() {
           <script type="application/ld+json">{JSON.stringify(personJsonLd)}</script>
         </Helmet>
       )}
+      {/* BreadcrumbList (Home > Authors > Name) — same schema the crawler
+          prerender emits server-side, so Google sees an identical trail. */}
+      <Helmet>
+        <script type="application/ld+json">
+          {JSON.stringify(buildAuthorBreadcrumbJsonLd(author))}
+        </script>
+      </Helmet>
 
       <div className="bg-card border-b border-border py-16 md:py-20">
         <div className="container mx-auto px-4 md:px-6 max-w-4xl flex flex-col md:flex-row items-start gap-8">
