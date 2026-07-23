@@ -778,6 +778,20 @@ export const ListAdminPostsResponseItem = zod.object({
 export const ListAdminPostsResponse = zod.array(ListAdminPostsResponseItem);
 
 /**
+ * @summary Move a set of posts to another category in one call (editors limited to own posts)
+ */
+export const bulkReassignPostsBodyPostIdsMax = 200;
+
+export const BulkReassignPostsBody = zod.object({
+  postIds: zod.array(zod.number()).min(1).max(bulkReassignPostsBodyPostIdsMax),
+  category: zod.string().describe("Destination category slug, name, or id"),
+});
+
+export const BulkReassignPostsResponse = zod.object({
+  movedCount: zod.number(),
+});
+
+/**
  * @summary Get a public author profile by id
  */
 export const GetAuthorParams = zod.object({

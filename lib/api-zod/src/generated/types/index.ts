@@ -18,6 +18,8 @@ export * from "./applicationBody";
 export * from "./applicationReplyBody";
 export * from "./auditLog";
 export * from "./authorProfile";
+export * from "./bulkReassignInput";
+export * from "./bulkReassignPosts200";
 export * from "./category";
 export * from "./categoryInput";
 export * from "./categoryReassignInput";

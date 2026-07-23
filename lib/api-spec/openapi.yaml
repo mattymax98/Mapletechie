@@ -581,6 +581,29 @@ paths:
                 items:
                   $ref: "#/components/schemas/Post"
 
+  /admin/posts/bulk-reassign:
+    post:
+      operationId: bulkReassignPosts
+      tags: [admin]
+      summary: Move a set of posts to another category in one call (editors limited to own posts)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkReassignInput"
+      responses:
+        "200":
+          description: Reassignment result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  movedCount:
+                    type: integer
+                required: [movedCount]
+
   /authors/{id}:
     get:
       operationId: getAuthor
@@ -2064,6 +2087,20 @@ components:
         - name
         - slug
         - postCount
+
+    BulkReassignInput:
+      type: object
+      required: [postIds, category]
+      properties:
+        postIds:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            type: integer
+        category:
+          type: string
+          description: Destination category slug, name, or id
 
     CategoryReassignInput:
       type: object
