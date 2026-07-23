@@ -581,6 +581,25 @@ paths:
                 items:
                   $ref: "#/components/schemas/Post"
 
+  /admin/posts/{id}/restore:
+    post:
+      operationId: restorePost
+      tags: [admin]
+      summary: Restore a deleted post from its latest audit-log snapshot (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Restored post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+
   /admin/posts/bulk-reassign:
     post:
       operationId: bulkReassignPosts

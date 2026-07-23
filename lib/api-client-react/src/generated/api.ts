@@ -2573,6 +2573,90 @@ export function useListAdminPosts<
 }
 
 /**
+ * @summary Restore a deleted post from its latest audit-log snapshot (admin only)
+ */
+export const getRestorePostUrl = (id: number) => {
+  return `/api/admin/posts/${id}/restore`;
+};
+
+export const restorePost = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Post> => {
+  return customFetch<Post>(getRestorePostUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRestorePostMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof restorePost>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof restorePost>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["restorePost"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof restorePost>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return restorePost(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RestorePostMutationResult = NonNullable<
+  Awaited<ReturnType<typeof restorePost>>
+>;
+
+export type RestorePostMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Restore a deleted post from its latest audit-log snapshot (admin only)
+ */
+export const useRestorePost = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof restorePost>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof restorePost>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getRestorePostMutationOptions(options));
+};
+
+/**
  * @summary Move a set of posts to another category in one call (editors limited to own posts)
  */
 export const getBulkReassignPostsUrl = () => {

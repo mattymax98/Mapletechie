@@ -778,6 +778,13 @@ export const ListAdminPostsResponseItem = zod.object({
 export const ListAdminPostsResponse = zod.array(ListAdminPostsResponseItem);
 
 /**
+ * @summary Restore a deleted post from its latest audit-log snapshot (admin only)
+ */
+export const RestorePostParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
  * @summary Move a set of posts to another category in one call (editors limited to own posts)
  */
 export const bulkReassignPostsBodyPostIdsMax = 200;
