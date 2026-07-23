@@ -30,7 +30,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SEO } from "@/components/SEO";
 import { AuthorBio } from "@/components/AuthorBio";
 import { CommentsSection } from "@/components/CommentsSection";
-import { applyResponsiveImages, responsiveCoverProps, COVER_SIZES } from "@/lib/responsiveImage";
+import { applyResponsiveImages, makeArticleHtmlResponsive, responsiveCoverProps, COVER_SIZES } from "@/lib/responsiveImage";
 import { SeriesBanner } from "@/components/SeriesBanner";
 import { CategoryChip } from "@/components/CategoryChip";
 
@@ -59,14 +59,21 @@ function PostContent({
       return { id, text };
     });
     onHeadingsExtracted(headings);
+    // Safety net for anything the pre-render pass missed (e.g. content
+    // injected by browser extensions); normally a no-op thanks to the
+    // data-responsive marker.
     applyResponsiveImages(ref.current);
   }, [html, onHeadingsExtracted]);
+
+  // Inject srcset/sizes into the HTML string before first render so the
+  // preload scanner never downloads the full-size original on phones.
+  const responsiveHtml = useMemo(() => makeArticleHtmlResponsive(html), [html]);
 
   return (
     <div
       ref={ref}
       className="prose prose-lg dark:prose-invert max-w-none prose-headings:font-black prose-headings:tracking-tight prose-a:text-primary hover:prose-a:text-primary/80 prose-img:border prose-img:border-border font-serif leading-relaxed prose-headings:scroll-mt-24"
-      dangerouslySetInnerHTML={{ __html: html }}
+      dangerouslySetInnerHTML={{ __html: responsiveHtml }}
     />
   );
 }

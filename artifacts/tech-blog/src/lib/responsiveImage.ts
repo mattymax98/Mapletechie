@@ -94,6 +94,34 @@ export function responsiveCoverProps(
   return { src };
 }
 
+const BODY_IMG_SIZES = "(min-width: 1280px) 1200px, (min-width: 768px) 90vw, 100vw";
+
+/**
+ * Rewrite the article HTML string so every <img> pointing at our object
+ * storage carries srcset/sizes (plus lazy loading) BEFORE first render.
+ * Doing it on the string (instead of mutating the DOM afterwards) means the
+ * browser's preload scanner never kicks off a full-size download first, and
+ * client-side navigations are covered automatically since the transformed
+ * HTML is what gets rendered. External image URLs are left untouched.
+ */
+export function makeArticleHtmlResponsive(html: string): string {
+  if (!html || !html.includes("/api/storage/objects/")) return html;
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  for (const img of Array.from(doc.querySelectorAll<HTMLImageElement>("img"))) {
+    const src = img.getAttribute("src") || "";
+    if (!src.startsWith("/api/storage/objects/")) continue;
+    img.setAttribute(
+      "srcset",
+      VARIANT_WIDTHS.map((w) => `${buildVariantUrl(src, w)} ${w}w`).join(", "),
+    );
+    img.setAttribute("sizes", BODY_IMG_SIZES);
+    img.setAttribute("loading", "lazy");
+    img.setAttribute("decoding", "async");
+    img.dataset.responsive = "1";
+  }
+  return doc.body.innerHTML;
+}
+
 export function applyResponsiveImages(root: HTMLElement | null): void {
   if (!root) return;
   const imgs = Array.from(root.querySelectorAll<HTMLImageElement>("img"));
