@@ -525,6 +525,23 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).not.toContain("Founding editor of Mapletechie");
     });
 
+    it("emits Person JSON-LD with alternateName and profile links for the founder", async () => {
+      const { status, body } = await get(`/author/${AUTHOR.username}`, GOOGLEBOT_UA);
+      expect(status).toBe(200);
+      const m = /<script type="application\/ld\+json">(.*?)<\/script>/s.exec(body);
+      expect(m).toBeTruthy();
+      const jsonLd = JSON.parse(m![1]);
+      expect(jsonLd["@type"]).toBe("Person");
+      expect(jsonLd.name).toBe("Matthew Mbaka");
+      expect(jsonLd.alternateName).toBe("Matthew Mbaka Ogbu");
+      expect(jsonLd.address.addressLocality).toBe("Thunder Bay");
+      expect(jsonLd.memberOf.name).toBe("Canadian Youth Road Safety Council");
+      expect(jsonLd.sameAs).toContain("https://townzest.ca");
+      // Visible links back up the sameAs claims.
+      expect(body).toContain('href="https://townzest.ca"');
+      expect(body).toContain("Canadian Youth Road Safety Council");
+    });
+
     it("returns a noindex 404 to Googlebot for an unknown author", async () => {
       const { status, body } = await get("/author/nobody", GOOGLEBOT_UA);
       expect(status).toBe(404);
