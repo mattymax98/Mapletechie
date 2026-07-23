@@ -27,7 +27,8 @@ export interface AuthorRichProfile {
 /** True when the author filled in at least one structured profile field. */
 export function hasRichProfile(a: AuthorRichProfile): boolean {
   return Boolean(
-    a.alternateName ||
+    a.bio?.trim() ||
+      a.alternateName ||
       a.jobTitle ||
       a.locationCity ||
       a.locationRegion ||
