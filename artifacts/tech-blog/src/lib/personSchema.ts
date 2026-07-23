@@ -22,6 +22,11 @@ export interface AuthorRichProfile {
   organizations?: { name: string; url?: string }[] | null;
   memberships?: { name: string; parentOrganization?: string }[] | null;
   profileLinks?: { label: string; url: string }[] | null;
+  twitterUrl?: string | null;
+  linkedinUrl?: string | null;
+  instagramUrl?: string | null;
+  githubUrl?: string | null;
+  websiteUrl?: string | null;
 }
 
 /** True when the author filled in at least one structured profile field. */
@@ -37,13 +42,40 @@ export function hasRichProfile(a: AuthorRichProfile): boolean {
       a.knowsAbout?.length ||
       a.organizations?.length ||
       a.memberships?.length ||
-      a.profileLinks?.length,
+      a.profileLinks?.length ||
+      socialProfileUrls(a).length,
   );
 }
 
 /** Only ever link to http(s) URLs (the API validates too; belt and braces). */
 function isHttpUrl(url: string): boolean {
   return /^https?:\/\//i.test(url);
+}
+
+/**
+ * Normalize a social/website field to a valid http(s) URL, or null.
+ * Editors sometimes save bare domains ("mapletechie.com"); prepend https://
+ * when the value looks like a hostname, otherwise skip it entirely.
+ */
+function normalizeHttpUrl(raw: string | null | undefined): string | null {
+  const trimmed = raw?.trim();
+  if (!trimmed) return null;
+  const candidate = isHttpUrl(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const u = new URL(candidate);
+    // Require a plausible hostname (contains a dot, no spaces).
+    if (!/^[^\s]+\.[^\s.]+$/.test(u.hostname)) return null;
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
+/** Valid http(s) social-profile URLs from the author's dedicated social fields. */
+export function socialProfileUrls(a: AuthorRichProfile): string[] {
+  return [a.twitterUrl, a.instagramUrl, a.linkedinUrl, a.githubUrl, a.websiteUrl]
+    .map(normalizeHttpUrl)
+    .filter((u): u is string => u !== null);
 }
 
 /** Public reference links to render visibly on the author page. */
@@ -92,7 +124,11 @@ export function buildPersonJsonLd(
       : {}),
   }));
 
-  const sameAs = visibleProfileLinks(author).map((l) => l.url);
+  // sameAs = social profiles + reference links, deduped (social fields first —
+  // they're exactly what Google uses for entity reconciliation).
+  const sameAs = Array.from(
+    new Set([...socialProfileUrls(author), ...visibleProfileLinks(author).map((l) => l.url)]),
+  );
 
   return {
     "@context": "https://schema.org",
