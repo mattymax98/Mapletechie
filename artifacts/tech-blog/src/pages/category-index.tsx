@@ -9,6 +9,7 @@ import { SEO } from "@/components/SEO";
 import { Helmet } from "react-helmet-async";
 import { buildCategoryBreadcrumbJsonLd } from "@/lib/articleSchema";
 import NotFound from "@/pages/not-found";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { responsiveCoverProps, COVER_SIZES } from "@/lib/responsiveImage";
 
 export default function CategoryIndex() {
@@ -51,16 +52,14 @@ export default function CategoryIndex() {
       <div className="bg-card border-b border-border py-16 md:py-24 text-center">
         <div className="container mx-auto px-4">
           {/* Visible breadcrumb matching the BreadcrumbList JSON-LD above */}
-          <nav
-            className="flex items-center justify-center gap-2 text-xs uppercase tracking-widest font-bold text-muted-foreground mb-6"
-            aria-label="Breadcrumb"
-          >
-            <Link href="/" className="hover:text-primary">Home</Link>
-            <span>/</span>
-            <Link href="/blog" className="hover:text-primary">Blog</Link>
-            <span>/</span>
-            <span className="text-foreground">{category?.name || slug.replace(/-/g, " ")}</span>
-          </nav>
+          <Breadcrumbs
+            className="justify-center"
+            items={[
+              { label: "Home", href: "/" },
+              { label: "Blog", href: "/blog" },
+              { label: category?.name || slug.replace(/-/g, " ") },
+            ]}
+          />
           <h1 className="text-5xl md:text-7xl font-black uppercase tracking-tighter mb-4">
             {category?.name || slug.replace('-', ' ')}
           </h1>

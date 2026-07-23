@@ -14,6 +14,7 @@ import {
   type AuthorRichProfile,
 } from "@/lib/personSchema";
 import { buildAuthorBreadcrumbJsonLd } from "@/lib/articleSchema";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 interface AuthorProfile extends AuthorRichProfile {
   id: number;
@@ -134,16 +135,14 @@ export default function AuthorPage() {
       <div className="bg-card border-b border-border py-16 md:py-20">
         <div className="container mx-auto px-4 md:px-6 max-w-4xl">
           {/* Visible breadcrumb matching the BreadcrumbList JSON-LD above */}
-          <nav
-            className="flex items-center gap-2 text-xs uppercase tracking-widest font-bold text-muted-foreground mb-8"
-            aria-label="Breadcrumb"
-          >
-            <Link href="/" className="hover:text-primary">Home</Link>
-            <span>/</span>
-            <Link href="/team" className="hover:text-primary">Authors</Link>
-            <span>/</span>
-            <span className="text-foreground">{author.displayName}</span>
-          </nav>
+          <Breadcrumbs
+            className="mb-8"
+            items={[
+              { label: "Home", href: "/" },
+              { label: "Authors", href: "/team" },
+              { label: author.displayName },
+            ]}
+          />
         </div>
         <div className="container mx-auto px-4 md:px-6 max-w-4xl flex flex-col md:flex-row items-start gap-8">
           <div className="w-32 h-32 md:w-40 md:h-40 bg-muted rounded-full overflow-hidden border border-border shrink-0">

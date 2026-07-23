@@ -33,6 +33,7 @@ import { CommentsSection } from "@/components/CommentsSection";
 import { applyResponsiveImages, makeArticleHtmlResponsive, responsiveCoverProps, socialImageUrl, COVER_SIZES } from "@/lib/responsiveImage";
 import { SeriesBanner } from "@/components/SeriesBanner";
 import { CategoryChip } from "@/components/CategoryChip";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { buildArticleJsonLd, buildBreadcrumbJsonLd } from "@/lib/articleSchema";
 
 const SITE_URL = "https://mapletechie.com";
@@ -417,19 +418,15 @@ export default function BlogPost() {
       {/* Header */}
       <header className="container mx-auto px-4 md:px-6 py-10 md:py-16 max-w-4xl">
         {/* Breadcrumbs */}
-        <nav className="flex items-center gap-2 text-xs uppercase tracking-widest font-bold text-muted-foreground mb-6" aria-label="Breadcrumb">
-          <Link href="/" className="hover:text-primary">Home</Link>
-          <span>/</span>
-          <Link href="/blog" className="hover:text-primary">Blog</Link>
-          {post.category && (
-            <>
-              <span>/</span>
-              <Link href={`/category/${post.categorySlug ?? post.category}`} className="hover:text-primary">
-                {post.category}
-              </Link>
-            </>
-          )}
-        </nav>
+        <Breadcrumbs
+          items={[
+            { label: "Home", href: "/" },
+            { label: "Blog", href: "/blog" },
+            ...(post.category
+              ? [{ label: post.category, href: `/category/${post.categorySlug ?? post.category}` }]
+              : []),
+          ]}
+        />
 
         <div className="flex items-center gap-3 mb-6">
           <CategoryChip category={post.category} slug={post.categorySlug} variant="solid" className="text-xs px-3 py-1.5" />
