@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ClipboardList, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
+import ErrorBanner from "@/components/ErrorBanner";
 
 const TOKEN_KEY = "mapletechie_admin_token";
 
@@ -107,11 +108,7 @@ export default function AdminAudit() {
           className="w-full mb-6 bg-zinc-900 border border-zinc-700 text-white rounded px-3 py-2 text-sm focus:border-orange-500 outline-none"
         />
 
-        {error && (
-          <div className="mb-4 border border-red-500/40 bg-red-500/10 text-red-300 text-sm rounded p-3">
-            {error}
-          </div>
-        )}
+        <ErrorBanner message={error} className="mb-4" />
 
         {rows === null ? (
           <p className="text-zinc-500 text-sm">Loading…</p>

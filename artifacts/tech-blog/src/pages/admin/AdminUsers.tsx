@@ -24,7 +24,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, Pencil, Trash2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2 } from "lucide-react";
+import ErrorBanner from "@/components/ErrorBanner";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface UserRow {
@@ -243,11 +244,7 @@ export default function AdminUsers() {
             <DialogTitle>{creating ? "Add New Editor" : `Edit ${editing?.displayName}`}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {error && (
-              <div className="flex items-center gap-2 text-red-400 text-sm bg-red-900/20 border border-red-900 rounded p-3">
-                <AlertCircle className="w-4 h-4 shrink-0" /> {error}
-              </div>
-            )}
+            <ErrorBanner message={error} />
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

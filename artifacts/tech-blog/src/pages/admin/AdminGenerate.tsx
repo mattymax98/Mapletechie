@@ -4,7 +4,8 @@ import { useAdmin } from "@/context/AdminContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Sparkles, AlertCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2 } from "lucide-react";
+import ErrorBanner from "@/components/ErrorBanner";
 
 const SAMPLE_TOPICS = [
   "Apple's rumored AR glasses launch in 2026",
@@ -84,12 +85,7 @@ export default function AdminGenerate() {
         </div>
 
         <form onSubmit={handleGenerate} className="space-y-6">
-          {error && (
-            <div className="flex items-center gap-2 text-red-400 text-sm bg-red-900/20 border border-red-900 rounded p-3">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              {error}
-            </div>
-          )}
+          <ErrorBanner message={error} />
 
           <div className="space-y-2">
             <Label className="text-zinc-300">Topic</Label>
