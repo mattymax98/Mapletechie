@@ -688,6 +688,26 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).not.toContain('<div id="root"></div>');
     });
 
+    it("emits the BreadcrumbList JSON-LD (Home > Blog > #tag) in the prerendered HTML", async () => {
+      const { body } = await get(`/tag/${TAG}`, GOOGLEBOT_UA);
+      const scripts = [
+        ...body.matchAll(
+          /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g,
+        ),
+      ].map((m) => JSON.parse(m[1]));
+      const crumbs = scripts.find((s) => s["@type"] === "BreadcrumbList");
+      expect(crumbs).toBeDefined();
+      expect(
+        crumbs!.itemListElement.map((i: { name: string }) => i.name),
+      ).toEqual(["Home", "Blog", `#${TAG}`]);
+      expect(
+        crumbs!.itemListElement.map((i: { position: number }) => i.position),
+      ).toEqual([1, 2, 3]);
+      expect(crumbs!.itemListElement[2].item).toBe(
+        `${SITE_URL}/tag/${encodeURIComponent(TAG)}`,
+      );
+    });
+
     it("serves the SPA shell (not the prerendered archive) to a normal browser", async () => {
       const { status, body } = await get(`/tag/${TAG}`, BROWSER_UA);
       expect(status).toBe(404);
@@ -710,6 +730,26 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).toContain("Articles in this series");
       expect(body).toContain(`${SITE_URL}/blog/${FEATURED_POST.slug}`);
       expect(body).not.toContain('<div id="root"></div>');
+    });
+
+    it("emits the BreadcrumbList JSON-LD (Home > Blog > Series) in the prerendered HTML", async () => {
+      const { body } = await get(`/series/${SERIES.slug}`, GOOGLEBOT_UA);
+      const scripts = [
+        ...body.matchAll(
+          /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g,
+        ),
+      ].map((m) => JSON.parse(m[1]));
+      const crumbs = scripts.find((s) => s["@type"] === "BreadcrumbList");
+      expect(crumbs).toBeDefined();
+      expect(
+        crumbs!.itemListElement.map((i: { name: string }) => i.name),
+      ).toEqual(["Home", "Blog", SERIES.title]);
+      expect(
+        crumbs!.itemListElement.map((i: { position: number }) => i.position),
+      ).toEqual([1, 2, 3]);
+      expect(crumbs!.itemListElement[2].item).toBe(
+        `${SITE_URL}/series/${SERIES.slug}`,
+      );
     });
 
     it("serves the SPA shell (not the prerendered page) to a normal browser", async () => {

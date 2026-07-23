@@ -4,7 +4,12 @@ import { format } from "date-fns";
 import { Clock, BookOpen } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Helmet } from "react-helmet-async";
 import { SEO } from "@/components/SEO";
+import {
+  buildTrailBreadcrumbJsonLd,
+  DEFAULT_SITE_URL,
+} from "@/lib/articleSchema";
 import { CategoryChip } from "@/components/CategoryChip";
 
 interface SeriesRow {
@@ -88,6 +93,22 @@ export default function SeriesPage() {
         image={`/api/og/series/${encodeURIComponent(series.slug)}.png`}
         url={`/series/${series.slug}`}
       />
+      {/* BreadcrumbList (Home > Blog > Series) — same schema the crawler
+          prerender emits server-side, so Google sees an identical trail. */}
+      <Helmet>
+        <script type="application/ld+json">
+          {JSON.stringify(
+            buildTrailBreadcrumbJsonLd([
+              { name: "Home", item: DEFAULT_SITE_URL },
+              { name: "Blog", item: `${DEFAULT_SITE_URL}/blog` },
+              {
+                name: series.title,
+                item: `${DEFAULT_SITE_URL}/series/${series.slug}`,
+              },
+            ]),
+          )}
+        </script>
+      </Helmet>
 
       <div className="bg-card border-b border-border py-16 md:py-24">
         <div className="container mx-auto px-4 md:px-6 max-w-4xl">

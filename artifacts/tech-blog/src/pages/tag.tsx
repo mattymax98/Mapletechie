@@ -4,8 +4,13 @@ import { format } from "date-fns";
 import { Clock, Hash } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Helmet } from "react-helmet-async";
 import { SEO } from "@/components/SEO";
 import { CategoryChip } from "@/components/CategoryChip";
+import {
+  buildTrailBreadcrumbJsonLd,
+  DEFAULT_SITE_URL,
+} from "@/lib/articleSchema";
 
 interface PostRow {
   id: number;
@@ -52,6 +57,22 @@ export default function TagPage() {
         image={`/api/og/tag/${encodeURIComponent(tag)}.png`}
         url={`/tag/${tag}`}
       />
+      {/* BreadcrumbList (Home > Blog > #tag) — same schema the crawler
+          prerender emits server-side, so Google sees an identical trail. */}
+      <Helmet>
+        <script type="application/ld+json">
+          {JSON.stringify(
+            buildTrailBreadcrumbJsonLd([
+              { name: "Home", item: DEFAULT_SITE_URL },
+              { name: "Blog", item: `${DEFAULT_SITE_URL}/blog` },
+              {
+                name: `#${tag}`,
+                item: `${DEFAULT_SITE_URL}/tag/${encodeURIComponent(tag)}`,
+              },
+            ]),
+          )}
+        </script>
+      </Helmet>
 
       <div className="bg-card border-b border-border py-16 md:py-20 text-center">
         <div className="container mx-auto px-4">
