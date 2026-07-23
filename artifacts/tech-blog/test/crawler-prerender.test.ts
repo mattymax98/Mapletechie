@@ -330,6 +330,22 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       // The browser shell carries no prerendered article list.
       expect(body).not.toContain("Latest Articles");
     });
+
+    it("injects an LCP hero-image preload into the browser shell", async () => {
+      const { status, body } = await get("/", BROWSER_UA);
+      expect(status).toBe(200);
+      // The featured post's cover must be discoverable from the initial HTML
+      // so the browser starts the download before React boots.
+      const preload = body.match(/<link rel="preload" as="image"[^>]*>/);
+      expect(preload, "hero preload link must be present for browsers").toBeTruthy();
+      expect(preload![0]).toContain(`href="${FEATURED_POST.coverImage}"`);
+      expect(preload![0]).toContain('fetchpriority="high"');
+    });
+
+    it("does NOT inject the hero preload into crawler responses", async () => {
+      const { body } = await get("/", GOOGLEBOT_UA);
+      expect(body).not.toContain('rel="preload" as="image"');
+    });
   });
 
   describe("article /blog/:slug", () => {
