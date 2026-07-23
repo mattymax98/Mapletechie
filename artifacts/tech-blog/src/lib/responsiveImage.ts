@@ -94,6 +94,19 @@ export function responsiveCoverProps(
   return { src };
 }
 
+/**
+ * Rewrite a custom OG image to the 1200x630 social-crop resizer variant when
+ * it's one of our own uploads. External URLs are returned unchanged; empty
+ * values pass through so callers can fall back to the generated share card.
+ */
+export function socialImageUrl(src: string | null | undefined): string | null {
+  if (!src) return null;
+  if (src.startsWith("/api/storage/objects/")) {
+    return src.replace(/^\/api\/storage\/objects\//, "/api/storage/img-social/objects/");
+  }
+  return src;
+}
+
 const BODY_IMG_SIZES = "(min-width: 1280px) 1200px, (min-width: 768px) 90vw, 100vw";
 
 /**

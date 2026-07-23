@@ -56,4 +56,47 @@ router.get("/storage/img/:width/objects/*path", async (req: Request, res: Respon
   }
 });
 
+/**
+ * GET /storage/img-social/objects/*path
+ *
+ * Social-card crop for stored images: exact 1200x630 (the OG/Twitter
+ * recommended size), center-cropped, served as JPEG for maximum crawler
+ * compatibility. Used for posts whose editors set a custom uploaded OG image.
+ */
+router.get("/storage/img-social/objects/*path", async (req: Request, res: Response) => {
+  try {
+    const raw = req.params.path;
+    const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
+    const objectPath = `/objects/${wildcardPath}`;
+    const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+
+    const response = await objectStorageService.downloadObject(objectFile);
+    if (!response.ok || !response.body) {
+      res.status(response.status || 500).end();
+      return;
+    }
+
+    const inputStream = Readable.fromWeb(response.body as ReadableStream<Uint8Array>);
+    const transformer = sharp()
+      .rotate()
+      .resize({ width: 1200, height: 630, fit: "cover", position: "centre" })
+      .jpeg({ quality: 88, mozjpeg: true });
+
+    res.setHeader("Content-Type", "image/jpeg");
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    res.setHeader("X-Image-Variant", "social-1200x630");
+
+    inputStream.pipe(transformer).pipe(res);
+  } catch (error) {
+    if (error instanceof ObjectNotFoundError) {
+      res.status(404).json({ error: "Object not found" });
+      return;
+    }
+    req.log.error({ err: error }, "Social image transform failed");
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Social image transform failed" });
+    }
+  }
+});
+
 export default router;
