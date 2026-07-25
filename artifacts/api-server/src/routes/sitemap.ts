@@ -64,6 +64,12 @@ router.get("/sitemap.xml", async (req, res): Promise<void> => {
     changefreq: "weekly",
   }));
 
+  const categoryFeedUrls: SitemapEntry[] = categories.map((c) => ({
+    loc: `${domain}/api/category/${c.slug}/feed.xml`,
+    priority: "0.4",
+    changefreq: "daily",
+  }));
+
   const postUrls: SitemapEntry[] = posts.map((p) => ({
     loc: `${domain}/blog/${p.slug}`,
     priority: "0.8",
@@ -99,6 +105,7 @@ router.get("/sitemap.xml", async (req, res): Promise<void> => {
   const allUrls: SitemapEntry[] = [
     ...staticPages,
     ...categoryUrls,
+    ...categoryFeedUrls,
     ...postUrls,
     ...authorUrls,
     ...seriesUrls,
