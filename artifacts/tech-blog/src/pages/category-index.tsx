@@ -1,7 +1,7 @@
 import { useListPosts, useListCategories } from "@workspace/api-client-react";
 import { Link, useParams } from "wouter";
 import { format } from "date-fns";
-import { Clock, ArrowRight } from "lucide-react";
+import { Clock, Rss } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
@@ -68,6 +68,22 @@ export default function CategoryIndex() {
               {category.description}
             </p>
           )}
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="mt-6 rounded-none font-bold uppercase tracking-wider"
+          >
+            <a
+              href={`/api/category/${encodeURIComponent(slug)}/feed.xml`}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="link-category-rss"
+            >
+              <Rss className="h-4 w-4" />
+              Subscribe to this topic
+            </a>
+          </Button>
         </div>
       </div>
 
