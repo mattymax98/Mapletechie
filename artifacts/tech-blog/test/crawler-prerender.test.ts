@@ -386,6 +386,43 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
     });
   });
 
+  describe("site-wide RSS auto-discovery link", () => {
+    // The base <head> advertises the site feed via
+    // <link rel="alternate" type="application/rss+xml" href=".../api/feed.xml">.
+    // It lives OUTSIDE the SEO_HEAD block precisely so crawler prerendering
+    // (which replaces that block) can't strip it. These tests fail loudly if
+    // a refactor drops it from any prerendered or browser-served page.
+    const SITE_FEED_LINK_RE =
+      /<link rel="alternate" type="application\/rss\+xml"[^>]*href="[^"]*\/api\/feed\.xml"[^>]*\/?>/;
+
+    it("is present on the prerendered homepage for crawlers", async () => {
+      const { status, body } = await get("/", GOOGLEBOT_UA);
+      expect(status).toBe(200);
+      expect(
+        body,
+        "crawler homepage must advertise the site feed in <head>",
+      ).toMatch(SITE_FEED_LINK_RE);
+    });
+
+    it("is present on the prerendered article page for crawlers", async () => {
+      const { status, body } = await get(`/blog/${ARTICLE.slug}`, GOOGLEBOT_UA);
+      expect(status).toBe(200);
+      expect(
+        body,
+        "crawler article page must advertise the site feed in <head>",
+      ).toMatch(SITE_FEED_LINK_RE);
+    });
+
+    it("is present in the browser SPA shell too", async () => {
+      const { status, body } = await get("/", BROWSER_UA);
+      expect(status).toBe(200);
+      expect(
+        body,
+        "browser shell must advertise the site feed in <head>",
+      ).toMatch(SITE_FEED_LINK_RE);
+    });
+  });
+
   describe("article /blog/:slug", () => {
     it("serves the full article + JSON-LD to Googlebot", async () => {
       const { status, body } = await get(`/blog/${ARTICLE.slug}`, GOOGLEBOT_UA);
