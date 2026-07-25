@@ -562,9 +562,13 @@ app.get(/^\/category\/([^\/]+)\/?$/, async (req, res, next) => {
   // gets the trail without rendering JS; the SPA emits the same schema.
   const breadcrumbLd = buildCategoryBreadcrumbJsonLd(cat, { siteUrl: SITE_URL });
   const breadcrumbSafe = JSON.stringify(breadcrumbLd).replace(/</g, "\\u003c");
+  // Advertise this category's own RSS feed so feed readers can subscribe to
+  // just this topic (the site-wide feed stays advertised in the base <head>).
+  const feedLink = `    <link rel="alternate" type="application/rss+xml" title="${htmlEscape(`Mapletechie — ${cat.name} RSS`)}" href="${htmlEscape(`${SITE_URL}/api/category/${cat.slug}/feed.xml`)}" />\n`;
   const seoWithJsonLd = seo.replace(
     "<!-- SEO_HEAD_END -->",
-    `    <script type="application/ld+json">${breadcrumbSafe}</script>\n    <!-- SEO_HEAD_END -->`,
+    feedLink +
+      `    <script type="application/ld+json">${breadcrumbSafe}</script>\n    <!-- SEO_HEAD_END -->`,
   );
 
   const body = `
