@@ -300,6 +300,52 @@ app.get(LEGACY_PNG_RE, (req, res) => {
   res.redirect(301, req.path.replace(/\.png$/i, ".webp"));
 });
 
+// robots.txt is generated dynamically (registered BEFORE the static middleware
+// so it can't be shadowed by a stale file in the build output, and BEFORE the
+// maintenance gate so crawlers can always read it). It uses the same
+// SITE_DOMAIN env fallback as the API server's sitemap.ts so the Sitemap:
+// pointer always matches the domain the sitemap itself uses.
+const ROBOTS_DOMAIN = (process.env.SITE_DOMAIN || "https://mapletechie.com").replace(/\/+$/, "");
+const robotsTxt = `User-agent: *
+Allow: /
+
+# Admin SPA — never index, never crawl
+Disallow: /admin
+Disallow: /admin/
+
+# Authenticated / non-public API endpoints — these intentionally return 401/403
+# to non-logged-in clients. Don't waste crawl budget on them and don't let
+# Google flag them as access-forbidden indexing errors.
+Disallow: /api/admin/
+Disallow: /api/auth/
+Disallow: /api/upload
+Disallow: /api/jobs/admin
+Disallow: /api/inbox
+Disallow: /api/audit
+Disallow: /api/analytics
+Disallow: /api/newsletter/admin
+
+# Removed in May 2026 — stop crawlers re-fetching dead URLs
+Disallow: /shop
+Disallow: /shop/
+Disallow: /reviews
+Disallow: /reviews/
+Disallow: /admin/products
+
+# Internal search results pages aren't useful to index either
+Disallow: /search?
+
+# Be nice to crawlers
+Crawl-delay: 1
+
+Sitemap: ${ROBOTS_DOMAIN}/api/sitemap.xml
+`;
+app.get("/robots.txt", (_req, res) => {
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=3600, s-maxage=3600");
+  res.send(robotsTxt);
+});
+
 // Serve static assets (CSS, JS, images, public/* files) from the Vite build.
 // `single: false` so unmatched paths fall through to our route handlers
 // instead of always returning index.html — we want SEO-aware routing first.
