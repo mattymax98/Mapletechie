@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { useState } from "react";
+import { Rss } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSubscribeNewsletter } from "@workspace/api-client-react";
@@ -108,9 +109,17 @@ export function Footer() {
         
         <div className="mt-12 pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between text-xs text-muted-foreground">
           <p>&copy; {new Date().getFullYear()} Mapletechie Media. All rights reserved.</p>
-          <div className="flex gap-4 mt-4 md:mt-0">
+          <div className="flex gap-4 mt-4 md:mt-0 items-center">
             <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
             <Link href="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
+            <a
+              href="/api/feed.xml"
+              className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+              data-testid="link-rss-feed"
+            >
+              <Rss className="w-3.5 h-3.5" aria-hidden="true" />
+              RSS
+            </a>
           </div>
         </div>
       </div>
