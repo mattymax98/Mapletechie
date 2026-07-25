@@ -465,6 +465,22 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       );
     });
 
+    it("advertises the category's own RSS feed via rel=\"alternate\" in the prerendered head", async () => {
+      const { body } = await get(`/category/${CATEGORY.slug}`, GOOGLEBOT_UA);
+      const links = body.match(
+        /<link rel="alternate" type="application\/rss\+xml"[^>]*>/g,
+      );
+      expect(links, "category prerender must carry an RSS alternate link").toBeTruthy();
+      const catLink = links!.find((l) =>
+        l.includes(`href="${SITE_URL}/api/category/${CATEGORY.slug}/feed.xml"`),
+      );
+      expect(catLink, "alternate link must point at the per-category feed URL").toBeTruthy();
+      // Title is HTML-escaped ("AI &amp; Machine Learning").
+      expect(catLink!).toContain(
+        'title="Mapletechie — AI &amp; Machine Learning RSS"',
+      );
+    });
+
     it("returns a noindex 404 to Googlebot for an unknown category", async () => {
       const { status, body } = await get("/category/nonexistent", GOOGLEBOT_UA);
       expect(status).toBe(404);
