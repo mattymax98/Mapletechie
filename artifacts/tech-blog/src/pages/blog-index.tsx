@@ -26,6 +26,7 @@ export default function BlogIndex() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    isFetchNextPageError,
   } = useInfiniteQuery({
     queryKey: [...getListPostsQueryKey({ category: categoryParam }), "infinite"],
     queryFn: ({ pageParam, signal }) =>
@@ -143,15 +144,30 @@ export default function BlogIndex() {
       {!loadingPosts && filteredPosts && filteredPosts.length > 0 && (
         <div className="mt-16 flex justify-center border-t border-border pt-8">
           {hasNextPage ? (
-            <Button
+            <div className="flex flex-col items-center gap-3">
+              {isFetchNextPageError && !isFetchingNextPage && (
+                <p
+                  className="text-sm font-bold text-destructive"
+                  role="alert"
+                  data-testid="text-load-more-error"
+                >
+                  Couldn't load more articles — try again
+                </p>
+              )}
+              <Button
               variant="outline"
               className="rounded-none font-bold uppercase tracking-widest px-8"
               onClick={() => fetchNextPage()}
               disabled={isFetchingNextPage}
               data-testid="button-load-more"
             >
-              {isFetchingNextPage ? "Loading…" : "Load More"}
-            </Button>
+                {isFetchingNextPage
+                  ? "Loading…"
+                  : isFetchNextPageError
+                    ? "Retry"
+                    : "Load More"}
+              </Button>
+            </div>
           ) : (
             <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
               You're all caught up
