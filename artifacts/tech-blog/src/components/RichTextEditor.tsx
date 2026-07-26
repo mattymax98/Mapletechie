@@ -2,6 +2,7 @@ import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
+import { probeImageDimensions, probeFileDimensions } from "@/lib/imageDimensions";
 import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
 import TextAlign from "@tiptap/extension-text-align";
@@ -68,6 +69,48 @@ function ToolbarButton({
   );
 }
 
+/**
+ * Image node that also carries width/height attributes. The editor stamps
+ * natural pixel dimensions on insert so article pages can reserve the right
+ * space before each image loads (no layout shift while scrolling). Existing
+ * images without dimensions keep working — the attributes just stay absent.
+ */
+const SizedImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      width: { default: null },
+      height: { default: null },
+    };
+  },
+});
+
+type ImageAttrs = {
+  src: string;
+  alt?: string;
+  title?: string;
+  width?: number;
+  height?: number;
+};
+
+/**
+ * Insert an image node, including width/height when known. `pos` is the
+ * document position captured when the user triggered the insert — async
+ * probing/uploading resolves later, and inserting at the captured position
+ * keeps the image where the user asked for it even if they kept typing.
+ * No-ops safely if the editor was torn down while the async work ran.
+ */
+function insertSizedImage(editor: Editor, attrs: ImageAttrs, pos?: number) {
+  if (editor.isDestroyed) return;
+  const chain = editor.chain().focus();
+  if (pos != null) {
+    const clamped = Math.min(pos, editor.state.doc.content.size);
+    chain.insertContentAt(clamped, { type: "image", attrs }).run();
+  } else {
+    chain.insertContent({ type: "image", attrs }).run();
+  }
+}
+
 function Divider() {
   return <span className="w-px bg-zinc-700 mx-1 self-stretch" />;
 }
@@ -105,7 +148,10 @@ function Toolbar({ editor }: { editor: Editor }) {
     }
     const alt = window.prompt("Image description / alt text") || "";
     const caption = window.prompt("Image caption (optional)") || "";
-    editor.chain().focus().setImage({ src: trimmed, alt, title: caption }).run();
+    const pos = editor.state.selection.from;
+    void probeImageDimensions(trimmed).then((dims) => {
+      insertSizedImage(editor, { src: trimmed, alt, title: caption, ...(dims ?? {}) }, pos);
+    });
   };
 
   const promptForEmbed = () => {
@@ -125,11 +171,12 @@ function Toolbar({ editor }: { editor: Editor }) {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadingImage(true);
+    const pos = editor.state.selection.from;
     try {
-      const { url } = await uploadImage(file);
+      const [{ url }, dims] = await Promise.all([uploadImage(file), probeFileDimensions(file)]);
       const alt = window.prompt("Image description / alt text", file.name) || file.name;
       const caption = window.prompt("Image caption (optional)") || "";
-      editor.chain().focus().setImage({ src: url, alt, title: caption }).run();
+      insertSizedImage(editor, { src: url, alt, title: caption, ...(dims ?? {}) }, pos);
     } catch (err: any) {
       alert(err?.message ?? "Image upload failed.");
     } finally {
@@ -239,9 +286,10 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
   const insertImageFile = async (file: File, ed: Editor) => {
     if (!file.type.startsWith("image/")) return;
     setDropping(true);
+    const pos = ed.state.selection.from;
     try {
-      const { url } = await uploadImage(file);
-      ed.chain().focus().setImage({ src: url, alt: file.name }).run();
+      const [{ url }, dims] = await Promise.all([uploadImage(file), probeFileDimensions(file)]);
+      insertSizedImage(ed, { src: url, alt: file.name, ...(dims ?? {}) }, pos);
     } catch (err: any) {
       alert(err?.message ?? "Image upload failed.");
     } finally {
@@ -261,7 +309,7 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
         autolink: true,
         HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
       }),
-      Image.configure({
+      SizedImage.configure({
         inline: false,
         allowBase64: false,
         HTMLAttributes: {
