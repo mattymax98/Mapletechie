@@ -18,6 +18,9 @@ describe("cleanHtml social embed handling", () => {
       ["youtube", "https://www.youtube.com/watch?v=dQw4w9WgXcQ"],
       ["instagram", "https://www.instagram.com/p/Cxyz_ABC12/"],
       ["tiktok", "https://www.tiktok.com/@user/video/7123456789012345678"],
+      ["bluesky", "https://bsky.app/profile/jay.bsky.team/post/3kabc123xyz"],
+      ["mastodon", "https://mastodon.social/@Gargron/109372849205871248"],
+      ["reddit", "https://www.reddit.com/r/programming/comments/1abc23x/some_title/"],
     ]) {
       const out = cleanHtml(
         `<div data-social-embed data-provider="${provider}" data-url="${url}"><a href="${url}">${url}</a></div>`,

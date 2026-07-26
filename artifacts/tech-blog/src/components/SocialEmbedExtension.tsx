@@ -4,7 +4,7 @@ import {
   ReactNodeViewRenderer,
   type NodeViewProps,
 } from "@tiptap/react";
-import { Youtube, Twitter, Instagram, Music2, Trash2 } from "lucide-react";
+import { Youtube, Twitter, Instagram, Music2, Cloud, AtSign, MessageCircle, Trash2 } from "lucide-react";
 import {
   parseSocialUrl,
   PROVIDER_LABELS,
@@ -25,6 +25,9 @@ const PROVIDER_ICONS: Record<SocialProvider, typeof Youtube> = {
   twitter: Twitter,
   instagram: Instagram,
   tiktok: Music2,
+  bluesky: Cloud,
+  mastodon: AtSign,
+  reddit: MessageCircle,
 };
 
 function EmbedPlaceholder({ node, deleteNode, selected }: NodeViewProps) {

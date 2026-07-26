@@ -1,7 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import { Youtube, Twitter, Instagram, Music2, ExternalLink, Play } from "lucide-react";
+import {
+  Youtube,
+  Twitter,
+  Instagram,
+  Music2,
+  ExternalLink,
+  Play,
+  Cloud,
+  AtSign,
+  MessageCircle,
+} from "lucide-react";
 import {
   parseSocialUrl,
+  blueskyAtUri,
   PROVIDER_LABELS,
   type ParsedSocialEmbed,
   type SocialProvider,
@@ -43,6 +54,9 @@ const PROVIDER_ICONS: Record<SocialProvider, typeof Youtube> = {
   twitter: Twitter,
   instagram: Instagram,
   tiktok: Music2,
+  bluesky: Cloud,
+  mastodon: AtSign,
+  reddit: MessageCircle,
 };
 
 function LinkCard({ embed }: { embed: ParsedSocialEmbed }) {
@@ -225,6 +239,94 @@ function TikTokEmbed({ embed }: { embed: ParsedSocialEmbed }) {
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* Bluesky — official blockquote + embed.bsky.app script               */
+/* ------------------------------------------------------------------ */
+function BlueskyEmbed({ embed }: { embed: ParsedSocialEmbed }) {
+  const [failed, setFailed] = useState(false);
+  const atUri = blueskyAtUri(embed.url);
+  useEffect(() => {
+    let cancelled = false;
+    loadScript("https://embed.bsky.app/static/embed.js").catch(() => {
+      if (!cancelled) setFailed(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [embed.url]);
+
+  if (failed || !atUri) return <LinkCard embed={embed} />;
+  return (
+    <div className="not-prose my-6 flex justify-center" data-testid="embed-bluesky">
+      <blockquote
+        className="bluesky-embed"
+        data-bluesky-uri={atUri}
+        style={{ maxWidth: 550, width: "100%", margin: 0 }}
+      >
+        <a href={embed.url} target="_blank" rel="noopener noreferrer">
+          View this post on Bluesky
+        </a>
+      </blockquote>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Mastodon — instance-hosted /embed iframe (works for any instance,   */
+/* no per-instance script needed). Sandboxed since the host is only    */
+/* pattern-validated, not from a fixed whitelist.                      */
+/* ------------------------------------------------------------------ */
+function MastodonEmbed({ embed }: { embed: ParsedSocialEmbed }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <LinkCard embed={embed} />;
+  return (
+    <div className="not-prose my-6 flex justify-center" data-testid="embed-mastodon">
+      <iframe
+        src={`${embed.url.replace(/[?#].*$/, "").replace(/\/+$/, "")}/embed`}
+        title="Mastodon post"
+        className="w-full max-w-[550px] rounded border border-border"
+        style={{ minHeight: 300 }}
+        sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+        loading="lazy"
+        onError={() => setFailed(true)}
+        allowFullScreen
+      />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Reddit — official blockquote + widgets script                       */
+/* ------------------------------------------------------------------ */
+function RedditEmbed({ embed }: { embed: ParsedSocialEmbed }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    loadScript("https://embed.reddit.com/widgets.js").catch(() => {
+      if (!cancelled) setFailed(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [embed.url]);
+
+  if (failed) return <LinkCard embed={embed} />;
+  return (
+    <div className="not-prose my-6 flex justify-center" data-testid="embed-reddit">
+      <blockquote
+        className="reddit-embed-bq"
+        data-embed-theme={isDarkMode() ? "dark" : "light"}
+        data-embed-height="500"
+        style={{ maxWidth: 550, width: "100%", margin: 0 }}
+      >
+        <a href={embed.url} target="_blank" rel="noopener noreferrer">
+          View this post on Reddit
+        </a>
+      </blockquote>
+    </div>
+  );
+}
+
 export function SocialEmbedView({ embed }: { embed: ParsedSocialEmbed }) {
   switch (embed.provider) {
     case "youtube":
@@ -235,6 +337,12 @@ export function SocialEmbedView({ embed }: { embed: ParsedSocialEmbed }) {
       return <InstagramEmbed embed={embed} />;
     case "tiktok":
       return <TikTokEmbed embed={embed} />;
+    case "bluesky":
+      return <BlueskyEmbed embed={embed} />;
+    case "mastodon":
+      return <MastodonEmbed embed={embed} />;
+    case "reddit":
+      return <RedditEmbed embed={embed} />;
     default:
       return <LinkCard embed={embed} />;
   }

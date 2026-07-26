@@ -6,7 +6,14 @@
  * sanitizing saved article HTML (see api-server posts route).
  */
 
-export type SocialProvider = "youtube" | "twitter" | "instagram" | "tiktok";
+export type SocialProvider =
+  | "youtube"
+  | "twitter"
+  | "instagram"
+  | "tiktok"
+  | "bluesky"
+  | "mastodon"
+  | "reddit";
 
 export interface ParsedSocialEmbed {
   provider: SocialProvider;
@@ -24,6 +31,14 @@ const INSTAGRAM_RE =
   /^https?:\/\/(?:www\.)?instagram\.com\/(?:[A-Za-z0-9_.]+\/)?(?:p|reel|reels|tv)\/([A-Za-z0-9_-]{5,40})/i;
 const TIKTOK_RE =
   /^https?:\/\/(?:www\.)?tiktok\.com\/@[\w.-]+\/video\/(\d{5,25})/i;
+const BLUESKY_RE =
+  /^https?:\/\/bsky\.app\/profile\/([A-Za-z0-9:%._-]+)\/post\/([a-z0-9]{5,20})/i;
+// Mastodon is federated — any instance hosts statuses at /@user/<numeric id>.
+// The numeric-only status id keeps this from matching Threads-style URLs.
+const MASTODON_RE =
+  /^https?:\/\/([a-z0-9-]+(?:\.[a-z0-9-]+)+)\/@[\w.-]+(?:@[\w.-]+)?\/(\d{8,25})(?:[/?#]|$)/i;
+const REDDIT_RE =
+  /^https?:\/\/(?:www\.|old\.|new\.)?reddit\.com\/r\/[A-Za-z0-9_]{2,21}\/comments\/([a-z0-9]{4,10})/i;
 
 export function parseSocialUrl(raw: string): ParsedSocialEmbed | null {
   const url = (raw || "").trim();
@@ -40,6 +55,17 @@ export function parseSocialUrl(raw: string): ParsedSocialEmbed | null {
 
   m = url.match(TIKTOK_RE);
   if (m) return { provider: "tiktok", url, id: m[1] };
+
+  m = url.match(BLUESKY_RE);
+  if (m) return { provider: "bluesky", url, id: m[2] };
+
+  m = url.match(REDDIT_RE);
+  if (m) return { provider: "reddit", url, id: m[1] };
+
+  // Mastodon last — its host pattern is the broadest (any federated instance),
+  // so the dedicated-host providers above always win.
+  m = url.match(MASTODON_RE);
+  if (m) return { provider: "mastodon", url, id: m[2] };
 
   return null;
 }
@@ -76,4 +102,17 @@ export const PROVIDER_LABELS: Record<SocialProvider, string> = {
   twitter: "X (Twitter)",
   instagram: "Instagram",
   tiktok: "TikTok",
+  bluesky: "Bluesky",
+  mastodon: "Mastodon",
+  reddit: "Reddit",
 };
+
+/**
+ * Bluesky's embed widget needs an AT-URI. The profile segment of the post URL
+ * is either a handle or a DID — both are accepted by embed.bsky.app.
+ */
+export function blueskyAtUri(url: string): string | null {
+  const m = url.match(BLUESKY_RE);
+  if (!m) return null;
+  return `at://${decodeURIComponent(m[1])}/app.bsky.feed.post/${m[2]}`;
+}
