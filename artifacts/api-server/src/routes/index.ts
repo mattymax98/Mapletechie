@@ -24,6 +24,7 @@ import analyticsRouter from "./analytics";
 import sendEmailRouter from "./sendEmail";
 import mediaRouter from "./media";
 import settingsRouter from "./settings";
+import maintenanceRouter from "./maintenance";
 
 const router: IRouter = Router();
 
@@ -52,5 +53,6 @@ router.use(analyticsRouter);
 router.use(sendEmailRouter);
 router.use(mediaRouter);
 router.use(settingsRouter);
+router.use(maintenanceRouter);
 
 export default router;
