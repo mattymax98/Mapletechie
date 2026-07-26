@@ -7,6 +7,8 @@ import Placeholder from "@tiptap/extension-placeholder";
 import TextAlign from "@tiptap/extension-text-align";
 import { useEffect, useRef, useState } from "react";
 import { uploadImage } from "@/lib/uploadImage";
+import { SocialEmbed } from "@/components/SocialEmbedExtension";
+import { parseSocialUrl } from "@/lib/socialEmbedProviders";
 import {
   Bold,
   Italic,
@@ -21,6 +23,7 @@ import {
   Link as LinkIcon,
   Image as ImageIcon,
   ImagePlus,
+  Share2,
   AlignLeft,
   AlignCenter,
   AlignRight,
@@ -103,6 +106,19 @@ function Toolbar({ editor }: { editor: Editor }) {
     const alt = window.prompt("Image description / alt text") || "";
     const caption = window.prompt("Image caption (optional)") || "";
     editor.chain().focus().setImage({ src: trimmed, alt, title: caption }).run();
+  };
+
+  const promptForEmbed = () => {
+    const url = window.prompt(
+      "Paste a link to a post on X (Twitter), YouTube, Instagram, or TikTok",
+    );
+    if (!url) return;
+    const ok = editor.chain().focus().setSocialEmbed(url.trim()).run();
+    if (!ok) {
+      alert(
+        "That link isn't supported for embeds. Supported: X/Twitter posts, YouTube videos, Instagram posts/reels, TikTok videos.",
+      );
+    }
   };
 
   const onPickImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -195,6 +211,9 @@ function Toolbar({ editor }: { editor: Editor }) {
       <ToolbarButton title="Insert image by direct URL (must be a .jpg/.png/.webp file, not a tweet or article link)" onClick={promptForImageUrl}>
         <ImagePlus className="w-4 h-4" />
       </ToolbarButton>
+      <ToolbarButton title="Embed a social post (X/Twitter, YouTube, Instagram, TikTok) — or just paste the link" onClick={promptForEmbed}>
+        <Share2 className="w-4 h-4" />
+      </ToolbarButton>
 
       <Divider />
 
@@ -253,6 +272,7 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
       Placeholder.configure({
         placeholder: placeholder ?? "Write your article here...",
       }),
+      SocialEmbed,
     ],
     content: value || "",
     onUpdate: ({ editor }) => {
@@ -275,6 +295,13 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
         return true;
       },
       handlePaste: (_view, event) => {
+        // Pasting a bare social URL becomes an embed block.
+        const text = event.clipboardData?.getData("text/plain")?.trim() ?? "";
+        if (text && !/\s/.test(text) && parseSocialUrl(text) && editor) {
+          event.preventDefault();
+          editor.chain().focus().setSocialEmbed(text).run();
+          return true;
+        }
         const items = Array.from(event.clipboardData?.items ?? []);
         const imageItems = items.filter((i) => i.kind === "file" && i.type.startsWith("image/"));
         if (imageItems.length === 0) return false;

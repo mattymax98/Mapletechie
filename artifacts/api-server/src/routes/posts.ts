@@ -15,8 +15,18 @@ import sanitizeHtml from "sanitize-html";
 
 const router = Router();
 
+// Social embed provider whitelist — must stay in sync with the tech-blog
+// frontend (src/lib/socialEmbedProviders.ts). Only URLs matching one of these
+// patterns may survive as a `data-url` on a social-embed placeholder; anything
+// else is stripped down to whatever plain content the div contains.
+const SOCIAL_EMBED_URL_RE =
+  /^https?:\/\/(?:(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|shorts\/|live\/)|youtu\.be\/)[A-Za-z0-9_-]{6,20}|(?:www\.|mobile\.)?(?:twitter\.com|x\.com)\/[A-Za-z0-9_]{1,20}\/status(?:es)?\/\d{5,25}|(?:www\.)?instagram\.com\/(?:[A-Za-z0-9_.]+\/)?(?:p|reel|reels|tv)\/[A-Za-z0-9_-]{5,40}|(?:www\.)?tiktok\.com\/@[\w.-]+\/video\/\d{5,25})/i;
+
+const SOCIAL_EMBED_PROVIDERS = new Set(["youtube", "twitter", "instagram", "tiktok"]);
+
 // Sanitize rich text HTML produced by the TipTap editor.
-function cleanHtml(input: unknown): string {
+// Exported for tests.
+export function cleanHtml(input: unknown): string {
   if (typeof input !== "string") return "";
   return sanitizeHtml(input, {
     allowedTags: [
@@ -34,11 +44,36 @@ function cleanHtml(input: unknown): string {
     allowedAttributes: {
       a: ["href", "title", "target", "rel"],
       img: ["src", "alt", "title", "width", "height"],
+      div: ["data-social-embed", "data-provider", "data-url"],
       "*": ["class"],
     },
     allowedSchemes: ["http", "https", "mailto"],
     allowedSchemesByTag: { img: ["http", "https"] },
     transformTags: {
+      div: (tagName, attribs) => {
+        // Social embed placeholders: keep the data-* attrs only when the URL
+        // matches a whitelisted provider AND the provider tag is known.
+        // Otherwise strip them so the frontend never hydrates an embed for an
+        // arbitrary URL (the inner fallback link is preserved either way).
+        if (!("data-social-embed" in attribs)) {
+          const { "data-social-embed": _e, "data-provider": _p, "data-url": _u, ...rest } = attribs;
+          return { tagName: "div", attribs: rest };
+        }
+        const url = attribs["data-url"] || "";
+        const provider = (attribs["data-provider"] || "").toLowerCase();
+        if (!SOCIAL_EMBED_URL_RE.test(url) || !SOCIAL_EMBED_PROVIDERS.has(provider)) {
+          return { tagName: "div", attribs: { class: attribs.class || "" } };
+        }
+        return {
+          tagName: "div",
+          attribs: {
+            class: attribs.class || "social-embed",
+            "data-social-embed": "",
+            "data-provider": provider,
+            "data-url": url,
+          },
+        };
+      },
       a: (tagName, attribs) => ({
         tagName: "a",
         attribs: {
