@@ -8,6 +8,7 @@ import { isExternalImageUrl, persistExternalImage, persistExternalImagesInHtml }
 import { cleanHtml, cleanText, resolveCategory } from "./posts";
 import { hashPassword } from "../lib/auth";
 import { logger } from "../lib/logger";
+import { notifyEditorsOfAutomationDraft } from "../lib/automationDraftNotification";
 
 /**
  * Private automation draft API — lets an external AI client (run and
@@ -342,6 +343,14 @@ router.post("/automation/posts/drafts", automationAuth, async (req, res): Promis
     entityId: inserted.id,
     summary: `Automation created draft "${inserted.title}"`,
     details: { idempotencyKey, snapshot: inserted },
+  });
+
+  // Best-effort editor notification — never blocks or fails the response.
+  void notifyEditorsOfAutomationDraft({
+    postId: inserted.id,
+    title: inserted.title,
+    excerpt: inserted.excerpt,
+    editUrl: editUrl(inserted.id),
   });
 
   res.status(201).json({
