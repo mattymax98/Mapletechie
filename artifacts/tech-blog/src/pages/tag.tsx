@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Helmet } from "react-helmet-async";
 import { SEO } from "@/components/SEO";
 import { CategoryChip } from "@/components/CategoryChip";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import {
   buildTrailBreadcrumbJsonLd,
   DEFAULT_SITE_URL,
@@ -76,6 +77,14 @@ export default function TagPage() {
 
       <div className="bg-card border-b border-border py-16 md:py-20 text-center">
         <div className="container mx-auto px-4">
+          <Breadcrumbs
+            className="justify-center"
+            items={[
+              { label: "Home", href: "/" },
+              { label: "Blog", href: "/blog" },
+              { label: `#${tag}` },
+            ]}
+          />
           <p className="text-primary uppercase tracking-widest text-sm font-bold mb-3 flex items-center justify-center gap-2">
             <Hash className="h-4 w-4" /> Tag
           </p>
