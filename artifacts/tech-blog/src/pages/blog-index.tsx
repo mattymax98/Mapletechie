@@ -1,4 +1,5 @@
-import { useListPosts, useListCategories } from "@workspace/api-client-react";
+import { listPosts, getListPostsQueryKey, useListCategories } from "@workspace/api-client-react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { SEO } from "@/components/SEO";
 import { Link, useSearch } from "wouter";
 import { format } from "date-fns";
@@ -18,10 +19,22 @@ export default function BlogIndex() {
   
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data: posts, isLoading: loadingPosts } = useListPosts({ 
-    category: categoryParam,
-    limit: 20
+  const PAGE_SIZE = 12;
+  const {
+    data: pages,
+    isLoading: loadingPosts,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: [...getListPostsQueryKey({ category: categoryParam }), "infinite"],
+    queryFn: ({ pageParam, signal }) =>
+      listPosts({ category: categoryParam, limit: PAGE_SIZE, offset: pageParam }, { signal }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length === PAGE_SIZE ? allPages.length * PAGE_SIZE : undefined,
   });
+  const posts = pages?.pages.flat();
   
   const { data: categories } = useListCategories();
 
@@ -94,7 +107,7 @@ export default function BlogIndex() {
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: idx * 0.05 }}
+              transition={{ duration: 0.4, delay: (idx % PAGE_SIZE) * 0.05 }}
               key={post.id}
             >
               <Link href={`/blog/${post.slug}`} className="group flex flex-col gap-4 h-full">
@@ -129,9 +142,21 @@ export default function BlogIndex() {
 
       {!loadingPosts && filteredPosts && filteredPosts.length > 0 && (
         <div className="mt-16 flex justify-center border-t border-border pt-8">
-          <Button variant="outline" className="rounded-none font-bold uppercase tracking-widest px-8">
-            Load More
-          </Button>
+          {hasNextPage ? (
+            <Button
+              variant="outline"
+              className="rounded-none font-bold uppercase tracking-widest px-8"
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              data-testid="button-load-more"
+            >
+              {isFetchingNextPage ? "Loading…" : "Load More"}
+            </Button>
+          ) : (
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              You're all caught up
+            </p>
+          )}
         </div>
       )}
     </div>
