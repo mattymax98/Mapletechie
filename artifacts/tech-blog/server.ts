@@ -415,6 +415,24 @@ app.get("/robots.txt", (_req, res) => {
   res.send(robotsTxt);
 });
 
+// The sitemap index is generated dynamically for the same reason as
+// robots.txt: it must point at the SITE_DOMAIN the real sitemap uses, never a
+// stale hardcoded domain baked into a static file. Registered BEFORE sirv so a
+// leftover public/sitemap.xml in an old build output can't shadow it, and
+// BEFORE the maintenance gate so crawlers can always read it.
+const sitemapIndexXml = `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>${ROBOTS_DOMAIN}/api/sitemap.xml</loc>
+  </sitemap>
+</sitemapindex>
+`;
+app.get("/sitemap.xml", (_req, res) => {
+  res.setHeader("Content-Type", "application/xml; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=3600, s-maxage=3600");
+  res.send(sitemapIndexXml);
+});
+
 // Serve static assets (CSS, JS, images, public/* files) from the Vite build.
 // `single: false` so unmatched paths fall through to our route handlers
 // instead of always returning index.html — we want SEO-aware routing first.

@@ -926,6 +926,15 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).toContain("User-agent");
       expect(body).not.toContain('<div id="root">');
     });
+
+    it("serves a dynamic /sitemap.xml index pointing at the configured domain", async () => {
+      const { status, body } = await get("/sitemap.xml", GOOGLEBOT_UA);
+      expect(status).toBe(200);
+      expect(body).toContain("<sitemapindex");
+      const domain = (process.env.SITE_DOMAIN || "https://mapletechie.com").replace(/\/+$/, "");
+      expect(body).toContain(`<loc>${domain}/api/sitemap.xml</loc>`);
+      expect(body).not.toContain('<div id="root">');
+    });
   });
 
   describe("regression guard — no prerendered route may serve the bare shell to a crawler", () => {
