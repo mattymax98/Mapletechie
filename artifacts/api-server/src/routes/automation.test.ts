@@ -66,6 +66,7 @@ vi.mock("@workspace/db", () => ({
   usersTable: {},
   categoriesTable: {},
   automationRequestsTable: {},
+  seriesTable: { id: {} },
   auditLogsTable: {},
   pageViewsTable: {},
   commentsTable: {},
@@ -216,10 +217,38 @@ describe("POST /automation/posts/drafts — contract", () => {
     expect(auditCalls.some((c) => c.input.action === "automation.draft.rejected")).toBe(true);
   });
 
-  it("422 when series fields are submitted", async () => {
-    selectQueue = [[BOT_USER]];
-    const res = await post({ ...validBody(), series_id: 1 });
-    expect(res.status).toBe(422);
+  it("400 when series_id references a series that does not exist", async () => {
+    // bot, category, slug-clash check, then series lookup returns nothing
+    selectQueue = [[BOT_USER], [CATEGORY], [], []];
+    const res = await post({ ...validBody(), series_id: 999 });
+    expect(res.status).toBe(400);
+    expect(res.json.error).toMatch(/Unknown series_id/);
+  });
+
+  it("400 when series_id is not a positive integer", async () => {
+    selectQueue = [[BOT_USER], [CATEGORY]];
+    const res = await post({ ...validBody(), series_id: "nope" });
+    expect(res.status).toBe(400);
+    expect(res.json.error).toMatch(/Invalid series_id/);
+  });
+
+  it("400 when series_position is sent without series_id", async () => {
+    selectQueue = [[BOT_USER], [CATEGORY]];
+    const res = await post({ ...validBody(), series_position: 2 });
+    expect(res.status).toBe(400);
+    expect(res.json.error).toMatch(/series_position requires series_id/);
+  });
+
+  it("creates a draft with a valid series placement (still draft-only)", async () => {
+    // bot, category, slug-clash check, series lookup
+    selectQueue = [[BOT_USER], [CATEGORY], [], [{ id: 7 }]];
+    insertReturn = [{ id: 43, title: "Test story", slug: "test-story", status: "draft" }];
+    const res = await post({ ...validBody(), series_id: 7, series_position: 2 });
+    expect(res.status).toBe(201);
+    const values = captured.insertValues!.find((v) => v.title === "Test story")!;
+    expect(values.seriesId).toBe(7);
+    expect(values.seriesPosition).toBe(2);
+    expect(values.status).toBe("draft");
   });
 
   it("422 on unknown fields", async () => {
