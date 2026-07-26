@@ -90,8 +90,8 @@ const DRAFT_INPUT_SHAPE = {
   published_at: z.unknown().optional().describe("FORBIDDEN — server-controlled"),
   scheduled_for: z.unknown().optional().describe("FORBIDDEN — server-controlled"),
   is_featured: z.unknown().optional().describe("FORBIDDEN — server-controlled"),
-  series_id: z.unknown().optional().describe("FORBIDDEN — not supported"),
-  series_position: z.unknown().optional().describe("FORBIDDEN — not supported"),
+  series_id: z.number().optional().describe("Optional: id of an existing series to place the draft in"),
+  series_position: z.number().optional().describe("Optional: position within the series (requires series_id)"),
 } as const;
 
 function buildMcpServer(req: Request): McpServer {
