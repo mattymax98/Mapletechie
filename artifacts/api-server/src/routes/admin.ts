@@ -392,6 +392,7 @@ router.get("/authors/:id", async (req, res): Promise<void> => {
     id: user.id,
     username: user.username,
     displayName: user.displayName,
+    jobTitle: user.jobTitle,
     bio: user.bio,
     avatarUrl: user.avatarUrl,
     twitterUrl: user.twitterUrl,
