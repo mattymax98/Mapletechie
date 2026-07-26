@@ -34,7 +34,14 @@ app.use(
   }),
 );
 app.use(cors());
-app.use(express.json({ limit: "1mb" }));
+// The MCP connector accepts base64 image uploads, which need more headroom
+// than regular JSON API calls. Its body is parsed INSIDE the MCP router,
+// AFTER the connector-key check, so unauthenticated requests can never make
+// the server parse a large payload. Skip global parsing for that path.
+const jsonDefault = express.json({ limit: "1mb" });
+app.use((req, res, next) =>
+  req.path.startsWith("/api/mcp") ? next() : jsonDefault(req, res, next),
+);
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 // Public maintenance gate: when maintenance mode is on, public API requests

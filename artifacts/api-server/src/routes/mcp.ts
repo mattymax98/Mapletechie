@@ -1,4 +1,4 @@
-import { Router, type Request, type Response, type NextFunction } from "express";
+import express, { Router, type Request, type Response, type NextFunction } from "express";
 import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -6,6 +6,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { db, categoriesTable } from "@workspace/db";
 import { asc } from "drizzle-orm";
 import { writeAuditLogForUser } from "../lib/audit";
+import { persistImageBuffer } from "../lib/persistExternalImage";
 import { logger } from "../lib/logger";
 import { createAutomationDraft } from "./automation";
 
@@ -115,6 +116,50 @@ function buildMcpServer(req: Request): McpServer {
   );
 
   server.registerTool(
+    "upload_mapletechie_image",
+    {
+      title: "Upload Mapletechie image",
+      description:
+        "Upload an image (base64-encoded, optionally a data: URI) to the blog's own storage. Returns a local URL to use as cover_image or og_image in create_mapletechie_draft. Max ~6MB of image data per upload.",
+      inputSchema: {
+        image_base64: z
+          .string()
+          .min(1)
+          .describe("Base64-encoded image data (PNG, JPEG, WebP or GIF). A full data: URI is also accepted."),
+        filename: z
+          .string()
+          .optional()
+          .describe("Optional descriptive filename for the media library, e.g. 'ai-chips-cover.png'"),
+      },
+    },
+    async (args) => {
+      const { image_base64, filename } = args as { image_base64: string; filename?: string };
+      try {
+        // Accept both raw base64 and data: URIs.
+        const b64 = image_base64.replace(/^data:[^;]+;base64,/, "").replace(/\s+/g, "");
+        if (!/^[A-Za-z0-9+/=_-]+$/.test(b64)) throw new Error("Invalid base64 data");
+        const buffer = Buffer.from(b64, "base64");
+        const name = (filename || "chatgpt-upload.png").slice(0, 150);
+        const url = await persistImageBuffer(buffer, name, {
+          uploaderId: null,
+          uploaderName: "Mapletechie AI",
+        });
+        void writeAuditLogForUser(req, null, {
+          action: "mcp.image.uploaded",
+          summary: `MCP connector uploaded image "${name}" -> ${url}`,
+        });
+        return { content: [{ type: "text", text: JSON.stringify({ url }, null, 2) }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Upload failed";
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: message }, null, 2) }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  server.registerTool(
     "create_mapletechie_draft",
     {
       title: "Create Mapletechie draft",
@@ -144,8 +189,13 @@ function buildMcpServer(req: Request): McpServer {
   return server;
 }
 
+// Body parser mounted AFTER mcpAuth: only key-holders can make the server
+// parse a large (base64 image) payload. The global app-level JSON parser
+// deliberately skips /api/mcp. 10mb covers a ~6MB image after base64 bloat.
+const mcpJson = express.json({ limit: "10mb" });
+
 // Stateless Streamable-HTTP: a fresh server + transport per POST request.
-router.post("/mcp", mcpAuth, async (req, res): Promise<void> => {
+router.post("/mcp", mcpAuth, mcpJson, async (req, res): Promise<void> => {
   const server = buildMcpServer(req);
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,

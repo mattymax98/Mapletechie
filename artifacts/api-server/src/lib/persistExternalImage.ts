@@ -154,7 +154,8 @@ function mediaFilenameFromUrl(url: string): string {
     const segments = new URL(url).pathname.split("/").filter(Boolean);
     base = decodeURIComponent(segments[segments.length - 1] ?? "");
   } catch {
-    /* fall through to default */
+    // Not a URL (e.g. a plain filename from a direct upload) — use it as-is.
+    base = url;
   }
   base = base
     .replace(/\.[a-z0-9]{2,5}$/i, "") // drop original extension
@@ -271,6 +272,52 @@ async function readBodyCapped(resp: Response): Promise<Buffer | null> {
     chunks.push(value);
   }
   return Buffer.concat(chunks);
+}
+
+/**
+ * Re-encode an in-memory image to WebP, store it on object storage, register
+ * it in the Media library, and return the local serving path
+ * (e.g. "/api/storage/objects/uploads/<uuid>").
+ *
+ * Unlike persistExternalImage, this THROWS on failure — callers that accept
+ * raw image data (e.g. the MCP upload tool) must report errors loudly rather
+ * than silently keeping a broken reference.
+ */
+export async function persistImageBuffer(
+  input: Buffer,
+  sourceName: string,
+  ctx?: PersistContext,
+): Promise<string> {
+  if (input.byteLength === 0) throw new Error("Empty image data");
+  if (input.byteLength > MAX_BYTES) {
+    throw new Error(`Image too large: max ${Math.floor(MAX_BYTES / (1024 * 1024))}MB`);
+  }
+  let webp: Buffer;
+  try {
+    webp = await sharp(input)
+      .rotate()
+      .resize({ width: MAX_WIDTH, withoutEnlargement: true })
+      .webp({ quality: 90, smartSubsample: true })
+      .toBuffer();
+  } catch {
+    throw new Error("Data is not a decodable image (expected PNG, JPEG, WebP, GIF, ...)");
+  }
+
+  const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+  const putResp = await fetch(uploadURL, {
+    method: "PUT",
+    headers: { "Content-Type": "image/webp" },
+    body: webp,
+  });
+  if (!putResp.ok) {
+    throw new Error(`Object storage upload failed (status ${putResp.status})`);
+  }
+
+  const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+  const servingPath = `/api/storage${objectPath}`;
+  logger.info({ sourceName, objectPath }, "persistImageBuffer: stored uploaded image");
+  await registerInMediaLibrary(servingPath, sourceName, webp.byteLength, ctx);
+  return servingPath;
 }
 
 export async function persistExternalImage(url: string, ctx?: PersistContext): Promise<string> {
