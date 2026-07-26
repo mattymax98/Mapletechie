@@ -55,3 +55,12 @@ describe("cleanHtml social embed handling", () => {
     expect(out).not.toContain("<iframe");
   });
 });
+
+describe("cleanHtml image dimensions", () => {
+  it("preserves width/height attributes on images (layout-shift prevention)", () => {
+    const html = '<p>x</p><img src="/api/storage/objects/uploads/abc" alt="a" width="1600" height="900">';
+    const out = cleanHtml(html);
+    expect(out).toContain('width="1600"');
+    expect(out).toContain('height="900"');
+  });
+});
