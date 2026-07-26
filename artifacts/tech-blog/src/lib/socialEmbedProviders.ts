@@ -44,6 +44,33 @@ export function parseSocialUrl(raw: string): ParsedSocialEmbed | null {
   return null;
 }
 
+/**
+ * Extract every social-embed placeholder from saved article HTML.
+ * Placeholders are `<div data-social-embed data-provider="…" data-url="…">`
+ * (see SocialEmbedExtension). Used by the crawler prerender server, which has
+ * no DOM — so this is a conservative regex scan of the opening tags only.
+ * URLs are re-validated through parseSocialUrl; anything that no longer
+ * matches the whitelist is skipped.
+ */
+export function extractSocialEmbeds(html: string | null | undefined): ParsedSocialEmbed[] {
+  if (!html) return [];
+  const out: ParsedSocialEmbed[] = [];
+  const tagRe = /<div\b[^>]*\bdata-social-embed\b[^>]*>/gi;
+  for (const m of html.matchAll(tagRe)) {
+    const urlAttr = m[0].match(/\bdata-url\s*=\s*"([^"]*)"/i);
+    if (!urlAttr) continue;
+    const url = urlAttr[1]
+      .replace(/&amp;/gi, "&")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">");
+    const parsed = parseSocialUrl(url);
+    if (parsed) out.push(parsed);
+  }
+  return out;
+}
+
 export const PROVIDER_LABELS: Record<SocialProvider, string> = {
   youtube: "YouTube",
   twitter: "X (Twitter)",
