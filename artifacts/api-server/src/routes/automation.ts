@@ -1,0 +1,355 @@
+import { Router, type Request, type Response, type NextFunction } from "express";
+import { timingSafeEqual, randomBytes } from "node:crypto";
+import { db, postsTable, usersTable, automationRequestsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { writeAuditLogForUser } from "../lib/audit";
+import { validateCoverImage } from "../lib/coverImageValidation";
+import { isExternalImageUrl, persistExternalImage, persistExternalImagesInHtml } from "../lib/persistExternalImage";
+import { cleanHtml, cleanText, resolveCategory } from "./posts";
+import { hashPassword } from "../lib/auth";
+import { logger } from "../lib/logger";
+
+/**
+ * Private automation draft API — lets an external AI client (run and
+ * scheduled outside Replit) submit blog post DRAFTS. Hard guarantees:
+ *
+ *  - Bearer-token auth against the AUTOMATION_DRAFT_TOKEN secret (401 otherwise).
+ *  - Status is ALWAYS "draft"; there is no code path here that can publish.
+ *  - Drafts are attributed to a dedicated bot author account, created on
+ *    first use, so editors instantly recognize machine-submitted drafts.
+ *  - Requests that try to control status/author/publish time are rejected
+ *    with 422 instead of silently ignored — a misbehaving or compromised
+ *    client must be visible, not papered over.
+ *  - Optional Idempotency-Key header: a repeat request with the same key
+ *    returns the original draft instead of creating a duplicate.
+ *  - Every call, success or failure, writes an audit-log entry.
+ */
+
+const router = Router();
+
+export const BOT_USERNAME = "mapletechie-ai";
+const BOT_DISPLAY_NAME = "Mapletechie AI";
+
+// Fields the client may send (camelCase, after normalization).
+const ALLOWED_FIELDS = new Set([
+  "title",
+  "slug",
+  "excerpt",
+  "content",
+  "coverImage",
+  "tags",
+  "readTime",
+  "categoryId",
+  "category",
+  "seoTitle",
+  "seoDescription",
+  "seoKeywords",
+  "ogImage",
+  "rating",
+  "pros",
+  "cons",
+  "verdict",
+]);
+
+// Fields that are server-controlled or out of scope for v1. Submitting any of
+// them is a 422 — never silently dropped.
+const FORBIDDEN_FIELDS = new Set([
+  "status",
+  "author",
+  "authorId",
+  "authorAvatar",
+  "publishedAt",
+  "scheduledFor",
+  "isFeatured",
+  "seriesId",
+  "seriesPosition",
+]);
+
+/** Map snake_case payload keys (the agreed external contract) to camelCase. */
+const SNAKE_TO_CAMEL: Record<string, string> = {
+  cover_image: "coverImage",
+  read_time: "readTime",
+  category_id: "categoryId",
+  seo_title: "seoTitle",
+  seo_description: "seoDescription",
+  seo_keywords: "seoKeywords",
+  og_image: "ogImage",
+  author_id: "authorId",
+  author_avatar: "authorAvatar",
+  published_at: "publishedAt",
+  scheduled_for: "scheduledFor",
+  is_featured: "isFeatured",
+  series_id: "seriesId",
+  series_position: "seriesPosition",
+};
+
+function normalizeBody(raw: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    out[SNAKE_TO_CAMEL[k] ?? k] = v;
+  }
+  return out;
+}
+
+/** Constant-time bearer-token check against the AUTOMATION_DRAFT_TOKEN secret. */
+export function automationAuth(req: Request, res: Response, next: NextFunction): void {
+  const secret = process.env.AUTOMATION_DRAFT_TOKEN;
+  res.setHeader("X-Robots-Tag", "noindex, nofollow");
+  if (!secret || secret.length < 20) {
+    // Fail closed if the secret is missing or suspiciously short.
+    logger.error("automation: AUTOMATION_DRAFT_TOKEN missing or too short — endpoint disabled");
+    void writeAuditLogForUser(req, null, {
+      action: "automation.auth.failed",
+      summary: "Automation draft request rejected: AUTOMATION_DRAFT_TOKEN not configured",
+    });
+    res.status(503).json({ error: "Automation API is not configured" });
+    return;
+  }
+  const header = req.headers.authorization;
+  const token = header?.startsWith("Bearer ") ? header.slice(7) : "";
+  const a = Buffer.from(token);
+  const b = Buffer.from(secret);
+  const ok = a.length === b.length && timingSafeEqual(a, b);
+  if (!ok) {
+    void writeAuditLogForUser(req, null, {
+      action: "automation.auth.failed",
+      summary: "Automation draft request rejected: invalid or missing bearer token",
+    });
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  next();
+}
+
+/**
+ * Find (or create on first use) the dedicated bot author account. The account
+ * can never log in: its password is a random 48-byte secret that is hashed and
+ * immediately discarded, and it has no admin/editor permissions.
+ */
+async function getBotUser() {
+  const [existing] = await db.select().from(usersTable).where(eq(usersTable.username, BOT_USERNAME));
+  if (existing) return existing;
+  const passwordHash = await hashPassword(randomBytes(48).toString("hex"));
+  const [created] = await db
+    .insert(usersTable)
+    .values({
+      username: BOT_USERNAME,
+      passwordHash,
+      displayName: BOT_DISPLAY_NAME,
+      bio: "Automated draft author. Posts under this byline were submitted by the Mapletechie draft pipeline and are reviewed by a human editor before publishing.",
+      role: "editor",
+    })
+    .onConflictDoNothing({ target: usersTable.username })
+    .returning();
+  if (created) return created;
+  // Lost a create race — fetch the winner.
+  const [row] = await db.select().from(usersTable).where(eq(usersTable.username, BOT_USERNAME));
+  return row;
+}
+
+function editUrl(postId: number): string {
+  const domain = process.env.SITE_DOMAIN || "https://mapletechie.com";
+  return `${domain.replace(/\/$/, "")}/admin/posts/${postId}/edit`;
+}
+
+router.post("/automation/posts/drafts", automationAuth, async (req, res): Promise<void> => {
+  const rawBody = (req.body ?? {}) as Record<string, unknown>;
+  const idempotencyKeyHeader = req.headers["idempotency-key"];
+  const idempotencyKey =
+    typeof idempotencyKeyHeader === "string" && idempotencyKeyHeader.trim()
+      ? idempotencyKeyHeader.trim().slice(0, 200)
+      : null;
+
+  const botUser = await getBotUser();
+  if (!botUser) {
+    res.status(500).json({ error: "Could not resolve the bot author account" });
+    return;
+  }
+  const bot = { id: botUser.id, username: botUser.username };
+
+  const fail = async (statusCode: number, error: string, details?: Record<string, unknown>) => {
+    await writeAuditLogForUser(req, bot, {
+      action: "automation.draft.rejected",
+      entityType: "post",
+      summary: `Automation draft rejected (${statusCode}): ${error}`,
+      details: { ...details, idempotencyKey, title: rawBody.title ?? null, slug: rawBody.slug ?? null },
+    });
+    res.status(statusCode).json({ error });
+  };
+
+  const body = normalizeBody(rawBody);
+
+  // Reject server-controlled fields loudly (422), per the agreed contract.
+  const forbidden = Object.keys(body).filter((k) => FORBIDDEN_FIELDS.has(k));
+  if (forbidden.length > 0) {
+    await fail(
+      422,
+      `Forbidden field(s): ${forbidden.join(", ")}. The server controls status, author and publish time; series fields are not supported.`,
+      { forbidden },
+    );
+    return;
+  }
+  const unknown = Object.keys(body).filter((k) => !ALLOWED_FIELDS.has(k));
+  if (unknown.length > 0) {
+    await fail(422, `Unknown field(s): ${unknown.join(", ")}`, { unknown });
+    return;
+  }
+
+  // Idempotency replay: same key -> return the original draft, create nothing.
+  if (idempotencyKey) {
+    const [prior] = await db
+      .select()
+      .from(automationRequestsTable)
+      .where(eq(automationRequestsTable.idempotencyKey, idempotencyKey));
+    if (prior) {
+      const [post] = await db.select().from(postsTable).where(eq(postsTable.id, prior.postId));
+      if (post) {
+        res.status(200).json({ id: post.id, status: post.status, slug: post.slug, edit_url: editUrl(post.id), replayed: true });
+        return;
+      }
+      // Draft was deleted since — treat the key as spent.
+      await fail(409, "This Idempotency-Key was already used, but the draft it created no longer exists.");
+      return;
+    }
+  }
+
+  // Required fields.
+  for (const f of ["title", "slug", "content"] as const) {
+    if (typeof body[f] !== "string" || !(body[f] as string).trim()) {
+      await fail(400, `Missing field: ${f}`);
+      return;
+    }
+  }
+  const categoryInput = body.categoryId ?? body.category;
+  if (categoryInput == null || (typeof categoryInput === "string" && !categoryInput.trim())) {
+    await fail(400, "Missing field: category_id");
+    return;
+  }
+  const resolvedCategory = await resolveCategory(categoryInput);
+  if (!resolvedCategory) {
+    await fail(400, `Unknown category: ${String(categoryInput)}`);
+    return;
+  }
+
+  const slug = String(body.slug).trim().toLowerCase();
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 200) {
+    await fail(400, "Invalid slug: use lowercase letters, digits and hyphens only");
+    return;
+  }
+  const [slugClash] = await db.select({ id: postsTable.id }).from(postsTable).where(eq(postsTable.slug, slug));
+  if (slugClash) {
+    await fail(409, `A post with slug "${slug}" already exists`);
+    return;
+  }
+
+  const coverError = validateCoverImage(body.coverImage);
+  if (coverError) {
+    await fail(400, coverError);
+    return;
+  }
+  const ogImageError = validateCoverImage(body.ogImage);
+  if (ogImageError) {
+    await fail(400, ogImageError);
+    return;
+  }
+
+  // Re-host external images on our own storage (best-effort, SSRF-guarded).
+  const persistCtx = { uploaderId: botUser.id, uploaderName: botUser.displayName };
+  let coverImage = typeof body.coverImage === "string" ? body.coverImage : null;
+  let ogImage = typeof body.ogImage === "string" ? body.ogImage : null;
+  if (isExternalImageUrl(coverImage)) coverImage = await persistExternalImage(coverImage, persistCtx);
+  if (isExternalImageUrl(ogImage)) ogImage = await persistExternalImage(ogImage, persistCtx);
+
+  const toStringArray = (v: unknown): string[] =>
+    Array.isArray(v) ? v.map((x) => cleanText(x)).filter((x): x is string => !!x) : [];
+
+  const values = {
+    title: String(body.title).trim().slice(0, 300),
+    slug,
+    excerpt: typeof body.excerpt === "string" ? body.excerpt.trim() : "",
+    content: await persistExternalImagesInHtml(cleanHtml(body.content), persistCtx),
+    coverImage,
+    categoryId: resolvedCategory.id,
+    tags: toStringArray(body.tags),
+    author: botUser.displayName,
+    authorAvatar: botUser.avatarUrl ?? null,
+    authorId: botUser.id,
+    readTime: typeof body.readTime === "number" && Number.isFinite(body.readTime)
+      ? Math.max(1, Math.min(60, Math.round(body.readTime)))
+      : 5,
+    isFeatured: false,
+    status: "draft" as const, // always draft; this endpoint cannot publish
+    rating:
+      typeof body.rating === "number" && !Number.isNaN(body.rating)
+        ? Math.max(0, Math.min(5, body.rating))
+        : null,
+    pros: toStringArray(body.pros),
+    cons: toStringArray(body.cons),
+    verdict: cleanText(body.verdict),
+    seoTitle: cleanText(body.seoTitle),
+    seoDescription: cleanText(body.seoDescription),
+    seoKeywords: toStringArray(body.seoKeywords),
+    ogImage,
+    // Drafts are invisible to readers; this timestamp is refreshed by the
+    // normal editor flow when a human publishes.
+    publishedAt: new Date(),
+  };
+
+  // Insert the post and claim the idempotency key in ONE transaction: if two
+  // concurrent requests race on the same key, the unique index on the ledger
+  // makes exactly one commit; the loser rolls back its post and replays the
+  // winner's draft. Without this, both could create drafts before either
+  // recorded the key.
+  const IDEMPOTENCY_LOST = Symbol("idempotency-lost");
+  let inserted;
+  try {
+    inserted = await db.transaction(async (tx) => {
+      const [post] = await tx.insert(postsTable).values(values).returning();
+      if (idempotencyKey) {
+        const claimed = await tx
+          .insert(automationRequestsTable)
+          .values({ idempotencyKey, postId: post.id })
+          .onConflictDoNothing({ target: automationRequestsTable.idempotencyKey })
+          .returning();
+        if (claimed.length === 0) throw IDEMPOTENCY_LOST;
+      }
+      return post;
+    });
+  } catch (err) {
+    if (err === IDEMPOTENCY_LOST && idempotencyKey) {
+      const [prior] = await db
+        .select()
+        .from(automationRequestsTable)
+        .where(eq(automationRequestsTable.idempotencyKey, idempotencyKey));
+      if (prior) {
+        const [post] = await db.select().from(postsTable).where(eq(postsTable.id, prior.postId));
+        if (post) {
+          res.status(200).json({ id: post.id, status: post.status, slug: post.slug, edit_url: editUrl(post.id), replayed: true });
+          return;
+        }
+      }
+      await fail(409, "A concurrent request with the same Idempotency-Key won the race; retry to fetch it");
+      return;
+    }
+    logger.error({ err }, "automation: draft insert failed");
+    await fail(409, "Could not create the draft (possibly a duplicate slug)");
+    return;
+  }
+
+  await writeAuditLogForUser(req, bot, {
+    action: "automation.draft.create",
+    entityType: "post",
+    entityId: inserted.id,
+    summary: `Automation created draft "${inserted.title}"`,
+    details: { idempotencyKey, snapshot: inserted },
+  });
+
+  res.status(201).json({
+    id: inserted.id,
+    status: inserted.status,
+    slug: inserted.slug,
+    edit_url: editUrl(inserted.id),
+  });
+});
+
+export default router;

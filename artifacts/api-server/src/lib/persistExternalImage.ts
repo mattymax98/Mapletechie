@@ -15,6 +15,7 @@ const objectStorageService = new ObjectStorageService();
 
 const MAX_BYTES = 25 * 1024 * 1024; // refuse absurdly large remote files
 const FETCH_TIMEOUT_MS = 15_000;
+const MAX_REDIRECTS = 3;
 // Keep enough resolution for a full-width article cover on retina displays
 // (~1152 CSS px × 2 DPR). The on-demand resizer still serves phones small
 // variants, so a large stored master costs nothing on mobile.
@@ -190,33 +191,92 @@ async function registerInMediaLibrary(
   }
 }
 
-export async function persistExternalImage(url: string, ctx?: PersistContext): Promise<string> {
-  try {
-    let hostname: string;
+/**
+ * SSRF-safe fetch: only http/https, every hop of a redirect chain is
+ * re-checked against the private-address guard (redirect: "follow" would let
+ * a public host bounce us to an internal address), and at most MAX_REDIRECTS
+ * hops are followed. Returns null (with a logged reason) on any violation.
+ */
+async function fetchImageSafely(startUrl: string): Promise<Response | null> {
+  let current = startUrl;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    let parsed: URL;
     try {
-      hostname = new URL(url).hostname;
+      parsed = new URL(current);
     } catch {
-      logger.warn({ url }, "persistExternalImage: invalid URL");
-      return url;
+      logger.warn({ url: current }, "persistExternalImage: invalid URL");
+      return null;
     }
-    if (!(await isSafeRemoteHost(hostname))) {
-      logger.warn({ url, hostname }, "persistExternalImage: blocked non-public host (SSRF guard)");
-      return url;
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      logger.warn({ url: current }, "persistExternalImage: blocked non-http(s) protocol");
+      return null;
+    }
+    if (!(await isSafeRemoteHost(parsed.hostname))) {
+      logger.warn({ url: current, hostname: parsed.hostname }, "persistExternalImage: blocked non-public host (SSRF guard)");
+      return null;
     }
 
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
     let resp: Response;
     try {
-      resp = await fetch(url, {
+      resp = await fetch(current, {
         signal: ctrl.signal,
-        redirect: "follow",
+        redirect: "manual",
         // Some hosts (e.g. Wikimedia) reject requests without a UA.
         headers: { "User-Agent": "MapletechieBot/1.0 (+https://mapletechie.com)" },
       });
     } finally {
       clearTimeout(timer);
     }
+
+    if (resp.status >= 300 && resp.status < 400) {
+      const location = resp.headers.get("location");
+      // Drain/cancel the redirect body before following.
+      try { await resp.body?.cancel(); } catch { /* ignore */ }
+      if (!location) {
+        logger.warn({ url: current, status: resp.status }, "persistExternalImage: redirect without location");
+        return null;
+      }
+      current = new URL(location, current).toString();
+      continue;
+    }
+    return resp;
+  }
+  logger.warn({ url: startUrl }, "persistExternalImage: too many redirects");
+  return null;
+}
+
+/** Read a response body while enforcing MAX_BYTES during streaming. */
+async function readBodyCapped(resp: Response): Promise<Buffer | null> {
+  const declared = Number(resp.headers.get("content-length") || 0);
+  if (declared > MAX_BYTES) return null;
+  if (!resp.body) {
+    // No streaming body (some environments/mocks) — fall back to a buffered
+    // read with a post-hoc size check.
+    const buf = Buffer.from(await resp.arrayBuffer());
+    return buf.byteLength > MAX_BYTES ? null : buf;
+  }
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  const reader = resp.body.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_BYTES) {
+      try { await reader.cancel(); } catch { /* ignore */ }
+      return null;
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks);
+}
+
+export async function persistExternalImage(url: string, ctx?: PersistContext): Promise<string> {
+  try {
+    const resp = await fetchImageSafely(url);
+    if (!resp) return url;
     if (!resp.ok) {
       logger.warn({ url, status: resp.status }, "persistExternalImage: fetch failed");
       return url;
@@ -226,11 +286,12 @@ export async function persistExternalImage(url: string, ctx?: PersistContext): P
       logger.warn({ url, contentType }, "persistExternalImage: not an image response");
       return url;
     }
-    const arrayBuf = await resp.arrayBuffer();
-    if (arrayBuf.byteLength > MAX_BYTES) {
-      logger.warn({ url, bytes: arrayBuf.byteLength }, "persistExternalImage: image too large");
+    const body = await readBodyCapped(resp);
+    if (!body) {
+      logger.warn({ url }, "persistExternalImage: image too large (streaming cap)");
       return url;
     }
+    const arrayBuf = body;
 
     const webp = await sharp(Buffer.from(arrayBuf))
       .rotate()
