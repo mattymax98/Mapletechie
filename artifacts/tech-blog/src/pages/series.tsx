@@ -11,6 +11,7 @@ import {
   DEFAULT_SITE_URL,
 } from "@/lib/articleSchema";
 import { CategoryChip } from "@/components/CategoryChip";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 interface SeriesRow {
   id: number;
@@ -112,6 +113,13 @@ export default function SeriesPage() {
 
       <div className="bg-card border-b border-border py-16 md:py-24">
         <div className="container mx-auto px-4 md:px-6 max-w-4xl">
+          <Breadcrumbs
+            items={[
+              { label: "Home", href: "/" },
+              { label: "Blog", href: "/blog" },
+              { label: series.title },
+            ]}
+          />
           <p className="text-primary uppercase tracking-widest text-sm font-bold mb-4 flex items-center gap-2">
             <BookOpen className="h-4 w-4" /> Series · {posts.length} {posts.length === 1 ? "part" : "parts"}
           </p>
