@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import {
   Youtube,
   Twitter,
@@ -44,6 +44,83 @@ function loadScript(src: string): Promise<void> {
 
 function isDarkMode(): boolean {
   return document.documentElement.classList.contains("dark");
+}
+
+/* ------------------------------------------------------------------ */
+/* CLS guard — reserve approximate space while third-party widgets     */
+/* load so the article text doesn't jump under the reader.             */
+/* ------------------------------------------------------------------ */
+const EMBED_MIN_HEIGHTS: Partial<Record<SocialProvider, number>> = {
+  twitter: 250,
+  instagram: 500,
+  tiktok: 580,
+  bluesky: 250,
+  reddit: 500,
+};
+
+/**
+ * Tracks when a provider script has actually rendered its widget by
+ * watching the holder's height (blockquote fallbacks are short; real
+ * widgets are tall). Used to fade out the loading skeleton.
+ */
+function useWidgetRendered(threshold = 150) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [rendered, setRendered] = useState(false);
+  useEffect(() => {
+    if (rendered) return;
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const check = () => {
+      if (el.offsetHeight >= threshold) setRendered(true);
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [rendered, threshold]);
+  return { ref, rendered };
+}
+
+/**
+ * Wrapper that reserves a provider-appropriate min-height before the
+ * third-party widget arrives, with a skeleton behind the content while
+ * loading. The min-height is kept after load so the block never
+ * collapses/expands under the reader.
+ */
+function EmbedShell({
+  provider,
+  loading,
+  testId,
+  maxWidth,
+  holderRef,
+  children,
+}: {
+  provider: SocialProvider;
+  loading: boolean;
+  testId: string;
+  maxWidth: number;
+  holderRef?: Ref<HTMLDivElement>;
+  children: ReactNode;
+}) {
+  return (
+    <div className="not-prose my-6 flex justify-center" data-testid={testId}>
+      <div
+        className="relative w-full"
+        style={{ maxWidth, minHeight: EMBED_MIN_HEIGHTS[provider] }}
+      >
+        {loading && (
+          <div
+            aria-hidden
+            data-testid={`${testId}-skeleton`}
+            className="absolute inset-0 animate-pulse rounded border border-border bg-muted/50"
+          />
+        )}
+        <div ref={holderRef} className="relative">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -165,12 +242,17 @@ function TweetEmbed({ embed }: { embed: ParsedSocialEmbed }) {
 
   if (state === "failed") return <LinkCard embed={embed} />;
   return (
-    <div className="not-prose my-6 flex justify-center" data-testid="embed-tweet">
-      <div ref={holderRef} className="w-full max-w-[550px]" />
+    <EmbedShell
+      provider="twitter"
+      loading={state === "loading"}
+      testId="embed-tweet"
+      maxWidth={550}
+      holderRef={holderRef}
+    >
       {state === "loading" && (
         <span className="sr-only">Loading post from X…</span>
       )}
-    </div>
+    </EmbedShell>
   );
 }
 
@@ -179,6 +261,7 @@ function TweetEmbed({ embed }: { embed: ParsedSocialEmbed }) {
 /* ------------------------------------------------------------------ */
 function InstagramEmbed({ embed }: { embed: ParsedSocialEmbed }) {
   const [failed, setFailed] = useState(false);
+  const { ref, rendered } = useWidgetRendered();
   useEffect(() => {
     let cancelled = false;
     loadScript("https://www.instagram.com/embed.js")
@@ -195,7 +278,13 @@ function InstagramEmbed({ embed }: { embed: ParsedSocialEmbed }) {
 
   if (failed) return <LinkCard embed={embed} />;
   return (
-    <div className="not-prose my-6 flex justify-center" data-testid="embed-instagram">
+    <EmbedShell
+      provider="instagram"
+      loading={!rendered}
+      testId="embed-instagram"
+      maxWidth={540}
+      holderRef={ref}
+    >
       <blockquote
         className="instagram-media"
         data-instgrm-permalink={embed.url}
@@ -206,12 +295,13 @@ function InstagramEmbed({ embed }: { embed: ParsedSocialEmbed }) {
           View this post on Instagram
         </a>
       </blockquote>
-    </div>
+    </EmbedShell>
   );
 }
 
 function TikTokEmbed({ embed }: { embed: ParsedSocialEmbed }) {
   const [failed, setFailed] = useState(false);
+  const { ref, rendered } = useWidgetRendered();
   useEffect(() => {
     let cancelled = false;
     loadScript("https://www.tiktok.com/embed.js").catch(() => {
@@ -224,7 +314,13 @@ function TikTokEmbed({ embed }: { embed: ParsedSocialEmbed }) {
 
   if (failed) return <LinkCard embed={embed} />;
   return (
-    <div className="not-prose my-6 flex justify-center" data-testid="embed-tiktok">
+    <EmbedShell
+      provider="tiktok"
+      loading={!rendered}
+      testId="embed-tiktok"
+      maxWidth={540}
+      holderRef={ref}
+    >
       <blockquote
         className="tiktok-embed"
         cite={embed.url}
@@ -235,7 +331,7 @@ function TikTokEmbed({ embed }: { embed: ParsedSocialEmbed }) {
           View this video on TikTok
         </a>
       </blockquote>
-    </div>
+    </EmbedShell>
   );
 }
 
@@ -245,6 +341,7 @@ function TikTokEmbed({ embed }: { embed: ParsedSocialEmbed }) {
 function BlueskyEmbed({ embed }: { embed: ParsedSocialEmbed }) {
   const [failed, setFailed] = useState(false);
   const atUri = blueskyAtUri(embed.url);
+  const { ref, rendered } = useWidgetRendered();
   useEffect(() => {
     let cancelled = false;
     loadScript("https://embed.bsky.app/static/embed.js").catch(() => {
@@ -257,7 +354,13 @@ function BlueskyEmbed({ embed }: { embed: ParsedSocialEmbed }) {
 
   if (failed || !atUri) return <LinkCard embed={embed} />;
   return (
-    <div className="not-prose my-6 flex justify-center" data-testid="embed-bluesky">
+    <EmbedShell
+      provider="bluesky"
+      loading={!rendered}
+      testId="embed-bluesky"
+      maxWidth={550}
+      holderRef={ref}
+    >
       <blockquote
         className="bluesky-embed"
         data-bluesky-uri={atUri}
@@ -267,7 +370,7 @@ function BlueskyEmbed({ embed }: { embed: ParsedSocialEmbed }) {
           View this post on Bluesky
         </a>
       </blockquote>
-    </div>
+    </EmbedShell>
   );
 }
 
@@ -300,6 +403,7 @@ function MastodonEmbed({ embed }: { embed: ParsedSocialEmbed }) {
 /* ------------------------------------------------------------------ */
 function RedditEmbed({ embed }: { embed: ParsedSocialEmbed }) {
   const [failed, setFailed] = useState(false);
+  const { ref, rendered } = useWidgetRendered();
   useEffect(() => {
     let cancelled = false;
     loadScript("https://embed.reddit.com/widgets.js").catch(() => {
@@ -312,7 +416,13 @@ function RedditEmbed({ embed }: { embed: ParsedSocialEmbed }) {
 
   if (failed) return <LinkCard embed={embed} />;
   return (
-    <div className="not-prose my-6 flex justify-center" data-testid="embed-reddit">
+    <EmbedShell
+      provider="reddit"
+      loading={!rendered}
+      testId="embed-reddit"
+      maxWidth={550}
+      holderRef={ref}
+    >
       <blockquote
         className="reddit-embed-bq"
         data-embed-theme={isDarkMode() ? "dark" : "light"}
@@ -323,7 +433,7 @@ function RedditEmbed({ embed }: { embed: ParsedSocialEmbed }) {
           View this post on Reddit
         </a>
       </blockquote>
-    </div>
+    </EmbedShell>
   );
 }
 
