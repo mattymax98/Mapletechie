@@ -258,7 +258,7 @@ export default function Home() {
                             <img
                               loading="lazy"
                               decoding="async"
-                              {...responsiveCoverProps(post.coverImage || `/images/post-${(idx % 3) + 1}.png`, COVER_SIZES.grid3)}
+                              {...responsiveCoverProps(post.coverImage || `/images/post-${(idx % 3) + 1}.png`, COVER_SIZES.grid4)}
                               alt={post.title}
                               className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                             />
@@ -353,7 +353,7 @@ export default function Home() {
                   <Link href={`/blog/${post.slug}`} className="group flex flex-col gap-4">
                     <div className="overflow-hidden border border-border aspect-video bg-muted relative">
                       <img loading="lazy" decoding="async"
-                        {...responsiveCoverProps(post.coverImage || `/images/post-${(idx % 2) + 1}.png`, COVER_SIZES.grid2)}
+                        {...responsiveCoverProps(post.coverImage || `/images/post-${(idx % 2) + 1}.png`, COVER_SIZES.grid3)}
                         alt={post.title}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
@@ -546,7 +546,7 @@ function CategorySection({
                       <img
                         loading="lazy"
                         decoding="async"
-                        {...responsiveCoverProps(post.coverImage || "/images/hero-post.webp", COVER_SIZES.sidebar)}
+                        {...responsiveCoverProps(post.coverImage || "/images/hero-post.webp", COVER_SIZES.thumb)}
                         alt={post.title}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />

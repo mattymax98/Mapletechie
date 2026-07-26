@@ -561,7 +561,7 @@ export default function BlogPost() {
                     <img
                       loading="lazy"
                       decoding="async"
-                      {...responsiveCoverProps(rp.coverImage || `/images/post-${(idx % 2) + 1}.png`, COVER_SIZES.grid3)}
+                      {...responsiveCoverProps(rp.coverImage || `/images/post-${(idx % 2) + 1}.png`, COVER_SIZES.grid3Narrow)}
                       alt={rp.title}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />

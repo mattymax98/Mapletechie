@@ -49,17 +49,31 @@ function staticCoverWebp(src: string): { webp: string; hasVariants: boolean } | 
  * These tell the browser how wide the image renders so it can pick the
  * smallest matching srcset variant.
  */
+/**
+ * The Tailwind `container` class plateaus at each breakpoint (its max-width IS
+ * the breakpoint), so rendered card widths are stepwise CONSTANTS between
+ * breakpoints — not fluid vw fractions. Each hint below therefore uses fixed
+ * px steps derived from the real layout math (container minus px-4/6 padding,
+ * minus grid gaps, divided by columns) so the browser picks the smallest
+ * sufficient variant at both 1x and 2x DPR and phones never fetch 1600/2400.
+ */
 export const COVER_SIZES = {
-  /** Large hero (home featured, ~2/3 width on desktop). */
-  hero: "(min-width: 1024px) 66vw, 100vw",
-  /** Full-width article cover (max ~1152px container). */
-  full: "(min-width: 1152px) 1152px, 100vw",
-  /** 3-column card grid (blog index, category, related). */
-  grid3: "(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw",
-  /** 2-column card grid (home latest). */
-  grid2: "(min-width: 768px) 50vw, 100vw",
-  /** Narrow sidebar column (home sub-hero). */
-  sidebar: "(min-width: 1024px) 33vw, 100vw",
+  /** Large hero (home featured, 2 of 3 columns + gap; maxes at ~984px). */
+  hero: "(min-width: 1536px) 984px, (min-width: 1280px) 813px, (min-width: 1024px) 643px, 100vw",
+  /** Full-width article cover (max-w-6xl minus padding ≈ 1104px). */
+  full: "(min-width: 1152px) 1104px, 100vw",
+  /** 3-col card grid in the full container, 2-col at md (blog index, category, home latest). */
+  grid3: "(min-width: 1536px) 475px, (min-width: 1280px) 389px, (min-width: 1024px) 304px, (min-width: 768px) 344px, 100vw",
+  /** Related-posts 3-col grid inside the max-w-6xl article container. */
+  grid3Narrow: "(min-width: 1152px) 347px, (min-width: 1024px) 304px, (min-width: 768px) 219px, 100vw",
+  /** 4-across editorial row beside the rotated header (home top articles). */
+  grid4: "(min-width: 1536px) 304px, (min-width: 1280px) 240px, (min-width: 1024px) 176px, (min-width: 768px) 120px, (min-width: 640px) 48vw, 100vw",
+  /** 2-col split where each card spans half the container (category lead). */
+  grid2: "(min-width: 1536px) 724px, (min-width: 1280px) 596px, (min-width: 1024px) 468px, 100vw",
+  /** Narrow sidebar column (home sub-hero, 1 of 3 columns). */
+  sidebar: "(min-width: 1536px) 475px, (min-width: 1280px) 389px, (min-width: 1024px) 309px, 100vw",
+  /** Fixed small list thumbnail (w-24 rows). */
+  thumb: "96px",
 } as const;
 
 /**
