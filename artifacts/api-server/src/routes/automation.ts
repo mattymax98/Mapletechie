@@ -1,6 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { timingSafeEqual, randomBytes } from "node:crypto";
-import { db, postsTable, usersTable, automationRequestsTable } from "@workspace/db";
+import { db, postsTable, usersTable, automationRequestsTable, seriesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { writeAuditLogForUser } from "../lib/audit";
 import { validateCoverImage } from "../lib/coverImageValidation";
@@ -50,6 +50,8 @@ const ALLOWED_FIELDS = new Set([
   "pros",
   "cons",
   "verdict",
+  "seriesId",
+  "seriesPosition",
 ]);
 
 // Fields that are server-controlled or out of scope for v1. Submitting any of
@@ -62,8 +64,6 @@ const FORBIDDEN_FIELDS = new Set([
   "publishedAt",
   "scheduledFor",
   "isFeatured",
-  "seriesId",
-  "seriesPosition",
 ]);
 
 /** Map snake_case payload keys (the agreed external contract) to camelCase. */
@@ -196,7 +196,7 @@ export async function createAutomationDraft(
   if (forbidden.length > 0) {
     return fail(
       422,
-      `Forbidden field(s): ${forbidden.join(", ")}. The server controls status, author and publish time; series fields are not supported.`,
+      `Forbidden field(s): ${forbidden.join(", ")}. The server controls status, author and publish time.`,
       { forbidden },
     );
   }
@@ -245,6 +245,34 @@ export async function createAutomationDraft(
     return fail(409, `A post with slug "${slug}" already exists`);
   }
 
+  // Optional series placement: validate the series exists and the position is sane.
+  let seriesId: number | null = null;
+  let seriesPosition: number | null = null;
+  if (body.seriesId != null) {
+    const sid = body.seriesId;
+    if (typeof sid !== "number" || !Number.isInteger(sid) || sid <= 0) {
+      await fail(400, "Invalid series_id: must be a positive integer");
+      return;
+    }
+    const [series] = await db.select({ id: seriesTable.id }).from(seriesTable).where(eq(seriesTable.id, sid));
+    if (!series) {
+      await fail(400, `Unknown series_id: ${sid}`);
+      return;
+    }
+    seriesId = sid;
+    if (body.seriesPosition != null) {
+      const pos = body.seriesPosition;
+      if (typeof pos !== "number" || !Number.isInteger(pos) || pos <= 0) {
+        await fail(400, "Invalid series_position: must be a positive integer");
+        return;
+      }
+      seriesPosition = pos;
+    }
+  } else if (body.seriesPosition != null) {
+    await fail(400, "series_position requires series_id");
+    return;
+  }
+
   const coverError = validateCoverImage(body.coverImage);
   if (coverError) {
     return fail(400, coverError);
@@ -279,6 +307,8 @@ export async function createAutomationDraft(
       ? Math.max(1, Math.min(60, Math.round(body.readTime)))
       : 5,
     isFeatured: false,
+    seriesId,
+    seriesPosition,
     status: "draft" as const, // always draft; this endpoint cannot publish
     rating:
       typeof body.rating === "number" && !Number.isNaN(body.rating)
