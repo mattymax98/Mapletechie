@@ -153,29 +153,40 @@ function editUrl(postId: number): string {
   return `${domain.replace(/\/$/, "")}/admin/posts/${postId}/edit`;
 }
 
-router.post("/automation/posts/drafts", automationAuth, async (req, res): Promise<void> => {
-  const rawBody = (req.body ?? {}) as Record<string, unknown>;
-  const idempotencyKeyHeader = req.headers["idempotency-key"];
-  const idempotencyKey =
-    typeof idempotencyKeyHeader === "string" && idempotencyKeyHeader.trim()
-      ? idempotencyKeyHeader.trim().slice(0, 200)
-      : null;
+export interface DraftCreationResult {
+  status: number;
+  body: Record<string, unknown>;
+}
 
+/**
+ * Core draft-creation logic, shared by the raw HTTP endpoint and the MCP
+ * connector. All invariants (draft-only, forbidden fields, idempotency,
+ * bot authorship, audit trail) live HERE so both entry points behave
+ * identically. `req` is only used for audit-log request metadata.
+ */
+export async function createAutomationDraft(
+  req: Request,
+  rawBody: Record<string, unknown>,
+  idempotencyKey: string | null,
+): Promise<DraftCreationResult> {
   const botUser = await getBotUser();
   if (!botUser) {
-    res.status(500).json({ error: "Could not resolve the bot author account" });
-    return;
+    return { status: 500, body: { error: "Could not resolve the bot author account" } };
   }
   const bot = { id: botUser.id, username: botUser.username };
 
-  const fail = async (statusCode: number, error: string, details?: Record<string, unknown>) => {
+  const fail = async (
+    statusCode: number,
+    error: string,
+    details?: Record<string, unknown>,
+  ): Promise<DraftCreationResult> => {
     await writeAuditLogForUser(req, bot, {
       action: "automation.draft.rejected",
       entityType: "post",
       summary: `Automation draft rejected (${statusCode}): ${error}`,
       details: { ...details, idempotencyKey, title: rawBody.title ?? null, slug: rawBody.slug ?? null },
     });
-    res.status(statusCode).json({ error });
+    return { status: statusCode, body: { error } };
   };
 
   const body = normalizeBody(rawBody);
@@ -183,17 +194,15 @@ router.post("/automation/posts/drafts", automationAuth, async (req, res): Promis
   // Reject server-controlled fields loudly (422), per the agreed contract.
   const forbidden = Object.keys(body).filter((k) => FORBIDDEN_FIELDS.has(k));
   if (forbidden.length > 0) {
-    await fail(
+    return fail(
       422,
       `Forbidden field(s): ${forbidden.join(", ")}. The server controls status, author and publish time; series fields are not supported.`,
       { forbidden },
     );
-    return;
   }
   const unknown = Object.keys(body).filter((k) => !ALLOWED_FIELDS.has(k));
   if (unknown.length > 0) {
-    await fail(422, `Unknown field(s): ${unknown.join(", ")}`, { unknown });
-    return;
+    return fail(422, `Unknown field(s): ${unknown.join(", ")}`, { unknown });
   }
 
   // Idempotency replay: same key -> return the original draft, create nothing.
@@ -205,53 +214,44 @@ router.post("/automation/posts/drafts", automationAuth, async (req, res): Promis
     if (prior) {
       const [post] = await db.select().from(postsTable).where(eq(postsTable.id, prior.postId));
       if (post) {
-        res.status(200).json({ id: post.id, status: post.status, slug: post.slug, edit_url: editUrl(post.id), replayed: true });
-        return;
+        return { status: 200, body: { id: post.id, status: post.status, slug: post.slug, edit_url: editUrl(post.id), replayed: true } };
       }
       // Draft was deleted since — treat the key as spent.
-      await fail(409, "This Idempotency-Key was already used, but the draft it created no longer exists.");
-      return;
+      return fail(409, "This Idempotency-Key was already used, but the draft it created no longer exists.");
     }
   }
 
   // Required fields.
   for (const f of ["title", "slug", "content"] as const) {
     if (typeof body[f] !== "string" || !(body[f] as string).trim()) {
-      await fail(400, `Missing field: ${f}`);
-      return;
+      return fail(400, `Missing field: ${f}`);
     }
   }
   const categoryInput = body.categoryId ?? body.category;
   if (categoryInput == null || (typeof categoryInput === "string" && !categoryInput.trim())) {
-    await fail(400, "Missing field: category_id");
-    return;
+    return fail(400, "Missing field: category_id");
   }
   const resolvedCategory = await resolveCategory(categoryInput);
   if (!resolvedCategory) {
-    await fail(400, `Unknown category: ${String(categoryInput)}`);
-    return;
+    return fail(400, `Unknown category: ${String(categoryInput)}`);
   }
 
   const slug = String(body.slug).trim().toLowerCase();
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 200) {
-    await fail(400, "Invalid slug: use lowercase letters, digits and hyphens only");
-    return;
+    return fail(400, "Invalid slug: use lowercase letters, digits and hyphens only");
   }
   const [slugClash] = await db.select({ id: postsTable.id }).from(postsTable).where(eq(postsTable.slug, slug));
   if (slugClash) {
-    await fail(409, `A post with slug "${slug}" already exists`);
-    return;
+    return fail(409, `A post with slug "${slug}" already exists`);
   }
 
   const coverError = validateCoverImage(body.coverImage);
   if (coverError) {
-    await fail(400, coverError);
-    return;
+    return fail(400, coverError);
   }
   const ogImageError = validateCoverImage(body.ogImage);
   if (ogImageError) {
-    await fail(400, ogImageError);
-    return;
+    return fail(400, ogImageError);
   }
 
   // Re-host external images on our own storage (best-effort, SSRF-guarded).
@@ -325,16 +325,13 @@ router.post("/automation/posts/drafts", automationAuth, async (req, res): Promis
       if (prior) {
         const [post] = await db.select().from(postsTable).where(eq(postsTable.id, prior.postId));
         if (post) {
-          res.status(200).json({ id: post.id, status: post.status, slug: post.slug, edit_url: editUrl(post.id), replayed: true });
-          return;
+          return { status: 200, body: { id: post.id, status: post.status, slug: post.slug, edit_url: editUrl(post.id), replayed: true } };
         }
       }
-      await fail(409, "A concurrent request with the same Idempotency-Key won the race; retry to fetch it");
-      return;
+      return fail(409, "A concurrent request with the same Idempotency-Key won the race; retry to fetch it");
     }
     logger.error({ err }, "automation: draft insert failed");
-    await fail(409, "Could not create the draft (possibly a duplicate slug)");
-    return;
+    return fail(409, "Could not create the draft (possibly a duplicate slug)");
   }
 
   await writeAuditLogForUser(req, bot, {
@@ -353,12 +350,26 @@ router.post("/automation/posts/drafts", automationAuth, async (req, res): Promis
     editUrl: editUrl(inserted.id),
   });
 
-  res.status(201).json({
-    id: inserted.id,
-    status: inserted.status,
-    slug: inserted.slug,
-    edit_url: editUrl(inserted.id),
-  });
+  return {
+    status: 201,
+    body: {
+      id: inserted.id,
+      status: inserted.status,
+      slug: inserted.slug,
+      edit_url: editUrl(inserted.id),
+    },
+  };
+}
+
+router.post("/automation/posts/drafts", automationAuth, async (req, res): Promise<void> => {
+  const rawBody = (req.body ?? {}) as Record<string, unknown>;
+  const idempotencyKeyHeader = req.headers["idempotency-key"];
+  const idempotencyKey =
+    typeof idempotencyKeyHeader === "string" && idempotencyKeyHeader.trim()
+      ? idempotencyKeyHeader.trim().slice(0, 200)
+      : null;
+  const result = await createAutomationDraft(req, rawBody, idempotencyKey);
+  res.status(result.status).json(result.body);
 });
 
 export default router;

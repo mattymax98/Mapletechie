@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@google-cloud/storage": "^7.19.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/integrations-openai-ai-server": "workspace:*",
@@ -26,7 +27,8 @@
     "pino": "^9",
     "pino-http": "^10",
     "sanitize-html": "^2.17.4",
-    "sharp": "^0.35.0"
+    "sharp": "^0.35.0",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
