@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
-import { parseSocialUrl } from "../src/lib/socialEmbedProviders";
+import { parseSocialUrl, extractSocialEmbeds } from "../src/lib/socialEmbedProviders";
 import { splitSocialEmbeds } from "../src/components/SocialEmbeds";
 
 describe("splitSocialEmbeds", () => {
@@ -115,5 +115,37 @@ describe("parseSocialUrl", () => {
     expect(parseSocialUrl("https://evil.com/?u=https://x.com/a/status/123456")).toBeNull();
     expect(parseSocialUrl("not a url")).toBeNull();
     expect(parseSocialUrl("")).toBeNull();
+  });
+});
+
+describe("extractSocialEmbeds", () => {
+  it("extracts every whitelisted embed placeholder from article HTML", () => {
+    const html =
+      `<p>Intro</p>` +
+      `<div data-provider="youtube" data-url="https://youtu.be/dQw4w9WgXcQ" data-social-embed="" class="social-embed"><a href="https://youtu.be/dQw4w9WgXcQ">link</a></div>` +
+      `<div data-social-embed="" data-provider="twitter" data-url="https://x.com/a/status/123456789?s=20&amp;t=1"><a href="#">x</a></div>`;
+    const embeds = extractSocialEmbeds(html);
+    expect(embeds).toHaveLength(2);
+    expect(embeds[0]).toEqual({
+      provider: "youtube",
+      url: "https://youtu.be/dQw4w9WgXcQ",
+      id: "dQw4w9WgXcQ",
+    });
+    expect(embeds[1].provider).toBe("twitter");
+    expect(embeds[1].id).toBe("123456789");
+  });
+
+  it("skips divs without data-url or with non-whitelisted URLs", () => {
+    const html =
+      `<div data-social-embed="" data-provider="youtube"></div>` +
+      `<div data-social-embed="" data-provider="youtube" data-url="https://evil.com/watch?v=abc123"></div>` +
+      `<div class="social-embed" data-url="https://youtu.be/dQw4w9WgXcQ"></div>`;
+    expect(extractSocialEmbeds(html)).toHaveLength(0);
+  });
+
+  it("returns [] for empty or null input", () => {
+    expect(extractSocialEmbeds("")).toEqual([]);
+    expect(extractSocialEmbeds(null)).toEqual([]);
+    expect(extractSocialEmbeds(undefined)).toEqual([]);
   });
 });

@@ -16,6 +16,10 @@ import {
   buildAuthorBreadcrumbJsonLd,
   buildTrailBreadcrumbJsonLd,
 } from "./src/lib/articleSchema";
+import {
+  extractSocialEmbeds,
+  type ParsedSocialEmbed,
+} from "./src/lib/socialEmbedProviders";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -278,6 +282,71 @@ function buildHeroPreloadLink(coverImage: string | null | undefined): string {
   return `    <link ${attrs}>\n`;
 }
 
+/** Minimal shape of YouTube's public oEmbed response. */
+interface YouTubeOEmbed {
+  title?: string;
+  author_name?: string;
+  thumbnail_url?: string;
+}
+
+/**
+ * Build a schema.org VideoObject for a YouTube embed found in article content.
+ * Title/thumbnail come from YouTube's keyless oEmbed endpoint when reachable;
+ * otherwise we fall back to the deterministic i.ytimg.com thumbnail and the
+ * article context so crawlers still get valid structured data. uploadDate is
+ * approximated with the article publish date (oEmbed does not expose it).
+ */
+async function buildVideoObjectJsonLd(
+  embed: ParsedSocialEmbed,
+  post: { title: string; excerpt?: string | null; publishedAt?: string | null },
+): Promise<Record<string, unknown>> {
+  const oembed = await fetchJson<YouTubeOEmbed>(
+    `https://www.youtube.com/oembed?url=${encodeURIComponent(embed.url)}&format=json`,
+    2500,
+  );
+  const ld: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "VideoObject",
+    name: oembed?.title || `Video: ${post.title}`,
+    description:
+      oembed?.title ||
+      stripHtml(post.excerpt, 160) ||
+      `Video embedded in the Mapletechie article "${post.title}".`,
+    thumbnailUrl:
+      oembed?.thumbnail_url || `https://i.ytimg.com/vi/${embed.id}/hqdefault.jpg`,
+    embedUrl: `https://www.youtube-nocookie.com/embed/${embed.id}`,
+    contentUrl: embed.url,
+  };
+  if (oembed?.author_name) {
+    ld.author = { "@type": "Person", name: oembed.author_name };
+  }
+  if (post.publishedAt) {
+    ld.uploadDate = post.publishedAt;
+  }
+  return ld;
+}
+
+/**
+ * Rewrite tweet embed placeholders in crawler-facing article HTML into
+ * Twitter/X's canonical `<blockquote class="twitter-tweet">` markup, which
+ * crawlers and link-preview bots recognize as an embedded tweet. All other
+ * providers keep their existing placeholder + fallback link unchanged.
+ */
+function tweetBlockquotesForCrawlers(html: string): string {
+  return html.replace(
+    /<div\b[^>]*\bdata-social-embed\b[^>]*>([\s\S]*?)<\/div>/gi,
+    (full) => {
+      // Attribute order isn't guaranteed, so test provider/url separately.
+      const openTag = full.match(/^<div\b[^>]*>/i)?.[0] ?? "";
+      if (!/\bdata-provider\s*=\s*"twitter"/i.test(openTag)) return full;
+      const urlAttr = openTag.match(/\bdata-url\s*=\s*"([^"]*)"/i);
+      if (!urlAttr) return full;
+      const url = urlAttr[1];
+      return `<blockquote class="twitter-tweet"><a href="${url}">${url}</a></blockquote>`;
+    },
+  );
+}
+
 const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
@@ -527,23 +596,42 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
   // in the initial HTML for crawlers.
   const jsonLd = buildArticleJsonLd(post, { siteUrl: SITE_URL });
   const breadcrumbLd = buildBreadcrumbJsonLd(post, { siteUrl: SITE_URL });
+
+  // VideoObject JSON-LD for each YouTube embed in the content, so crawlers
+  // that only see the fallback link still learn there's a video here (and
+  // articles become eligible for video rich results). Deduped by video id.
+  const embeds = extractSocialEmbeds(post.content);
+  const youtubeEmbeds = [
+    ...new Map(
+      embeds.filter((e) => e.provider === "youtube").map((e) => [e.id, e]),
+    ).values(),
+  ].slice(0, 10);
+  const videoLds = await Promise.all(
+    youtubeEmbeds.map((e) => buildVideoObjectJsonLd(e, post)),
+  );
   // JSON.stringify escapes quotes; we additionally escape `<` so the JSON
   // body cannot prematurely close the surrounding <script> tag.
   const ldSafe = (obj: Record<string, unknown>) =>
     JSON.stringify(obj).replace(/</g, "\\u003c");
+  const videoScripts = videoLds
+    .map((ld) => `    <script type="application/ld+json">${ldSafe(ld)}</script>\n`)
+    .join("");
   const seoWithJsonLd = seo.replace(
     "<!-- SEO_HEAD_END -->",
     `    <script type="application/ld+json">${ldSafe(jsonLd)}</script>\n` +
       `    <script type="application/ld+json">${ldSafe(breadcrumbLd)}</script>\n` +
+      videoScripts +
       `    <!-- SEO_HEAD_END -->`,
   );
 
   // Render the full article body for crawlers that don't execute JavaScript.
   // The content field is HTML from the editor; we keep it as-is so AI crawlers
   // can read the full article text, but strip inline scripts for safety.
-  const safeContent = (post.content ?? "")
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "");
+  const safeContent = tweetBlockquotesForCrawlers(
+    (post.content ?? "")
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, ""),
+  );
   const publishedDate = post.publishedAt
     ? new Date(post.publishedAt).toLocaleDateString("en-CA", {
         year: "numeric",

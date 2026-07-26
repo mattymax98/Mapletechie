@@ -67,6 +67,23 @@ const ARTICLE = {
   seoDescription: null,
 };
 
+/** Article whose content contains social-embed placeholders (as saved by the
+ *  editor / API sanitizer). Used to verify crawler-facing VideoObject JSON-LD
+ *  and tweet blockquote markup. */
+const EMBED_ARTICLE = {
+  ...ARTICLE,
+  id: 2,
+  slug: "gadget-video-review",
+  title: "Gadget Video Review",
+  excerpt: "A hands-on video review.",
+  content:
+    `<p>Watch the review:</p>` +
+    `<div data-provider="youtube" data-url="https://www.youtube.com/watch?v=dQw4w9WgXcQ" data-social-embed="" class="social-embed"><a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank" rel="noopener noreferrer">https://www.youtube.com/watch?v=dQw4w9WgXcQ</a></div>` +
+    `<p>Reaction:</p>` +
+    `<div data-provider="twitter" data-url="https://x.com/mapletechie/status/1234567890123" data-social-embed="" class="social-embed"><a href="https://x.com/mapletechie/status/1234567890123" target="_blank" rel="noopener noreferrer">https://x.com/mapletechie/status/1234567890123</a></div>` +
+    `<div data-provider="instagram" data-url="https://www.instagram.com/p/Cxyz_ABC123/" data-social-embed="" class="social-embed"><a href="https://www.instagram.com/p/Cxyz_ABC123/" target="_blank" rel="noopener noreferrer">https://www.instagram.com/p/Cxyz_ABC123/</a></div>`,
+};
+
 const CATEGORY = {
   id: 2,
   slug: "ai",
@@ -175,6 +192,7 @@ function startMockApi(
   });
   api.get("/api/posts/slug/:slug", (req, res) => {
     if (req.params.slug === ARTICLE.slug) return res.json(ARTICLE);
+    if (req.params.slug === EMBED_ARTICLE.slug) return res.json(EMBED_ARTICLE);
     res.status(404).json({ error: "not found" });
   });
   api.get("/api/categories", (_req, res) => {
@@ -463,6 +481,44 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).toContain('<div id="root">');
       expect(body).not.toContain('"@type":"NewsArticle"');
       expect(body).not.toContain("Large language models are reshaping");
+    });
+
+    it("emits VideoObject JSON-LD for each YouTube embed in the content", async () => {
+      const { status, body } = await get(`/blog/${EMBED_ARTICLE.slug}`, GOOGLEBOT_UA);
+      expect(status).toBe(200);
+      const scripts = [
+        ...body.matchAll(
+          /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g,
+        ),
+      ].map((m) => JSON.parse(m[1]));
+      const videos = scripts.filter((s) => s["@type"] === "VideoObject");
+      expect(videos).toHaveLength(1);
+      const video = videos[0];
+      expect(video.embedUrl).toBe("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ");
+      expect(video.contentUrl).toBe("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+      expect(video.thumbnailUrl).toBeTruthy();
+      expect(video.name).toBeTruthy();
+      expect(video.uploadDate).toBe(EMBED_ARTICLE.publishedAt);
+    });
+
+    it("rewrites tweet placeholders into twitter-tweet blockquotes for crawlers only", async () => {
+      const { body } = await get(`/blog/${EMBED_ARTICLE.slug}`, GOOGLEBOT_UA);
+      expect(body).toContain(
+        '<blockquote class="twitter-tweet"><a href="https://x.com/mapletechie/status/1234567890123">https://x.com/mapletechie/status/1234567890123</a></blockquote>',
+      );
+      // The tweet placeholder div is gone, but other providers keep theirs.
+      expect(body).not.toContain('data-provider="twitter"');
+      expect(body).toContain('data-provider="youtube"');
+      expect(body).toContain('data-provider="instagram"');
+      // Fallback links for non-tweet providers survive untouched.
+      expect(body).toContain('href="https://www.instagram.com/p/Cxyz_ABC123/"');
+    });
+
+    it("serves the plain SPA shell (no embed markup) to a normal browser", async () => {
+      const { body } = await get(`/blog/${EMBED_ARTICLE.slug}`, BROWSER_UA);
+      expect(body).toContain('<div id="root">');
+      expect(body).not.toContain('"@type":"VideoObject"');
+      expect(body).not.toContain("twitter-tweet");
     });
 
     it("returns a noindex 404 to Googlebot for an unknown slug", async () => {
