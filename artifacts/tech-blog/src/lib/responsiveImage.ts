@@ -22,7 +22,7 @@ function buildVariantUrl(originalSrc: string, width: number): string {
  * width-variant URL that would 404. Admin-uploaded covers go to object storage
  * (`/api/storage/objects/`), not here, so this set stays the full source list.
  */
-const STATIC_COVER_VARIANTS = new Set([
+export const STATIC_COVER_VARIANTS = new Set([
   "ai-trends",
   "cybersecurity",
   "ev-future",
