@@ -25,6 +25,7 @@ import sendEmailRouter from "./sendEmail";
 import mediaRouter from "./media";
 import settingsRouter from "./settings";
 import maintenanceRouter from "./maintenance";
+import automationRouter from "./automation";
 
 const router: IRouter = Router();
 
@@ -54,5 +55,6 @@ router.use(sendEmailRouter);
 router.use(mediaRouter);
 router.use(settingsRouter);
 router.use(maintenanceRouter);
+router.use(automationRouter);
 
 export default router;

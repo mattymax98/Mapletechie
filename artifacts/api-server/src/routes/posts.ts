@@ -94,7 +94,8 @@ export function cleanHtml(input: unknown): string {
   });
 }
 
-function cleanText(input: unknown): string | null {
+// Exported for reuse by the automation draft endpoint (automation.ts).
+export function cleanText(input: unknown): string | null {
   if (typeof input !== "string") return null;
   const trimmed = input.trim();
   if (!trimmed) return null;
@@ -125,7 +126,7 @@ function postsBaseQuery() {
  * row. Returns null if no match — callers should reject the request in that
  * case so the FK on posts.category_id is never violated.
  */
-async function resolveCategory(input: unknown) {
+export async function resolveCategory(input: unknown) {
   if (input == null) return null;
   if (typeof input === "number" && Number.isFinite(input)) {
     const [row] = await db.select().from(categoriesTable).where(eq(categoriesTable.id, input));
