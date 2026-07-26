@@ -24,8 +24,8 @@ export function AuthorBio({ variant = "card", authorId, fallbackName, fallbackAv
     query: { enabled: !!authorId, queryKey: getGetAuthorQueryKey(authorId ?? 0) },
   });
 
-  const displayName = author?.displayName ?? fallbackName ?? "Mapletechie";
-  const avatarUrl = author?.avatarUrl ?? fallbackAvatar ?? `${import.meta.env.BASE_URL}author-matthew.webp`;
+  const displayName = author?.displayName || fallbackName || "Mapletechie";
+  const avatarUrl = author?.avatarUrl || fallbackAvatar || `${import.meta.env.BASE_URL}author-matthew.webp`;
   const jobTitle = author?.jobTitle?.trim() || "Editor, Mapletechie";
   const bio = author?.bio?.trim() || "Editor at Mapletechie — covering AI, electric vehicles, cybersecurity, and consumer gadgets.";
 

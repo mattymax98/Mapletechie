@@ -35,6 +35,7 @@ import { SeriesBanner } from "@/components/SeriesBanner";
 import { CategoryChip } from "@/components/CategoryChip";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { buildArticleJsonLd, buildBreadcrumbJsonLd } from "@/lib/articleSchema";
+import { splitSocialEmbeds, SocialEmbedView } from "@/components/SocialEmbeds";
 
 const SITE_URL = "https://mapletechie.com";
 
@@ -70,13 +71,24 @@ function PostContent({
   // Inject srcset/sizes into the HTML string before first render so the
   // preload scanner never downloads the full-size original on phones.
   const responsiveHtml = useMemo(() => makeArticleHtmlResponsive(html), [html]);
+  // Split out social-embed placeholders so they render as real React
+  // components (click-to-load YouTube, tweet widgets, ...) instead of the
+  // static fallback link inside the saved HTML.
+  const segments = useMemo(() => splitSocialEmbeds(responsiveHtml), [responsiveHtml]);
 
   return (
     <div
       ref={ref}
       className="prose prose-lg dark:prose-invert max-w-none prose-headings:font-black prose-headings:tracking-tight prose-a:text-primary hover:prose-a:text-primary/80 prose-img:border prose-img:border-border font-serif leading-relaxed prose-headings:scroll-mt-24"
-      dangerouslySetInnerHTML={{ __html: responsiveHtml }}
-    />
+    >
+      {segments.map((seg, i) =>
+        seg.kind === "embed" ? (
+          <SocialEmbedView key={`${seg.embed.url}-${i}`} embed={seg.embed} />
+        ) : (
+          <div key={i} dangerouslySetInnerHTML={{ __html: seg.html }} />
+        ),
+      )}
+    </div>
   );
 }
 
