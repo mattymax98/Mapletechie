@@ -251,26 +251,22 @@ export async function createAutomationDraft(
   if (body.seriesId != null) {
     const sid = body.seriesId;
     if (typeof sid !== "number" || !Number.isInteger(sid) || sid <= 0) {
-      await fail(400, "Invalid series_id: must be a positive integer");
-      return;
+      return fail(400, "Invalid series_id: must be a positive integer");
     }
     const [series] = await db.select({ id: seriesTable.id }).from(seriesTable).where(eq(seriesTable.id, sid));
     if (!series) {
-      await fail(400, `Unknown series_id: ${sid}`);
-      return;
+      return fail(400, `Unknown series_id: ${sid}`);
     }
     seriesId = sid;
     if (body.seriesPosition != null) {
       const pos = body.seriesPosition;
       if (typeof pos !== "number" || !Number.isInteger(pos) || pos <= 0) {
-        await fail(400, "Invalid series_position: must be a positive integer");
-        return;
+        return fail(400, "Invalid series_position: must be a positive integer");
       }
       seriesPosition = pos;
     }
   } else if (body.seriesPosition != null) {
-    await fail(400, "series_position requires series_id");
-    return;
+    return fail(400, "series_position requires series_id");
   }
 
   const coverError = validateCoverImage(body.coverImage);
