@@ -175,10 +175,12 @@ function startMockApi(
   close: () => Promise<void>;
   port: number;
   setMaintenance: (on: boolean) => void;
+  getFeaturedHits: () => number;
 }> {
   const api = express();
   // Mutable so the recovery suite can flip maintenance off mid-test.
   let maintenance = opts.maintenance ?? false;
+  let featuredHits = 0;
 
   api.get("/api/settings/status", (_req, res) => {
     res.json({
@@ -188,6 +190,7 @@ function startMockApi(
     });
   });
   api.get("/api/posts/featured", (_req, res) => {
+    featuredHits += 1;
     res.json([FEATURED_POST]);
   });
   api.get("/api/posts/slug/:slug", (req, res) => {
@@ -238,6 +241,7 @@ function startMockApi(
         setMaintenance: (on: boolean) => {
           maintenance = on;
         },
+        getFeaturedHits: () => featuredHits,
         close: () =>
           new Promise<void>((r) => httpServer.close(() => r())),
       });
@@ -1089,5 +1093,34 @@ describe("maintenance gate — recovery after maintenance ends", () => {
     // …and the normal SPA shell (not a 503) for browsers.
     const browserUp = await getFrom(server!.baseUrl, "/about", BROWSER_UA);
     expect(browserUp.status).toBe(200);
+  }, 30_000);
+});
+
+describe("featured-post cache on the homepage critical path", () => {
+  // A fresh server instance so the primary suite's cache state can't leak in.
+  let api: Awaited<ReturnType<typeof startMockApi>> | undefined;
+  let server: Awaited<ReturnType<typeof startPrerenderServer>> | undefined;
+
+  afterAll(async () => {
+    server?.close();
+    if (api) await api.close();
+  });
+
+  it("only calls /api/posts/featured once for repeated homepage hits within the TTL", async () => {
+    api = await startMockApi();
+    server = await startPrerenderServer(`http://127.0.0.1:${api.port}`, {
+      FEATURED_TTL_MS: "60000",
+    });
+
+    const first = await getFrom(server.baseUrl, "/", BROWSER_UA);
+    expect(first.status).toBe(200);
+    expect(first.body).toMatch(/<link rel="preload" as="image"/);
+
+    const second = await getFrom(server.baseUrl, "/", BROWSER_UA);
+    expect(second.status).toBe(200);
+    expect(second.body).toMatch(/<link rel="preload" as="image"/);
+
+    // Two page views, one upstream lookup — the cache served the second.
+    expect(api.getFeaturedHits()).toBe(1);
   }, 30_000);
 });

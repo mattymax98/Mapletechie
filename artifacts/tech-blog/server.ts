@@ -432,13 +432,36 @@ const IMAGE_RE = /\.(?:png|jpe?g|webp|gif|svg|ico|avif)$/i;
 // and fetches /api/posts/featured. Registered BEFORE sirv because sirv would
 // otherwise serve the static index.html for `/` and shadow this. Crawlers fall
 // through to sirv (and the catch-all) and get the unmodified shell, unchanged.
+// In-process cache for the featured-post lookup (same pattern as the
+// maintenance-status cache below). Removes the API round-trip from the
+// homepage critical path: TTFB no longer waits up to 4s on /api/posts/featured
+// for every visitor. Successful results (including "no featured post") are
+// cached for FEATURED_TTL_MS; failures only briefly, so a transient API blip
+// doesn't suppress the hero preload for a full minute.
+let featuredCache: { value: FeaturedPost[] | null; at: number } | null = null;
+// Overridable via env so tests can exercise caching without long waits.
+const FEATURED_TTL_MS =
+  Number(process.env.FEATURED_TTL_MS) > 0 ? Number(process.env.FEATURED_TTL_MS) : 45_000;
+const FEATURED_FAIL_TTL_MS = Math.min(5_000, FEATURED_TTL_MS);
+
+async function getFeaturedPosts(): Promise<FeaturedPost[] | null> {
+  const now = Date.now();
+  if (featuredCache) {
+    const ttl = featuredCache.value === null ? FEATURED_FAIL_TTL_MS : FEATURED_TTL_MS;
+    if (now - featuredCache.at < ttl) return featuredCache.value;
+  }
+  const fresh = await fetchJson<FeaturedPost[]>(`${API_BASE}/api/posts/featured`);
+  featuredCache = { value: fresh, at: Date.now() };
+  return fresh;
+}
+
 app.get(/^\/?$/, async (req, res, next) => {
   if (isCrawler(req)) return next();
   // During maintenance, defer to the maintenance gate below so `/` answers
   // 503 + Retry-After for browsers too, consistent with every other public page.
   const maint = await getMaintenanceStatus();
   if (maint.maintenance) return next();
-  const featured = await fetchJson<FeaturedPost[]>(`${API_BASE}/api/posts/featured`);
+  const featured = await getFeaturedPosts();
   const heroPost = featured?.[0];
   // No featured post -> the homepage renders no hero image, so emit no hint
   // (avoids preloading the fallback cover that nothing on the page will use).
