@@ -5,14 +5,14 @@ import { fileURLToPath } from "node:url";
 import { STATIC_COVER_VARIANTS, responsiveCoverProps, COVER_SIZES } from "../src/lib/responsiveImage";
 
 // STATIC_COVER_VARIANTS gates the static-cover srcset: every base name in the
-// set advertises `-400` / `-800` / `-1600` / master URLs to browsers. If any
+// set advertises `-400` / `-800` / `-1200` / `-1600` / master URLs to browsers. If any
 // of those files is deleted, renamed, or a new base name is added without
 // committing all variants, browsers silently get broken images in production.
 // This suite fails CI the moment the set and the files under public/ drift.
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(__dirname, "..", "public");
-const VARIANT_SUFFIXES = [400, 800, 1600] as const;
+const VARIANT_SUFFIXES = [400, 800, 1200, 1600] as const;
 
 /** Locate the master webp for a base name under public/covers or public/images. */
 function masterPath(base: string): string | null {
