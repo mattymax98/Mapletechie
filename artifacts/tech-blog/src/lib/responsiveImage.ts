@@ -12,7 +12,7 @@ function buildVariantUrl(originalSrc: string, width: number): string {
 
 /**
  * Bundled brand cover/hero images that ship as static `.webp` files with
- * pre-generated `-400` / `-800` / `-1600` width variants (the masters are
+ * pre-generated `-400` / `-800` / `-1200` / `-1600` width variants (the masters are
  * 2400w). These are the seeded post covers (`/covers/*`) and the homepage
  * hero fallback.
  *
@@ -102,6 +102,7 @@ export function responsiveCoverProps(
     const srcSet = [
       `${base}-400.webp 400w`,
       `${base}-800.webp 800w`,
+      `${base}-1200.webp 1200w`,
       `${base}-1600.webp 1600w`,
       `${cover.webp} 2400w`,
     ].join(", ");
