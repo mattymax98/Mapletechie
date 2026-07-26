@@ -107,7 +107,34 @@ describe("parseSocialUrl", () => {
     expect(p?.id).toBe("7123456789012345678");
   });
 
+  it("parses Bluesky post URLs", () => {
+    const p = parseSocialUrl("https://bsky.app/profile/jay.bsky.team/post/3kabc123xyz");
+    expect(p?.provider).toBe("bluesky");
+    expect(p?.id).toBe("3kabc123xyz");
+    expect(parseSocialUrl("https://bsky.app/profile/did:plc:z72i7hdynmk6r22z27h6tvur/post/3kabc123xyz")?.provider).toBe("bluesky");
+  });
+
+  it("parses Mastodon status URLs on any instance", () => {
+    const p = parseSocialUrl("https://mastodon.social/@Gargron/109372849205871248");
+    expect(p?.provider).toBe("mastodon");
+    expect(p?.id).toBe("109372849205871248");
+    expect(parseSocialUrl("https://fosstodon.org/@user@other.tld/112233445566778899")?.provider).toBe("mastodon");
+  });
+
+  it("parses Reddit post URLs", () => {
+    const p = parseSocialUrl("https://www.reddit.com/r/programming/comments/1abc23x/some_title/");
+    expect(p?.provider).toBe("reddit");
+    expect(p?.id).toBe("1abc23x");
+    expect(parseSocialUrl("https://old.reddit.com/r/rust/comments/xyz987/")?.provider).toBe("reddit");
+  });
+
   it("rejects everything else", () => {
+    expect(parseSocialUrl("https://bsky.app/profile/jay.bsky.team")).toBeNull(); // profile, not post
+    expect(parseSocialUrl("https://www.reddit.com/r/programming/")).toBeNull(); // subreddit, not post
+    expect(parseSocialUrl("https://mastodon.social/@Gargron")).toBeNull(); // profile, not status
+    expect(parseSocialUrl("https://www.threads.net/@user/post/Cxyz123")).toBeNull(); // non-numeric id
+    // TikTok profile+video keeps beating the generic mastodon pattern
+    expect(parseSocialUrl("https://www.tiktok.com/@user.name/video/7123456789012345678")?.provider).toBe("tiktok");
     expect(parseSocialUrl("https://example.com/watch?v=dQw4w9WgXcQ")).toBeNull();
     expect(parseSocialUrl("https://x.com/elonmusk")).toBeNull(); // profile, not a post
     expect(parseSocialUrl("https://www.youtube.com/@channel")).toBeNull();

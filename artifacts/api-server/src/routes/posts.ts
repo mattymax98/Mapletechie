@@ -20,9 +20,17 @@ const router = Router();
 // patterns may survive as a `data-url` on a social-embed placeholder; anything
 // else is stripped down to whatever plain content the div contains.
 const SOCIAL_EMBED_URL_RE =
-  /^https?:\/\/(?:(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|shorts\/|live\/)|youtu\.be\/)[A-Za-z0-9_-]{6,20}|(?:www\.|mobile\.)?(?:twitter\.com|x\.com)\/[A-Za-z0-9_]{1,20}\/status(?:es)?\/\d{5,25}|(?:www\.)?instagram\.com\/(?:[A-Za-z0-9_.]+\/)?(?:p|reel|reels|tv)\/[A-Za-z0-9_-]{5,40}|(?:www\.)?tiktok\.com\/@[\w.-]+\/video\/\d{5,25})/i;
+  /^https?:\/\/(?:(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|shorts\/|live\/)|youtu\.be\/)[A-Za-z0-9_-]{6,20}|(?:www\.|mobile\.)?(?:twitter\.com|x\.com)\/[A-Za-z0-9_]{1,20}\/status(?:es)?\/\d{5,25}|(?:www\.)?instagram\.com\/(?:[A-Za-z0-9_.]+\/)?(?:p|reel|reels|tv)\/[A-Za-z0-9_-]{5,40}|(?:www\.)?tiktok\.com\/@[\w.-]+\/video\/\d{5,25}|bsky\.app\/profile\/[A-Za-z0-9:%._-]+\/post\/[a-z0-9]{5,20}|(?:www\.|old\.|new\.)?reddit\.com\/r\/[A-Za-z0-9_]{2,21}\/comments\/[a-z0-9]{4,10}|[a-z0-9-]+(?:\.[a-z0-9-]+)+\/@[\w.-]+(?:@[\w.-]+)?\/\d{8,25}(?:[/?#]|$))/i;
 
-const SOCIAL_EMBED_PROVIDERS = new Set(["youtube", "twitter", "instagram", "tiktok"]);
+const SOCIAL_EMBED_PROVIDERS = new Set([
+  "youtube",
+  "twitter",
+  "instagram",
+  "tiktok",
+  "bluesky",
+  "mastodon",
+  "reddit",
+]);
 
 // Sanitize rich text HTML produced by the TipTap editor.
 // Exported for tests.
