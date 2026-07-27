@@ -96,6 +96,18 @@ const LONG_TITLE_ARTICLE = {
   title: "Canada's Submarine Sank a U.S. Warship. Here Is What Actually Happened.",
 };
 
+/** Article whose editor content contains an image saved WITHOUT an alt
+ *  attribute (legacy content) — the prerenderer must backfill alt="". */
+const NO_ALT_IMG_ARTICLE = {
+  ...ARTICLE,
+  id: 4,
+  slug: "photo-essay-no-alt",
+  title: "Photo Essay",
+  content:
+    '<p>Look at this:</p><img src="/uploads/lake.jpg" width="800" height="600">' +
+    '<img src="/uploads/canoe.jpg" alt="A red canoe">',
+};
+
 const CATEGORY = {
   id: 2,
   slug: "ai",
@@ -209,6 +221,7 @@ function startMockApi(
     if (req.params.slug === ARTICLE.slug) return res.json(ARTICLE);
     if (req.params.slug === EMBED_ARTICLE.slug) return res.json(EMBED_ARTICLE);
     if (req.params.slug === LONG_TITLE_ARTICLE.slug) return res.json(LONG_TITLE_ARTICLE);
+    if (req.params.slug === NO_ALT_IMG_ARTICLE.slug) return res.json(NO_ALT_IMG_ARTICLE);
     res.status(404).json({ error: "not found" });
   });
   api.get("/api/categories", (_req, res) => {
@@ -446,6 +459,26 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
           `/category/${phantom}`,
         );
       }
+    });
+  });
+
+  describe("image alt attributes (Bing 'Alt attribute missing')", () => {
+    it("backfills alt=\"\" on editor images saved without one, leaving real alts alone", async () => {
+      const { status, body } = await get(
+        `/blog/${NO_ALT_IMG_ARTICLE.slug}`,
+        GOOGLEBOT_UA,
+      );
+      expect(status).toBe(200);
+      // Every <img> in the prerendered page must carry an alt attribute.
+      const imgs = body.match(/<img\b[^>]*>/gi) ?? [];
+      expect(imgs.length).toBeGreaterThanOrEqual(2);
+      for (const img of imgs) {
+        expect(img, `img without alt in prerendered output: ${img}`).toMatch(
+          /\balt\s*=/i,
+        );
+      }
+      // The image that had real alt text keeps it verbatim.
+      expect(body).toContain('alt="A red canoe"');
     });
   });
 
