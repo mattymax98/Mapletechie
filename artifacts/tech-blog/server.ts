@@ -1146,6 +1146,15 @@ app.get(/^\/author\/([^/]+)\/?$/, async (req, res, next) => {
   );
   if (!author) return send404(res, "Author Not Found");
 
+  // Renamed username: the API 301s old usernames to the current record (fetch
+  // follows the redirect), so the returned username differing from the
+  // requested one means this is an old link. Redirect the PAGE URL itself with
+  // a 301 so search engines transfer the old page's ranking to the new URL.
+  if (author.username && author.username !== username) {
+    res.redirect(301, `/author/${encodeURIComponent(author.username)}`);
+    return;
+  }
+
   const displayName = author.displayName || author.username;
   const description =
     author.bio?.trim() ||
