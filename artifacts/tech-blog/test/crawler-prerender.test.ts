@@ -417,6 +417,26 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       const { body } = await get("/", GOOGLEBOT_UA);
       expect(body).not.toContain('rel="preload" as="image"');
     });
+
+    it("builds the category links from the live categories API, never a hardcoded list", async () => {
+      // A hardcoded homepage category list once linked to categories that no
+      // longer existed, handing Bing four 404s. The links must come from
+      // whatever /api/categories returns — here, just the mock's "ai".
+      const { body } = await get("/", GOOGLEBOT_UA);
+      expect(body).toContain(`${SITE_URL}/category/${CATEGORY.slug}`);
+      // The name is HTML-escaped when rendered ("&" -> "&amp;").
+      expect(body).toContain("AI &amp; Machine Learning");
+      for (const phantom of [
+        "ai-machine-learning",
+        "cybersecurity",
+        "electric-vehicles",
+        "science-space",
+      ]) {
+        expect(body, `dead link to /category/${phantom} must not be emitted`).not.toContain(
+          `/category/${phantom}`,
+        );
+      }
+    });
   });
 
   describe("site-wide RSS auto-discovery link", () => {

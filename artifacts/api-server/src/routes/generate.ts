@@ -1,6 +1,7 @@
 import { Router } from "express";
 import sharp from "sharp";
-import { db, mediaTable } from "@workspace/db";
+import { db, mediaTable, categoriesTable } from "@workspace/db";
+import { asc } from "drizzle-orm";
 import { adminAuth, requireRole } from "../middlewares/adminAuth";
 import { aiGenerateLimiter, aiImageLimiter } from "../middlewares/rateLimit";
 import { ObjectStorageService } from "../lib/objectStorage";
@@ -9,24 +10,31 @@ import { logger } from "../lib/logger";
 const router = Router();
 const objectStorageService = new ObjectStorageService();
 
-const CATEGORY_TO_COVER: Record<string, string> = {
-  "ai-machine-learning": "/covers/ai-trends.webp",
-  "cybersecurity": "/covers/cybersecurity.webp",
-  "electric-vehicles": "/covers/ev-future.webp",
-  "gadgets": "/covers/gadgets.webp",
-  "software": "/covers/software.webp",
-  "science-space": "/covers/quantum.webp",
+/** Default cover per category slug; anything unmapped falls back to gadgets. */
+export const CATEGORY_TO_COVER: Record<string, string> = {
+  ai: "/covers/ai-trends.webp",
+  gadgets: "/covers/gadgets.webp",
+  software: "/covers/software.webp",
+  reviews: "/covers/laptops.webp",
 };
+const DEFAULT_COVER = "/covers/gadgets.webp";
 
-const SYSTEM_PROMPT = `You are an expert tech journalist writing for Mapletechie, a tech blog inspired by The Verge and TechCrunch. Your writing is clear, engaging, well-researched, and avoids hype. You write for readers who want substance over fluff.
+/**
+ * The category options are read from the database at request time so the
+ * prompt can never drift from the real site categories (an earlier hardcoded
+ * list kept offering categories that no longer existed, producing drafts —
+ * and links — pointing at 404 category pages).
+ */
+export function buildSystemPrompt(
+  categories: { slug: string; name: string }[],
+): string {
+  const categoryLines = categories
+    .map((c) => `- ${c.slug} (${c.name})`)
+    .join("\n");
+  return `You are an expert tech journalist writing for Mapletechie, a tech blog inspired by The Verge and TechCrunch. Your writing is clear, engaging, well-researched, and avoids hype. You write for readers who want substance over fluff.
 
 Available categories (you MUST pick exactly one):
-- ai-machine-learning (AI & Machine Learning)
-- cybersecurity (Cybersecurity)
-- electric-vehicles (Electric Vehicles)
-- gadgets (Gadgets)
-- software (Software)
-- science-space (Science & Space)
+${categoryLines}
 
 When given a topic, write a complete blog post and return ONLY a valid JSON object with this exact shape (no markdown fences, no commentary):
 {
@@ -46,6 +54,7 @@ Rules:
 - tags are 3-6 short lowercase keywords.
 - Content uses markdown headings (##), bold (**), and bullet lists where helpful.
 - Be specific and factual. If you don't know recent details, write evergreen content rather than fabricating dates or quotes.`;
+}
 
 router.post("/admin/generate-post", adminAuth, requireRole("admin"), aiGenerateLimiter, async (req, res): Promise<void> => {
   const { topic } = req.body ?? {};
@@ -53,6 +62,16 @@ router.post("/admin/generate-post", adminAuth, requireRole("admin"), aiGenerateL
     res.status(400).json({ error: "Topic is required (min 3 characters)" });
     return;
   }
+
+  const dbCategories = await db
+    .select({ slug: categoriesTable.slug, name: categoriesTable.name })
+    .from(categoriesTable)
+    .orderBy(asc(categoriesTable.name));
+  if (dbCategories.length === 0) {
+    res.status(500).json({ error: "No categories exist yet — create one before generating drafts" });
+    return;
+  }
+  const validSlugs = new Set(dbCategories.map((c) => c.slug));
 
   const baseUrl = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
   const apiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
@@ -72,7 +91,7 @@ router.post("/admin/generate-post", adminAuth, requireRole("admin"), aiGenerateL
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
         max_tokens: 8192,
-        system: SYSTEM_PROMPT,
+        system: buildSystemPrompt(dbCategories),
         messages: [
           {
             role: "user",
@@ -105,8 +124,12 @@ router.post("/admin/generate-post", adminAuth, requireRole("admin"), aiGenerateL
       return;
     }
 
-    const category = typeof parsed.category === "string" ? parsed.category : "gadgets";
-    const coverImage = CATEGORY_TO_COVER[category] ?? "/covers/gadgets.webp";
+    // Never emit a category that doesn't exist — fall back to the first real one.
+    const category =
+      typeof parsed.category === "string" && validSlugs.has(parsed.category)
+        ? parsed.category
+        : dbCategories[0].slug;
+    const coverImage = CATEGORY_TO_COVER[category] ?? DEFAULT_COVER;
 
     res.json({
       title: String(parsed.title ?? "").slice(0, 200),

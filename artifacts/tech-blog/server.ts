@@ -815,29 +815,29 @@ app.get(/^\/?$/, async (req, res, next) => {
 
   const posts = await fetchJson<PostSummary[]>(`${API_BASE}/api/posts?limit=10`);
 
-  const CATEGORIES = [
-    { slug: "ai-machine-learning", name: "AI & Machine Learning" },
-    { slug: "gadgets", name: "Gadgets" },
-    { slug: "cybersecurity", name: "Cybersecurity" },
-    { slug: "electric-vehicles", name: "Electric Vehicles" },
-    { slug: "software", name: "Software & Apps" },
-    { slug: "science-space", name: "Science & Space" },
-  ];
-  const categoryLinksHtml = CATEGORIES.map(
-    (c) =>
-      `<li><a href="${htmlEscape(`${SITE_URL}/category/${c.slug}`)}">${htmlEscape(c.name)}</a></li>`,
-  ).join("\n");
+  // Build the category list from the live API — a hardcoded list once linked
+  // to categories that no longer exist, giving crawlers 404s. If the fetch
+  // fails or returns nothing, omit the section rather than emit dead links.
+  const categories = await fetchJson<{ slug: string; name: string }[]>(
+    `${API_BASE}/api/categories`,
+  );
+  const categoryLinksHtml = (categories ?? [])
+    .filter((c) => c && typeof c.slug === "string" && c.slug.length > 0)
+    .map(
+      (c) =>
+        `<li><a href="${htmlEscape(`${SITE_URL}/category/${c.slug}`)}">${htmlEscape(c.name)}</a></li>`,
+    )
+    .join("\n");
+  const categorySectionHtml = categoryLinksHtml
+    ? `  <h2>Explore by Category</h2>\n  <ul>\n${categoryLinksHtml}\n  </ul>\n`
+    : "";
 
   const body = `
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>Mapletechie — Tech, told straight.</h1>
   <p>${htmlEscape(description)}</p>
   <p>No press junkets. No hype cycles. Sharp opinion, real reviews, and the context the spec sheets leave out. Independent tech journalism built in Canada.</p>
-  <h2>Explore by Category</h2>
-  <ul>
-${categoryLinksHtml}
-  </ul>
-  <h2>Latest Articles</h2>
+${categorySectionHtml}  <h2>Latest Articles</h2>
   ${renderPostList(posts ?? [], SITE_URL)}
   <h2>About Us</h2>
   <p>Mapletechie is an independent tech publication covering artificial intelligence, gadgets, cybersecurity, electric vehicles, and software. We write from Toronto with a global lens. <a href="${htmlEscape(`${SITE_URL}/about`)}">Learn more about Mapletechie</a>.</p>
