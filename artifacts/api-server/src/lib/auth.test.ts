@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import bcrypt from "bcryptjs";
 
 // --- Mock @workspace/db with a minimal chainable fake -----------------------
 
@@ -116,5 +117,52 @@ describe("bootstrapAdmin — startup email self-healing (syncDerivedEmails)", ()
 
     expect(updates).toHaveLength(1);
     expect(updates[0].set).toEqual({ email: "janedoe@mapletechie.com" });
+  });
+});
+
+describe("bootstrapAdmin — fresh install (empty users table)", () => {
+  afterEach(() => {
+    delete process.env.ADMIN_PASSWORD;
+  });
+
+  it("creates the founding admin with the derived email and backfills orphaned posts", async () => {
+    process.env.ADMIN_PASSWORD = "s3cret-pw";
+    selectQueue = [[]]; // empty users table
+
+    await bootstrapAdmin();
+
+    expect(db.insert).toHaveBeenCalledTimes(1);
+    expect(insertValues).toBeDefined();
+    expect(insertValues).toMatchObject({
+      username: "matthew",
+      email: "matthew@mapletechie.com",
+      role: "admin",
+      canPublishDirectly: true,
+      canManageCategories: true,
+      isActive: true,
+    });
+    // Password must be hashed, never stored raw
+    expect(insertValues!.passwordHash).toBeDefined();
+    expect(insertValues!.passwordHash).not.toBe("s3cret-pw");
+    expect(await bcrypt.compare("s3cret-pw", insertValues!.passwordHash as string)).toBe(true);
+
+    // Orphaned posts (null author) get backfilled to the new admin
+    expect(updates).toHaveLength(1);
+    expect(updates[0].set).toEqual({ authorId: 1 });
+  });
+
+  it("warns and inserts nothing when ADMIN_PASSWORD is not set", async () => {
+    delete process.env.ADMIN_PASSWORD;
+    selectQueue = [[]];
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await expect(bootstrapAdmin()).resolves.toBeUndefined();
+
+    expect(db.insert).not.toHaveBeenCalled();
+    expect(updates).toHaveLength(0);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("ADMIN_PASSWORD"),
+    );
+    warnSpy.mockRestore();
   });
 });
