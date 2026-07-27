@@ -31,4 +31,5 @@ export type UpdateUserInput = RichProfileFields & {
   canManageCategories?: boolean;
   canEditOthersPosts?: boolean;
   isActive?: boolean;
+  showOnTeam?: boolean;
 };

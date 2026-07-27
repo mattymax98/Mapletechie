@@ -1748,6 +1748,8 @@ components:
           type: boolean
         isActive:
           type: boolean
+        showOnTeam:
+          type: boolean
       required:
         - id
         - username
@@ -1812,6 +1814,8 @@ components:
         canManageCategories:
           type: boolean
         canEditOthersPosts:
+          type: boolean
+        showOnTeam:
           type: boolean
       required:
         - username
@@ -1942,6 +1946,8 @@ components:
           type: boolean
         isActive:
           type: boolean
+        showOnTeam:
+          type: boolean
 
     UpdateMeInput:
       allOf:
@@ -1998,6 +2004,8 @@ components:
           type: string
         websiteUrl:
           type: string
+        showOnTeam:
+          type: boolean
       required:
         - id
         - displayName

@@ -52,6 +52,9 @@ export const usersTable = pgTable("users", {
   canManageCategories: boolean("can_manage_categories").notNull().default(false),
   canEditOthersPosts: boolean("can_edit_others_posts").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
+  // Whether this editor appears on the public "Our Team" page. Independent of
+  // isActive: a hidden editor can still log in, write, and appear as an author.
+  showOnTeam: boolean("show_on_team").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

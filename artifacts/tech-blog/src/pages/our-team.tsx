@@ -13,7 +13,10 @@ const SOCIALS = [
 ] as const;
 
 export default function OurTeamPage() {
-  const { data: editors, isLoading } = useListEditors();
+  const { data: allEditors, isLoading } = useListEditors();
+  // Editors can be hidden from the masthead (Admin → Users → "Show on Our
+  // Team page") without affecting their author pages or bylines.
+  const editors = allEditors?.filter((m) => m.showOnTeam !== false);
 
   return (
     <div className="w-full">

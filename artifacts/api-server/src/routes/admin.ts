@@ -207,6 +207,7 @@ router.post("/admin/users", adminAuth, requirePermission("editors"), async (req,
       canManageCategories: callerIsAdmin ? !!canManageCategories : false,
       canEditOthersPosts: callerIsAdmin ? !!canEditOthersPosts : false,
       isActive: true,
+      showOnTeam: req.body?.showOnTeam == null ? true : !!req.body.showOnTeam,
     })
     .returning();
 
@@ -276,6 +277,7 @@ router.put("/admin/users/:id", adminAuth, requirePermission("editors"), async (r
     "githubUrl",
     "websiteUrl",
     "isActive",
+    "showOnTeam",
   ] as const;
   const adminOnly = [
     "role",
@@ -395,6 +397,7 @@ router.get("/editors", async (_req, res): Promise<void> => {
       instagramUrl: u.instagramUrl,
       githubUrl: u.githubUrl,
       websiteUrl: u.websiteUrl,
+      showOnTeam: u.showOnTeam,
       postCount: countMap.get(u.id) ?? 0,
     }))
   );

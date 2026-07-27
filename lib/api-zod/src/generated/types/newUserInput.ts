@@ -27,4 +27,5 @@ export interface NewUserInput {
   canSendEmail?: boolean;
   canManageCategories?: boolean;
   canEditOthersPosts?: boolean;
+  showOnTeam?: boolean;
 }
