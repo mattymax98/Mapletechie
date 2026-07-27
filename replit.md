@@ -146,3 +146,11 @@ pnpm --filter @workspace/api-spec run codegen
 - `SESSION_SECRET` — Session secret (set in Replit Secrets)
 - `ADMIN_PASSWORD` — Used **only** to bootstrap the founding admin (`matthew`) on first boot via `bootstrapAdmin()`. After that, login goes through `POST /api/admin/login` against the `users` table. Not used as an auth bypass anywhere else.
 - `SITE_DOMAIN` — Used in sitemap.xml generation (default: `https://mapletechie.com`)
+
+## AdSense ad slots
+
+Fixed, designed ad units (`artifacts/tech-blog/src/components/AdSlot.tsx`) — Auto Ads are NOT used. Slots collapse to nothing when unfilled, unconfigured, or in dev builds; the AdSense script only loads in production when configured. Placements: homepage sidebar + between-sections banner (`home.tsx`), below-article + auto-injected in-article (max 2, only between top-level paragraphs) on post pages (`blog-post.tsx`).
+
+Frontend env vars (set for the deployment; slot ids come from the AdSense dashboard, Ads → By ad unit):
+- `VITE_ADSENSE_CLIENT` — publisher id (defaults to `ca-pub-9581001238069953`)
+- `VITE_ADSENSE_SLOT_SIDEBAR`, `VITE_ADSENSE_SLOT_BANNER`, `VITE_ADSENSE_SLOT_BELOW_ARTICLE`, `VITE_ADSENSE_SLOT_IN_ARTICLE` — per-placement slot ids; a placement renders nothing until its slot id is set
