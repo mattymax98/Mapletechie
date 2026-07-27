@@ -231,9 +231,41 @@ router.put("/admin/users/:id", adminAuth, requirePermission("editors"), async (r
     return;
   }
 
-  // NOTE: `email` deliberately omitted — emails are derived from username
-  // and immutable. Updating username/email after creation is unsupported;
-  // delete + recreate the editor if you need to change them.
+  // NOTE: `email` deliberately omitted — emails are always derived from the
+  // username and never directly editable. Only the founding admin may change
+  // a username; the email is re-derived in the same update so the Resend
+  // From: header keeps passing domain verification.
+  const update: Partial<User> = {};
+  if ("username" in req.body && req.body.username != null) {
+    const requested = String(req.body.username);
+    const cleanUsername = requested.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
+    if (cleanUsername !== target.username) {
+      if (!callerIsAdmin) {
+        res.status(403).json({ error: "Only the founding admin can change usernames." });
+        return;
+      }
+      if (cleanUsername.length < 2) {
+        res.status(400).json({ error: "Username must contain only letters, numbers, dots, dashes, or underscores" });
+        return;
+      }
+      const [existing] = await db.select().from(usersTable).where(eq(usersTable.username, cleanUsername));
+      if (existing && existing.id !== id) {
+        res.status(409).json({ error: "Username already taken" });
+        return;
+      }
+      update.username = cleanUsername;
+      update.email = `${cleanUsername}@mapletechie.com`;
+    }
+  }
+  if ("email" in req.body) {
+    const requestedEmail = req.body.email;
+    const derived = `${update.username ?? target.username}@mapletechie.com`;
+    if (typeof requestedEmail === "string" && requestedEmail.trim() && requestedEmail.trim().toLowerCase() !== derived && requestedEmail.trim().toLowerCase() !== (target.email ?? "").toLowerCase()) {
+      res.status(400).json({ error: "Email cannot be edited directly — it is always username@mapletechie.com." });
+      return;
+    }
+  }
+
   const baseAllowed = [
     "displayName",
     "bio",
@@ -257,7 +289,6 @@ router.put("/admin/users/:id", adminAuth, requirePermission("editors"), async (r
     "canEditOthersPosts",
   ] as const;
 
-  const update: Partial<User> = {};
   for (const k of baseAllowed) {
     if (k in req.body) (update as Record<string, unknown>)[k] = req.body[k];
   }

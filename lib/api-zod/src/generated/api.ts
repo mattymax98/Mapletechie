@@ -897,9 +897,20 @@ export const UpdateUserBody = zod
   })
   .and(
     zod.object({
+      username: zod
+        .string()
+        .optional()
+        .describe(
+          "Founding admin only. Changing it re-derives the email as username@mapletechie.com.",
+        ),
       password: zod.string().optional(),
       displayName: zod.string().optional(),
-      email: zod.string().optional(),
+      email: zod
+        .string()
+        .optional()
+        .describe(
+          "Not editable — always derived server-side as username@mapletechie.com. Sending a different value is rejected.",
+        ),
       bio: zod.string().optional(),
       avatarUrl: zod.string().optional(),
       twitterUrl: zod.string().optional(),
