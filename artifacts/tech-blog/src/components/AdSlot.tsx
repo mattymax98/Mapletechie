@@ -59,14 +59,30 @@ function ensureAdSenseScript(): void {
 }
 
 const PLACEMENT_ATTRS: Record<AdPlacement, Record<string, string>> = {
-  // Tall unit next to homepage grids.
+  // Tall unit next to homepage grids. Responsive=false keeps it from
+  // bleeding into the article column on mid-width viewports.
   sidebar: { "data-ad-format": "auto", "data-full-width-responsive": "false" },
-  // Wide responsive banner between sections.
+  // Wide responsive banner between sections. Uses rectangle/horizontal
+  // formats only — no interstitial or overlay units.
   banner: { "data-ad-format": "horizontal", "data-full-width-responsive": "true" },
-  // Large responsive unit below the article body.
+  // Large responsive unit below the article body — safe distance after
+  // the last paragraph so it never overlaps inline content.
   belowArticle: { "data-ad-format": "auto", "data-full-width-responsive": "true" },
-  // Google's native in-article format, designed to sit between paragraphs.
+  // Google's native in-article format. "fluid" + "in-article" layout
+  // tells AdSense to serve a unit that mimics editorial content width
+  // and sits between paragraphs without altering line flow.
   inArticle: { "data-ad-format": "fluid", "data-ad-layout": "in-article" },
+};
+
+/**
+ * Placements that show a small "ADVERTISEMENT" disclosure label above the
+ * unit. In-article is omitted — Google's native "fluid" format already
+ * carries its own disclosure per AdSense policy.
+ */
+const SHOW_LABEL: Partial<Record<AdPlacement, boolean>> = {
+  sidebar: true,
+  banner: true,
+  belowArticle: true,
 };
 
 /**
@@ -106,6 +122,11 @@ export function AdSlot({ placement, className = "" }: { placement: AdPlacement; 
 
   return (
     <div className={className} data-testid={`ad-slot-${placement}`}>
+      {SHOW_LABEL[placement] && (
+        <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground/50 text-center mb-1 select-none">
+          Advertisement
+        </p>
+      )}
       <ins
         ref={insRef as never}
         className="adsbygoogle"
