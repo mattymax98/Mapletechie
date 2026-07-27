@@ -24,21 +24,21 @@ export function CommentsSection({ postSlug }: { postSlug: string }) {
   );
   const submit = useSubmitComment();
   const { toast } = useToast();
-  const [form, setForm] = useState({ name: "", email: "", body: "" });
+  const [form, setForm] = useState({ name: "", body: "" });
   const [done, setDone] = useState(false);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.email.trim() || !form.body.trim()) {
-      toast({ title: "Missing info", description: "Please fill name, email and your comment.", variant: "destructive" });
+    if (!form.body.trim()) {
+      toast({ title: "Missing comment", description: "Please write a comment first.", variant: "destructive" });
       return;
     }
     submit.mutate(
-      { data: { postSlug, ...form } as any },
+      { data: { postSlug, name: form.name.trim() || null, body: form.body } as any },
       {
         onSuccess: (res: any) => {
           setDone(true);
-          setForm({ name: "", email: "", body: "" });
+          setForm({ name: "", body: "" });
           toast({ title: "Thanks!", description: res?.message || "Your comment will appear once approved." });
           refetch();
         },
@@ -65,7 +65,7 @@ export function CommentsSection({ postSlug }: { postSlug: string }) {
             comments.map((c: any) => (
               <div key={c.id} className="border border-border bg-card p-5">
                 <div className="flex items-center justify-between mb-2 gap-3 flex-wrap">
-                  <span className="font-bold text-sm">{c.name}</span>
+                  <span className="font-bold text-sm">{c.name || "Anonymous"}</span>
                   <span className="text-xs text-muted-foreground">
                     {format(new Date(c.createdAt), "MMM d, yyyy · h:mm a")}
                   </span>
@@ -97,28 +97,16 @@ export function CommentsSection({ postSlug }: { postSlug: string }) {
         ) : (
           <form onSubmit={onSubmit} className="border border-border bg-card p-6 space-y-4">
             <h3 className="font-black uppercase tracking-wide text-sm">Leave a comment</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-xs font-bold uppercase tracking-wider">Name</Label>
-                <Input
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Your name"
-                  className="rounded-none mt-2"
-                />
-              </div>
-              <div>
-                <Label className="text-xs font-bold uppercase tracking-wider">
-                  Email <span className="text-muted-foreground normal-case font-normal">(not published)</span>
-                </Label>
-                <Input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  placeholder="you@example.com"
-                  className="rounded-none mt-2"
-                />
-              </div>
+            <div>
+              <Label className="text-xs font-bold uppercase tracking-wider">
+                Name <span className="text-muted-foreground normal-case font-normal">(optional)</span>
+              </Label>
+              <Input
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="Anonymous"
+                className="rounded-none mt-2"
+              />
             </div>
             <div>
               <Label className="text-xs font-bold uppercase tracking-wider">Comment</Label>

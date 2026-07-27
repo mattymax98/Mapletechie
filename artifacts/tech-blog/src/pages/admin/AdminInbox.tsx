@@ -366,7 +366,7 @@ export default function AdminInbox() {
               <div key={c.id} className="bg-zinc-950 border border-zinc-800 rounded-lg p-5">
                 <div className="flex items-start justify-between gap-4 mb-3 flex-wrap">
                   <div>
-                    <h3 className="font-bold">{c.name} <span className="text-zinc-500 font-normal text-sm">on</span> <a href={`/blog/${c.postSlug}`} target="_blank" rel="noopener" className="text-orange-400 hover:underline text-sm">/{c.postSlug}</a></h3>
+                    <h3 className="font-bold">{c.name || "Anonymous"} <span className="text-zinc-500 font-normal text-sm">on</span> <a href={`/blog/${c.postSlug}`} target="_blank" rel="noopener" className="text-orange-400 hover:underline text-sm">/{c.postSlug}</a></h3>
                     {c.email && <a href={`mailto:${c.email}`} className="text-orange-400 text-xs hover:underline">{c.email}</a>}
                   </div>
                   <span className="text-xs text-zinc-500">{format(new Date(c.createdAt), "MMM d, yyyy · h:mm a")}</span>
