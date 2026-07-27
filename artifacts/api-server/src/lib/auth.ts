@@ -40,9 +40,31 @@ export async function deleteSession(token: string): Promise<void> {
   await db.delete(sessionsTable).where(eq(sessionsTable.token, token));
 }
 
+/**
+ * Self-healing invariant: every user with an email must have exactly
+ * `username@mapletechie.com` (outgoing mail is rejected otherwise, since the
+ * From: header must pass domain verification). Runs at startup so stale rows
+ * (e.g. a legacy personal address) are corrected in dev AND in production
+ * after a publish. Users with no email (like the draft bot) are left alone.
+ */
+async function syncDerivedEmails(): Promise<void> {
+  const users = await db.select().from(usersTable);
+  for (const u of users) {
+    if (!u.email) continue;
+    const derived = `${u.username}@mapletechie.com`;
+    if (u.email !== derived) {
+      await db.update(usersTable).set({ email: derived }).where(eq(usersTable.id, u.id));
+      console.log(`[auth] Corrected email for ${u.username}: now ${derived}`);
+    }
+  }
+}
+
 export async function bootstrapAdmin(): Promise<void> {
   const existing = await db.select().from(usersTable).limit(1);
-  if (existing.length > 0) return;
+  if (existing.length > 0) {
+    await syncDerivedEmails();
+    return;
+  }
 
   const adminPassword = process.env.ADMIN_PASSWORD;
   if (!adminPassword) {

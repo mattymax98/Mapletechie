@@ -1890,12 +1890,16 @@ components:
         - $ref: "#/components/schemas/RichProfileFields"
       type: object
       properties:
+        username:
+          type: string
+          description: Founding admin only. Changing it re-derives the email as username@mapletechie.com.
         password:
           type: string
         displayName:
           type: string
         email:
           type: string
+          description: Not editable — always derived server-side as username@mapletechie.com. Sending a different value is rejected.
         bio:
           type: string
         avatarUrl:

@@ -8,8 +8,11 @@
 import type { RichProfileFields } from "./richProfileFields";
 
 export type UpdateUserInput = RichProfileFields & {
+  /** Founding admin only. Changing it re-derives the email as username@mapletechie.com. */
+  username?: string;
   password?: string;
   displayName?: string;
+  /** Not editable — always derived server-side as username@mapletechie.com. Sending a different value is rejected. */
   email?: string;
   bio?: string;
   avatarUrl?: string;

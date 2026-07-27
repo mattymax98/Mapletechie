@@ -157,10 +157,17 @@ export default function AdminUsers() {
       const { username, password, displayName, email: _email, ...rest } = form;
       createMut.mutate({ data: { username: username.trim().toLowerCase(), password, displayName: displayName.trim(), ...rest } as any });
     } else if (editing) {
-      // email + username are immutable post-creation; never send them in updates.
-      const { username: _u, password, email: _e, ...rest } = form;
+      // email is always derived from the username server-side; never send it.
+      // Only the founding admin may rename an editor — include the username
+      // only when it actually changed.
+      const { username, password, email: _e, ...rest } = form;
       const payload: any = { ...rest, ...richProfileToPayload(rich) };
       if (password.length >= 6) payload.password = password;
+      const cleanUsername = username.trim().toLowerCase();
+      if (me?.role === "admin" && cleanUsername && cleanUsername !== editing.username) {
+        if (cleanUsername.length < 2) return setError("Username must be at least 2 characters.");
+        payload.username = cleanUsername;
+      }
       updateMut.mutate({ id: editing.id, data: payload });
     }
   };
@@ -252,7 +259,7 @@ export default function AdminUsers() {
                 <Input
                   value={form.username}
                   onChange={(e) => setForm({ ...form, username: e.target.value })}
-                  disabled={!creating}
+                  disabled={!creating && me?.role !== "admin"}
                   placeholder="janedoe"
                   className="bg-zinc-800 border-zinc-700"
                 />
@@ -280,18 +287,16 @@ export default function AdminUsers() {
                 <Label>Email <span className="text-zinc-500 text-xs font-normal">(auto-derived from username)</span></Label>
                 <Input
                   value={
-                    creating
-                      ? form.username.trim()
-                        ? `${form.username.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "")}@mapletechie.com`
-                        : "(set the username above)"
-                      : form.email || `${form.username}@mapletechie.com`
+                    form.username.trim()
+                      ? `${form.username.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "")}@mapletechie.com`
+                      : "(set the username above)"
                   }
                   disabled
                   className="bg-zinc-800/60 border-zinc-700 text-zinc-300 disabled:opacity-100 font-mono text-sm"
                   data-testid="input-editor-email"
                 />
                 <p className="text-xs text-zinc-500">
-                  Every editor sends from their own <span className="font-mono">@mapletechie.com</span> address. Change the username to change the email — they're locked together so the From: header always passes domain verification.
+                  Every editor sends from their own <span className="font-mono">@mapletechie.com</span> address — the email always matches the username and can't be edited directly. {me?.role === "admin" ? "Changing the username updates the email with it." : "Only the founding admin can change usernames after creation."}
                 </p>
               </div>
               <div className="space-y-2 col-span-2">
