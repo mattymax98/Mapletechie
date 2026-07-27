@@ -32,6 +32,7 @@ import { CategoryChip } from "@/components/CategoryChip";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { buildArticleJsonLd, buildBreadcrumbJsonLd } from "@/lib/articleSchema";
 import { splitSocialEmbeds, SocialEmbedView } from "@/components/SocialEmbeds";
+import { AdSlot, adPlacementEnabled, splitHtmlForInArticleAds } from "@/components/AdSlot";
 
 const SITE_URL = "https://mapletechie.com";
 
@@ -81,16 +82,47 @@ function PostContent({
   // static fallback link inside the saved HTML.
   const segments = useMemo(() => splitSocialEmbeds(responsiveHtml), [responsiveHtml]);
 
+  // On longer articles, break the HTML segments at safe top-level paragraph
+  // boundaries so an in-article ad can sit between paragraphs (never inside
+  // code blocks, figures or embeds). Max 2 per article; short posts get none.
+  // With no ad config (or in dev) this is a no-op and nothing changes.
+  const MAX_IN_ARTICLE_ADS = 2;
+  const rendered = useMemo(() => {
+    const out: Array<{ key: string; node: "embed" | "html" | "ad"; seg?: (typeof segments)[number]; html?: string }> = [];
+    let adBudget = adPlacementEnabled("inArticle") ? MAX_IN_ARTICLE_ADS : 0;
+    segments.forEach((seg, i) => {
+      if (seg.kind === "embed") {
+        out.push({ key: `e-${i}`, node: "embed", seg });
+        return;
+      }
+      if (adBudget <= 0) {
+        out.push({ key: `h-${i}`, node: "html", html: seg.html });
+        return;
+      }
+      const chunks = splitHtmlForInArticleAds(seg.html, { maxBreaks: adBudget });
+      chunks.forEach((chunk, j) => {
+        out.push({ key: `h-${i}-${j}`, node: "html", html: chunk });
+        if (j < chunks.length - 1) {
+          out.push({ key: `a-${i}-${j}`, node: "ad" });
+          adBudget -= 1;
+        }
+      });
+    });
+    return out;
+  }, [segments]);
+
   return (
     <div
       ref={ref}
       className="prose prose-lg dark:prose-invert max-w-none prose-headings:font-black prose-headings:tracking-tight prose-a:text-primary hover:prose-a:text-primary/80 prose-img:border prose-img:border-border font-serif leading-relaxed prose-headings:scroll-mt-24"
     >
-      {segments.map((seg, i) =>
-        seg.kind === "embed" ? (
-          <SocialEmbedView key={`${seg.embed.url}-${i}`} embed={seg.embed} />
+      {rendered.map((item) =>
+        item.node === "embed" && item.seg?.kind === "embed" ? (
+          <SocialEmbedView key={item.key} embed={item.seg.embed} />
+        ) : item.node === "ad" ? (
+          <AdSlot key={item.key} placement="inArticle" className="not-prose my-8" />
         ) : (
-          <div key={i} dangerouslySetInnerHTML={{ __html: seg.html }} />
+          <div key={item.key} dangerouslySetInnerHTML={{ __html: item.html ?? "" }} />
         ),
       )}
     </div>
@@ -537,6 +569,10 @@ export default function BlogPost() {
           verdict={(post as any).verdict}
         />
         <PostContent html={post.content} onHeadingsExtracted={setHeadings} />
+
+        {/* Designed ad slot below the article body — collapses to nothing
+            when no ad is served or ads aren't configured. */}
+        <AdSlot placement="belowArticle" className="mt-12" />
 
         {/* Inline newsletter CTA */}
         <div className="mt-12 p-6 md:p-8 border-2 border-primary bg-primary/5">

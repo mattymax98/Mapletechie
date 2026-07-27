@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { responsiveCoverProps, COVER_SIZES } from "@/lib/responsiveImage";
 import { PostCategoryChips } from "@/components/CategoryChip";
 import { DEFAULT_CATEGORY_COLOR } from "@/lib/categoryColors";
+import { AdSlot } from "@/components/AdSlot";
 
 const PRINCIPLES = [
   { n: "01", t: "Independent.",   d: "No press junkets, no sponsored takes dressed up as reviews. We pay for our own gear and tell you what's actually true." },
@@ -291,6 +292,10 @@ export default function Home() {
         );
       })()}
 
+      {/* Wide ad banner between homepage sections — renders nothing at all
+          when no ad is configured or served. */}
+      <AdSlot placement="banner" className="container mx-auto px-4 md:px-6 py-10 border-t border-border" />
+
       {/* ============ PER-CATEGORY MAGAZINE SECTIONS ============ */}
       {sectionCategories.map((cat) => (
         <CategorySection key={cat.id} category={cat} />
@@ -417,6 +422,10 @@ export default function Home() {
                 </div>
               </div>
             )}
+
+            {/* Tall sidebar ad beside the section grids — collapses to
+                nothing when no ad is configured or served. */}
+            <AdSlot placement="sidebar" className="lg:sticky lg:top-24" />
 
           </aside>
         </div>
