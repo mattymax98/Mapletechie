@@ -23,6 +23,9 @@ import type { AddressInfo } from "node:net";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const techBlogDir = path.resolve(__dirname, "..");
 
+/** Old username recorded in the rename history — the API 301s it to AUTHOR. */
+const RENAMED_OLD_USERNAME = "old-matt";
+
 const GOOGLEBOT_UA =
   "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
 const BROWSER_UA =
@@ -208,6 +211,14 @@ function startMockApi(
     if (req.params.username === AUTHOR.username) return res.json(AUTHOR);
     if (req.params.username === PLAIN_AUTHOR.username) return res.json(PLAIN_AUTHOR);
     if (req.params.username === BIO_ONLY_AUTHOR.username) return res.json(BIO_ONLY_AUTHOR);
+    // Mirrors the real API's rename behaviour: an old username 301s to the
+    // current record's endpoint.
+    if (req.params.username === RENAMED_OLD_USERNAME) {
+      return res.redirect(
+        301,
+        `/api/authors/by-username/${encodeURIComponent(AUTHOR.username)}`,
+      );
+    }
     res.status(404).json({ error: "not found" });
   });
   api.get("/api/authors/:id/posts", (req, res) => {
@@ -698,6 +709,16 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
   });
 
   describe("author /author/:username", () => {
+    it("301-redirects a crawler from a renamed author's old page URL to the current one", async () => {
+      // redirect: "manual" so we can observe the 301 itself instead of following it.
+      const r = await fetch(`${baseUrl}/author/${RENAMED_OLD_USERNAME}`, {
+        headers: { "user-agent": GOOGLEBOT_UA },
+        redirect: "manual",
+      });
+      expect(r.status).toBe(301);
+      expect(r.headers.get("location")).toBe(`/author/${AUTHOR.username}`);
+    });
+
     it("serves a prerendered author page + listing to Googlebot", async () => {
       const { status, body } = await get(`/author/${AUTHOR.username}`, GOOGLEBOT_UA);
       expect(status).toBe(200);
