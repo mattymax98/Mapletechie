@@ -50,6 +50,7 @@ interface UserRow {
   canManageCategories?: boolean;
   canEditOthersPosts?: boolean;
   isActive: boolean;
+  showOnTeam?: boolean;
 }
 
 const emptyForm = {
@@ -74,6 +75,7 @@ const emptyForm = {
   canManageCategories: false,
   canEditOthersPosts: false,
   isActive: true,
+  showOnTeam: true,
 };
 
 export default function AdminUsers() {
@@ -142,6 +144,7 @@ export default function AdminUsers() {
       canManageCategories: !!u.canManageCategories,
       canEditOthersPosts: !!u.canEditOthersPosts,
       isActive: u.isActive,
+      showOnTeam: u.showOnTeam !== false,
     });
     setRich(richProfileFromUser(u as any));
     setError("");
@@ -384,6 +387,17 @@ export default function AdminUsers() {
                   />
                 </div>
               )}
+
+              <div className="col-span-2 flex items-center justify-between p-3 bg-zinc-800 rounded border border-zinc-700">
+                <div>
+                  <p className="text-sm font-medium">Show on Our Team page</p>
+                  <p className="text-xs text-zinc-400">Hidden editors keep their author page and bylines — they just don't appear on the public team page.</p>
+                </div>
+                <Switch
+                  checked={form.showOnTeam}
+                  onCheckedChange={(v) => setForm({ ...form, showOnTeam: v })}
+                />
+              </div>
 
               {!creating && editing?.id !== me?.id && (
                 <div className="col-span-2 flex items-center justify-between p-3 bg-zinc-800 rounded border border-zinc-700">

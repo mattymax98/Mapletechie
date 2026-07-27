@@ -729,6 +729,7 @@ export const AdminLoginResponse = zod.object({
     canManageCategories: zod.boolean().optional(),
     canEditOthersPosts: zod.boolean().optional(),
     isActive: zod.boolean(),
+    showOnTeam: zod.boolean().optional(),
   }),
 });
 
@@ -764,6 +765,7 @@ export const GetCurrentUserResponse = zod.object({
   canManageCategories: zod.boolean().optional(),
   canEditOthersPosts: zod.boolean().optional(),
   isActive: zod.boolean(),
+  showOnTeam: zod.boolean().optional(),
 });
 
 /**
@@ -840,6 +842,7 @@ export const UpdateCurrentUserResponse = zod.object({
   canManageCategories: zod.boolean().optional(),
   canEditOthersPosts: zod.boolean().optional(),
   isActive: zod.boolean(),
+  showOnTeam: zod.boolean().optional(),
 });
 
 /**
@@ -867,6 +870,7 @@ export const ListUsersResponseItem = zod.object({
   canManageCategories: zod.boolean().optional(),
   canEditOthersPosts: zod.boolean().optional(),
   isActive: zod.boolean(),
+  showOnTeam: zod.boolean().optional(),
 });
 export const ListUsersResponse = zod.array(ListUsersResponseItem);
 
@@ -894,6 +898,7 @@ export const CreateUserBody = zod.object({
   canSendEmail: zod.boolean().optional(),
   canManageCategories: zod.boolean().optional(),
   canEditOthersPosts: zod.boolean().optional(),
+  showOnTeam: zod.boolean().optional(),
 });
 
 /**
@@ -970,6 +975,7 @@ export const UpdateUserBody = zod
       canManageCategories: zod.boolean().optional(),
       canEditOthersPosts: zod.boolean().optional(),
       isActive: zod.boolean().optional(),
+      showOnTeam: zod.boolean().optional(),
     }),
   );
 
@@ -995,6 +1001,7 @@ export const UpdateUserResponse = zod.object({
   canManageCategories: zod.boolean().optional(),
   canEditOthersPosts: zod.boolean().optional(),
   isActive: zod.boolean(),
+  showOnTeam: zod.boolean().optional(),
 });
 
 /**
@@ -1135,6 +1142,7 @@ export const GetAuthorResponse = zod
       instagramUrl: zod.string().optional(),
       githubUrl: zod.string().optional(),
       websiteUrl: zod.string().optional(),
+      showOnTeam: zod.boolean().optional(),
     }),
   );
 
@@ -1189,6 +1197,7 @@ export const ListEditorsResponseItem = zod
       instagramUrl: zod.string().optional(),
       githubUrl: zod.string().optional(),
       websiteUrl: zod.string().optional(),
+      showOnTeam: zod.boolean().optional(),
     }),
   );
 export const ListEditorsResponse = zod.array(ListEditorsResponseItem);
@@ -1380,6 +1389,7 @@ export const GetFeaturedEditorResponse = zod
       instagramUrl: zod.string().optional(),
       githubUrl: zod.string().optional(),
       websiteUrl: zod.string().optional(),
+      showOnTeam: zod.boolean().optional(),
     }),
   );
 

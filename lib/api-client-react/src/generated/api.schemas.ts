@@ -200,6 +200,7 @@ export interface PublicUser {
   canManageCategories?: boolean;
   canEditOthersPosts?: boolean;
   isActive: boolean;
+  showOnTeam?: boolean;
 }
 
 export interface LoginResponse {
@@ -229,6 +230,7 @@ export interface NewUserInput {
   canSendEmail?: boolean;
   canManageCategories?: boolean;
   canEditOthersPosts?: boolean;
+  showOnTeam?: boolean;
 }
 
 export interface ProfileOrganization {
@@ -283,6 +285,7 @@ export type UpdateUserInput = RichProfileFields & {
   canManageCategories?: boolean;
   canEditOthersPosts?: boolean;
   isActive?: boolean;
+  showOnTeam?: boolean;
 };
 
 export type UpdateMeInput = RichProfileFields & {
@@ -311,6 +314,7 @@ export type AuthorProfile = RichProfileFields & {
   instagramUrl?: string;
   githubUrl?: string;
   websiteUrl?: string;
+  showOnTeam?: boolean;
 };
 
 export interface NewsletterSubscribeBody {

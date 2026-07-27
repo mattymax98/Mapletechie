@@ -20,4 +20,5 @@ export type AuthorProfile = RichProfileFields & {
   instagramUrl?: string;
   githubUrl?: string;
   websiteUrl?: string;
+  showOnTeam?: boolean;
 };

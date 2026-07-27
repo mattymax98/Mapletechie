@@ -164,6 +164,38 @@ describe("POST /admin/users — email derivation on creation", () => {
     expect(status).toBe(201);
     expect(captured.insertValues?.username).toBe("newed");
     expect(captured.insertValues?.email).toBe("newed@mapletechie.com");
+    // New editors appear on the Our Team page unless explicitly hidden.
+    expect(captured.insertValues?.showOnTeam).toBe(true);
+  });
+
+  it("respects showOnTeam: false on creation", async () => {
+    selectQueue = [[]];
+    insertReturn = [{ id: 9, username: "hidden", email: "hidden@mapletechie.com", passwordHash: "x" }];
+
+    const { status } = await request(makeApp(), "POST", "/admin/users", {
+      username: "hidden",
+      password: "secret123",
+      displayName: "Hidden Ed",
+      showOnTeam: false,
+    });
+
+    expect(status).toBe(201);
+    expect(captured.insertValues?.showOnTeam).toBe(false);
+  });
+});
+
+describe("PUT /admin/users/:id — Our Team visibility toggle", () => {
+  it("lets user managers hide an editor from the team page", async () => {
+    currentUser = { id: 2, role: "editor", username: "manager", canManageEditors: true };
+    selectQueue = [[TARGET_EDITOR]];
+    updateReturn = [{ ...TARGET_EDITOR, showOnTeam: false }];
+
+    const { status } = await request(makeApp(), "PUT", "/admin/users/5", {
+      showOnTeam: false,
+    });
+
+    expect(status).toBe(200);
+    expect(captured.updateSet?.showOnTeam).toBe(false);
   });
 });
 

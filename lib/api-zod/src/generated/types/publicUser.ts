@@ -28,4 +28,5 @@ export interface PublicUser {
   canManageCategories?: boolean;
   canEditOthersPosts?: boolean;
   isActive: boolean;
+  showOnTeam?: boolean;
 }
