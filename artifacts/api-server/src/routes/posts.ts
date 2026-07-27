@@ -10,7 +10,7 @@ import {
 import { adminAuth, requireRole } from "../middlewares/adminAuth";
 import { writeAuditLog } from "../lib/audit";
 import { validateCoverImage } from "../lib/coverImageValidation";
-import { isExternalImageUrl, persistExternalImage, persistExternalImagesInHtml } from "../lib/persistExternalImage";
+import { collectExternalImageUrls, isExternalImageUrl, persistExternalImage, persistExternalImagesInHtml } from "../lib/persistExternalImage";
 import sanitizeHtml from "sanitize-html";
 import {
   resolveCategory,
@@ -26,6 +26,36 @@ import {
 export { resolveCategory };
 
 const router = Router();
+
+/**
+ * Non-fatal warnings for a just-saved post whose images could not be pulled
+ * onto our own storage (persistExternalImage is best-effort). Editors see
+ * these so they know the post still depends on a third-party image host.
+ */
+function collectImageWarnings(fields: {
+  coverImage?: unknown;
+  ogImage?: unknown;
+  content?: unknown;
+}): string[] {
+  const warnings: string[] = [];
+  if (isExternalImageUrl(fields.coverImage)) {
+    warnings.push(
+      "The cover image couldn't be copied to Mapletechie's storage — it's still loading from an external site and could break if that site removes it.",
+    );
+  }
+  if (isExternalImageUrl(fields.ogImage)) {
+    warnings.push(
+      "The social share image couldn't be copied to Mapletechie's storage — it's still loading from an external site.",
+    );
+  }
+  const bodyExternals = collectExternalImageUrls(fields.content);
+  if (bodyExternals.length > 0) {
+    warnings.push(
+      `${bodyExternals.length} image${bodyExternals.length === 1 ? "" : "s"} in the article body couldn't be copied to Mapletechie's storage and still load${bodyExternals.length === 1 ? "s" : ""} from external sites.`,
+    );
+  }
+  return warnings;
+}
 
 // Social embed provider whitelist — must stay in sync with the tech-blog
 // frontend (src/lib/socialEmbedProviders.ts). Only URLs matching one of these
@@ -311,7 +341,12 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     summary: `Created post "${post.title}" (${post.status})`,
     details: { snapshot: inserted },
   });
-  res.status(201).json(withCats);
+  const imageWarnings = collectImageWarnings({
+    coverImage: values.coverImage,
+    ogImage: values.ogImage,
+    content: values.content,
+  });
+  res.status(201).json(imageWarnings.length ? { ...withCats, imageWarnings } : withCats);
 });
 
 router.get("/posts/featured", async (_req, res): Promise<void> => {
@@ -613,7 +648,14 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
       : `Updated post "${updated.title}"`,
     details: { before: existing, after: updatedRaw },
   });
-  res.json(updated);
+  // Only warn about fields this request actually submitted — untouched fields
+  // were already handled (or warned about) when they were last saved.
+  const imageWarnings = collectImageWarnings({
+    coverImage: "coverImage" in update ? update.coverImage : undefined,
+    ogImage: "ogImage" in update ? update.ogImage : undefined,
+    content: "content" in update ? update.content : undefined,
+  });
+  res.json(imageWarnings.length ? { ...updated, imageWarnings } : updated);
 });
 
 // Bulk-move a set of posts to another category in one call. Admins can move

@@ -1510,6 +1510,14 @@ components:
         createdAt:
           type: string
           format: date-time
+        imageWarnings:
+          type: array
+          description: >-
+            Only present on create/update responses. Non-fatal warnings when an
+            externally-hosted image could not be copied to our own storage and
+            the saved post still depends on a third-party image host.
+          items:
+            type: string
       required:
         - id
         - title

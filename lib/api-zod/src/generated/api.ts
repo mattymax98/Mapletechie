@@ -69,6 +69,12 @@ export const ListPostsResponseItem = zod.object({
   verdict: zod.string().nullish(),
   publishedAt: zod.coerce.date(),
   createdAt: zod.coerce.date(),
+  imageWarnings: zod
+    .array(zod.string())
+    .optional()
+    .describe(
+      "Only present on create\/update responses. Non-fatal warnings when an externally-hosted image could not be copied to our own storage and the saved post still depends on a third-party image host.",
+    ),
 });
 export const ListPostsResponse = zod.array(ListPostsResponseItem);
 
@@ -162,6 +168,12 @@ export const GetPostResponse = zod.object({
   verdict: zod.string().nullish(),
   publishedAt: zod.coerce.date(),
   createdAt: zod.coerce.date(),
+  imageWarnings: zod
+    .array(zod.string())
+    .optional()
+    .describe(
+      "Only present on create\/update responses. Non-fatal warnings when an externally-hosted image could not be copied to our own storage and the saved post still depends on a third-party image host.",
+    ),
 });
 
 /**
@@ -252,6 +264,12 @@ export const UpdatePostResponse = zod.object({
   verdict: zod.string().nullish(),
   publishedAt: zod.coerce.date(),
   createdAt: zod.coerce.date(),
+  imageWarnings: zod
+    .array(zod.string())
+    .optional()
+    .describe(
+      "Only present on create\/update responses. Non-fatal warnings when an externally-hosted image could not be copied to our own storage and the saved post still depends on a third-party image host.",
+    ),
 });
 
 /**
@@ -311,6 +329,12 @@ export const GetPostBySlugResponse = zod.object({
   verdict: zod.string().nullish(),
   publishedAt: zod.coerce.date(),
   createdAt: zod.coerce.date(),
+  imageWarnings: zod
+    .array(zod.string())
+    .optional()
+    .describe(
+      "Only present on create\/update responses. Non-fatal warnings when an externally-hosted image could not be copied to our own storage and the saved post still depends on a third-party image host.",
+    ),
 });
 
 /**
@@ -359,6 +383,12 @@ export const GetFeaturedPostsResponseItem = zod.object({
   verdict: zod.string().nullish(),
   publishedAt: zod.coerce.date(),
   createdAt: zod.coerce.date(),
+  imageWarnings: zod
+    .array(zod.string())
+    .optional()
+    .describe(
+      "Only present on create\/update responses. Non-fatal warnings when an externally-hosted image could not be copied to our own storage and the saved post still depends on a third-party image host.",
+    ),
 });
 export const GetFeaturedPostsResponse = zod.array(GetFeaturedPostsResponseItem);
 
@@ -414,6 +444,12 @@ export const GetLatestPostsResponseItem = zod.object({
   verdict: zod.string().nullish(),
   publishedAt: zod.coerce.date(),
   createdAt: zod.coerce.date(),
+  imageWarnings: zod
+    .array(zod.string())
+    .optional()
+    .describe(
+      "Only present on create\/update responses. Non-fatal warnings when an externally-hosted image could not be copied to our own storage and the saved post still depends on a third-party image host.",
+    ),
 });
 export const GetLatestPostsResponse = zod.array(GetLatestPostsResponseItem);
 
@@ -463,6 +499,12 @@ export const GetTrendingPostsResponseItem = zod.object({
   verdict: zod.string().nullish(),
   publishedAt: zod.coerce.date(),
   createdAt: zod.coerce.date(),
+  imageWarnings: zod
+    .array(zod.string())
+    .optional()
+    .describe(
+      "Only present on create\/update responses. Non-fatal warnings when an externally-hosted image could not be copied to our own storage and the saved post still depends on a third-party image host.",
+    ),
 });
 export const GetTrendingPostsResponse = zod.array(GetTrendingPostsResponseItem);
 
@@ -1008,6 +1050,12 @@ export const ListAdminPostsResponseItem = zod.object({
   verdict: zod.string().nullish(),
   publishedAt: zod.coerce.date(),
   createdAt: zod.coerce.date(),
+  imageWarnings: zod
+    .array(zod.string())
+    .optional()
+    .describe(
+      "Only present on create\/update responses. Non-fatal warnings when an externally-hosted image could not be copied to our own storage and the saved post still depends on a third-party image host.",
+    ),
 });
 export const ListAdminPostsResponse = zod.array(ListAdminPostsResponseItem);
 

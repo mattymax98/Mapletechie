@@ -31,9 +31,11 @@ import {
   ChevronUp,
   Sparkles,
   Loader2,
+  X,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { ImageUploadField, type ImagePreviewStatus } from "@/components/ImageUploadField";
@@ -111,6 +113,10 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   const [coverImageStatus, setCoverImageStatus] = useState<ImagePreviewStatus>("idle");
   const [ogImageStatus, setOgImageStatus] = useState<ImagePreviewStatus>("idle");
   const hasBrokenImage = coverImageStatus === "broken" || ogImageStatus === "broken";
+  const { toast } = useToast();
+  // Dismissible inline notice when the saved post still points at images on
+  // external sites (the server's copy-to-our-storage step is best-effort).
+  const [externalImageNoticeDismissed, setExternalImageNoticeDismissed] = useState(false);
 
   const initialFormState = {
     title: "",
@@ -383,6 +389,60 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     }
   }, [isEditing]);
 
+  // True when a URL points at an image hosted outside Mapletechie (not a
+  // relative path, not our own domain, not our object storage).
+  const isExternalImageRef = (url: string | undefined | null): boolean => {
+    if (!url || !/^https?:\/\//i.test(url.trim())) return false;
+    try {
+      const host = new URL(url.trim()).hostname.toLowerCase();
+      return host !== "mapletechie.com" && !host.endsWith(".mapletechie.com");
+    } catch {
+      return false;
+    }
+  };
+
+  // Derive the notice from the SAVED post (server state), not from what's
+  // being typed right now — an unsaved external URL hasn't failed to persist
+  // yet, so warning about it would be misleading.
+  const externalImageProblems: string[] = [];
+  const savedPost = existingPost as
+    | { coverImage?: string; ogImage?: string; content?: string }
+    | undefined;
+  if (savedPost) {
+    if (isExternalImageRef(savedPost.coverImage)) {
+      externalImageProblems.push("the cover image");
+    }
+    if (isExternalImageRef(savedPost.ogImage)) {
+      externalImageProblems.push("the social share image");
+    }
+    const bodyMatches = new Set<string>();
+    for (const m of (savedPost.content ?? "").matchAll(/<img\b[^>]*\bsrc="([^"]+)"/gi)) {
+      const src = m[1].replace(/&amp;/g, "&");
+      if (isExternalImageRef(src)) bodyMatches.add(src);
+    }
+    if (bodyMatches.size > 0) {
+      externalImageProblems.push(
+        `${bodyMatches.size} image${bodyMatches.size === 1 ? "" : "s"} in the article body`,
+      );
+    }
+  }
+  const showExternalImageNotice =
+    isEditing && !loadingPost && !externalImageNoticeDismissed && externalImageProblems.length > 0;
+
+  const notifyImageWarnings = (data: unknown) => {
+    const warnings = (data as { imageWarnings?: string[] } | undefined)?.imageWarnings;
+    if (Array.isArray(warnings) && warnings.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "Some images couldn't be saved to Mapletechie's storage",
+        description:
+          warnings.join(" ") +
+          " Consider re-uploading them so the post doesn't break if the external site removes them.",
+        duration: 15000,
+      });
+    }
+  };
+
   const handleTitleChange = (value: string) => {
     setForm((f) => ({
       ...f,
@@ -393,7 +453,8 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
 
   const createMutation = useCreatePost({
     mutation: {
-      onSuccess: () => {
+      onSuccess: (data: unknown) => {
+        notifyImageWarnings(data);
         savedSuccessfullyRef.current = true;
         clearLocalDraft();
         queryClient.invalidateQueries();
@@ -411,7 +472,8 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
 
   const updateMutation = useUpdatePost({
     mutation: {
-      onSuccess: () => {
+      onSuccess: (data: unknown) => {
+        notifyImageWarnings(data);
         savedSuccessfullyRef.current = true;
         clearLocalDraft();
         queryClient.invalidateQueries();
@@ -573,6 +635,24 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
             >
               <AlertCircle className="w-4 h-4 shrink-0" />
               {error}
+            </div>
+          )}
+          {showExternalImageNotice && (
+            <div className="flex items-start gap-2 text-amber-300 text-sm bg-amber-900/20 border border-amber-800 rounded p-3">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                This post still loads {externalImageProblems.join(", ")} from external
+                sites — Mapletechie couldn't save a copy. If those sites remove the
+                images, they'll break here. Re-upload them to fix this for good.
+              </div>
+              <button
+                type="button"
+                aria-label="Dismiss"
+                onClick={() => setExternalImageNoticeDismissed(true)}
+                className="text-amber-400/70 hover:text-amber-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           )}
           {autosavedAt && !error && (

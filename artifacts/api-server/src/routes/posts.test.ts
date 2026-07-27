@@ -119,6 +119,7 @@ vi.mock("../lib/persistExternalImage", async (importActual) => {
   const actual = await importActual<typeof import("../lib/persistExternalImage")>();
   return {
     isExternalImageUrl: actual.isExternalImageUrl,
+    collectExternalImageUrls: actual.collectExternalImageUrls,
     persistExternalImage,
     persistExternalImagesInHtml: actual.persistExternalImagesInHtml,
   };
@@ -210,6 +211,40 @@ describe("POST /posts — external image persistence", () => {
     expect(persistExternalImage).not.toHaveBeenCalled();
     expect(captured.insertValues?.coverImage).toBe("/covers/local.webp");
   });
+
+  it("returns imageWarnings when persistence fails and the post keeps an external URL", async () => {
+    selectQueue = [[CATEGORY_ROW], [{ count: 1 }], [{ id: 99, title: "T", status: "published" }]];
+    insertReturn = [{ id: 99, title: "T", status: "published" }];
+    // Simulate failure: the persist step keeps the original external URL.
+    persistExternalImage.mockImplementationOnce(async (url: string) => url);
+
+    const { status, json: body } = await request(makeApp(), "POST", "/posts", {
+      title: "T",
+      slug: "t",
+      content: "<p>hi</p>",
+      category: "ai",
+      coverImage: "https://images.unsplash.com/photo-1.jpg",
+    });
+
+    expect(status).toBe(201);
+    expect(Array.isArray(body.imageWarnings)).toBe(true);
+    expect(body.imageWarnings.join(" ")).toMatch(/cover image/i);
+  });
+
+  it("omits imageWarnings when everything persisted", async () => {
+    selectQueue = [[CATEGORY_ROW], [{ count: 1 }], [{ id: 99, title: "T", status: "published" }]];
+    insertReturn = [{ id: 99, title: "T", status: "published" }];
+
+    const { json: body } = await request(makeApp(), "POST", "/posts", {
+      title: "T",
+      slug: "t",
+      content: "<p>hi</p>",
+      category: "ai",
+      coverImage: "https://images.unsplash.com/photo-1.jpg",
+    });
+
+    expect(body.imageWarnings).toBeUndefined();
+  });
 });
 
 describe("PUT /posts/:id — external image persistence", () => {
@@ -238,6 +273,56 @@ describe("PUT /posts/:id — external image persistence", () => {
     expect(status).toBe(200);
     expect(persistExternalImage).not.toHaveBeenCalled();
     expect(captured.updateSet?.coverImage).toBe("/covers/keep.webp");
+  });
+
+  it("returns imageWarnings on update when the cover keeps an external URL", async () => {
+    const existing = { id: 42, authorId: 1, categoryId: 7, title: "Old", status: "published" };
+    selectQueue = [[existing], [{ ...existing }], [{ ...existing }]];
+    persistExternalImage.mockImplementationOnce(async (url: string) => url);
+
+    const { status, json: body } = await request(makeApp(), "PUT", "/posts/42", {
+      coverImage: "https://cdn.example.com/broken-host.png",
+    });
+
+    expect(status).toBe(200);
+    expect(Array.isArray(body.imageWarnings)).toBe(true);
+    expect(body.imageWarnings.join(" ")).toMatch(/cover image/i);
+  });
+
+  it("returns imageWarnings on update when body content keeps an external image", async () => {
+    const existing = { id: 42, authorId: 1, categoryId: 7, title: "Old", status: "published" };
+    selectQueue = [[existing], [{ ...existing }], [{ ...existing }]];
+    // Body-image persistence goes through persistExternalImage too.
+    persistExternalImage.mockImplementationOnce(async (url: string) => url);
+
+    const { status, json: body } = await request(makeApp(), "PUT", "/posts/42", {
+      content: '<p>hi</p><img src="https://cdn.example.com/inline.png">',
+    });
+
+    expect(status).toBe(200);
+    expect(Array.isArray(body.imageWarnings)).toBe(true);
+    expect(body.imageWarnings.join(" ")).toMatch(/article body/i);
+  });
+
+  it("does not warn about fields the update did not submit", async () => {
+    // Existing post already has an external cover, but this update only
+    // touches the title — no warning should fire for the untouched cover.
+    const existing = {
+      id: 42,
+      authorId: 1,
+      categoryId: 7,
+      title: "Old",
+      status: "published",
+      coverImage: "https://cdn.example.com/old-external.png",
+    };
+    selectQueue = [[existing], [{ ...existing, title: "New" }], [{ ...existing, title: "New" }]];
+
+    const { status, json: body } = await request(makeApp(), "PUT", "/posts/42", {
+      title: "New",
+    });
+
+    expect(status).toBe(200);
+    expect(body.imageWarnings).toBeUndefined();
   });
 });
 
