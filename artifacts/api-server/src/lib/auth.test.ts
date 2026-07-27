@@ -54,13 +54,53 @@ vi.mock("drizzle-orm", () => ({
   isNull: () => ({}),
 }));
 
-const { bootstrapAdmin } = await import("./auth");
+const { bootstrapAdmin, getUserBySession, deleteSession } = await import("./auth");
 
 beforeEach(() => {
   vi.clearAllMocks();
   selectQueue = [];
   updates.length = 0;
   insertValues = undefined;
+});
+
+describe("getUserBySession — session validity and deactivation lockout", () => {
+  it("returns the user for a valid session of an active user", async () => {
+    const user = { id: 3, username: "janedoe", isActive: true };
+    selectQueue = [[{ user }]];
+
+    const result = await getUserBySession("valid-token");
+
+    expect(result).toEqual(user);
+  });
+
+  it("returns null when the session query matches no row (expired or unknown token)", async () => {
+    selectQueue = [[]];
+
+    const result = await getUserBySession("expired-token");
+
+    expect(result).toBeNull();
+  });
+
+  it("returns null for a user with isActive: false even with a valid session", async () => {
+    const user = { id: 4, username: "disabled-editor", isActive: false };
+    selectQueue = [[{ user }]];
+
+    const result = await getUserBySession("valid-token");
+
+    expect(result).toBeNull();
+  });
+});
+
+describe("deleteSession", () => {
+  it("issues a delete so subsequent lookups find no session", async () => {
+    await deleteSession("some-token");
+
+    expect(db.delete).toHaveBeenCalledTimes(1);
+
+    // After deletion, the DB returns no row for that token
+    selectQueue = [[]];
+    expect(await getUserBySession("some-token")).toBeNull();
+  });
 });
 
 describe("bootstrapAdmin — startup email self-healing (syncDerivedEmails)", () => {
