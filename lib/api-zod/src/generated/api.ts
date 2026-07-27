@@ -1348,7 +1348,7 @@ export const ListCommentsQueryParams = zod.object({
 export const ListCommentsResponseItem = zod.object({
   id: zod.number(),
   postSlug: zod.string(),
-  name: zod.string(),
+  name: zod.string().nullish(),
   email: zod.string().nullish(),
   body: zod.string(),
   status: zod.string(),
@@ -1361,8 +1361,7 @@ export const ListCommentsResponse = zod.array(ListCommentsResponseItem);
  */
 export const SubmitCommentBody = zod.object({
   postSlug: zod.string(),
-  name: zod.string(),
-  email: zod.string(),
+  name: zod.string().nullish(),
   body: zod.string(),
 });
 
@@ -1377,7 +1376,7 @@ export const SubmitCommentResponse = zod.object({
 export const AdminListCommentsResponseItem = zod.object({
   id: zod.number(),
   postSlug: zod.string(),
-  name: zod.string(),
+  name: zod.string().nullish(),
   email: zod.string().nullish(),
   body: zod.string(),
   status: zod.string(),
@@ -1398,7 +1397,7 @@ export const AdminUpdateCommentStatusBody = zod.object({
 export const AdminUpdateCommentStatusResponse = zod.object({
   id: zod.number(),
   postSlug: zod.string(),
-  name: zod.string(),
+  name: zod.string().nullish(),
   email: zod.string().nullish(),
   body: zod.string(),
   status: zod.string(),

@@ -2472,21 +2472,20 @@ components:
       properties:
         id: { type: integer }
         postSlug: { type: string }
-        name: { type: string }
+        name: { type: string, nullable: true }
         email: { type: string, nullable: true }
         body: { type: string }
         status: { type: string }
         createdAt: { type: string, format: date-time }
-      required: [id, postSlug, name, body, status, createdAt]
+      required: [id, postSlug, body, status, createdAt]
 
     NewCommentInput:
       type: object
       properties:
         postSlug: { type: string }
-        name: { type: string }
-        email: { type: string }
+        name: { type: string, nullable: true }
         body: { type: string }
-      required: [postSlug, name, email, body]
+      required: [postSlug, body]
 
     CommentStatusUpdate:
       type: object

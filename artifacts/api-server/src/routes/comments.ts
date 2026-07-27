@@ -35,11 +35,12 @@ router.get("/comments", async (req, res): Promise<void> => {
 router.post("/comments", commentLimiter, async (req, res): Promise<void> => {
   const body = req.body || {};
   const slug = String(body.postSlug || "").trim().toLowerCase();
+  // Name is optional (nameless comments display as "Anonymous").
+  // Email is no longer collected from new submissions at all.
   const name = String(body.name || "").trim();
-  const email = String(body.email || "").trim();
   const text = String(body.body || "").trim();
-  if (!slug || !name || !email || !text) {
-    res.status(400).json({ success: false, message: "Name, email, and comment are required." });
+  if (!slug || !text) {
+    res.status(400).json({ success: false, message: "A comment is required." });
     return;
   }
   if (text.length > 4000) {
@@ -48,8 +49,8 @@ router.post("/comments", commentLimiter, async (req, res): Promise<void> => {
   }
   await db.insert(commentsTable).values({
     postSlug: slug.slice(0, 200),
-    name: name.slice(0, 100),
-    email: email.slice(0, 200),
+    name: name ? name.slice(0, 100) : null,
+    email: null,
     body: text,
   });
   res.json({ success: true, message: "Thanks! Your comment will appear once approved." });
@@ -82,7 +83,7 @@ router.patch("/admin/comments/:id", adminAuth, requirePermission("inbox"), async
     action: status === "approved" ? "comment.approve" : status === "rejected" ? "comment.reject" : "comment.pending",
     entityType: "comment",
     entityId: id,
-    summary: `${status} comment by ${updated.name} on /${updated.postSlug}`,
+    summary: `${status} comment by ${updated.name || "Anonymous"} on /${updated.postSlug}`,
   });
   res.json(updated);
 });
@@ -100,7 +101,7 @@ router.delete("/admin/comments/:id", adminAuth, requirePermission("inbox"), asyn
       action: "comment.delete",
       entityType: "comment",
       entityId: id,
-      summary: `Deleted comment by ${existing.name} on /${existing.postSlug}`,
+      summary: `Deleted comment by ${existing.name || "Anonymous"} on /${existing.postSlug}`,
     });
   }
   res.status(204).end();

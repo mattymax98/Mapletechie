@@ -9,7 +9,7 @@
 export interface Comment {
   id: number;
   postSlug: string;
-  name: string;
+  name?: string | null;
   email?: string | null;
   body: string;
   status: string;

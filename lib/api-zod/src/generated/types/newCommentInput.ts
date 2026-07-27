@@ -8,7 +8,6 @@
 
 export interface NewCommentInput {
   postSlug: string;
-  name: string;
-  email: string;
+  name?: string | null;
   body: string;
 }

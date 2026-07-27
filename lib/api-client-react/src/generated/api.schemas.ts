@@ -588,7 +588,7 @@ export interface InboxCounts {
 export interface Comment {
   id: number;
   postSlug: string;
-  name: string;
+  name?: string | null;
   email?: string | null;
   body: string;
   status: string;
@@ -597,8 +597,7 @@ export interface Comment {
 
 export interface NewCommentInput {
   postSlug: string;
-  name: string;
-  email: string;
+  name?: string | null;
   body: string;
 }
 
