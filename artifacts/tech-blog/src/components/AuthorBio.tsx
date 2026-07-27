@@ -11,13 +11,17 @@ import { Mail, Twitter, Linkedin, Instagram, Github, Globe } from "lucide-react"
 import { useGetAuthor, getGetAuthorQueryKey } from "@workspace/api-client-react";
 
 interface AuthorBioProps {
-  variant?: "card" | "inline";
   authorId?: number | null;
   fallbackName?: string;
   fallbackAvatar?: string | null;
 }
 
-export function AuthorBio({ variant = "card", authorId, fallbackName, fallbackAvatar }: AuthorBioProps) {
+/**
+ * Compact Verge-style byline: small round photo + name + short role, meant to
+ * sit right under the article cover image. Clicking the name opens the
+ * author's bio dialog (photo, bio text, socials if they have any).
+ */
+export function AuthorBio({ authorId, fallbackName, fallbackAvatar }: AuthorBioProps) {
   const [bioOpen, setBioOpen] = useState(false);
 
   const { data: author } = useGetAuthor(authorId ?? 0, {
@@ -28,22 +32,6 @@ export function AuthorBio({ variant = "card", authorId, fallbackName, fallbackAv
   const avatarUrl = author?.avatarUrl || fallbackAvatar || `${import.meta.env.BASE_URL}author-matthew.webp`;
   const jobTitle = author?.jobTitle?.trim() || "Editor, Mapletechie";
   const bio = author?.bio?.trim() || "Editor at Mapletechie — covering AI, electric vehicles, cybersecurity, and consumer gadgets.";
-
-  if (variant === "inline") {
-    return (
-      <div className="flex items-center gap-3">
-        <img
-          src={avatarUrl}
-          alt={displayName}
-          className="w-10 h-10 rounded-full object-cover border border-border"
-        />
-        <div>
-          <p className="text-sm font-bold uppercase tracking-wider">{displayName}</p>
-          <p className="text-xs text-muted-foreground">{jobTitle}</p>
-        </div>
-      </div>
-    );
-  }
 
   const normalizeUrl = (raw?: string | null): string | null => {
     if (!raw) return null;
@@ -63,25 +51,22 @@ export function AuthorBio({ variant = "card", authorId, fallbackName, fallbackAv
   const activeSocials = socials.filter((s) => s.url) as Array<{ url: string; Icon: any; label: string }>;
 
   return (
-    <aside className="border-t border-border pt-10 mt-12">
-      <div className="flex items-center gap-5">
-        <img
-          src={avatarUrl}
-          alt={displayName}
-          className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border-2 border-primary shrink-0"
-        />
-        <div>
-          <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Written by</p>
-          <button
-            type="button"
-            onClick={() => setBioOpen(true)}
-            className="text-xl md:text-2xl font-black uppercase tracking-tight hover:text-primary transition-colors text-left"
-            data-testid="button-author-name"
-          >
-            {displayName}
-          </button>
-          <p className="text-sm text-muted-foreground">{jobTitle}</p>
-        </div>
+    <div className="flex items-center gap-3" data-testid="compact-byline">
+      <img
+        src={avatarUrl}
+        alt={displayName}
+        className="w-9 h-9 rounded-full object-cover border border-border shrink-0"
+      />
+      <div className="leading-tight">
+        <button
+          type="button"
+          onClick={() => setBioOpen(true)}
+          className="text-sm font-bold uppercase tracking-wider hover:text-primary transition-colors text-left"
+          data-testid="button-author-name"
+        >
+          {displayName}
+        </button>
+        <p className="text-xs text-muted-foreground">{jobTitle}</p>
       </div>
 
       <Dialog open={bioOpen} onOpenChange={setBioOpen}>
@@ -118,6 +103,6 @@ export function AuthorBio({ variant = "card", authorId, fallbackName, fallbackAv
           </div>
         </DialogContent>
       </Dialog>
-    </aside>
+    </div>
   );
 }
