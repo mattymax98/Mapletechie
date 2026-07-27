@@ -88,3 +88,6 @@ RESEND_API_KEY = "REDACTED_RESEND_KEY"
 
 [userenv.production]
 RESEND_API_KEY = "REDACTED_RESEND_KEY"
+
+[objectStorage]
+defaultBucketID = "replit-objstore-a8ef13b0-f006-4ca0-b05a-aa565a732f54"
