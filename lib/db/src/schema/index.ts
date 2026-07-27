@@ -1,4 +1,5 @@
 export * from "./posts";
+export * from "./postCategories";
 export * from "./categories";
 export * from "./products";
 export * from "./contacts";

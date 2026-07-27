@@ -55,6 +55,10 @@ const db = {
         }),
       })),
       select: vi.fn(() => makeSelectChain(selectQueue)),
+      delete: vi.fn(() => ({ where: vi.fn(async () => undefined) })),
+      update: vi.fn(() => ({
+        set: vi.fn(() => ({ where: vi.fn(async () => undefined) })),
+      })),
     };
     return cb(tx);
   }),
@@ -65,6 +69,7 @@ vi.mock("@workspace/db", () => ({
   postsTable: {},
   usersTable: {},
   categoriesTable: {},
+  postCategoriesTable: {},
   automationRequestsTable: {},
   seriesTable: { id: {} },
   auditLogsTable: {},
@@ -75,6 +80,7 @@ vi.mock("@workspace/db", () => ({
 vi.mock("drizzle-orm", () => ({
   eq: () => ({}),
   desc: () => ({}),
+  asc: () => ({}),
   and: () => ({}),
   gte: () => ({}),
   sql: Object.assign(() => ({}), {}),

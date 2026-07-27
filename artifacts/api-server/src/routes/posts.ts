@@ -12,6 +12,18 @@ import { writeAuditLog } from "../lib/audit";
 import { validateCoverImage } from "../lib/coverImageValidation";
 import { isExternalImageUrl, persistExternalImage, persistExternalImagesInHtml } from "../lib/persistExternalImage";
 import sanitizeHtml from "sanitize-html";
+import {
+  resolveCategory,
+  resolveCategoriesForWrite,
+  attachCategories,
+  syncPostCategories,
+  refreshCategoryPostCounts,
+  getPostCategoryIds,
+  postInCategory,
+} from "../lib/postCategoryHelpers";
+
+// Re-exported for automation.ts (historical import location).
+export { resolveCategory };
 
 const router = Router();
 
@@ -121,36 +133,6 @@ function postsBaseQuery() {
     .innerJoin(categoriesTable, eq(postsTable.categoryId, categoriesTable.id));
 }
 
-/**
- * Resolve an arbitrary category input (id, slug, or name) to a categoriesTable
- * row. Returns null if no match — callers should reject the request in that
- * case so the FK on posts.category_id is never violated.
- */
-export async function resolveCategory(input: unknown) {
-  if (input == null) return null;
-  if (typeof input === "number" && Number.isFinite(input)) {
-    const [row] = await db.select().from(categoriesTable).where(eq(categoriesTable.id, input));
-    return row ?? null;
-  }
-  const text = String(input).trim();
-  if (!text) return null;
-  const asNum = Number(text);
-  if (Number.isInteger(asNum) && asNum > 0) {
-    const [row] = await db.select().from(categoriesTable).where(eq(categoriesTable.id, asNum));
-    if (row) return row;
-  }
-  const [row] = await db
-    .select()
-    .from(categoriesTable)
-    .where(
-      or(
-        eq(categoriesTable.slug, text),
-        sql`lower(${categoriesTable.name}) = lower(${text})`,
-      ),
-    );
-  return row ?? null;
-}
-
 router.get("/posts", async (req, res): Promise<void> => {
   const parsed = ListPostsQueryParams.safeParse(req.query);
   if (!parsed.success) {
@@ -166,7 +148,8 @@ router.get("/posts", async (req, res): Promise<void> => {
       res.json([]);
       return;
     }
-    conditions.push(eq(postsTable.categoryId, cat.id));
+    // Membership in ANY of the post's categories counts, not just primary.
+    conditions.push(postInCategory(cat.id));
   }
 
   const posts = await postsBaseQuery()
@@ -175,7 +158,7 @@ router.get("/posts", async (req, res): Promise<void> => {
     .limit(limit)
     .offset(offset);
 
-  res.json(posts);
+  res.json(await attachCategories(posts));
 });
 
 // Admin posts list — returns ALL posts (drafts included). Editors see their
@@ -190,7 +173,7 @@ router.get("/admin/posts", adminAuth, async (req, res): Promise<void> => {
   } else {
     posts = await postsBaseQuery().orderBy(desc(postsTable.createdAt));
   }
-  res.json(posts);
+  res.json(await attachCategories(posts));
 });
 
 router.post("/posts", adminAuth, async (req, res): Promise<void> => {
@@ -198,25 +181,23 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
   const body = req.body ?? {};
 
   // Required fields
-  const required = ["title", "slug", "content", "category"];
+  const required = ["title", "slug", "content"];
   for (const f of required) {
     const v = body[f];
-    if (f === "category") {
-      if (v == null || (typeof v !== "string" && typeof v !== "number") || (typeof v === "string" && !v.trim())) {
-        res.status(400).json({ error: `Missing field: ${f}` });
-        return;
-      }
-    } else if (typeof v !== "string" || !v.trim()) {
+    if (typeof v !== "string" || !v.trim()) {
       res.status(400).json({ error: `Missing field: ${f}` });
       return;
     }
   }
 
-  const resolvedCategory = await resolveCategory(body.category);
-  if (!resolvedCategory) {
-    res.status(400).json({ error: `Unknown category: ${String(body.category)}` });
+  // Category input: either legacy single `category` or a `categories` array
+  // (+ optional `primaryCategory`, defaulting to the first entry).
+  const resolvedCats = await resolveCategoriesForWrite(body);
+  if ("error" in resolvedCats) {
+    res.status(400).json({ error: resolvedCats.error });
     return;
   }
+  const resolvedCategory = resolvedCats.primary;
 
   const coverError = validateCoverImage(body.coverImage);
   if (coverError) {
@@ -313,10 +294,16 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     publishedAt: body.publishedAt ? new Date(body.publishedAt) : new Date(),
   };
 
-  const [inserted] = await db.insert(postsTable).values(values).returning();
+  const inserted = await db.transaction(async (tx) => {
+    const [row] = await tx.insert(postsTable).values(values).returning();
+    await syncPostCategories(tx, row.id, resolvedCats.all.map((c) => c.id), resolvedCats.primary.id);
+    await refreshCategoryPostCounts(tx, resolvedCats.all.map((c) => c.id));
+    return row;
+  });
   // Re-fetch through the JOIN so we return the same shape as the read paths
   // (with `category` included).
   const [post] = await postsBaseQuery().where(eq(postsTable.id, inserted.id));
+  const [withCats] = await attachCategories([post]);
   await writeAuditLog(req, {
     action: "post.create",
     entityType: "post",
@@ -324,7 +311,7 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     summary: `Created post "${post.title}" (${post.status})`,
     details: { snapshot: inserted },
   });
-  res.status(201).json(post);
+  res.status(201).json(withCats);
 });
 
 router.get("/posts/featured", async (_req, res): Promise<void> => {
@@ -332,7 +319,7 @@ router.get("/posts/featured", async (_req, res): Promise<void> => {
     .where(and(eq(postsTable.isFeatured, true), eq(postsTable.status, "published")))
     .orderBy(desc(postsTable.publishedAt))
     .limit(5);
-  res.json(posts);
+  res.json(await attachCategories(posts));
 });
 
 router.get("/posts/latest", async (req, res): Promise<void> => {
@@ -342,7 +329,7 @@ router.get("/posts/latest", async (req, res): Promise<void> => {
     .where(eq(postsTable.status, "published"))
     .orderBy(desc(postsTable.publishedAt))
     .limit(limit);
-  res.json(posts);
+  res.json(await attachCategories(posts));
 });
 
 router.get("/posts/trending", async (_req, res): Promise<void> => {
@@ -381,7 +368,7 @@ router.get("/posts/trending", async (_req, res): Promise<void> => {
     }
   }
 
-  res.json(posts.slice(0, 5));
+  res.json(await attachCategories(posts.slice(0, 5)));
 });
 
 router.get("/posts/most-discussed", async (_req, res): Promise<void> => {
@@ -410,7 +397,7 @@ router.get("/posts/most-discussed", async (_req, res): Promise<void> => {
     .map((p) => ({ ...p, commentCount: countBySlug.get(p.slug) || 0 }))
     .sort((a, b) => b.commentCount - a.commentCount)
     .slice(0, 5);
-  res.json(ranked);
+  res.json(await attachCategories(ranked));
 });
 
 router.get("/posts/slug/:slug", async (req, res): Promise<void> => {
@@ -425,7 +412,8 @@ router.get("/posts/slug/:slug", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Post not found" });
     return;
   }
-  res.json(post);
+  const [withCats] = await attachCategories([post]);
+  res.json(withCats);
 });
 
 router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
@@ -503,16 +491,8 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
         ? body[k].map((v: unknown) => cleanText(v)).filter((v: unknown): v is string => !!v)
         : [];
     } else if (k === "category") {
-      // Resolve the incoming category (slug/name/id) to a real row and
-      // write the FK. The text cache column is gone, so this is the only
-      // category-related write.
-      const resolved = await resolveCategory(body[k]);
-      if (!resolved) {
-        res.status(400).json({ error: `Unknown category: ${String(body[k])}` });
-        return;
-      }
-      update.categoryId = resolved.id;
-      if (resolved.id !== previousCategoryId) categoryChanged = true;
+      // Handled below together with `categories`/`primaryCategory`.
+      continue;
     } else if (k === "coverImage" || k === "ogImage") {
       const imgError = validateCoverImage(body[k]);
       if (imgError) {
@@ -559,34 +539,68 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     update.publishedAt = new Date(update.publishedAt as string);
   }
 
+  // Category changes. Three shapes are accepted:
+  // - `categories` array (+ optional `primaryCategory`) — full replacement.
+  // - legacy single `category` — replaces the PRIMARY, keeps secondaries.
+  // - `primaryCategory` alone — re-picks the primary among current ones.
+  const current = await getPostCategoryIds(db, id);
+  const currentIds =
+    current.ids.length > 0
+      ? current.ids
+      : typeof previousCategoryId === "number"
+        ? [previousCategoryId]
+        : [];
+  const currentPrimary = current.primaryId ?? previousCategoryId ?? null;
+  let catPlan: { ids: number[]; primaryId: number } | null = null;
+  if ("categories" in body) {
+    const resolved = await resolveCategoriesForWrite(body);
+    if ("error" in resolved) {
+      res.status(400).json({ error: resolved.error });
+      return;
+    }
+    catPlan = { ids: resolved.all.map((c) => c.id), primaryId: resolved.primary.id };
+  } else if ("category" in body) {
+    const resolved = await resolveCategory(body.category);
+    if (!resolved) {
+      res.status(400).json({ error: `Unknown category: ${String(body.category)}` });
+      return;
+    }
+    const secondaries = currentIds.filter((cid) => cid !== currentPrimary && cid !== resolved.id);
+    catPlan = { ids: [resolved.id, ...secondaries], primaryId: resolved.id };
+  } else if ("primaryCategory" in body) {
+    const resolved = await resolveCategory(body.primaryCategory);
+    if (!resolved || !currentIds.includes(resolved.id)) {
+      res.status(400).json({
+        error: `primaryCategory must be one of the post's current categories`,
+      });
+      return;
+    }
+    catPlan = { ids: currentIds, primaryId: resolved.id };
+  }
+  if (catPlan) {
+    update.categoryId = catPlan.primaryId;
+    categoryChanged =
+      catPlan.primaryId !== previousCategoryId ||
+      catPlan.ids.length !== currentIds.length ||
+      catPlan.ids.some((cid) => !currentIds.includes(cid));
+  }
+
   await db.transaction(async (tx) => {
     await tx
       .update(postsTable)
       .set(update)
       .where(eq(postsTable.id, id));
 
-    // When a post moves between categories, recompute the cached postCount
-    // for both the old and new category so the public category index stays
-    // accurate. Mirrors the bulk reassign endpoint in categories.ts.
-    if (categoryChanged) {
-      const newCategoryId = (update.categoryId as number) ?? previousCategoryId;
-      const idsToRefresh = new Set<number>();
-      if (typeof previousCategoryId === "number") idsToRefresh.add(previousCategoryId);
-      if (typeof newCategoryId === "number") idsToRefresh.add(newCategoryId);
-      for (const catId of idsToRefresh) {
-        const [{ count }] = await tx
-          .select({ count: sql<number>`count(*)::int` })
-          .from(postsTable)
-          .where(eq(postsTable.categoryId, catId));
-        await tx
-          .update(categoriesTable)
-          .set({ postCount: count })
-          .where(eq(categoriesTable.id, catId));
-      }
+    // Keep the join table, the posts.category_id mirror, and the cached
+    // postCount of every affected category consistent in one transaction.
+    if (catPlan && categoryChanged) {
+      await syncPostCategories(tx, id, catPlan.ids, catPlan.primaryId);
+      await refreshCategoryPostCounts(tx, [...currentIds, ...catPlan.ids]);
     }
   });
   // Re-fetch through the JOIN so the response includes the resolved category.
-  const [updated] = await postsBaseQuery().where(eq(postsTable.id, id));
+  const [updatedRow] = await postsBaseQuery().where(eq(postsTable.id, id));
+  const [updated] = await attachCategories([updatedRow]);
   // Re-fetch the raw row so the snapshot is the same shape as `before`.
   const [updatedRaw] = await db.select().from(postsTable).where(eq(postsTable.id, id));
 
@@ -650,20 +664,16 @@ router.post("/admin/posts/bulk-reassign", adminAuth, async (req, res): Promise<v
 
   if (toMove.length > 0) {
     await db.transaction(async (tx) => {
-      await tx
-        .update(postsTable)
-        .set({ categoryId: resolved.id })
-        .where(inArray(postsTable.id, toMove.map((p) => p.id)));
-      for (const catId of affectedCategoryIds) {
-        const [{ count }] = await tx
-          .select({ count: sql<number>`count(*)::int` })
-          .from(postsTable)
-          .where(eq(postsTable.categoryId, catId));
-        await tx
-          .update(categoriesTable)
-          .set({ postCount: count })
-          .where(eq(categoriesTable.id, catId));
+      // "Move" = replace the PRIMARY category; secondary memberships stay.
+      for (const p of toMove) {
+        const current = await getPostCategoryIds(tx, p.id);
+        const currentIds = current.ids.length > 0 ? current.ids : (typeof p.categoryId === "number" ? [p.categoryId] : []);
+        const currentPrimary = current.primaryId ?? p.categoryId ?? null;
+        const secondaries = currentIds.filter((cid) => cid !== currentPrimary && cid !== resolved.id);
+        if (typeof currentPrimary === "number") affectedCategoryIds.add(currentPrimary);
+        await syncPostCategories(tx, p.id, [resolved.id, ...secondaries], resolved.id);
       }
+      await refreshCategoryPostCounts(tx, affectedCategoryIds);
     });
     await writeAuditLog(req, {
       action: "posts.bulk_reassign",
@@ -780,14 +790,12 @@ router.post("/admin/posts/:id/restore", adminAuth, requireRole("admin"), async (
     await tx.insert(postsTable).values(values as never);
     // Keep the serial sequence ahead of explicitly-inserted ids.
     await tx.execute(sql`select setval(pg_get_serial_sequence('posts','id'), (select max(id) from posts))`);
-    const [{ count }] = await tx
-      .select({ count: sql<number>`count(*)::int` })
-      .from(postsTable)
-      .where(eq(postsTable.categoryId, cat.id));
-    await tx.update(categoriesTable).set({ postCount: count }).where(eq(categoriesTable.id, cat.id));
+    await syncPostCategories(tx, id, [cat.id], cat.id);
+    await refreshCategoryPostCounts(tx, [cat.id]);
   });
 
-  const [restored] = await postsBaseQuery().where(eq(postsTable.id, id));
+  const [restoredRow] = await postsBaseQuery().where(eq(postsTable.id, id));
+  const [restored] = await attachCategories([restoredRow]);
   await writeAuditLog(req, {
     action: "post.restore",
     entityType: "post",
@@ -817,7 +825,16 @@ router.delete("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  await db.delete(postsTable).where(eq(postsTable.id, id));
+  await db.transaction(async (tx) => {
+    // Read memberships inside the tx so concurrent category changes can't
+    // slip a category id past the count refresh below.
+    const memberships = await getPostCategoryIds(tx, id);
+    await tx.delete(postsTable).where(eq(postsTable.id, id));
+    // Join rows cascade with the post; refresh the affected counts.
+    const affected = new Set(memberships.ids);
+    if (typeof existing.categoryId === "number") affected.add(existing.categoryId);
+    await refreshCategoryPostCounts(tx, affected);
+  });
   await writeAuditLog(req, {
     action: "post.delete",
     entityType: "post",
@@ -839,7 +856,8 @@ router.get("/posts/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Post not found" });
     return;
   }
-  res.json(post);
+  const [withCats] = await attachCategories([post]);
+  res.json(withCats);
 });
 
 

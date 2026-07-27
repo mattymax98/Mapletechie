@@ -117,7 +117,10 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     slug: "",
     excerpt: "",
     content: "",
-    category: "",
+    // Multi-category: slugs, `primaryCategory` must be one of them (defaults
+    // to the first picked). The API still accepts legacy single `category`.
+    categories: [] as string[],
+    primaryCategory: "",
     author: user?.displayName ?? "",
     authorId: user?.id ?? 0,
     coverImage: "",
@@ -237,9 +240,13 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
         slug: ep.slug ?? "",
         excerpt: ep.excerpt ?? "",
         content: ep.content ?? "",
-        // The API returns the display name under `category` and the slug under
-        // `categorySlug`; the Select is keyed by slug, so prefer the slug.
-        category: ep.categorySlug ?? ep.category ?? "",
+        // The API returns all categories (primary first) under `categories`;
+        // fall back to the legacy single categorySlug for old responses.
+        categories:
+          Array.isArray(ep.categories) && ep.categories.length > 0
+            ? ep.categories.map((c: any) => c.slug)
+            : [ep.categorySlug ?? ep.category].filter(Boolean),
+        primaryCategory: ep.categories?.[0]?.slug ?? ep.categorySlug ?? "",
         author: ep.author ?? "",
         authorId: ep.authorId ?? 0,
         coverImage: ep.coverImage ?? "",
@@ -362,7 +369,8 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
         slug: d.slug ?? f.slug,
         excerpt: d.excerpt ?? f.excerpt,
         content: d.content ?? f.content,
-        category: d.category ?? f.category,
+        categories: d.category ? [d.category] : f.categories,
+        primaryCategory: d.category ?? f.primaryCategory,
         author: d.author ?? f.author,
         coverImage: d.coverImage ?? f.coverImage,
         readTime: typeof d.readTime === "number" ? d.readTime : f.readTime,
@@ -448,7 +456,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     if (!form.slug.trim()) return fail("Slug is required.", "field-slug");
     if (!form.content.trim() || form.content.trim() === "<p></p>")
       return fail("Content is required.", "field-content");
-    if (!form.category) return fail("Category is required.", "field-category");
+    if (form.categories.length === 0) return fail("Pick at least one category.", "field-category");
     if (coverImageStatus === "broken")
       return fail("The cover image URL didn't load. Fix or remove it before saving.", "field-cover");
     if (ogImageStatus === "broken")
@@ -476,7 +484,11 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
       title: form.title.trim(),
       slug: form.slug.trim(),
       content: form.content,
-      category: form.category,
+      categories: form.categories,
+      primaryCategory:
+        form.primaryCategory && form.categories.includes(form.primaryCategory)
+          ? form.primaryCategory
+          : form.categories[0],
       readTime: form.readTime,
       isFeatured: form.isFeatured,
       status,
@@ -613,33 +625,68 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
             </div>
 
             <div id="field-category" className="space-y-2 scroll-mt-24">
-              <Label className="text-zinc-300">Category *</Label>
-              <Select
-                value={form.category || undefined}
-                onValueChange={(v) => {
-                  // Radix Select fires onValueChange("") when the controlled
-                  // value has no matching item yet (e.g. categories still
-                  // loading right after hydration). Ignore it — a user can
-                  // never legitimately pick an empty value.
-                  if (!v) return;
-                  setForm((f) => ({ ...f, category: v }));
-                }}
-              >
-                <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500">
-                  <SelectValue placeholder="Select a category">
-                    {(form.category && categories?.find((c: any) => c.slug === form.category)?.name) ||
-                      form.category ||
-                      "Select a category"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-700">
-                  {categories?.map((c: any) => (
-                    <SelectItem key={c.id} value={c.slug} className="text-white hover:bg-zinc-800">
+              <Label className="text-zinc-300">Categories *</Label>
+              <div className="flex flex-wrap gap-2">
+                {categories?.map((c: any) => {
+                  const selected = form.categories.includes(c.slug);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => {
+                          const next = selected
+                            ? f.categories.filter((s) => s !== c.slug)
+                            : [...f.categories, c.slug];
+                          let primary = f.primaryCategory;
+                          if (!next.includes(primary)) primary = next[0] ?? "";
+                          if (!primary && next.length > 0) primary = next[0];
+                          return { ...f, categories: next, primaryCategory: primary };
+                        })
+                      }
+                      className={`px-3 py-1.5 text-sm border transition-colors ${
+                        selected
+                          ? "bg-orange-600 border-orange-600 text-white"
+                          : "bg-zinc-900 border-zinc-700 text-zinc-300 hover:border-zinc-500"
+                      }`}
+                    >
                       {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    </button>
+                  );
+                })}
+              </div>
+              {form.categories.length > 1 && (
+                <div className="space-y-1">
+                  <Label className="text-zinc-400 text-xs">
+                    Main category (used for breadcrumbs, search engines and "More in…")
+                  </Label>
+                  <Select
+                    value={form.primaryCategory || undefined}
+                    onValueChange={(v) => {
+                      if (!v) return; // ignore Radix's spurious "" reset
+                      setForm((f) => ({ ...f, primaryCategory: v }));
+                    }}
+                  >
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500">
+                      <SelectValue placeholder="Main category">
+                        {categories?.find((c: any) => c.slug === form.primaryCategory)?.name ||
+                          form.primaryCategory ||
+                          "Main category"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-700">
+                      {form.categories.map((slug) => (
+                        <SelectItem key={slug} value={slug} className="text-white hover:bg-zinc-800">
+                          {categories?.find((c: any) => c.slug === slug)?.name ?? slug}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <p className="text-xs text-zinc-500">
+                Pick one or more. The first one you pick becomes the main category unless you change it.
+              </p>
             </div>
 
             <div className="space-y-2">

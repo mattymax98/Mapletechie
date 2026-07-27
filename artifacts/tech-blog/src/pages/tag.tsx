@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Helmet } from "react-helmet-async";
 import { SEO } from "@/components/SEO";
-import { CategoryChip } from "@/components/CategoryChip";
+import { PostCategoryChips } from "@/components/CategoryChip";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import {
   buildTrailBreadcrumbJsonLd,
@@ -138,7 +138,7 @@ export default function TagPage() {
                 </div>
                 <div>
                   {p.category && (
-                    <CategoryChip category={p.category} variant="dot" className="text-xs mb-1" />
+                    <PostCategoryChips post={p} variant="dot" className="text-xs mb-1" />
                   )}
                   <h3 className="text-xl font-bold leading-tight group-hover:text-primary line-clamp-3 mb-2">
                     {p.title}

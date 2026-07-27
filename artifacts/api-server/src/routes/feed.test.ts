@@ -13,6 +13,10 @@ vi.mock("drizzle-orm", () => ({
   eq: (col: unknown, val: unknown) => ({ op: "eq", col, val }),
   and: (...conditions: unknown[]) => ({ op: "and", conditions }),
   desc: (col: unknown) => ({ op: "desc", col }),
+  asc: (col: unknown) => ({ op: "asc", col }),
+  or: (...conditions: unknown[]) => ({ op: "or", conditions }),
+  inArray: (col: unknown, vals: unknown) => ({ op: "inArray", col, vals }),
+  sql: (strings: TemplateStringsArray, ...vals: unknown[]) => ({ op: "sql", vals }),
   getTableColumns: () => ({}),
 }));
 
@@ -27,6 +31,11 @@ const categoriesTable = {
   id: "categories.id",
   name: "categories.name",
   slug: "categories.slug",
+};
+const postCategoriesTable = {
+  postId: "post_categories.postId",
+  categoryId: "post_categories.categoryId",
+  isPrimary: "post_categories.isPrimary",
 };
 
 // Queue of result arrays the select chains resolve to, in call order, and the
@@ -58,7 +67,7 @@ function makeSelectChain() {
 
 const db = { select: vi.fn(() => makeSelectChain()) };
 
-vi.mock("@workspace/db", () => ({ db, postsTable, categoriesTable }));
+vi.mock("@workspace/db", () => ({ db, postsTable, categoriesTable, postCategoriesTable }));
 
 const feedRouter = (await import("./feed")).default;
 
@@ -118,7 +127,12 @@ function assertWellFormedXml(xml: string): void {
 
 // --- Fixtures ---------------------------------------------------------------
 
+// Posts carry id/categoryId/categorySlug so attachCategories' fallback path
+// (no join rows queued) yields the single legacy category.
 const POST_A = {
+  id: 1,
+  categoryId: 7,
+  categorySlug: "ai",
   slug: "the-future-of-ai",
   title: "The Future of AI",
   excerpt: "Where machine learning is headed next.",
@@ -129,6 +143,9 @@ const POST_A = {
 };
 
 const POST_B = {
+  id: 2,
+  categoryId: 8,
+  categorySlug: "evs",
   slug: "ev-charging-guide",
   title: "EV Charging Guide",
   excerpt: null,
@@ -173,8 +190,8 @@ describe("GET /feed.xml — site-wide feed shape", () => {
     // Excerpt used when present; stripped content when not.
     expect(body).toContain("<description>Where machine learning is headed next.</description>");
     expect(body).toContain("<description>Level 2 chargers explained, plug by plug.</description>");
-    // Only the published filter — no category condition.
-    expect(capturedWheres).toHaveLength(1);
+    // Only the published filter — no category condition. (2nd where is the
+    // attachCategories join lookup.)
     expect(capturedWheres[0]).toEqual({ op: "eq", col: postsTable.status, val: "published" });
     assertWellFormedXml(body);
   });
@@ -202,15 +219,15 @@ describe("GET /category/:slug/feed.xml", () => {
     expect(body).not.toContain("EV Charging Guide");
     // The posts query must AND the published filter with the category filter —
     // this is what guarantees the feed only contains this category's posts.
-    expect(capturedWheres).toHaveLength(2); // category lookup + posts
     expect(capturedWheres[0]).toEqual({ op: "eq", col: categoriesTable.slug, val: "ai" });
-    expect(capturedWheres[1]).toEqual({
-      op: "and",
-      conditions: [
-        { op: "eq", col: postsTable.status, val: "published" },
-        { op: "eq", col: postsTable.categoryId, val: CATEGORY.id },
-      ],
-    });
+    const postsWhere = capturedWheres[1] as { op: string; conditions: unknown[] };
+    expect(postsWhere.op).toBe("and");
+    expect(postsWhere.conditions[0]).toEqual({ op: "eq", col: postsTable.status, val: "published" });
+    // Category filter is now a join-table EXISTS (any membership counts);
+    // the category id must be bound into that SQL fragment.
+    const catCond = postsWhere.conditions[1] as { op: string; vals: unknown[] };
+    expect(catCond.op).toBe("sql");
+    expect(catCond.vals).toContain(CATEGORY.id);
     assertWellFormedXml(body);
   });
 
@@ -239,6 +256,9 @@ describe("GET /category/:slug/feed.xml", () => {
 describe("XML escaping", () => {
   it("escapes markup-significant characters in titles, categories, and descriptions", async () => {
     const nasty = {
+      id: 3,
+      categoryId: 9,
+      categorySlug: "telecom-5g",
       slug: "rogers-vs-bell",
       title: `Rogers & Bell <beat> "everyone" in Q1's results`,
       excerpt: `5G <upload> speeds & "real-world" tests`,

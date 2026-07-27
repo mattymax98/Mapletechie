@@ -10,7 +10,7 @@ import {
   buildTrailBreadcrumbJsonLd,
   DEFAULT_SITE_URL,
 } from "@/lib/articleSchema";
-import { CategoryChip } from "@/components/CategoryChip";
+import { PostCategoryChips } from "@/components/CategoryChip";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 interface SeriesRow {
@@ -152,7 +152,7 @@ export default function SeriesPage() {
                 </div>
                 <div className="flex-1">
                   {p.category && (
-                    <CategoryChip category={p.category} variant="dot" className="text-xs mb-1" />
+                    <PostCategoryChips post={p} variant="dot" className="text-xs mb-1" />
                   )}
                   <h3 className="text-xl md:text-2xl font-bold leading-tight group-hover:text-primary mb-2">
                     {p.title}

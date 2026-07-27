@@ -19,7 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Reveal } from "@/components/Reveal";
 import { useToast } from "@/hooks/use-toast";
 import { responsiveCoverProps, COVER_SIZES } from "@/lib/responsiveImage";
-import { CategoryChip } from "@/components/CategoryChip";
+import { PostCategoryChips } from "@/components/CategoryChip";
 import { DEFAULT_CATEGORY_COLOR } from "@/lib/categoryColors";
 
 const PRINCIPLES = [
@@ -119,7 +119,7 @@ export default function Home() {
                 <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/40 to-transparent" />
               </div>
               <div className="relative z-10 max-w-3xl">
-                <CategoryChip category={heroPost.category} variant="solid" className="mb-4" />
+                <PostCategoryChips post={heroPost} variant="solid" className="mb-4" />
                 <h3 className="text-3xl md:text-5xl font-serif font-black leading-[1.05] text-white mb-4 group-hover:text-primary transition-colors line-clamp-3">
                   {heroPost.title}
                 </h3>
@@ -152,7 +152,7 @@ export default function Home() {
                   <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/30 to-transparent" />
                 </div>
                 <div className="relative z-10">
-                  <CategoryChip category={post.category} variant="solid" className="mb-2" />
+                  <PostCategoryChips post={post} variant="solid" className="mb-2" />
                   <h3 className="text-xl font-serif font-bold leading-tight text-white group-hover:text-primary transition-colors line-clamp-2">
                     {post.title}
                   </h3>
@@ -269,7 +269,7 @@ export default function Home() {
                               </span>
                             </div>
                             <div className="absolute bottom-0 left-0 right-0 p-4">
-                              <CategoryChip category={post.category} variant="solid" className="mb-2" />
+                              <PostCategoryChips post={post} variant="solid" className="mb-2" />
                               <h3 className="text-base lg:text-lg font-serif font-bold leading-tight text-white group-hover:text-primary transition-colors line-clamp-3">
                                 {post.title}
                               </h3>
@@ -360,7 +360,7 @@ export default function Home() {
                     </div>
                     <div>
                       <div className="flex items-center gap-3 mb-2 text-xs text-muted-foreground">
-                        <CategoryChip category={post.category} variant="dot" className="text-xs" />
+                        <PostCategoryChips post={post} variant="dot" className="text-xs" />
                         <span>&bull;</span>
                         <span className="font-bold uppercase tracking-wider">{format(new Date(post.publishedAt), 'MMM dd')}</span>
                       </div>
@@ -405,7 +405,7 @@ export default function Home() {
                           {post.title}
                         </h3>
                         <div className="flex items-center text-xs text-muted-foreground gap-2 font-medium">
-                          <CategoryChip category={post.category} variant="dot" className="text-[11px]" />
+                          <PostCategoryChips post={post} variant="dot" className="text-[11px]" />
                           <span>&bull;</span>
                           <span className="flex items-center gap-1">
                             <MessageCircle className="h-3 w-3" /> {post.commentCount} {post.commentCount === 1 ? "comment" : "comments"}
@@ -521,7 +521,7 @@ function CategorySection({
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                   <div className="absolute top-3 left-3">
-                    <CategoryChip category={lead.category} variant="solid" />
+                    <PostCategoryChips post={lead} variant="solid" />
                   </div>
                 </div>
                 <h3 className="text-2xl font-serif font-black leading-tight group-hover:text-primary transition-colors line-clamp-2">

@@ -71,7 +71,20 @@ const DRAFT_INPUT_SHAPE = {
   og_image: z.string().optional().describe("Social share image URL"),
   tags: z.array(z.string()).optional(),
   read_time: z.number().optional().describe("Estimated read time in minutes"),
-  category_id: z.union([z.number(), z.string()]).describe("Category id (or exact category name/slug)"),
+  category_id: z
+    .union([z.number(), z.string()])
+    .optional()
+    .describe("Single category id (or exact name/slug). Prefer `categories` to assign more than one."),
+  categories: z
+    .array(z.union([z.number(), z.string()]))
+    .optional()
+    .describe(
+      "All categories for the post (ids, names, or slugs). The first entry is the primary category unless primary_category says otherwise. Provide this OR category_id.",
+    ),
+  primary_category: z
+    .union([z.number(), z.string()])
+    .optional()
+    .describe("Which of `categories` is the primary one (drives breadcrumbs/SEO). Defaults to the first entry."),
   seo_title: z.string().optional(),
   seo_description: z.string().optional(),
   seo_keywords: z.array(z.string()).optional(),
@@ -164,7 +177,7 @@ function buildMcpServer(req: Request): McpServer {
     {
       title: "Create Mapletechie draft",
       description:
-        "Submit a blog post DRAFT for human review. The server forces draft status and the 'Mapletechie AI' byline; it can never publish. Do not send status, author or publish dates. Returns id, status, slug and edit_url.",
+        "Submit a blog post DRAFT for human review. The server forces draft status and the 'Mapletechie AI' byline; it can never publish. Do not send status, author or publish dates. A draft can belong to MULTIPLE categories: pass `categories` (first entry = primary unless primary_category is set), or legacy single `category_id`. Returns id, status, slug and edit_url.",
       inputSchema: DRAFT_INPUT_SHAPE,
     },
     async (args) => {

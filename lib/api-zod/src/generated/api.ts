@@ -33,8 +33,23 @@ export const ListPostsResponseItem = zod.object({
   excerpt: zod.string(),
   content: zod.string(),
   coverImage: zod.string().optional(),
-  category: zod.string(),
-  categorySlug: zod.string().optional(),
+  category: zod
+    .string()
+    .describe("Name of the PRIMARY category (legacy single-category field)."),
+  categorySlug: zod
+    .string()
+    .optional()
+    .describe("Slug of the PRIMARY category (legacy single-category field)."),
+  categories: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        slug: zod.string(),
+      }),
+    )
+    .optional()
+    .describe("All categories this post belongs to, primary first."),
   tags: zod.array(zod.string()).optional(),
   author: zod.string(),
   authorAvatar: zod.string().optional(),
@@ -66,7 +81,7 @@ export const CreatePostBody = zod.object({
   excerpt: zod.string().optional(),
   content: zod.string(),
   coverImage: zod.string().optional(),
-  category: zod.string(),
+  category: zod.string().optional(),
   tags: zod.array(zod.string()).optional(),
   author: zod.string().optional(),
   authorAvatar: zod.string().optional(),
@@ -83,6 +98,18 @@ export const CreatePostBody = zod.object({
   pros: zod.array(zod.string()).optional(),
   cons: zod.array(zod.string()).optional(),
   verdict: zod.string().nullish(),
+  categories: zod
+    .array(zod.string())
+    .optional()
+    .describe(
+      "All categories for the post (ids, slugs, or names). First entry is primary unless primaryCategory is set. Provide this OR the single `category`.",
+    ),
+  primaryCategory: zod
+    .string()
+    .optional()
+    .describe(
+      "Which of `categories` is primary (id, slug, or name). Defaults to the first entry.",
+    ),
 });
 
 /**
@@ -99,8 +126,23 @@ export const GetPostResponse = zod.object({
   excerpt: zod.string(),
   content: zod.string(),
   coverImage: zod.string().optional(),
-  category: zod.string(),
-  categorySlug: zod.string().optional(),
+  category: zod
+    .string()
+    .describe("Name of the PRIMARY category (legacy single-category field)."),
+  categorySlug: zod
+    .string()
+    .optional()
+    .describe("Slug of the PRIMARY category (legacy single-category field)."),
+  categories: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        slug: zod.string(),
+      }),
+    )
+    .optional()
+    .describe("All categories this post belongs to, primary first."),
   tags: zod.array(zod.string()).optional(),
   author: zod.string(),
   authorAvatar: zod.string().optional(),
@@ -153,6 +195,18 @@ export const UpdatePostBody = zod.object({
   cons: zod.array(zod.string()).optional(),
   verdict: zod.string().nullish(),
   publishedAt: zod.coerce.date().optional(),
+  categories: zod
+    .array(zod.string())
+    .optional()
+    .describe(
+      "Full replacement list of categories (ids, slugs, or names). First entry is primary unless primaryCategory is set.",
+    ),
+  primaryCategory: zod
+    .string()
+    .optional()
+    .describe(
+      "Which category is primary (id, slug, or name). Alone, re-picks the primary among the post's current categories.",
+    ),
 });
 
 export const UpdatePostResponse = zod.object({
@@ -162,8 +216,23 @@ export const UpdatePostResponse = zod.object({
   excerpt: zod.string(),
   content: zod.string(),
   coverImage: zod.string().optional(),
-  category: zod.string(),
-  categorySlug: zod.string().optional(),
+  category: zod
+    .string()
+    .describe("Name of the PRIMARY category (legacy single-category field)."),
+  categorySlug: zod
+    .string()
+    .optional()
+    .describe("Slug of the PRIMARY category (legacy single-category field)."),
+  categories: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        slug: zod.string(),
+      }),
+    )
+    .optional()
+    .describe("All categories this post belongs to, primary first."),
   tags: zod.array(zod.string()).optional(),
   author: zod.string(),
   authorAvatar: zod.string().optional(),
@@ -206,8 +275,23 @@ export const GetPostBySlugResponse = zod.object({
   excerpt: zod.string(),
   content: zod.string(),
   coverImage: zod.string().optional(),
-  category: zod.string(),
-  categorySlug: zod.string().optional(),
+  category: zod
+    .string()
+    .describe("Name of the PRIMARY category (legacy single-category field)."),
+  categorySlug: zod
+    .string()
+    .optional()
+    .describe("Slug of the PRIMARY category (legacy single-category field)."),
+  categories: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        slug: zod.string(),
+      }),
+    )
+    .optional()
+    .describe("All categories this post belongs to, primary first."),
   tags: zod.array(zod.string()).optional(),
   author: zod.string(),
   authorAvatar: zod.string().optional(),
@@ -239,8 +323,23 @@ export const GetFeaturedPostsResponseItem = zod.object({
   excerpt: zod.string(),
   content: zod.string(),
   coverImage: zod.string().optional(),
-  category: zod.string(),
-  categorySlug: zod.string().optional(),
+  category: zod
+    .string()
+    .describe("Name of the PRIMARY category (legacy single-category field)."),
+  categorySlug: zod
+    .string()
+    .optional()
+    .describe("Slug of the PRIMARY category (legacy single-category field)."),
+  categories: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        slug: zod.string(),
+      }),
+    )
+    .optional()
+    .describe("All categories this post belongs to, primary first."),
   tags: zod.array(zod.string()).optional(),
   author: zod.string(),
   authorAvatar: zod.string().optional(),
@@ -279,8 +378,23 @@ export const GetLatestPostsResponseItem = zod.object({
   excerpt: zod.string(),
   content: zod.string(),
   coverImage: zod.string().optional(),
-  category: zod.string(),
-  categorySlug: zod.string().optional(),
+  category: zod
+    .string()
+    .describe("Name of the PRIMARY category (legacy single-category field)."),
+  categorySlug: zod
+    .string()
+    .optional()
+    .describe("Slug of the PRIMARY category (legacy single-category field)."),
+  categories: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        slug: zod.string(),
+      }),
+    )
+    .optional()
+    .describe("All categories this post belongs to, primary first."),
   tags: zod.array(zod.string()).optional(),
   author: zod.string(),
   authorAvatar: zod.string().optional(),
@@ -313,8 +427,23 @@ export const GetTrendingPostsResponseItem = zod.object({
   excerpt: zod.string(),
   content: zod.string(),
   coverImage: zod.string().optional(),
-  category: zod.string(),
-  categorySlug: zod.string().optional(),
+  category: zod
+    .string()
+    .describe("Name of the PRIMARY category (legacy single-category field)."),
+  categorySlug: zod
+    .string()
+    .optional()
+    .describe("Slug of the PRIMARY category (legacy single-category field)."),
+  categories: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        slug: zod.string(),
+      }),
+    )
+    .optional()
+    .describe("All categories this post belongs to, primary first."),
   tags: zod.array(zod.string()).optional(),
   author: zod.string(),
   authorAvatar: zod.string().optional(),
@@ -832,8 +961,23 @@ export const ListAdminPostsResponseItem = zod.object({
   excerpt: zod.string(),
   content: zod.string(),
   coverImage: zod.string().optional(),
-  category: zod.string(),
-  categorySlug: zod.string().optional(),
+  category: zod
+    .string()
+    .describe("Name of the PRIMARY category (legacy single-category field)."),
+  categorySlug: zod
+    .string()
+    .optional()
+    .describe("Slug of the PRIMARY category (legacy single-category field)."),
+  categories: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        slug: zod.string(),
+      }),
+    )
+    .optional()
+    .describe("All categories this post belongs to, primary first."),
   tags: zod.array(zod.string()).optional(),
   author: zod.string(),
   authorAvatar: zod.string().optional(),

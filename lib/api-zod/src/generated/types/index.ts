@@ -23,6 +23,7 @@ export * from "./bulkReassignPosts200";
 export * from "./category";
 export * from "./categoryInput";
 export * from "./categoryReassignInput";
+export * from "./categoryRef";
 export * from "./comment";
 export * from "./commentStatusUpdate";
 export * from "./commentStatusUpdateStatus";

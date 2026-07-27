@@ -33,8 +33,10 @@ const db = {
   select: vi.fn(() => makeSelectChain(selectQueue)),
   delete: vi.fn(() => ({ where: vi.fn(async () => undefined) })),
   insert: vi.fn(() => ({
-    values: vi.fn((v: Record<string, unknown>) => {
-      captured.insertValues = v;
+    values: vi.fn((v: Record<string, unknown> | Array<Record<string, unknown>>) => {
+      // Join-table rows (post_categories) arrive as arrays — don't let them
+      // clobber the captured post insert.
+      if (!Array.isArray(v)) captured.insertValues = v;
       return { returning: vi.fn(async () => insertReturn) };
     }),
   })),
@@ -42,11 +44,17 @@ const db = {
     const tx = {
       update: vi.fn(() => ({
         set: vi.fn((v: Record<string, unknown>) => {
-          captured.updateSet = v;
+          // Ignore the categoryId mirror / postCount cache writes so tests
+          // keep asserting on the post's own update payload.
+          const keys = Object.keys(v);
+          const isMirror = keys.length === 1 && (keys[0] === "categoryId" || keys[0] === "postCount" || keys[0] === "isPrimary");
+          if (!isMirror) captured.updateSet = v;
           return { where: vi.fn(async () => undefined) };
         }),
       })),
       select: vi.fn(() => makeSelectChain(selectQueue)),
+      delete: (...args: unknown[]) => db.delete(...(args as [])),
+      insert: (...args: unknown[]) => db.insert(...(args as [])),
     };
     return cb(tx);
   }),
@@ -59,12 +67,14 @@ vi.mock("@workspace/db", () => ({
   pageViewsTable: {},
   commentsTable: {},
   categoriesTable: {},
+  postCategoriesTable: {},
 }));
 
 // drizzle helpers — stubbed to harmless no-ops since `db` is fully mocked.
 vi.mock("drizzle-orm", () => ({
   eq: () => ({}),
   desc: () => ({}),
+  asc: () => ({}),
   and: () => ({}),
   gte: () => ({}),
   sql: Object.assign(() => ({}), {}),
@@ -163,8 +173,9 @@ beforeEach(() => {
 
 describe("POST /posts — external image persistence", () => {
   it("rewrites an external coverImage and ogImage to a storage path", async () => {
-    // resolveCategory -> [category]; insert.returning -> [inserted]; postsBaseQuery refetch -> [post]
-    selectQueue = [[CATEGORY_ROW], [{ id: 99, title: "T", status: "published" }]];
+    // resolveCategory -> [category]; tx postCount recompute -> [{count}];
+    // postsBaseQuery refetch -> [post] (attachCategories then drains an empty queue)
+    selectQueue = [[CATEGORY_ROW], [{ count: 1 }], [{ id: 99, title: "T", status: "published" }]];
     insertReturn = [{ id: 99, title: "T", status: "published" }];
 
     const { status } = await request(makeApp(), "POST", "/posts", {
@@ -184,7 +195,7 @@ describe("POST /posts — external image persistence", () => {
   });
 
   it("leaves a local coverImage untouched and never calls persist", async () => {
-    selectQueue = [[CATEGORY_ROW], [{ id: 99, title: "T", status: "published" }]];
+    selectQueue = [[CATEGORY_ROW], [{ count: 1 }], [{ id: 99, title: "T", status: "published" }]];
     insertReturn = [{ id: 99, title: "T", status: "published" }];
 
     const { status } = await request(makeApp(), "POST", "/posts", {

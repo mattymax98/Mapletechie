@@ -79,4 +79,53 @@ export function CategoryChip({
   return content;
 }
 
+interface PostLike {
+  category?: string | null;
+  categorySlug?: string | null;
+  categories?: Array<{ name: string; slug: string }> | null;
+}
+
+/**
+ * Renders ALL of a post's category chips (primary first — the API returns
+ * them in that order). Falls back to the legacy single `category` field.
+ *
+ * Chips are NOT linked by default: cards are usually wrapped in a `<Link>`,
+ * and nesting anchors inside them is forbidden. Pass `linked` only in
+ * contexts that are not inside another anchor (e.g. the article header).
+ */
+export function PostCategoryChips({
+  post,
+  variant = "solid",
+  className = "",
+  chipClassName = "",
+  linked = false,
+}: {
+  post: PostLike;
+  variant?: "solid" | "dot";
+  className?: string;
+  chipClassName?: string;
+  linked?: boolean;
+}) {
+  const cats =
+    post.categories && post.categories.length > 0
+      ? post.categories
+      : post.category
+        ? [{ name: post.category, slug: post.categorySlug ?? "" }]
+        : [];
+  if (cats.length === 0) return null;
+  return (
+    <span className={`inline-flex flex-wrap items-center gap-1.5 ${className}`}>
+      {cats.map((c) => (
+        <CategoryChip
+          key={c.slug || c.name}
+          category={c.name}
+          slug={linked ? c.slug || undefined : undefined}
+          variant={variant}
+          className={chipClassName}
+        />
+      ))}
+    </span>
+  );
+}
+
 export { DEFAULT_CATEGORY_COLOR };

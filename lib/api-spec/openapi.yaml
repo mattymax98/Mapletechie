@@ -1448,8 +1448,15 @@ components:
           type: string
         category:
           type: string
+          description: Name of the PRIMARY category (legacy single-category field).
         categorySlug:
           type: string
+          description: Slug of the PRIMARY category (legacy single-category field).
+        categories:
+          type: array
+          description: All categories this post belongs to, primary first.
+          items:
+            $ref: "#/components/schemas/CategoryRef"
         tags:
           type: array
           items:
@@ -1518,6 +1525,20 @@ components:
         - publishedAt
         - createdAt
 
+    CategoryRef:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+      required:
+        - id
+        - name
+        - slug
+
     NewPostInput:
       type: object
       properties:
@@ -1578,11 +1599,18 @@ components:
         verdict:
           type: string
           nullable: true
+        categories:
+          type: array
+          description: All categories for the post (ids, slugs, or names). First entry is primary unless primaryCategory is set. Provide this OR the single `category`.
+          items:
+            type: string
+        primaryCategory:
+          type: string
+          description: Which of `categories` is primary (id, slug, or name). Defaults to the first entry.
       required:
         - title
         - slug
         - content
-        - category
 
     UpdatePostInput:
       type: object
@@ -1647,6 +1675,14 @@ components:
         publishedAt:
           type: string
           format: date-time
+        categories:
+          type: array
+          description: Full replacement list of categories (ids, slugs, or names). First entry is primary unless primaryCategory is set.
+          items:
+            type: string
+        primaryCategory:
+          type: string
+          description: Which category is primary (id, slug, or name). Alone, re-picks the primary among the post's current categories.
 
     LoginBody:
       type: object
