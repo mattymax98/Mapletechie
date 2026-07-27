@@ -241,6 +241,22 @@ describe("PUT /admin/users/:id — super-admin username rename", () => {
     expect(db.update).not.toHaveBeenCalled();
   });
 
+  it("PUT /admin/me can never change username or email, even if sent", async () => {
+    updateReturn = [{ ...ADMIN_USER, passwordHash: "x", displayName: "Matt" }];
+
+    const { status } = await request(makeApp(), "PUT", "/admin/me", {
+      username: "hacker",
+      email: "hacker@evil.com",
+      displayName: "Matt",
+    });
+
+    expect(status).toBe(200);
+    expect(captured.updateSet).toBeDefined();
+    expect(captured.updateSet).not.toHaveProperty("username");
+    expect(captured.updateSet).not.toHaveProperty("email");
+    expect(captured.updateSet?.displayName).toBe("Matt");
+  });
+
   it("tolerates the client echoing back the current derived email", async () => {
     selectQueue = [[TARGET_EDITOR]];
     updateReturn = [{ ...TARGET_EDITOR, displayName: "Jane!" }];
