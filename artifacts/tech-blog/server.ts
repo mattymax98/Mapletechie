@@ -5,6 +5,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { responsiveCoverProps, COVER_SIZES } from "./src/lib/responsiveImage";
 import { buildSeoTitle } from "./src/lib/seoTitle";
+import { ensureImgAlt } from "./src/lib/ensureImgAlt";
 import {
   buildPersonJsonLd,
   visibleProfileLinks,
@@ -669,10 +670,14 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
   // Render the full article body for crawlers that don't execute JavaScript.
   // The content field is HTML from the editor; we keep it as-is so AI crawlers
   // can read the full article text, but strip inline scripts for safety.
-  const safeContent = tweetBlockquotesForCrawlers(
-    (post.content ?? "")
-      .replace(/<script[\s\S]*?<\/script>/gi, "")
-      .replace(/<style[\s\S]*?<\/style>/gi, ""),
+  // ensureImgAlt: older editor content saved images without an alt attribute,
+  // which Bing's Site Scan flags — inject a safe empty alt as a fallback.
+  const safeContent = ensureImgAlt(
+    tweetBlockquotesForCrawlers(
+      (post.content ?? "")
+        .replace(/<script[\s\S]*?<\/script>/gi, "")
+        .replace(/<style[\s\S]*?<\/style>/gi, ""),
+    ),
   );
   const publishedDate = post.publishedAt
     ? new Date(post.publishedAt).toLocaleDateString("en-CA", {

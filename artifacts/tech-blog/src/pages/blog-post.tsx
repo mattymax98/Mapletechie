@@ -27,6 +27,7 @@ import { SEO } from "@/components/SEO";
 import { AuthorBio } from "@/components/AuthorBio";
 import { CommentsSection } from "@/components/CommentsSection";
 import { applyResponsiveImages, makeArticleHtmlResponsive, responsiveCoverProps, socialImageUrl, COVER_SIZES } from "@/lib/responsiveImage";
+import { ensureImgAlt } from "@/lib/ensureImgAlt";
 import { SeriesBanner } from "@/components/SeriesBanner";
 import { CategoryChip } from "@/components/CategoryChip";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
@@ -76,7 +77,9 @@ function PostContent({
 
   // Inject srcset/sizes into the HTML string before first render so the
   // preload scanner never downloads the full-size original on phones.
-  const responsiveHtml = useMemo(() => makeArticleHtmlResponsive(html), [html]);
+  // ensureImgAlt backfills alt="" on legacy images saved without one, so the
+  // hydrated page matches the crawler-prerendered markup.
+  const responsiveHtml = useMemo(() => ensureImgAlt(makeArticleHtmlResponsive(html)), [html]);
   // Split out social-embed placeholders so they render as real React
   // components (click-to-load YouTube, tweet widgets, ...) instead of the
   // static fallback link inside the saved HTML.

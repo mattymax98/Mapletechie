@@ -81,6 +81,10 @@ const SizedImage = Image.extend({
       ...this.parent?.(),
       width: { default: null },
       height: { default: null },
+      // Always emit an alt attribute (empty when the editor skipped the
+      // prompt) so saved content never ships an <img> without alt — search
+      // engines flag those as accessibility problems.
+      alt: { default: "" },
     };
   },
 });
