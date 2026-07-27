@@ -1373,7 +1373,7 @@ const KNOWN_SPA_ROUTES: RegExp[] = [
   /^\/$/,
   /^\/blog\/?$/,
   /^\/careers\/?$/,
-  /^\/(about|contact|advertise|search|privacy|terms)\/?$/,
+  /^\/(about|contact|advertise|search|privacy|terms|team)\/?$/,
   /^\/admin(\/.*)?$/,
 ];
 
