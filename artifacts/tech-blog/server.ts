@@ -4,6 +4,7 @@ import path from "node:path";
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { responsiveCoverProps, COVER_SIZES } from "./src/lib/responsiveImage";
+import { buildSeoTitle } from "./src/lib/seoTitle";
 import {
   buildPersonJsonLd,
   visibleProfileLinks,
@@ -215,7 +216,7 @@ function send404(
   status: 404 | 410 = 404,
 ): void {
   const seo = buildSeoBlock({
-    title: `${title} | Mapletechie`,
+    title: buildSeoTitle(title),
     description: "The page you requested could not be found.",
     image: DEFAULT_OG_IMAGE,
     url: SITE_URL,
@@ -564,7 +565,7 @@ app.use(async (req, res, next) => {
   if (!status.maintenance) return next();
 
   const seo = buildSeoBlock({
-    title: "We'll be right back | Mapletechie",
+    title: buildSeoTitle("We'll be right back"),
     description:
       status.message?.trim() ||
       "Mapletechie is down for scheduled maintenance and will be back shortly.",
@@ -617,7 +618,7 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
     post.seoDescription?.trim() || post.excerpt?.trim() || DEFAULT_DESCRIPTION;
   const image = absUrl(post.ogImage || post.coverImage, DEFAULT_OG_IMAGE);
 
-  const seoTitleFull = `${title} | Mapletechie`;
+  const seoTitleFull = buildSeoTitle(title);
   const seo = buildSeoBlock({
     title: seoTitleFull,
     description,
@@ -720,7 +721,7 @@ app.get(/^\/category\/([^\/]+)\/?$/, async (req, res, next) => {
   const cat = categories?.find((c) => c.slug === slug);
   if (!cat) return send404(res, "Category Not Found");
 
-  const title = `${cat.name} — News & Reviews | Mapletechie`;
+  const title = buildSeoTitle(`${cat.name} — News & Reviews`);
   const description =
     cat.description?.trim() ||
     `The latest ${cat.name} stories, reviews, and analysis on Mapletechie.`;
@@ -855,7 +856,7 @@ app.get(/^\/blog\/?$/, async (req, res, next) => {
   const description =
     "The latest tech news, gadget reviews, AI coverage, and software deep dives from the Mapletechie team.";
   const seo = buildSeoBlock({
-    title: "Blog — Tech News & Reviews | Mapletechie",
+    title: buildSeoTitle("Blog — Tech News & Reviews"),
     description,
     image: DEFAULT_OG_IMAGE,
     url: `${SITE_URL}/blog`,
@@ -879,7 +880,7 @@ app.get(/^\/about\/?$/, (req, res, next) => {
   const description =
     "Mapletechie is an independent tech publication founded by Matthew Mbaka — covering AI, EVs, cybersecurity, and gadgets without the press-release filter.";
   const seo = buildSeoBlock({
-    title: "About Mapletechie | Mapletechie",
+    title: buildSeoTitle("About Mapletechie"),
     description,
     image: DEFAULT_OG_IMAGE,
     url: `${SITE_URL}/about`,
@@ -904,7 +905,7 @@ app.get(/^\/contact\/?$/, (req, res, next) => {
   const description =
     "Get in touch with the Mapletechie team. Send us your tips, stories, or advertising inquiries.";
   const seo = buildSeoBlock({
-    title: "Contact Us | Mapletechie",
+    title: buildSeoTitle("Contact Us"),
     description,
     image: DEFAULT_OG_IMAGE,
     url: `${SITE_URL}/contact`,
@@ -931,7 +932,7 @@ app.get(/^\/advertise\/?$/, (req, res, next) => {
   const description =
     "Sponsored posts and newsletter sponsorships on Mapletechie. Reach engaged tech readers through clearly labeled editorial partnerships.";
   const seo = buildSeoBlock({
-    title: "Partner with Us | Mapletechie",
+    title: buildSeoTitle("Partner with Us"),
     description,
     image: DEFAULT_OG_IMAGE,
     url: `${SITE_URL}/advertise`,
@@ -959,7 +960,7 @@ app.get(/^\/privacy\/?$/, (req, res, next) => {
   const description =
     "How Mapletechie collects, uses, and protects your information. Our privacy policy covers data, cookies, and your rights.";
   const seo = buildSeoBlock({
-    title: "Privacy Policy | Mapletechie",
+    title: buildSeoTitle("Privacy Policy"),
     description,
     image: DEFAULT_OG_IMAGE,
     url: `${SITE_URL}/privacy`,
@@ -983,7 +984,7 @@ app.get(/^\/terms\/?$/, (req, res, next) => {
   const description =
     "The rules for using mapletechie.com — including intellectual property rights, affiliate link disclosures, and usage terms.";
   const seo = buildSeoBlock({
-    title: "Terms of Service | Mapletechie",
+    title: buildSeoTitle("Terms of Service"),
     description,
     image: DEFAULT_OG_IMAGE,
     url: `${SITE_URL}/terms`,
@@ -1007,7 +1008,7 @@ app.get(/^\/careers\/?$/, async (req, res, next) => {
   const description =
     "Join Mapletechie. Help us build a tech publication readers actually trust. See our open roles and apply today.";
   const seo = buildSeoBlock({
-    title: "Careers | Mapletechie",
+    title: buildSeoTitle("Careers"),
     description,
     image: DEFAULT_OG_IMAGE,
     url: `${SITE_URL}/careers`,
@@ -1066,7 +1067,8 @@ app.get(/^\/careers\/([^/]+)\/?$/, async (req, res, next) => {
   const metaParts = [job.location, job.employmentType ?? job.type].filter(Boolean);
 
   const seo = buildSeoBlock({
-    title: `${job.title}${locationStr} | Mapletechie Careers`,
+    // Mirrors the client page's composition exactly (parity for JS crawlers).
+    title: buildSeoTitle(`${job.title} — Careers`),
     description,
     image: DEFAULT_OG_IMAGE,
     url: `${SITE_URL}/careers/${job.slug}`,
@@ -1163,7 +1165,7 @@ app.get(/^\/author\/([^/]+)\/?$/, async (req, res, next) => {
 
   const [seo, posts] = await Promise.all([
     Promise.resolve(buildSeoBlock({
-      title: `${displayName} — Author | Mapletechie`,
+      title: buildSeoTitle(`${displayName} — Author`),
       description,
       image: ogImage,
       url: `${SITE_URL}/author/${author.username}`,
@@ -1246,7 +1248,7 @@ app.get(/^\/tag\/([^/]+)\/?$/, async (req, res, next) => {
   const description = `Every Mapletechie story tagged "${tag}" — tech news, reviews, and analysis.`;
 
   const seo = buildSeoBlock({
-    title: `#${tag} — Tag Archive | Mapletechie`,
+    title: buildSeoTitle(`#${tag} — Tag archive`),
     description,
     image: ogImage,
     url: `${SITE_URL}/tag/${encodeURIComponent(tag)}`,
@@ -1304,7 +1306,7 @@ app.get(/^\/series\/([^/]+)\/?$/, async (req, res, next) => {
     : `${SITE_URL}/api/og/series/${encodeURIComponent(s.slug)}.png`;
 
   const seo = buildSeoBlock({
-    title: `${s.title} — Series | Mapletechie`,
+    title: buildSeoTitle(`${s.title} — Series`),
     description,
     image: ogImage,
     url: `${SITE_URL}/series/${s.slug}`,
@@ -1346,7 +1348,7 @@ app.get(/^\/series\/([^/]+)\/?$/, async (req, res, next) => {
 app.get(/^\/search\/?$/, (req, res, next) => {
   if (!isCrawler(req)) return next();
   const seo = buildSeoBlock({
-    title: "Search | Mapletechie",
+    title: buildSeoTitle("Search"),
     description: "Search articles on Mapletechie.",
     image: DEFAULT_OG_IMAGE,
     url: `${SITE_URL}/search`,

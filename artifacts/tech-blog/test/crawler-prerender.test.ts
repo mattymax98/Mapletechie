@@ -87,6 +87,15 @@ const EMBED_ARTICLE = {
     `<div data-provider="instagram" data-url="https://www.instagram.com/p/Cxyz_ABC123/" data-social-embed="" class="social-embed"><a href="https://www.instagram.com/p/Cxyz_ABC123/" target="_blank" rel="noopener noreferrer">https://www.instagram.com/p/Cxyz_ABC123/</a></div>`,
 };
 
+/** Article with a headline long enough that "<title> | Mapletechie" would
+ *  blow past the ~65-char budget search engines display. */
+const LONG_TITLE_ARTICLE = {
+  ...ARTICLE,
+  id: 3,
+  slug: "canadian-submarine-sinks-us-warship",
+  title: "Canada's Submarine Sank a U.S. Warship. Here Is What Actually Happened.",
+};
+
 const CATEGORY = {
   id: 2,
   slug: "ai",
@@ -199,6 +208,7 @@ function startMockApi(
   api.get("/api/posts/slug/:slug", (req, res) => {
     if (req.params.slug === ARTICLE.slug) return res.json(ARTICLE);
     if (req.params.slug === EMBED_ARTICLE.slug) return res.json(EMBED_ARTICLE);
+    if (req.params.slug === LONG_TITLE_ARTICLE.slug) return res.json(LONG_TITLE_ARTICLE);
     res.status(404).json({ error: "not found" });
   });
   api.get("/api/categories", (_req, res) => {
@@ -434,6 +444,59 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       ]) {
         expect(body, `dead link to /category/${phantom} must not be emitted`).not.toContain(
           `/category/${phantom}`,
+        );
+      }
+    });
+  });
+
+  describe("title length budget (Bing 'Title too long')", () => {
+    const SEO_TITLE_MAX = 65;
+    const titleOf = (body: string): string => {
+      const m = body.match(/<title>([\s\S]*?)<\/title>/);
+      expect(m, "prerendered page must have a <title>").toBeTruthy();
+      // Decode the entities htmlEscape produces so we measure real characters.
+      return m![1]
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
+    };
+
+    it("keeps the brand suffix when a short article title fits", async () => {
+      const { body } = await get(`/blog/${ARTICLE.slug}`, GOOGLEBOT_UA);
+      expect(titleOf(body)).toBe(`${ARTICLE.title} | Mapletechie`);
+    });
+
+    it("drops the brand suffix for a long article title instead of exceeding the cap", async () => {
+      const { body } = await get(`/blog/${LONG_TITLE_ARTICLE.slug}`, GOOGLEBOT_UA);
+      const title = titleOf(body);
+      expect(title.length).toBeLessThanOrEqual(SEO_TITLE_MAX);
+      expect(title).not.toContain("| Mapletechie");
+      // The headline itself is untouched — only the suffix went.
+      expect(title.replace(/…$/, "").length).toBeGreaterThan(0);
+      expect(LONG_TITLE_ARTICLE.title.startsWith(title.replace(/…$/, ""))).toBe(true);
+    });
+
+    it("stays within the cap on every prerendered page type", async () => {
+      const pages = [
+        "/",
+        "/blog",
+        `/blog/${LONG_TITLE_ARTICLE.slug}`,
+        `/category/${CATEGORY.slug}`,
+        `/tag/${TAG}`,
+        `/author/${AUTHOR.username}`,
+        "/about",
+        "/contact",
+        "/careers",
+        `/careers/${JOB.slug}`,
+        "/does-not-exist-404",
+      ];
+      for (const p of pages) {
+        const { body } = await get(p, GOOGLEBOT_UA);
+        const title = titleOf(body);
+        expect(title.length, `title too long on ${p}: "${title}"`).toBeLessThanOrEqual(
+          SEO_TITLE_MAX,
         );
       }
     });
