@@ -31,7 +31,7 @@ export default function CategoryIndex() {
   return (
     <div className="w-full">
       <SEO
-        title={category?.name || slug.replace(/-/g, " ")}
+        title={`${category?.name || slug.replace(/-/g, " ")} — News & Reviews`}
         description={
           category?.description ||
           `Latest ${category?.name || slug.replace(/-/g, " ")} stories on Mapletechie.`

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Helmet } from "react-helmet-async";
+import { buildSeoTitle } from "@/lib/seoTitle";
 
 /**
  * Head tags the SEO component manages. The static index.html (and, for
@@ -96,7 +97,9 @@ export function SEO({
   keywords,
   noindex = false,
 }: SEOProps) {
-  const fullTitle = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} — Tech News & Reviews`;
+  // Shared with the crawler prerender server: fits the title into search
+  // engines' ~65-char display budget (drops the brand suffix when needed).
+  const fullTitle = buildSeoTitle(title);
   const canonicalUrl = url ? `${SITE_URL}${url}` : SITE_URL;
   const ogImage = image.startsWith("http") ? image : `${SITE_URL}${image}`;
 
