@@ -145,6 +145,21 @@ export async function persistExternalImagesInHtml(
 }
 
 /**
+ * Collect every external <img src="..."> URL still present in article HTML.
+ * Used after the best-effort re-hosting pass to warn editors when a post
+ * still depends on a third-party image host.
+ */
+export function collectExternalImageUrls(html: unknown): string[] {
+  if (typeof html !== "string" || !html.includes("<img")) return [];
+  const out = new Set<string>();
+  for (const m of html.matchAll(/<img\b[^>]*\bsrc="([^"]+)"/gi)) {
+    const src = m[1].replace(/&amp;/g, "&");
+    if (isExternalImageUrl(src)) out.add(src);
+  }
+  return [...out];
+}
+
+/**
  * Derive a readable Media-library filename from the source URL's basename,
  * normalized to the .webp extension we re-encode to.
  */

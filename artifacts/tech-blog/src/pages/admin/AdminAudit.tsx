@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ClipboardList, RefreshCw } from "lucide-react";
+import { ArrowLeft, ClipboardList, RefreshCw, RotateCcw, Loader2, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import ErrorBanner from "@/components/ErrorBanner";
 
@@ -30,11 +30,52 @@ function actionTone(action: string) {
   return "bg-zinc-700/30 text-zinc-300 border-zinc-600/40";
 }
 
+type RestoreState =
+  | { status: "restoring" }
+  | { status: "restored" }
+  | { status: "error"; message: string };
+
 export default function AdminAudit() {
   const [rows, setRows] = useState<AuditEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
+  // Keyed by post id so every delete entry for the same post updates together.
+  const [restoreStates, setRestoreStates] = useState<Record<string, RestoreState>>({});
   const token = typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;
+
+  async function restorePost(postId: string) {
+    setRestoreStates((s) => ({ ...s, [postId]: { status: "restoring" } }));
+    try {
+      const res = await fetch(`/api/admin/posts/${encodeURIComponent(postId)}/restore`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (res.status === 401 || res.status === 403) {
+        setRestoreStates((s) => ({
+          ...s,
+          [postId]: { status: "error", message: "Only the admin account can restore posts." },
+        }));
+        return;
+      }
+      if (!res.ok) {
+        let message = "Couldn't restore this post.";
+        try {
+          const body = (await res.json()) as { error?: string };
+          if (body?.error) message = body.error;
+        } catch {
+          // keep generic message
+        }
+        setRestoreStates((s) => ({ ...s, [postId]: { status: "error", message } }));
+        return;
+      }
+      setRestoreStates((s) => ({ ...s, [postId]: { status: "restored" } }));
+    } catch {
+      setRestoreStates((s) => ({
+        ...s,
+        [postId]: { status: "error", message: "Network error — couldn't reach the server." },
+      }));
+    }
+  }
 
   async function load() {
     setRows(null);
@@ -140,7 +181,42 @@ export default function AdminAudit() {
                     <td className="px-4 py-3">
                       <Badge className={`${actionTone(r.action)} text-xs`}>{r.action}</Badge>
                     </td>
-                    <td className="px-4 py-3 text-zinc-300">{r.summary || "—"}</td>
+                    <td className="px-4 py-3 text-zinc-300">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span>{r.summary || "—"}</span>
+                        {r.action === "post.delete" && r.entityType === "post" && r.entityId && (() => {
+                          const state = restoreStates[r.entityId];
+                          if (state?.status === "restored") {
+                            return (
+                              <span className="inline-flex items-center gap-1 text-emerald-400 text-xs">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Restored as draft
+                              </span>
+                            );
+                          }
+                          return (
+                            <span className="inline-flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={state?.status === "restoring"}
+                                onClick={() => restorePost(r.entityId!)}
+                                className="h-7 px-2 border-zinc-700 text-zinc-300 hover:text-white gap-1 text-xs"
+                              >
+                                {state?.status === "restoring" ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                )}
+                                Restore
+                              </Button>
+                              {state?.status === "error" && (
+                                <span className="text-red-400 text-xs">{state.message}</span>
+                              )}
+                            </span>
+                          );
+                        })()}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-zinc-500 text-xs font-mono hidden md:table-cell">{r.ip || "—"}</td>
                   </tr>
                 ))}

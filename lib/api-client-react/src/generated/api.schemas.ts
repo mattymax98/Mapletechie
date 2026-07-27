@@ -92,6 +92,8 @@ export interface Post {
   verdict?: string | null;
   publishedAt: string;
   createdAt: string;
+  /** Only present on create/update responses. Non-fatal warnings when an externally-hosted image could not be copied to our own storage and the saved post still depends on a third-party image host. */
+  imageWarnings?: string[];
 }
 
 export type NewPostInputStatus =
