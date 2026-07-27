@@ -1,22 +1,18 @@
 import {
   useGetPostBySlug,
   useListPosts,
-  useGetAuthor,
+  useListComments,
   getGetPostBySlugQueryKey,
   getListPostsQueryKey,
-  getGetAuthorQueryKey,
+  getListCommentsQueryKey,
 } from "@workspace/api-client-react";
 import { Link, useParams } from "wouter";
-import { format } from "date-fns";
 import {
   Clock,
   Eye,
-  Share2,
+  MessageCircle,
   Twitter,
   Linkedin,
-  Instagram,
-  Github,
-  Globe,
   Facebook,
   Link2,
   ArrowUp,
@@ -38,6 +34,15 @@ import { buildArticleJsonLd, buildBreadcrumbJsonLd } from "@/lib/articleSchema";
 import { splitSocialEmbeds, SocialEmbedView } from "@/components/SocialEmbeds";
 
 const SITE_URL = "https://mapletechie.com";
+
+// "Jul 25, 2026 at 3:00 AM EDT" in the reader's local timezone.
+function formatDateTimeWithZone(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const date = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(d);
+  const time = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZoneName: "short" }).format(d);
+  return `${date} at ${time}`;
+}
 
 function PostContent({
   html,
@@ -353,6 +358,12 @@ export default function BlogPost() {
 
   const [headings, setHeadings] = useState<{ id: string; text: string }[]>([]);
 
+  const { data: comments } = useListComments(
+    { postSlug: slug },
+    { query: { enabled: !!slug, queryKey: getListCommentsQueryKey({ postSlug: slug }) } },
+  );
+  const commentCount = comments?.length ?? 0;
+
   const canonicalUrl = post ? `${SITE_URL}/blog/${post.slug}` : SITE_URL;
 
   // Shared with the crawler prerender server so the schema browsers emit is
@@ -459,17 +470,23 @@ export default function BlogPost() {
         </p>
 
         <div className="flex flex-wrap items-center justify-between gap-4 py-6 border-y border-border">
-          <BylineAuthor
-            authorId={post.authorId}
-            fallbackName={post.author}
-            fallbackAvatar={post.authorAvatar}
-            publishedAt={post.publishedAt}
-          />
-
-          <div className="flex flex-wrap gap-2">
-            <AuthorSocials authorId={post.authorId} />
-            <ShareButtons title={post.title} url={canonicalUrl} />
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+            <span data-testid="text-publish-datetime">{formatDateTimeWithZone(post.publishedAt)}</span>
+            <a
+              href="#comments"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById("comments")?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+              className="flex items-center gap-1.5 hover:text-primary transition-colors"
+              data-testid="link-comment-count"
+            >
+              <MessageCircle className="h-4 w-4" />
+              {commentCount} {commentCount === 1 ? "comment" : "comments"}
+            </a>
           </div>
+
+          <ShareButtons title={post.title} url={canonicalUrl} />
         </div>
       </header>
 
@@ -493,6 +510,14 @@ export default function BlogPost() {
             {...responsiveCoverProps(post.coverImage || "/images/hero-post.webp", COVER_SIZES.full)}
             alt={post.title}
             className="w-full h-auto"
+          />
+        </div>
+        {/* Compact Verge-style byline right under the cover image */}
+        <div className="mt-4">
+          <AuthorBio
+            authorId={(post as any).authorId ?? null}
+            fallbackName={post.author}
+            fallbackAvatar={post.authorAvatar}
           />
         </div>
       </div>
@@ -534,15 +559,6 @@ export default function BlogPost() {
         )}
       </div>
 
-      {/* Author Bio */}
-      <div className="container mx-auto px-4 md:px-6 max-w-4xl pb-10">
-        <AuthorBio
-          authorId={(post as any).authorId ?? null}
-          fallbackName={post.author}
-          fallbackAvatar={post.authorAvatar}
-        />
-      </div>
-
       {/* Comments */}
       <CommentsSection postSlug={post.slug} />
 
@@ -578,85 +594,5 @@ export default function BlogPost() {
         </div>
       )}
     </article>
-  );
-}
-
-function AuthorSocials({ authorId }: { authorId?: number }) {
-  const { data: author } = useGetAuthor(authorId ?? 0, {
-    query: { enabled: !!authorId, queryKey: getGetAuthorQueryKey(authorId ?? 0) },
-  });
-  if (!author) return null;
-  const links: { url?: string; Icon: typeof Twitter; title: string }[] = [
-    { url: author.twitterUrl, Icon: Twitter, title: "Twitter / X" },
-    { url: author.linkedinUrl, Icon: Linkedin, title: "LinkedIn" },
-    { url: author.instagramUrl, Icon: Instagram, title: "Instagram" },
-    { url: author.githubUrl, Icon: Github, title: "GitHub" },
-    { url: author.websiteUrl, Icon: Globe, title: "Website" },
-  ].filter((l): l is { url: string; Icon: typeof Twitter; title: string } => !!l.url && l.url.trim() !== "");
-  if (links.length === 0) return null;
-  return (
-    <>
-      {links.map(({ url, Icon, title }) => (
-        <Button
-          key={title}
-          asChild
-          variant="outline"
-          size="icon"
-          className="rounded-none border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
-          title={`${author.displayName} on ${title}`}
-        >
-          <a href={url} target="_blank" rel="noopener noreferrer">
-            <Icon className="h-4 w-4" />
-          </a>
-        </Button>
-      ))}
-    </>
-  );
-}
-
-function BylineAuthor({
-  authorId,
-  fallbackName,
-  fallbackAvatar,
-  publishedAt,
-}: {
-  authorId?: number;
-  fallbackName: string;
-  fallbackAvatar?: string;
-  publishedAt: string;
-}) {
-  const { data: author } = useGetAuthor(authorId ?? 0, {
-    query: { enabled: !!authorId, queryKey: getGetAuthorQueryKey(authorId ?? 0) },
-  });
-  const name = author?.displayName || fallbackName;
-  const avatar = author?.avatarUrl || fallbackAvatar;
-  const username = (author as any)?.username as string | undefined;
-  const NameWrap = username
-    ? ({ children }: { children: React.ReactNode }) => (
-        <Link href={`/author/${username}`} className="hover:text-primary transition-colors">
-          {children}
-        </Link>
-      )
-    : ({ children }: { children: React.ReactNode }) => <>{children}</>;
-  return (
-    <div className="flex items-center gap-4">
-      <NameWrap>
-        <div className="w-12 h-12 bg-muted rounded-full overflow-hidden border border-border cursor-pointer">
-          {avatar ? (
-            <img src={avatar} alt={name} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center font-bold text-lg bg-primary/10 text-primary">
-              {name.charAt(0)}
-            </div>
-          )}
-        </div>
-      </NameWrap>
-      <div>
-        <NameWrap>
-          <div className="font-bold tracking-wide cursor-pointer">{name}</div>
-        </NameWrap>
-        <div className="text-sm text-muted-foreground">{format(new Date(publishedAt), 'MMMM dd, yyyy')}</div>
-      </div>
-    </div>
   );
 }
