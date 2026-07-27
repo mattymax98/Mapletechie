@@ -452,7 +452,12 @@ export default function BlogPost() {
         />
 
         <div className="flex items-center gap-3 mb-6">
-          <CategoryChip category={post.category} slug={post.categorySlug} variant="solid" className="text-xs px-3 py-1.5" />
+          {(post.categories?.length
+            ? post.categories
+            : [{ id: 0, name: post.category ?? "", slug: post.categorySlug ?? "" }]
+          ).map((c) => (
+            <CategoryChip key={c.slug || c.name} category={c.name} slug={c.slug || undefined} variant="solid" className="text-xs px-3 py-1.5" />
+          ))}
           <span className="text-sm font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
             <Clock className="h-3 w-3" /> {post.readTime} min read
           </span>

@@ -5,7 +5,12 @@ import { eq } from "drizzle-orm";
 import { writeAuditLogForUser } from "../lib/audit";
 import { validateCoverImage } from "../lib/coverImageValidation";
 import { isExternalImageUrl, persistExternalImage, persistExternalImagesInHtml } from "../lib/persistExternalImage";
-import { cleanHtml, cleanText, resolveCategory } from "./posts";
+import { cleanHtml, cleanText } from "./posts";
+import {
+  resolveCategoriesForWrite,
+  syncPostCategories,
+  refreshCategoryPostCounts,
+} from "../lib/postCategoryHelpers";
 import { hashPassword } from "../lib/auth";
 import { logger } from "../lib/logger";
 import { notifyEditorsOfAutomationDraft } from "../lib/automationDraftNotification";
@@ -42,6 +47,8 @@ const ALLOWED_FIELDS = new Set([
   "readTime",
   "categoryId",
   "category",
+  "categories",
+  "primaryCategory",
   "seoTitle",
   "seoDescription",
   "seoKeywords",
@@ -71,6 +78,7 @@ const SNAKE_TO_CAMEL: Record<string, string> = {
   cover_image: "coverImage",
   read_time: "readTime",
   category_id: "categoryId",
+  primary_category: "primaryCategory",
   seo_title: "seoTitle",
   seo_description: "seoDescription",
   seo_keywords: "seoKeywords",
@@ -227,14 +235,21 @@ export async function createAutomationDraft(
       return fail(400, `Missing field: ${f}`);
     }
   }
+  // Categories: either `categories` (array of ids/slugs/names, first or
+  // `primary_category` is primary) or legacy single `category_id`/`category`.
   const categoryInput = body.categoryId ?? body.category;
-  if (categoryInput == null || (typeof categoryInput === "string" && !categoryInput.trim())) {
-    return fail(400, "Missing field: category_id");
+  if (body.categories == null && (categoryInput == null || (typeof categoryInput === "string" && !categoryInput.trim()))) {
+    return fail(400, "Missing field: category_id (or categories)");
   }
-  const resolvedCategory = await resolveCategory(categoryInput);
-  if (!resolvedCategory) {
-    return fail(400, `Unknown category: ${String(categoryInput)}`);
+  const resolvedCats = await resolveCategoriesForWrite({
+    categories: body.categories,
+    category: categoryInput,
+    primaryCategory: body.primaryCategory,
+  });
+  if ("error" in resolvedCats) {
+    return fail(400, resolvedCats.error);
   }
+  const resolvedCategory = resolvedCats.primary;
 
   const slug = String(body.slug).trim().toLowerCase();
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 200) {
@@ -332,6 +347,8 @@ export async function createAutomationDraft(
   try {
     inserted = await db.transaction(async (tx) => {
       const [post] = await tx.insert(postsTable).values(values).returning();
+      await syncPostCategories(tx, post.id, resolvedCats.all.map((c) => c.id), resolvedCats.primary.id);
+      await refreshCategoryPostCounts(tx, resolvedCats.all.map((c) => c.id));
       if (idempotencyKey) {
         const claimed = await tx
           .insert(automationRequestsTable)

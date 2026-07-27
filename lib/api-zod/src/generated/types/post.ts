@@ -5,6 +5,7 @@
  * API specification for Tech Blog
  * OpenAPI spec version: 0.1.0
  */
+import type { CategoryRef } from "./categoryRef";
 import type { PostStatus } from "./postStatus";
 
 export interface Post {
@@ -14,8 +15,12 @@ export interface Post {
   excerpt: string;
   content: string;
   coverImage?: string;
+  /** Name of the PRIMARY category (legacy single-category field). */
   category: string;
+  /** Slug of the PRIMARY category (legacy single-category field). */
   categorySlug?: string;
+  /** All categories this post belongs to, primary first. */
+  categories?: CategoryRef[];
   tags?: string[];
   author: string;
   authorAvatar?: string;

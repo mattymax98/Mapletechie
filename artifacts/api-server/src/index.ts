@@ -6,6 +6,7 @@ import { startEditorWeeklyDigestCron } from "./lib/editorWeeklyDigest";
 import { seedCuratedCategories } from "./lib/seedCategories";
 import { auditPostCoverImages } from "./lib/coverImageValidation";
 import { seedSiteSettings } from "./lib/siteSettings";
+import { backfillPostCategories } from "./lib/postCategoryHelpers";
 
 const rawPort = process.env["PORT"];
 
@@ -27,6 +28,9 @@ if (Number.isNaN(port) || port <= 0) {
 bootstrapAdmin()
   .then(() => seedCuratedCategories())
   .then(() => seedSiteSettings())
+  // Self-heals a freshly-migrated DB: every post gets a primary row in
+  // post_categories matching its posts.category_id.
+  .then(() => backfillPostCategories())
   .then(() => auditPostCoverImages())
   .catch((err) => {
     logger.error({ err }, "Bootstrap failed — exiting");

@@ -13,7 +13,7 @@ export interface NewPostInput {
   excerpt?: string;
   content: string;
   coverImage?: string;
-  category: string;
+  category?: string;
   tags?: string[];
   author?: string;
   authorAvatar?: string;
@@ -30,4 +30,8 @@ export interface NewPostInput {
   pros?: string[];
   cons?: string[];
   verdict?: string | null;
+  /** All categories for the post (ids, slugs, or names). First entry is primary unless primaryCategory is set. Provide this OR the single `category`. */
+  categories?: string[];
+  /** Which of `categories` is primary (id, slug, or name). Defaults to the first entry. */
+  primaryCategory?: string;
 }

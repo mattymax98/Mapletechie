@@ -54,6 +54,12 @@ export const PostStatus = {
   published: "published",
 } as const;
 
+export interface CategoryRef {
+  id: number;
+  name: string;
+  slug: string;
+}
+
 export interface Post {
   id: number;
   title: string;
@@ -61,8 +67,12 @@ export interface Post {
   excerpt: string;
   content: string;
   coverImage?: string;
+  /** Name of the PRIMARY category (legacy single-category field). */
   category: string;
+  /** Slug of the PRIMARY category (legacy single-category field). */
   categorySlug?: string;
+  /** All categories this post belongs to, primary first. */
+  categories?: CategoryRef[];
   tags?: string[];
   author: string;
   authorAvatar?: string;
@@ -99,7 +109,7 @@ export interface NewPostInput {
   excerpt?: string;
   content: string;
   coverImage?: string;
-  category: string;
+  category?: string;
   tags?: string[];
   author?: string;
   authorAvatar?: string;
@@ -116,6 +126,10 @@ export interface NewPostInput {
   pros?: string[];
   cons?: string[];
   verdict?: string | null;
+  /** All categories for the post (ids, slugs, or names). First entry is primary unless primaryCategory is set. Provide this OR the single `category`. */
+  categories?: string[];
+  /** Which of `categories` is primary (id, slug, or name). Defaults to the first entry. */
+  primaryCategory?: string;
 }
 
 export type UpdatePostInputStatus =
@@ -151,6 +165,10 @@ export interface UpdatePostInput {
   cons?: string[];
   verdict?: string | null;
   publishedAt?: string;
+  /** Full replacement list of categories (ids, slugs, or names). First entry is primary unless primaryCategory is set. */
+  categories?: string[];
+  /** Which category is primary (id, slug, or name). Alone, re-picks the primary among the post's current categories. */
+  primaryCategory?: string;
 }
 
 export interface LoginBody {

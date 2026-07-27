@@ -1,6 +1,7 @@
 import { Router } from "express";
-import { db, categoriesTable, postsTable } from "@workspace/db";
-import { asc, eq, sql } from "drizzle-orm";
+import { db, categoriesTable, postsTable, postCategoriesTable } from "@workspace/db";
+import { and, asc, eq, sql } from "drizzle-orm";
+import { refreshCategoryPostCounts } from "../lib/postCategoryHelpers";
 import { adminAuth, requirePermission } from "../middlewares/adminAuth";
 
 const router = Router();
@@ -114,33 +115,52 @@ router.post(
     }
 
     const movedCount = await db.transaction(async (tx) => {
-      // category_id is the source of truth — there's no text cache to keep
-      // in sync any more (the column and its triggers were dropped).
+      // Multi-category world: replace every membership of the source
+      // category with the destination (primary flag carries over), then
+      // mirror the primary into posts.category_id and refresh both counts.
+      const memberships = await tx
+        .select({
+          postId: postCategoriesTable.postId,
+          isPrimary: postCategoriesTable.isPrimary,
+        })
+        .from(postCategoriesTable)
+        .where(eq(postCategoriesTable.categoryId, fromCat.id));
+
+      for (const m of memberships) {
+        // If the post already belongs to the destination too, just drop the
+        // source row (and promote the destination row if source was primary).
+        const [existsTo] = await tx
+          .select({ id: postCategoriesTable.id })
+          .from(postCategoriesTable)
+          .where(and(eq(postCategoriesTable.postId, m.postId), eq(postCategoriesTable.categoryId, toCat.id)));
+        if (existsTo) {
+          await tx
+            .delete(postCategoriesTable)
+            .where(and(eq(postCategoriesTable.postId, m.postId), eq(postCategoriesTable.categoryId, fromCat.id)));
+          if (m.isPrimary) {
+            await tx
+              .update(postCategoriesTable)
+              .set({ isPrimary: true })
+              .where(eq(postCategoriesTable.id, existsTo.id));
+          }
+        } else {
+          await tx
+            .update(postCategoriesTable)
+            .set({ categoryId: toCat.id })
+            .where(and(eq(postCategoriesTable.postId, m.postId), eq(postCategoriesTable.categoryId, fromCat.id)));
+        }
+      }
+
+      // Mirror: any post whose primary was the source now has the destination.
       const moved = await tx
         .update(postsTable)
         .set({ categoryId: toCat.id })
         .where(eq(postsTable.categoryId, fromCat.id))
         .returning({ id: postsTable.id });
 
-      const [{ count: fromCount }] = await tx
-        .select({ count: sql<number>`count(*)::int` })
-        .from(postsTable)
-        .where(eq(postsTable.categoryId, fromCat.id));
-      const [{ count: toCount }] = await tx
-        .select({ count: sql<number>`count(*)::int` })
-        .from(postsTable)
-        .where(eq(postsTable.categoryId, toCat.id));
+      await refreshCategoryPostCounts(tx, [fromCat.id, toCat.id]);
 
-      await tx
-        .update(categoriesTable)
-        .set({ postCount: fromCount })
-        .where(eq(categoriesTable.id, fromCat.id));
-      await tx
-        .update(categoriesTable)
-        .set({ postCount: toCount })
-        .where(eq(categoriesTable.id, toCat.id));
-
-      return moved.length;
+      return Math.max(moved.length, memberships.length);
     });
 
     req.log.info(
@@ -265,9 +285,9 @@ router.delete(
     // 23503), but checking explicitly lets us return a friendly error with
     // the exact post count.
     const [{ count }] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(postsTable)
-      .where(eq(postsTable.categoryId, existing.id));
+      .select({ count: sql<number>`count(distinct ${postCategoriesTable.postId})::int` })
+      .from(postCategoriesTable)
+      .where(eq(postCategoriesTable.categoryId, existing.id));
     if (count > 0) {
       res.status(409).json({
         error: `Cannot delete: ${count} post(s) still use this category. Reassign them first.`,

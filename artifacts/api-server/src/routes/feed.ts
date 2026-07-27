@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { db, postsTable, categoriesTable } from "@workspace/db";
 import { and, desc, eq, getTableColumns } from "drizzle-orm";
+import { attachCategories, postInCategory } from "../lib/postCategoryHelpers";
 
 const router = Router();
 
@@ -32,17 +33,20 @@ interface CategoryInfo {
 async function sendFeed(res: Response, category?: CategoryInfo): Promise<void> {
   const domain = process.env.SITE_DOMAIN || "https://mapletechie.com";
 
+  // A post appears in a category feed when it belongs to that category —
+  // primary OR secondary membership (post_categories join table).
   const where = category
-    ? and(eq(postsTable.status, "published"), eq(postsTable.categoryId, category.id))
+    ? and(eq(postsTable.status, "published"), postInCategory(category.id))
     : eq(postsTable.status, "published");
 
-  const posts = await db
-    .select({ ...getTableColumns(postsTable), category: categoriesTable.name })
+  const rows = await db
+    .select({ ...getTableColumns(postsTable), category: categoriesTable.name, categorySlug: categoriesTable.slug })
     .from(postsTable)
     .innerJoin(categoriesTable, eq(postsTable.categoryId, categoriesTable.id))
     .where(where)
     .orderBy(desc(postsTable.publishedAt))
     .limit(50);
+  const posts = await attachCategories(rows);
 
   const lastBuild = posts[0]?.publishedAt
     ? new Date(posts[0].publishedAt).toUTCString()
@@ -59,7 +63,7 @@ async function sendFeed(res: Response, category?: CategoryInfo): Promise<void> {
       <guid isPermaLink="true">${escapeXml(link)}</guid>
       <pubDate>${pubDate}</pubDate>
       <author>noreply@mapletechie.com (${escapeXml(p.author || "Mapletechie")})</author>
-      ${p.category ? `<category>${escapeXml(p.category)}</category>` : ""}
+      ${p.categories.map((c) => `<category>${escapeXml(c.name)}</category>`).join("\n      ")}
       <description>${escapeXml(summary)}</description>
     </item>`;
     })
@@ -97,7 +101,8 @@ router.get("/feed.xml", async (_req, res): Promise<void> => {
 });
 
 router.get("/category/:slug/feed.xml", async (req: Request, res: Response): Promise<void> => {
-  const slug = req.params.slug;
+  const raw = req.params.slug;
+  const slug = Array.isArray(raw) ? raw[0] : raw;
   const [category] = await db
     .select()
     .from(categoriesTable)

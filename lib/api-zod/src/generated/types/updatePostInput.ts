@@ -31,4 +31,8 @@ export interface UpdatePostInput {
   cons?: string[];
   verdict?: string | null;
   publishedAt?: Date;
+  /** Full replacement list of categories (ids, slugs, or names). First entry is primary unless primaryCategory is set. */
+  categories?: string[];
+  /** Which category is primary (id, slug, or name). Alone, re-picks the primary among the post's current categories. */
+  primaryCategory?: string;
 }

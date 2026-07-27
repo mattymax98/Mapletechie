@@ -52,6 +52,10 @@ const db = {
         }),
       })),
       select: vi.fn(() => makeSelectChain(selectQueue)),
+      delete: vi.fn(() => ({ where: vi.fn(async () => undefined) })),
+      update: vi.fn(() => ({
+        set: vi.fn(() => ({ where: vi.fn(async () => undefined) })),
+      })),
     };
     return cb(tx);
   }),
@@ -62,6 +66,7 @@ vi.mock("@workspace/db", () => ({
   postsTable: {},
   usersTable: {},
   categoriesTable: { id: {}, name: {}, slug: {} },
+  postCategoriesTable: {},
   automationRequestsTable: {},
   auditLogsTable: {},
   pageViewsTable: {},
