@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, usersTable, postsTable } from "@workspace/db";
+import { db, usersTable, postsTable, usernameRenamesTable } from "@workspace/db";
 import { and, desc, eq } from "drizzle-orm";
 
 const router = Router();
@@ -16,6 +16,17 @@ router.get("/authors/by-username/:username", async (req, res): Promise<void> => 
     .from(usersTable)
     .where(eq(usersTable.username, username));
   if (!user || !user.isActive) {
+    // No live user owns this username — check the rename history so old
+    // shared/indexed /author/<username> links 301 to the current page.
+    const [rename] = await db
+      .select({ username: usersTable.username })
+      .from(usernameRenamesTable)
+      .innerJoin(usersTable, eq(usersTable.id, usernameRenamesTable.userId))
+      .where(and(eq(usernameRenamesTable.oldUsername, username), eq(usersTable.isActive, true)));
+    if (rename && rename.username !== username) {
+      res.redirect(301, `/api/authors/by-username/${encodeURIComponent(rename.username)}`);
+      return;
+    }
     res.status(404).json({ error: "Author not found" });
     return;
   }

@@ -58,6 +58,22 @@ export const usersTable = pgTable("users", {
 export type User = typeof usersTable.$inferSelect;
 export type NewUser = typeof usersTable.$inferInsert;
 
+/**
+ * Rename history for author usernames. When the founding admin renames an
+ * editor, the previous username is recorded here so old /author/<username>
+ * links can 301-redirect to the current author page instead of 404ing.
+ * Lookups only consult this table when no *live* user owns the username,
+ * so a reclaimed username always resolves to the live account.
+ */
+export const usernameRenamesTable = pgTable("username_renames", {
+  id: serial("id").primaryKey(),
+  oldUsername: text("old_username").notNull().unique(),
+  userId: integer("user_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type UsernameRename = typeof usernameRenamesTable.$inferSelect;
+
 export const sessionsTable = pgTable("sessions", {
   token: text("token").primaryKey(),
   userId: integer("user_id").notNull(),
