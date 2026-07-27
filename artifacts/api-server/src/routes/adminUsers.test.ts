@@ -38,16 +38,21 @@ const db = {
   insert: vi.fn(() => ({
     values: vi.fn((v: Record<string, unknown>) => {
       captured.insertValues = v;
-      return { returning: vi.fn(async () => insertReturn) };
+      return {
+        returning: vi.fn(async () => insertReturn),
+        onConflictDoUpdate: vi.fn(async () => undefined),
+      };
     }),
   })),
   delete: vi.fn(() => ({ where: vi.fn(async () => undefined) })),
+  transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb(db)),
 };
 
 vi.mock("@workspace/db", () => ({
   db,
   usersTable: {},
   postsTable: {},
+  usernameRenamesTable: { oldUsername: {} },
 }));
 
 vi.mock("drizzle-orm", () => ({

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, usersTable, postsTable, type User } from "@workspace/db";
+import { db, usersTable, postsTable, usernameRenamesTable, type User } from "@workspace/db";
 import { and, eq, count } from "drizzle-orm";
 import {
   hashPassword,
@@ -311,11 +311,30 @@ router.put("/admin/users/:id", adminAuth, requirePermission("editors"), async (r
     update.passwordHash = await hashPassword(req.body.password);
   }
 
-  const [updated] = await db
-    .update(usersTable)
-    .set(update)
-    .where(eq(usersTable.id, id))
-    .returning();
+  const updated = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(usersTable)
+      .set(update)
+      .where(eq(usersTable.id, id))
+      .returning();
+    if (row && update.username && update.username !== target.username) {
+      // Record the previous username so old /author/<username> links can
+      // 301-redirect to the current author page.
+      await tx
+        .insert(usernameRenamesTable)
+        .values({ oldUsername: target.username, userId: id })
+        .onConflictDoUpdate({
+          target: usernameRenamesTable.oldUsername,
+          set: { userId: id, createdAt: new Date() },
+        });
+      // If the user reclaimed a username they (or someone) previously held,
+      // that mapping is now stale — a live user owns it again.
+      await tx
+        .delete(usernameRenamesTable)
+        .where(eq(usernameRenamesTable.oldUsername, update.username));
+    }
+    return row;
+  });
 
   if (!updated) {
     res.status(404).json({ error: "User not found" });

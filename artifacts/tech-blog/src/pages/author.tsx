@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "wouter";
+import { Link, useLocation, useParams } from "wouter";
 import { format } from "date-fns";
 import { Clock, Twitter, Linkedin, Instagram, Github, Globe } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,6 +43,7 @@ interface PostRow {
 export default function AuthorPage() {
   const params = useParams<{ username: string }>();
   const username = params.username || "";
+  const [, navigate] = useLocation();
 
   const [author, setAuthor] = useState<AuthorProfile | null>(null);
   const [posts, setPosts] = useState<PostRow[] | null>(null);
@@ -62,6 +63,13 @@ export default function AuthorPage() {
         }
         const a = (await r.json()) as AuthorProfile;
         if (cancelled) return;
+        // The API 301-redirects renamed usernames to the current author, so
+        // the payload may carry a different username than the URL. Fix the
+        // address bar (replace, so back doesn't bounce through the old link).
+        if (a.username && a.username !== username) {
+          navigate(`/author/${encodeURIComponent(a.username)}`, { replace: true });
+          return;
+        }
         setAuthor(a);
         const p = await fetch(`/api/authors/${a.id}/posts`);
         if (!p.ok) return;
