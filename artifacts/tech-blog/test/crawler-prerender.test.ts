@@ -536,6 +536,23 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).not.toContain("twitter-tweet");
     });
 
+    it("returns 200 for the static /team page to any client (it needs no DB lookup)", async () => {
+      for (const ua of [GOOGLEBOT_UA, BROWSER_UA]) {
+        const { status, body } = await get("/team", ua);
+        expect(status).toBe(200);
+        expect(body).toContain('<div id="root">');
+      }
+    });
+
+    it("returns 200 for every other static page and 404 for an unknown path", async () => {
+      for (const p of ["/about", "/contact", "/advertise", "/search", "/privacy", "/terms", "/blog", "/careers"]) {
+        const { status } = await get(p, BROWSER_UA);
+        expect(status, p).toBe(200);
+      }
+      const { status } = await get("/definitely-not-a-page", BROWSER_UA);
+      expect(status).toBe(404);
+    });
+
     it("returns a noindex 404 to Googlebot for an unknown slug", async () => {
       const { status, body } = await get("/blog/this-does-not-exist", GOOGLEBOT_UA);
       expect(status).toBe(404);
