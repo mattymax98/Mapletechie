@@ -34,38 +34,69 @@ function findTagEnd(html: string, start: number): number {
   return -1;
 }
 
-/** True if the tag text (e.g. `<img src="a" alt="b">`) has a real `alt`
- *  attribute — matching whole attribute names only, so `data-alt` or a
- *  quoted value containing `alt=` never counts. */
-function hasAltAttribute(tag: string): boolean {
+/** Read the `alt` attribute value from a tag (e.g. `<img src="a" alt="b">`),
+ *  matching whole attribute names only, so `data-alt` or a quoted value
+ *  containing `alt=` never counts. Returns `null` when there is no alt
+ *  attribute at all; returns "" for a valueless or explicitly empty alt. */
+function getAltAttribute(tag: string): string | null {
   // Walk attributes: skip past "<img", then repeatedly read name[=value].
   let i = 4; // length of "<img"
   const len = tag.length;
   while (i < len) {
     // Skip whitespace and stray slashes (self-closing).
     while (i < len && /[\s/]/.test(tag[i])) i++;
-    if (i >= len || tag[i] === ">") return false;
+    if (i >= len || tag[i] === ">") return null;
     // Read the attribute name.
     const nameStart = i;
     while (i < len && !/[\s=/>]/.test(tag[i])) i++;
     const name = tag.slice(nameStart, i).toLowerCase();
     // Skip whitespace before a possible "=".
     while (i < len && /\s/.test(tag[i])) i++;
+    let value = "";
     if (tag[i] === "=") {
       i++;
       while (i < len && /\s/.test(tag[i])) i++;
       const q = tag[i];
       if (q === '"' || q === "'") {
         i++;
+        const valueStart = i;
         while (i < len && tag[i] !== q) i++;
+        value = tag.slice(valueStart, i);
         i++; // past the closing quote
       } else {
+        const valueStart = i;
         while (i < len && !/[\s>]/.test(tag[i])) i++;
+        value = tag.slice(valueStart, i);
       }
     }
-    if (name === "alt") return true;
+    if (name === "alt") return value;
   }
-  return false;
+  return null;
+}
+
+function hasAltAttribute(tag: string): boolean {
+  return getAltAttribute(tag) !== null;
+}
+
+/**
+ * Count the `<img>` tags in editor-authored HTML whose alt text is missing or
+ * effectively empty (absent attribute, alt="", or whitespace/entity-only).
+ * Used by the admin area to flag posts whose images still need real
+ * descriptions after the automatic empty-alt backfill.
+ */
+export function countImagesMissingAltText(html: string): number {
+  let count = 0;
+  const re = /<img\b/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const end = findTagEnd(html, m.index);
+    if (end === -1) break; // malformed tail — ignore the rest
+    const alt = getAltAttribute(html.slice(m.index, end));
+    // Treat &nbsp; and plain whitespace as empty — neither describes the image.
+    if (alt === null || alt.replace(/&nbsp;/gi, " ").trim() === "") count++;
+    re.lastIndex = end;
+  }
+  return count;
 }
 
 export function ensureImgAlt(html: string): string {

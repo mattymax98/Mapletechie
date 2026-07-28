@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PlusCircle, Pencil, Trash2, LogOut, Eye, ExternalLink, Sparkles, Users, User as UserIcon, CheckCircle2, Inbox, Briefcase, Mail, ClipboardList, BarChart3, Send, Image as ImageIcon, Clock, Tag, FolderInput, Check, Settings, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { countImagesMissingAltText } from "@/lib/ensureImgAlt";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -231,6 +232,21 @@ export default function AdminDashboard() {
                         {post.isFeatured && (
                           <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-xs shrink-0">Featured</Badge>
                         )}
+                        {(() => {
+                          const missing = countImagesMissingAltText(post.content ?? "");
+                          if (missing === 0) return null;
+                          return (
+                            <Link href={`/admin/posts/${post.id}/edit`}>
+                              <Badge
+                                className="bg-purple-500/20 text-purple-300 border-purple-500/30 text-xs shrink-0 gap-1 cursor-pointer hover:bg-purple-500/30"
+                                title={`${missing} image${missing === 1 ? "" : "s"} in this post ${missing === 1 ? "has" : "have"} no alt text description. Click to open the editor and add descriptions.`}
+                              >
+                                <ImageIcon className="w-3 h-3" />
+                                {missing} alt missing
+                              </Badge>
+                            </Link>
+                          );
+                        })()}
                       </div>
                     </td>
                     <td className="px-4 py-3">
