@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useListAdminPosts, useDeletePost, useUpdatePost, useListCategories, useBulkReassignPosts } from "@workspace/api-client-react";
 import {
@@ -108,10 +108,25 @@ export default function AdminDashboard() {
     });
   };
 
-  const allSelected = !!posts?.length && selectedIds.size === posts.length;
+  const [showOnlyAltMissing, setShowOnlyAltMissing] = useState(false);
+
+  const altMissingIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const p of posts ?? []) {
+      if (countImagesMissingAltText((p as any).content ?? "") > 0) ids.add((p as any).id);
+    }
+    return ids;
+  }, [posts]);
+
+  const visiblePosts = useMemo(
+    () => (showOnlyAltMissing ? (posts ?? []).filter((p: any) => altMissingIds.has(p.id)) : posts ?? []),
+    [posts, showOnlyAltMissing, altMissingIds],
+  );
+
+  const allSelected = !!visiblePosts.length && visiblePosts.every((p: any) => selectedIds.has(p.id));
   const toggleAll = () => {
     if (allSelected) setSelectedIds(new Set());
-    else setSelectedIds(new Set((posts ?? []).map((p: any) => p.id)));
+    else setSelectedIds(new Set(visiblePosts.map((p: any) => p.id)));
   };
 
   const handleBulkMove = (categorySlug: string) => {
@@ -164,10 +179,37 @@ export default function AdminDashboard() {
           <div>
             <h1 className="text-2xl font-bold text-white">{seesAllPosts ? "All Posts" : "Your Posts"}</h1>
             <p className="text-zinc-400 text-sm mt-1">
-              {posts?.length ?? 0} posts
+              {showOnlyAltMissing
+                ? `${visiblePosts.length} of ${posts?.length ?? 0} posts need image descriptions`
+                : `${posts?.length ?? 0} posts`}
               {!isAdmin && !user?.canPublishDirectly && " — your posts save as drafts pending admin approval"}
             </p>
           </div>
+          {altMissingIds.size > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowOnlyAltMissing((v) => !v)}
+              aria-pressed={showOnlyAltMissing}
+              title={
+                showOnlyAltMissing
+                  ? "Show all posts"
+                  : `Show only the ${altMissingIds.size} post${altMissingIds.size === 1 ? "" : "s"} with images missing alt text`
+              }
+              className={
+                showOnlyAltMissing
+                  ? "border-purple-500/60 bg-purple-500/20 text-purple-200 hover:bg-purple-500/30 hover:text-purple-100 gap-2"
+                  : "border-purple-500/40 text-purple-300 hover:bg-purple-500/10 hover:text-purple-200 gap-2"
+              }
+            >
+              <ImageIcon className="w-4 h-4" />
+              {showOnlyAltMissing ? "Showing alt missing" : "Needs alt text"}
+              <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30 text-xs px-1.5">
+                {altMissingIds.size}
+              </Badge>
+              {showOnlyAltMissing && <X className="w-3.5 h-3.5" />}
+            </Button>
+          )}
           <div className="flex items-center gap-3">
             {isAdmin && (
               <Link href="/admin/generate">
@@ -216,7 +258,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800">
-                {posts?.map((post: any) => (
+                {visiblePosts.map((post: any) => (
                   <tr key={post.id} className={`transition-colors ${selectedIds.has(post.id) ? "bg-orange-500/5 hover:bg-orange-500/10" : "hover:bg-zinc-900/50"}`}>
                     <td className="w-10 px-3 py-3">
                       <Checkbox
@@ -350,12 +392,27 @@ export default function AdminDashboard() {
                 ))}
               </tbody>
             </table>
-            {!posts?.length && (
+            {!visiblePosts.length && (
               <div className="text-center py-12 text-zinc-500">
-                <p>No posts yet.</p>
-                <Link href="/admin/posts/new">
-                  <Button className="mt-4 bg-orange-500 hover:bg-orange-600 text-white">Create your first post</Button>
-                </Link>
+                {showOnlyAltMissing ? (
+                  <>
+                    <p>No posts are missing image descriptions. Nice work!</p>
+                    <Button
+                      variant="outline"
+                      className="mt-4 border-zinc-700 text-zinc-300 hover:bg-zinc-900"
+                      onClick={() => setShowOnlyAltMissing(false)}
+                    >
+                      Show all posts
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <p>No posts yet.</p>
+                    <Link href="/admin/posts/new">
+                      <Button className="mt-4 bg-orange-500 hover:bg-orange-600 text-white">Create your first post</Button>
+                    </Link>
+                  </>
+                )}
               </div>
             )}
           </div>
