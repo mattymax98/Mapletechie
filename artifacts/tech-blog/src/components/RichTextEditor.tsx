@@ -24,6 +24,7 @@ import {
   Link as LinkIcon,
   Image as ImageIcon,
   ImagePlus,
+  Captions,
   Share2,
   AlignLeft,
   AlignCenter,
@@ -158,6 +159,18 @@ function Toolbar({ editor }: { editor: Editor }) {
     });
   };
 
+  // Edit the alt text of the currently selected image without re-inserting
+  // it. Enabled only when an image node is selected.
+  const promptForAltText = () => {
+    const current = editor.getAttributes("image").alt ?? "";
+    const alt = window.prompt(
+      "Image description / alt text (what a screen-reader user should hear)",
+      current,
+    );
+    if (alt === null) return;
+    editor.chain().focus().updateAttributes("image", { alt: alt.trim() }).run();
+  };
+
   const promptForEmbed = () => {
     const url = window.prompt(
       "Paste a link to a post on X (Twitter), YouTube, Instagram, or TikTok",
@@ -261,6 +274,17 @@ function Toolbar({ editor }: { editor: Editor }) {
       </ToolbarButton>
       <ToolbarButton title="Insert image by direct URL (must be a .jpg/.png/.webp file, not a tweet or article link)" onClick={promptForImageUrl}>
         <ImagePlus className="w-4 h-4" />
+      </ToolbarButton>
+      <ToolbarButton
+        title={
+          editor.isActive("image")
+            ? "Edit alt text of the selected image"
+            : "Edit alt text (select an image first)"
+        }
+        onClick={promptForAltText}
+        disabled={!editor.isActive("image")}
+      >
+        <Captions className="w-4 h-4" />
       </ToolbarButton>
       <ToolbarButton title="Embed a social post (X/Twitter, YouTube, Instagram, TikTok) — or just paste the link" onClick={promptForEmbed}>
         <Share2 className="w-4 h-4" />

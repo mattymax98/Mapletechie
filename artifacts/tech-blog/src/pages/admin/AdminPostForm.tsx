@@ -39,6 +39,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { ImageUploadField, type ImagePreviewStatus } from "@/components/ImageUploadField";
+import { countImagesMissingAltText } from "@/lib/ensureImgAlt";
 
 interface AdminPostFormProps {
   postId?: number;
@@ -888,6 +889,22 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
               <p className="text-xs text-zinc-500">
                 Use the toolbar to format — no code needed. Aim for 800–1500 words for a full review or feature; 300–500 is fine for news.
               </p>
+              {(() => {
+                const missingAlt = countImagesMissingAltText(form.content);
+                if (missingAlt === 0) return null;
+                return (
+                  <div className="flex items-start gap-2 rounded border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-xs text-purple-200">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-purple-300" />
+                    <span>
+                      {missingAlt === 1
+                        ? "1 image in this post has no alt text description."
+                        : `${missingAlt} images in this post have no alt text description.`}{" "}
+                      Alt text helps screen-reader users and search engines understand your images. Click an image in the
+                      editor and use "Edit alt text", or re-insert it with a description.
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* SEO Section */}

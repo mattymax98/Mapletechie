@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ensureImgAlt } from "../src/lib/ensureImgAlt";
+import { ensureImgAlt, countImagesMissingAltText } from "../src/lib/ensureImgAlt";
 
 describe("ensureImgAlt", () => {
   it("injects an empty alt on an img without one", () => {
@@ -61,5 +61,46 @@ describe("ensureImgAlt", () => {
   it("does not touch other tags or text mentioning img", () => {
     const html = "<p>use an &lt;img&gt; tag</p><em>img</em>";
     expect(ensureImgAlt(html)).toBe(html);
+  });
+});
+
+describe("countImagesMissingAltText", () => {
+  it("returns 0 for content without images", () => {
+    expect(countImagesMissingAltText("<p>Hello</p>")).toBe(0);
+    expect(countImagesMissingAltText("")).toBe(0);
+  });
+
+  it("counts images with no alt attribute", () => {
+    expect(countImagesMissingAltText('<img src="/a.jpg">')).toBe(1);
+  });
+
+  it("counts images with an explicit empty alt", () => {
+    expect(countImagesMissingAltText('<img alt="" src="/a.jpg">')).toBe(1);
+  });
+
+  it("counts whitespace-only and &nbsp;-only alts as empty", () => {
+    expect(countImagesMissingAltText('<img alt="   " src="/a.jpg">')).toBe(1);
+    expect(countImagesMissingAltText('<img alt="&nbsp;" src="/a.jpg">')).toBe(1);
+  });
+
+  it("does not count images with real alt text", () => {
+    expect(countImagesMissingAltText('<img src="/a.jpg" alt="A red canoe on a lake">')).toBe(0);
+    expect(countImagesMissingAltText("<img src=/a.jpg alt=lake>")).toBe(0);
+  });
+
+  it("counts only the empty ones in mixed content", () => {
+    const html =
+      '<img src="/one.jpg" alt="One"><p>text</p><img src="/two.jpg"><img src="/three.jpg" alt="">';
+    expect(countImagesMissingAltText(html)).toBe(2);
+  });
+
+  it("is not fooled by data-alt or alt= inside quoted values", () => {
+    expect(countImagesMissingAltText('<img src="/a.jpg" data-alt="nope">')).toBe(1);
+    expect(countImagesMissingAltText('<img src="/a.jpg" title="use alt= here" alt="Chart">')).toBe(0);
+  });
+
+  it("handles quoted values containing '>'", () => {
+    expect(countImagesMissingAltText('<img src="/a.jpg" title="a > b">')).toBe(1);
+    expect(countImagesMissingAltText('<img src="/a.jpg" title="a > b" alt="Chart">')).toBe(0);
   });
 });
