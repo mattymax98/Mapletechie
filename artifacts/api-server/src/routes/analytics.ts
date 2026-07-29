@@ -162,6 +162,40 @@ router.get("/admin/analytics/top-posts", adminAuth, async (req, res): Promise<vo
   res.json(rows);
 });
 
+/**
+ * Per-post view counts for all posts published in the selected range.
+ * Uses a LEFT JOIN so posts with zero tracked views are still included.
+ * Ordered by views ASC — lowest first — for the "underperforming" panel.
+ */
+router.get("/admin/analytics/post-views", adminAuth, async (req, res): Promise<void> => {
+  const since = rangeToDate(req.query.range as string);
+  const rows = await db
+    .select({
+      slug: postsTable.slug,
+      title: postsTable.title,
+      publishedAt: postsTable.publishedAt,
+      views: sql<number>`coalesce(count(${pageViewsTable.id})::int, 0)`,
+    })
+    .from(postsTable)
+    .leftJoin(
+      pageViewsTable,
+      and(
+        eq(pageViewsTable.postSlug, postsTable.slug),
+        gte(pageViewsTable.createdAt, since),
+      ),
+    )
+    .where(
+      and(
+        eq(postsTable.status, "published"),
+        isNotNull(postsTable.publishedAt),
+        gte(postsTable.publishedAt, since),
+      ),
+    )
+    .groupBy(postsTable.id)
+    .orderBy(sql`coalesce(count(${pageViewsTable.id})::int, 0) asc`);
+  res.json(rows);
+});
+
 router.get("/admin/analytics/top-categories", adminAuth, async (req, res): Promise<void> => {
   const since = rangeToDate(req.query.range as string);
   const rows = await db
