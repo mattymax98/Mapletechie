@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "wouter";
+import { AdminShell } from "@/components/admin/AdminShell";
 import { useGetSiteSettings, useUpdateSiteSettings, getGetSiteSettingsQueryKey } from "@workspace/api-client-react";
 import { useAdmin } from "@/context/AdminContext";
 import { Button } from "@/components/ui/button";
@@ -37,9 +37,11 @@ export default function AdminSettings() {
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <p className="text-zinc-400">Admins only.</p>
-      </div>
+      <AdminShell title="Settings">
+        <div className="flex items-center justify-center h-64">
+          <p className="text-zinc-400">Admins only.</p>
+        </div>
+      </AdminShell>
     );
   }
 
@@ -72,19 +74,7 @@ export default function AdminSettings() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/admin">
-            <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
-              <ArrowLeft className="w-4 h-4" />
-              Back to dashboard
-            </Button>
-          </Link>
-          <span className="text-sm text-zinc-400">Site Settings</span>
-        </div>
-      </header>
-
+    <AdminShell title="Site Settings">
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Site Settings</h1>
@@ -212,6 +202,6 @@ export default function AdminSettings() {
           </>
         )}
       </main>
-    </div>
+    </AdminShell>
   );
 }

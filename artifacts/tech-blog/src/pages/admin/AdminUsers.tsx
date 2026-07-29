@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { AdminShell } from "@/components/admin/AdminShell";
 import { ImageUploadField } from "@/components/ImageUploadField";
 import {
   RichProfileFieldsEditor,
@@ -183,23 +183,14 @@ export default function AdminUsers() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center gap-4">
-          <Link href="/admin">
-            <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
-              <ArrowLeft className="w-4 h-4" /> Back
-            </Button>
-          </Link>
-          <h1 className="text-lg font-semibold">Manage Editors</h1>
-          <div className="ml-auto">
-            <Button onClick={openCreate} className="bg-orange-500 hover:bg-orange-600 text-white gap-2">
-              <Plus className="w-4 h-4" /> Add Editor
-            </Button>
-          </div>
-        </div>
-      </header>
-
+    <AdminShell
+      title="Manage Editors"
+      actions={
+        <Button onClick={openCreate} className="bg-orange-500 hover:bg-orange-600 text-white gap-2">
+          <Plus className="w-4 h-4" /> Add Editor
+        </Button>
+      }
+    >
       <main className="max-w-5xl mx-auto px-4 py-8">
         {isLoading ? (
           <div className="space-y-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 bg-zinc-900" />)}</div>
@@ -421,7 +412,7 @@ export default function AdminUsers() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </AdminShell>
   );
 }
 

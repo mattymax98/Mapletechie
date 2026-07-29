@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "wouter";
+import { AdminShell } from "@/components/admin/AdminShell";
 import { useUpdateCurrentUser } from "@workspace/api-client-react";
 import { useAdmin } from "@/context/AdminContext";
 import { Button } from "@/components/ui/button";
@@ -77,18 +77,7 @@ export default function AdminProfile() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 h-16 flex items-center gap-4">
-          <Link href="/admin">
-            <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
-              <ArrowLeft className="w-4 h-4" /> Back
-            </Button>
-          </Link>
-          <h1 className="text-lg font-semibold">My Profile</h1>
-        </div>
-      </header>
-
+    <AdminShell title="My Profile">
       <main className="max-w-3xl mx-auto px-4 py-8">
         <form onSubmit={submit} className="space-y-6">
           <ErrorBanner message={msg?.text} kind={msg?.kind === "ok" ? "success" : "error"} />
@@ -161,6 +150,6 @@ export default function AdminProfile() {
           </div>
         </form>
       </main>
-    </div>
+    </AdminShell>
   );
 }

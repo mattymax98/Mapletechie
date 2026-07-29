@@ -1,5 +1,5 @@
+import { AdminShell } from "@/components/admin/AdminShell";
 import { useEffect, useState } from "react";
-import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -207,26 +207,20 @@ export default function AdminNewsletter() {
     (candidates?.length ?? 0) > 0 && selected.size === (candidates?.length ?? 0);
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/admin">
-            <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
-              <ArrowLeft className="w-4 h-4" /> Back to Dashboard
-            </Button>
-          </Link>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => { loadSubs(); loadCandidates(); }}
-            disabled={busy === "load"}
-            className="border-zinc-700 text-zinc-300 hover:text-white gap-2"
-          >
-            <RefreshCw className={`w-4 h-4 ${busy === "load" ? "animate-spin" : ""}`} /> Refresh
-          </Button>
-        </div>
-      </header>
-
+    <AdminShell
+      title="Newsletter"
+      actions={
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => { loadSubs(); loadCandidates(); }}
+          disabled={busy === "load"}
+          className="border-zinc-700 text-zinc-300 hover:text-white gap-2"
+        >
+          <RefreshCw className={`w-4 h-4 ${busy === "load" ? "animate-spin" : ""}`} /> Refresh
+        </Button>
+      }
+    >
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -530,7 +524,7 @@ export default function AdminNewsletter() {
           )}
         </div>
       </main>
-    </div>
+    </AdminShell>
   );
 }
 

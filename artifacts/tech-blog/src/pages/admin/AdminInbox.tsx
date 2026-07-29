@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "wouter";
+import { AdminShell } from "@/components/admin/AdminShell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Trash2, Mail, Megaphone, FileText, Briefcase, ExternalLink, MessageCircle, Send, X, CheckCircle2 } from "lucide-react";
@@ -161,22 +161,7 @@ export default function AdminInbox() {
   ];
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/admin">
-            <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
-              <ArrowLeft className="w-4 h-4" /> Back to Dashboard
-            </Button>
-          </Link>
-          <Link href="/admin/jobs">
-            <Button variant="outline" size="sm" className="border-zinc-700 text-zinc-300 hover:text-white gap-2">
-              <Briefcase className="w-4 h-4" /> Manage Jobs
-            </Button>
-          </Link>
-        </div>
-      </header>
-
+    <AdminShell title="Inbox">
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold">Inbox</h1>
@@ -409,7 +394,7 @@ export default function AdminInbox() {
           </div>
         )}
       </main>
-    </div>
+    </AdminShell>
   );
 }
 
