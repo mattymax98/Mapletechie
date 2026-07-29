@@ -548,7 +548,7 @@ export default function BlogPost() {
             width={1200}
             height={675}
             {...responsiveCoverProps(post.coverImage || "/images/hero-post.webp", COVER_SIZES.full)}
-            alt={post.title}
+            alt={(post as any).coverImageAlt ?? ""}
             className="w-full h-auto"
           />
         </div>

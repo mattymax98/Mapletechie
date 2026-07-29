@@ -590,6 +590,7 @@ interface PostRecord {
   excerpt: string | null;
   content?: string | null;
   coverImage: string | null;
+  coverImageAlt?: string | null;
   ogImage?: string | null;
   category: string | null;
   categorySlug?: string | null;
@@ -692,10 +693,14 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
       ? `<p style="color:#666;font-size:.85em">Tags: ${post.tags.map(htmlEscape).join(", ")}</p>`
       : "";
 
+  const coverImgHtml = post.coverImage
+    ? `<img src="${htmlEscape(post.coverImage)}" alt="${htmlEscape(post.coverImageAlt ?? "")}" style="width:100%;height:auto;display:block;margin-bottom:1em;" />`
+    : "";
   const articleBody = `
 <article style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>${htmlEscape(post.title)}</h1>
   ${metaParts.length ? `<p style="color:#666;font-size:.9em">${htmlEscape(metaParts.join(" · "))}</p>` : ""}
+  ${coverImgHtml}
   ${safeContent}
   ${tagsHtml}
   <p><a href="${htmlEscape(`${SITE_URL}/blog/${post.slug}`)}">Read on Mapletechie</a></p>

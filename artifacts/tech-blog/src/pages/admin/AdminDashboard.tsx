@@ -113,7 +113,9 @@ export default function AdminDashboard() {
   const altMissingIds = useMemo(() => {
     const ids = new Set<number>();
     for (const p of posts ?? []) {
-      if (countImagesMissingAltText((p as any).content ?? "") > 0) ids.add((p as any).id);
+      const contentMissing = countImagesMissingAltText((p as any).content ?? "");
+      const coverMissing = (p as any).coverImage && !(p as any).coverImageAlt;
+      if (contentMissing > 0 || coverMissing) ids.add((p as any).id);
     }
     return ids;
   }, [posts]);
@@ -275,7 +277,9 @@ export default function AdminDashboard() {
                           <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-xs shrink-0">Featured</Badge>
                         )}
                         {(() => {
-                          const missing = countImagesMissingAltText(post.content ?? "");
+                          const contentMissing = countImagesMissingAltText(post.content ?? "");
+                          const coverMissing = post.coverImage && !post.coverImageAlt ? 1 : 0;
+                          const missing = contentMissing + coverMissing;
                           if (missing === 0) return null;
                           return (
                             <Link href={`/admin/posts/${post.id}/edit`}>

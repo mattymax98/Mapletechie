@@ -10,6 +10,7 @@ export const postsTable = pgTable("posts", {
   excerpt: text("excerpt").notNull(),
   content: text("content").notNull(),
   coverImage: text("cover_image"),
+  coverImageAlt: text("cover_image_alt"),
   // The category for this post. The denormalized `category` text cache and
   // the Postgres sync triggers were dropped in May 2026 — read paths now
   // JOIN `categories.name` through this FK to expose the name.
