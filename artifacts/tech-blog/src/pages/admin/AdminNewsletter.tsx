@@ -14,6 +14,8 @@ import {
   RefreshCw,
   FileText,
   Users,
+  Eye,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -46,7 +48,8 @@ export default function AdminNewsletter() {
   const [subject, setSubject] = useState("");
   const [editorNote, setEditorNote] = useState("");
   const [testEmail, setTestEmail] = useState("");
-  const [busy, setBusy] = useState<"" | "test" | "send" | "load" | "digest">("");
+  const [busy, setBusy] = useState<"" | "test" | "send" | "load" | "digest" | "preview">("");
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const { toast } = useToast();
 
   async function loadSubs() {
@@ -160,6 +163,24 @@ export default function AdminNewsletter() {
       await loadSubs();
     } catch (err: any) {
       toast({ title: "Failed", description: err?.message ?? "Try again", variant: "destructive" });
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function openPreview() {
+    setBusy("preview");
+    try {
+      const json = await adminJson<{ html: string }>("/admin/newsletter/preview", {
+        method: "POST",
+        body: JSON.stringify({
+          editorNote,
+          postIds: Array.from(selected),
+        }),
+      });
+      setPreviewHtml(json.html);
+    } catch (err: any) {
+      toast({ title: "Preview failed", description: err?.message ?? "Try again", variant: "destructive" });
     } finally {
       setBusy("");
     }
@@ -337,6 +358,16 @@ export default function AdminNewsletter() {
               </Button>
             </div>
             <Button
+              onClick={openPreview}
+              disabled={!!busy}
+              variant="outline"
+              className="border-zinc-700 text-zinc-300 gap-2"
+              data-testid="button-preview"
+            >
+              <Eye className="w-4 h-4" />
+              {busy === "preview" ? "Loading…" : "Preview"}
+            </Button>
+            <Button
               onClick={sendNow}
               disabled={busy === "send" || !subject.trim()}
               className="bg-orange-500 hover:bg-orange-600 text-white gap-2 ml-auto"
@@ -375,6 +406,48 @@ export default function AdminNewsletter() {
             </Button>
           </div>
         </div>
+
+        {/* ── Newsletter preview modal ─────────────────────────────────── */}
+        {previewHtml && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+            onClick={() => setPreviewHtml(null)}
+            data-testid="preview-modal-backdrop"
+          >
+            <div
+              className="relative flex flex-col bg-zinc-950 border border-zinc-700 rounded-xl shadow-2xl w-full max-w-3xl mx-4"
+              style={{ maxHeight: "90vh" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal header */}
+              <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800 shrink-0">
+                <div className="flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-orange-400" />
+                  <span className="text-sm font-semibold text-zinc-200">Email preview</span>
+                  <span className="text-xs text-zinc-500 ml-1">— read-only, no email is sent</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPreviewHtml(null)}
+                  className="text-zinc-400 hover:text-white transition-colors"
+                  aria-label="Close preview"
+                  data-testid="button-close-preview"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              {/* Iframe renders the full email HTML */}
+              <iframe
+                srcDoc={previewHtml}
+                title="Newsletter preview"
+                className="w-full flex-1 rounded-b-xl border-0"
+                style={{ minHeight: "560px" }}
+                sandbox="allow-same-origin"
+                data-testid="preview-iframe"
+              />
+            </div>
+          </div>
+        )}
 
         {/* ── Subscriber list ───────────────────────────────────────────── */}
         <div>

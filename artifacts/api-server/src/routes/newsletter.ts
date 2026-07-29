@@ -345,6 +345,39 @@ router.post(
 );
 
 /**
+ * Render the digest email HTML without sending anything.
+ * Body: { editorNote?, postIds?: number[] }
+ * Returns: { html: string }
+ */
+router.post(
+  "/admin/newsletter/preview",
+  adminAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    const editorNote = String(req.body?.editorNote || "").trim();
+    const rawIds = req.body?.postIds;
+    const postIds: number[] = Array.isArray(rawIds)
+      ? rawIds.map(Number).filter((n) => Number.isFinite(n) && n > 0)
+      : [];
+
+    try {
+      const posts = await fetchPostsByIds(postIds);
+      const html = digestEmailHtml({
+        posts,
+        editorNote,
+        unsubUrl: `${SITE_URL}/api/newsletter/unsubscribe?token=preview`,
+        weekLabel: weekLabel(),
+      });
+      res.json({ html });
+    } catch (err) {
+      logger.error({ err }, "Newsletter preview render failed");
+      const msg = err instanceof Error ? err.message : "Render failed";
+      res.status(500).json({ success: false, message: msg });
+    }
+  },
+);
+
+/**
  * Manually trigger the internal editor weekly digest. No auto-schedule —
  * fires only when an admin clicks the button in the newsletter admin page.
  */
