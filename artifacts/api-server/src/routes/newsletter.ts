@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, subscribersTable, postsTable, categoriesTable } from "@workspace/db";
-import { eq, desc, and, gte, getTableColumns } from "drizzle-orm";
+import { eq, desc, and, gte, inArray, getTableColumns } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { sendEmail, SITE_URL } from "../lib/email";
 import {
@@ -12,6 +12,7 @@ import { adminAuth, requireRole } from "../middlewares/adminAuth";
 import { writeAuditLog } from "../lib/audit";
 import { logger } from "../lib/logger";
 import { newsletterLimiter } from "../middlewares/rateLimit";
+import { runEditorWeeklyDigestNow } from "../lib/editorWeeklyDigest";
 
 const router = Router();
 
@@ -21,7 +22,21 @@ function weekLabel(date: Date = new Date()): string {
   return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 }
 
-async function fetchWeekPosts(daysBack = 7) {
+/** Fetch a specific set of posts by ID, preserving the caller's order. */
+async function fetchPostsByIds(ids: number[]) {
+  if (ids.length === 0) return [];
+  const rows = await db
+    .select({ ...getTableColumns(postsTable), category: categoriesTable.name })
+    .from(postsTable)
+    .innerJoin(categoriesTable, eq(postsTable.categoryId, categoriesTable.id))
+    .where(inArray(postsTable.id, ids));
+  // Re-sort to match the caller-supplied order.
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return ids.map((id) => byId.get(id)).filter(Boolean) as typeof rows;
+}
+
+/** Return published posts from the last N days — used for the picker candidates list. */
+async function fetchRecentPosts(daysBack = 30) {
   const since = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000);
   return db
     .select({ ...getTableColumns(postsTable), category: categoriesTable.name })
@@ -173,23 +188,34 @@ router.delete(
 );
 
 /**
- * Preview the posts that the newsletter compose page will append. Used by
- * the admin UI to show "this week's recap" before sending.
+ * Return published posts from the last 30 days for the newsletter article
+ * picker. The admin UI displays these as a checklist; the admin selects which
+ * ones to include before sending.
  */
 router.get(
-  "/admin/newsletter/preview",
+  "/admin/newsletter/posts",
   adminAuth,
   requireRole("admin"),
   async (_req, res): Promise<void> => {
-    const posts = await fetchWeekPosts(7);
-    res.json({ weekLabel: weekLabel(), posts });
+    const posts = await fetchRecentPosts(30);
+    res.json(
+      posts.map((p) => ({
+        id: p.id,
+        slug: p.slug,
+        title: p.title,
+        excerpt: p.excerpt,
+        category: p.category,
+        publishedAt: p.publishedAt,
+      })),
+    );
   },
 );
 
 /**
- * Send a test of the editor-composed digest to a single recipient. Body must
- * contain { to, subject, editorNote } so the test exactly matches what the
- * real send would produce.
+ * Send a test of the editor-composed digest to a single recipient.
+ * Body: { to, subject, editorNote, postIds?: number[] }
+ * When postIds is provided, only those posts are included.
+ * When postIds is omitted or empty, the email contains only the editor's note.
  */
 router.post(
   "/admin/newsletter/test",
@@ -199,6 +225,11 @@ router.post(
     const to = String(req.body?.to || req.body?.email || "").trim().toLowerCase();
     const subject = String(req.body?.subject || "").trim();
     const editorNote = String(req.body?.editorNote || "").trim();
+    const rawIds = req.body?.postIds;
+    const postIds: number[] = Array.isArray(rawIds)
+      ? rawIds.map(Number).filter((n) => Number.isFinite(n) && n > 0)
+      : [];
+
     if (!EMAIL_RE.test(to)) {
       res.status(400).json({ success: false, message: "Provide a valid test recipient email." });
       return;
@@ -208,7 +239,7 @@ router.post(
       return;
     }
     try {
-      const posts = await fetchWeekPosts(7);
+      const posts = await fetchPostsByIds(postIds);
       const html = digestEmailHtml({
         posts,
         editorNote,
@@ -219,7 +250,11 @@ router.post(
         to,
         subject: `[TEST] ${subject}`,
         html,
-        text: `${editorNote}\n\nThis week:\n${posts.map((p) => `• ${p.title} — ${SITE_URL}/blog/${p.slug}`).join("\n")}`,
+        text:
+          editorNote +
+          (posts.length
+            ? `\n\nThis issue:\n${posts.map((p) => `• ${p.title} — ${SITE_URL}/blog/${p.slug}`).join("\n")}`
+            : ""),
       });
       res.json({ success: true, posts: posts.length });
     } catch (err) {
@@ -231,10 +266,9 @@ router.post(
 );
 
 /**
- * Editor-composed digest: takes a hand-written subject + editor note from the
- * admin panel, appends the past week's published posts, and emails every
- * confirmed subscriber. There is no scheduler — sends only happen when an
- * admin explicitly clicks "Send now".
+ * Send the editor-composed digest to every active subscriber.
+ * Body: { subject, editorNote, postIds?: number[] }
+ * Only the articles whose IDs appear in postIds are included; empty = note only.
  */
 router.post(
   "/admin/newsletter/send-now",
@@ -243,6 +277,11 @@ router.post(
   async (req, res): Promise<void> => {
     const subject = String(req.body?.subject || "").trim();
     const editorNote = String(req.body?.editorNote || "").trim();
+    const rawIds = req.body?.postIds;
+    const postIds: number[] = Array.isArray(rawIds)
+      ? rawIds.map(Number).filter((n) => Number.isFinite(n) && n > 0)
+      : [];
+
     if (!subject) {
       res.status(400).json({ success: false, message: "Subject is required." });
       return;
@@ -258,7 +297,7 @@ router.post(
         return;
       }
 
-      const posts = await fetchWeekPosts(7);
+      const posts = await fetchPostsByIds(postIds);
       const label = weekLabel();
       let sent = 0;
       let failed = 0;
@@ -272,7 +311,12 @@ router.post(
             to: s.email,
             subject,
             html,
-            text: `${editorNote}\n\nThis week:\n${posts.map((p) => `• ${p.title} — ${SITE_URL}/blog/${p.slug}`).join("\n")}\n\nUnsubscribe: ${unsubUrl}`,
+            text:
+              editorNote +
+              (posts.length
+                ? `\n\nThis issue:\n${posts.map((p) => `• ${p.title} — ${SITE_URL}/blog/${p.slug}`).join("\n")}`
+                : "") +
+              `\n\nUnsubscribe: ${unsubUrl}`,
           });
           await db
             .update(subscribersTable)
@@ -294,6 +338,30 @@ router.post(
       res.json({ success: true, sent, failed, posts: posts.length, failedEmails: failedEmails.slice(0, 20) });
     } catch (err) {
       logger.error({ err }, "Send-now digest failed");
+      const msg = err instanceof Error ? err.message : "Send failed";
+      res.status(500).json({ success: false, message: msg });
+    }
+  },
+);
+
+/**
+ * Manually trigger the internal editor weekly digest. No auto-schedule —
+ * fires only when an admin clicks the button in the newsletter admin page.
+ */
+router.post(
+  "/admin/newsletter/send-editor-digest",
+  adminAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    try {
+      await runEditorWeeklyDigestNow();
+      await writeAuditLog(req, {
+        action: "newsletter.editor_digest",
+        summary: "Manually triggered editor weekly digest",
+      });
+      res.json({ success: true });
+    } catch (err) {
+      logger.error({ err }, "Manual editor digest failed");
       const msg = err instanceof Error ? err.message : "Send failed";
       res.status(500).json({ success: false, message: msg });
     }

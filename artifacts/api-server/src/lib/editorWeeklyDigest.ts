@@ -1,35 +1,14 @@
 import { db, usersTable, postsTable } from "@workspace/db";
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { and, eq, gte } from "drizzle-orm";
 import { sendEmail, SITE_URL, escapeHtml } from "./email";
 import { logger } from "./logger";
 
 /**
- * Internal weekly summary mailed to every active admin/editor on Sunday
- * at 8pm Toronto time. NOT the reader newsletter — that's composed by hand
- * in the admin panel.
+ * Internal summary emailed to every active admin/editor. Previously fired
+ * automatically every Sunday at 8pm Toronto time; the auto-scheduler has
+ * been removed (35+ articles/week made it overwhelming). An admin can now
+ * trigger this manually from the newsletter admin page.
  */
-
-const SEND_DAY = 0; // Sunday
-const SEND_HOUR = 20;
-const TIMEZONE = "America/Toronto";
-const POLL_MS = 60 * 1000;
-let started = false;
-
-function nowInTz(date: Date = new Date()): { day: number; hour: number; minute: number } {
-  const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: TIMEZONE,
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  const parts = fmt.formatToParts(date);
-  const wd = parts.find((p) => p.type === "weekday")?.value || "";
-  const hour = Number(parts.find((p) => p.type === "hour")?.value || "0");
-  const minute = Number(parts.find((p) => p.type === "minute")?.value || "0");
-  const map: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
-  return { day: map[wd] ?? -1, hour, minute };
-}
 
 function emailHtml(args: {
   displayName: string;
@@ -109,20 +88,10 @@ async function runDigest(): Promise<void> {
   );
 }
 
-export function startEditorWeeklyDigestCron(): void {
-  if (started) return;
-  started = true;
-  let lastTriggered = "";
-  setInterval(() => {
-    const { day, hour, minute } = nowInTz();
-    if (day !== SEND_DAY || hour !== SEND_HOUR || minute !== 0) return;
-    const key = `${new Date().toISOString().slice(0, 10)}-${hour}`;
-    if (key === lastTriggered) return;
-    lastTriggered = key;
-    logger.info({ day, hour }, "Triggering editor weekly digest");
-    runDigest().catch((err) => logger.error({ err }, "Editor digest failed"));
-  }, POLL_MS);
-  logger.info({ day: SEND_DAY, hour: SEND_HOUR, tz: TIMEZONE }, "Editor weekly digest cron started");
-}
+/**
+ * The auto-scheduler has been intentionally removed. With 35+ articles a
+ * week the Sunday digest was overwhelming. Use the manual "Send digest to
+ * editors" button in the admin newsletter page instead.
+ */
 
 export { runDigest as runEditorWeeklyDigestNow };
