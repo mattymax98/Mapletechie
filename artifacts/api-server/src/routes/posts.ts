@@ -290,6 +290,7 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     // storage (best-effort — failures keep the original URL, never block).
     content: await persistExternalImagesInHtml(cleanHtml(body.content), persistCtx),
     coverImage: body.coverImage ?? null,
+    coverImageAlt: typeof body.coverImageAlt === "string" ? body.coverImageAlt.trim() || null : null,
     categoryId: resolvedCategory.id,
     tags: Array.isArray(body.tags) ? body.tags : [],
     author: assignedAuthorName,
@@ -483,6 +484,7 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     "excerpt",
     "content",
     "coverImage",
+    "coverImageAlt",
     "category",
     "tags",
     "readTime",
@@ -510,7 +512,7 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     if (k === "content") {
       // Sanitize first, then re-host external body images (best-effort).
       update[k] = await persistExternalImagesInHtml(cleanHtml(body[k]), persistCtx);
-    } else if (k === "seoTitle" || k === "seoDescription" || k === "verdict") {
+    } else if (k === "seoTitle" || k === "seoDescription" || k === "verdict" || k === "coverImageAlt") {
       update[k] = cleanText(body[k]);
     } else if (k === "rating") {
       update[k] =
@@ -803,6 +805,7 @@ router.post("/admin/posts/:id/restore", adminAuth, requireRole("admin"), async (
     excerpt: typeof snapshot.excerpt === "string" ? snapshot.excerpt : "",
     content: typeof snapshot.content === "string" ? snapshot.content : "",
     coverImage: (snapshot.coverImage as string | null) ?? null,
+    coverImageAlt: (snapshot.coverImageAlt as string | null) ?? null,
     categoryId: cat.id,
     tags: Array.isArray(snapshot.tags) ? (snapshot.tags as string[]) : [],
     author: typeof snapshot.author === "string" ? snapshot.author : "Mapletechie",

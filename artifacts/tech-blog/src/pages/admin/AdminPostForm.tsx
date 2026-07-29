@@ -131,6 +131,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     author: user?.displayName ?? "",
     authorId: user?.id ?? 0,
     coverImage: "",
+    coverImageAlt: "",
     readTime: 5,
     isFeatured: false,
     status: canChooseStatus ? "published" : "draft",
@@ -257,6 +258,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
         author: ep.author ?? "",
         authorId: ep.authorId ?? 0,
         coverImage: ep.coverImage ?? "",
+        coverImageAlt: ep.coverImageAlt ?? "",
         readTime: ep.readTime ?? 5,
         isFeatured: ep.isFeatured ?? false,
         status: ep.status ?? "published",
@@ -572,6 +574,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     };
     if (form.excerpt.trim()) payload.excerpt = form.excerpt.trim();
     if (form.coverImage.trim()) payload.coverImage = form.coverImage.trim();
+    payload.coverImageAlt = form.coverImageAlt.trim() || null;
 
     const existingAuthorId = (existingPost as any)?.authorId ?? null;
     if (user?.role === "admin" && form.authorId && (!isEditing || form.authorId !== existingAuthorId)) {
@@ -826,6 +829,22 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                 onStatusChange={setCoverImageStatus}
                 helpText="Upload from your device or paste a URL. Recommended: 1200×630."
               />
+              {form.coverImage && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="cover-image-alt" className="text-zinc-300 text-sm">Cover image alt text</Label>
+                  <Input
+                    id="cover-image-alt"
+                    value={form.coverImageAlt}
+                    onChange={(e) => setForm((f) => ({ ...f, coverImageAlt: e.target.value }))}
+                    placeholder="Describe the cover image for screen readers and search engines…"
+                    className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500"
+                  />
+                  <p className="text-xs text-zinc-500">
+                    Describe what's in the image. Screen readers and search engines use this when they can't see the image.
+                  </p>
+                </div>
+              )}
+
               <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 space-y-2">
                 <div className="flex items-center gap-2 text-orange-400 text-xs font-medium uppercase tracking-wide">
                   <Sparkles className="w-3.5 h-3.5" />
