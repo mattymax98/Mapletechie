@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import {
   useListAdminPosts,
@@ -35,12 +35,18 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { countImagesMissingAltText } from "@/lib/ensureImgAlt";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { AdminShell } from "@/components/admin/AdminShell";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  Tooltip,
+} from "recharts";
 
 export default function AdminDashboard() {
-  const { user } = useAdmin();
+  const { user, token } = useAdmin();
   const { data: posts, isLoading } = useListAdminPosts();
   const { data: categories } = useListCategories();
   const queryClient = useQueryClient();
@@ -133,7 +139,7 @@ export default function AdminDashboard() {
     bulkMutation.mutate({ data: { postIds: [...selectedIds], category: categorySlug } });
   };
 
-  // ── Stat tiles ──────────────────────────────────────────────────────
+  // ── Post count stat tiles ────────────────────────────────────────────
   const stats = useMemo(() => {
     if (!posts) return null;
     return {
@@ -143,6 +149,70 @@ export default function AdminDashboard() {
       scheduled: posts.filter((p: any) => p.status === "scheduled").length,
     };
   }, [posts]);
+
+  // ── Live analytics (30-day summary + 7-day top posts) ───────────────
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [analytics30d, setAnalytics30d] = useState<{
+    totalViews: number;
+    uniqueSessions: number;
+    uniqueCountries: number;
+    daily: { day: string; views: number }[];
+  } | null>(null);
+  const [topPosts7d, setTopPosts7d] = useState<
+    { slug: string; views: number }[] | null
+  >(null);
+
+  useEffect(() => {
+    if (!token) {
+      setAnalyticsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    async function loadAnalytics() {
+      try {
+        const h = { Authorization: `Bearer ${token}` };
+        const fetchJson = async (url: string) => {
+          const r = await fetch(url, { headers: h });
+          if (!r.ok) throw new Error(`${r.status}`);
+          return r.json();
+        };
+        const [s, tp] = await Promise.all([
+          fetchJson("/api/admin/analytics/summary?range=30d"),
+          fetchJson("/api/admin/analytics/top-posts?range=7d"),
+        ]);
+        if (!cancelled) {
+          setAnalytics30d(s);
+          setTopPosts7d(
+            Array.isArray(tp)
+              ? tp
+                  .slice(0, 3)
+                  .map((p: any) => ({ slug: p.slug, views: p.views }))
+              : [],
+          );
+        }
+      } catch {
+        // analytics is an enhancement; fail silently
+      } finally {
+        if (!cancelled) setAnalyticsLoading(false);
+      }
+    }
+    void loadAnalytics();
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  /** Last 7 days of daily views from the 30d summary for the sparkline */
+  const sparklineData = useMemo(() => {
+    if (!analytics30d?.daily) return [];
+    return analytics30d.daily.slice(-7).map((d) => ({
+      views: d.views,
+      label: (() => {
+        try { return parseISO(d.day).toLocaleDateString("en", { month: "short", day: "numeric" }); }
+        catch { return d.day; }
+      })(),
+    }));
+  }, [analytics30d]);
 
   const shellActions = (
     <div className="flex items-center gap-2">
@@ -188,6 +258,128 @@ export default function AdminDashboard() {
             <StatTile label="Scheduled" value={stats.scheduled} accent="text-blue-400" />
           </div>
         ) : null}
+
+        {/* ── Analytics overview ─────────────────────────────────────── */}
+        {(analyticsLoading || analytics30d) && (
+          <div className="mb-6 space-y-3">
+            {/* Analytics stat tiles */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <AnalyticsTile
+                label="Views (30 days)"
+                value={analytics30d?.totalViews}
+                accent="text-orange-400"
+                loading={analyticsLoading}
+              />
+              <AnalyticsTile
+                label="Visitors (30 days)"
+                value={analytics30d?.uniqueSessions}
+                accent="text-emerald-400"
+                loading={analyticsLoading}
+              />
+              <AnalyticsTile
+                label="Countries (30 days)"
+                value={analytics30d?.uniqueCountries}
+                accent="text-blue-400"
+                loading={analyticsLoading}
+              />
+            </div>
+
+            {/* 7-day sparkline */}
+            {sparklineData.length > 0 && (
+              <div className="bg-zinc-950 border border-zinc-800 rounded-lg px-4 pt-3 pb-2">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">
+                    Traffic — last 7 days
+                  </span>
+                  <Link href="/admin/analytics">
+                    <span className="text-[11px] text-orange-500 hover:text-orange-400 cursor-pointer transition-colors">
+                      Full analytics →
+                    </span>
+                  </Link>
+                </div>
+                <div className="h-14">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                      data={sparklineData}
+                      margin={{ top: 2, right: 0, left: 0, bottom: 0 }}
+                    >
+                      <defs>
+                        <linearGradient
+                          id="dashSparkGrad"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="0%"
+                            stopColor="#f97316"
+                            stopOpacity={0.3}
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor="#f97316"
+                            stopOpacity={0}
+                          />
+                        </linearGradient>
+                      </defs>
+                      <Tooltip
+                        contentStyle={{
+                          background: "#09090b",
+                          border: "1px solid #27272a",
+                          borderRadius: 4,
+                          fontSize: 11,
+                          padding: "3px 8px",
+                        }}
+                        labelStyle={{ color: "#a1a1aa" }}
+                        itemStyle={{ color: "#fafafa" }}
+                        labelFormatter={(_v, pl) => pl?.[0]?.payload?.label ?? ""}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="views"
+                        stroke="#f97316"
+                        strokeWidth={1.5}
+                        fill="url(#dashSparkGrad)"
+                        dot={false}
+                        isAnimationActive={false}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {/* Top posts this week */}
+            {topPosts7d && topPosts7d.length > 0 && (
+              <div className="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-2">
+                  Top posts this week
+                </p>
+                <div className="space-y-2">
+                  {topPosts7d.map((p, i) => {
+                    const meta = (posts as any[])?.find(
+                      (post: any) => post.slug === p.slug,
+                    );
+                    return (
+                      <div key={p.slug} className="flex items-center gap-2">
+                        <span className="text-xs text-zinc-700 w-3 tabular-nums shrink-0">
+                          {i + 1}
+                        </span>
+                        <span className="flex-1 text-xs text-zinc-300 truncate">
+                          {meta?.title ?? p.slug}
+                        </span>
+                        <span className="text-xs text-zinc-500 tabular-nums shrink-0">
+                          {p.views.toLocaleString()} views
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── Posts header ───────────────────────────────────────────── */}
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
@@ -519,6 +711,35 @@ export default function AdminDashboard() {
         )}
       </div>
     </AdminShell>
+  );
+}
+
+function AnalyticsTile({
+  label,
+  value,
+  accent = "text-white",
+  loading,
+}: {
+  label: string;
+  value: number | undefined;
+  accent?: string;
+  loading?: boolean;
+}) {
+  return (
+    <div className="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3">
+      <p className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold">
+        {label}
+      </p>
+      <p className={`text-2xl font-bold tabular-nums mt-1 ${accent}`}>
+        {loading ? (
+          <span className="text-zinc-700 animate-pulse">—</span>
+        ) : value === undefined ? (
+          <span className="text-zinc-600">—</span>
+        ) : (
+          value.toLocaleString()
+        )}
+      </p>
+    </div>
   );
 }
 
