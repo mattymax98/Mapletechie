@@ -2,7 +2,6 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { bootstrapAdmin } from "./lib/auth";
 import { startScheduledPublishCron } from "./lib/scheduledPublish";
-import { startEditorWeeklyDigestCron } from "./lib/editorWeeklyDigest";
 import { seedCuratedCategories } from "./lib/seedCategories";
 import { auditPostCoverImages } from "./lib/coverImageValidation";
 import { seedSiteSettings } from "./lib/siteSettings";
@@ -40,9 +39,6 @@ bootstrapAdmin()
 // Promote any post whose `scheduledFor` time has arrived to "published".
 startScheduledPublishCron();
 
-// Sunday 8pm Toronto: email each editor a summary of the week (their posts,
-// totals, and a heads-up that the public newsletter compose is open).
-startEditorWeeklyDigestCron();
 
 app.listen(port, (err) => {
   if (err) {
