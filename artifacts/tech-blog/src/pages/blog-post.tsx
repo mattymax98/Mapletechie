@@ -585,7 +585,7 @@ export default function BlogPost() {
             One email, every Sunday. The week's biggest stories, sharpest takes, and what to read next.
           </p>
           <Button asChild className="rounded-none uppercase font-bold tracking-wider">
-            <Link href="/#newsletter">Subscribe free</Link>
+            <a href="/#newsletter">Subscribe free</a>
           </Button>
         </div>
 
