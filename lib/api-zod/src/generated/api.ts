@@ -1856,6 +1856,10 @@ export const GetSiteSettingsResponse = zod.object({
   updatedBy: zod.string().nullish(),
   envForced: zod.boolean(),
   effectiveMaintenance: zod.boolean(),
+  notificationEmail: zod.string().nullish(),
+  newsletterFromName: zod.string().nullish(),
+  newsletterFromAddress: zod.string().nullish(),
+  newsletterReplyTo: zod.string().nullish(),
 });
 
 /**
@@ -1865,6 +1869,10 @@ export const UpdateSiteSettingsBody = zod.object({
   maintenanceMode: zod.boolean().optional(),
   maintenanceMessage: zod.string().nullish(),
   maintenanceEta: zod.string().nullish(),
+  notificationEmail: zod.string().nullish(),
+  newsletterFromName: zod.string().nullish(),
+  newsletterFromAddress: zod.string().nullish(),
+  newsletterReplyTo: zod.string().nullish(),
 });
 
 export const UpdateSiteSettingsResponse = zod.object({
@@ -1875,4 +1883,8 @@ export const UpdateSiteSettingsResponse = zod.object({
   updatedBy: zod.string().nullish(),
   envForced: zod.boolean(),
   effectiveMaintenance: zod.boolean(),
+  notificationEmail: zod.string().nullish(),
+  newsletterFromName: zod.string().nullish(),
+  newsletterFromAddress: zod.string().nullish(),
+  newsletterReplyTo: zod.string().nullish(),
 });

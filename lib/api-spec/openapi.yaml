@@ -1393,6 +1393,10 @@ components:
         updatedBy: { type: string, nullable: true }
         envForced: { type: boolean }
         effectiveMaintenance: { type: boolean }
+        notificationEmail: { type: string, nullable: true }
+        newsletterFromName: { type: string, nullable: true }
+        newsletterFromAddress: { type: string, nullable: true }
+        newsletterReplyTo: { type: string, nullable: true }
       required: [maintenanceMode, envForced, effectiveMaintenance]
     UpdateSiteSettingsInput:
       type: object
@@ -1400,6 +1404,10 @@ components:
         maintenanceMode: { type: boolean }
         maintenanceMessage: { type: string, nullable: true }
         maintenanceEta: { type: string, nullable: true }
+        notificationEmail: { type: string, nullable: true }
+        newsletterFromName: { type: string, nullable: true }
+        newsletterFromAddress: { type: string, nullable: true }
+        newsletterReplyTo: { type: string, nullable: true }
     UploadUrlRequest:
       type: object
       required: [name, size, contentType]

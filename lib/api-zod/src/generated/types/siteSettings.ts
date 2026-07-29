@@ -14,4 +14,8 @@ export interface SiteSettings {
   updatedBy?: string | null;
   envForced: boolean;
   effectiveMaintenance: boolean;
+  notificationEmail?: string | null;
+  newsletterFromName?: string | null;
+  newsletterFromAddress?: string | null;
+  newsletterReplyTo?: string | null;
 }

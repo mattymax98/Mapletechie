@@ -19,12 +19,20 @@ export interface SiteSettings {
   updatedBy?: string | null;
   envForced: boolean;
   effectiveMaintenance: boolean;
+  notificationEmail?: string | null;
+  newsletterFromName?: string | null;
+  newsletterFromAddress?: string | null;
+  newsletterReplyTo?: string | null;
 }
 
 export interface UpdateSiteSettingsInput {
   maintenanceMode?: boolean;
   maintenanceMessage?: string | null;
   maintenanceEta?: string | null;
+  notificationEmail?: string | null;
+  newsletterFromName?: string | null;
+  newsletterFromAddress?: string | null;
+  newsletterReplyTo?: string | null;
 }
 
 export interface UploadUrlRequest {
