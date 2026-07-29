@@ -23,10 +23,8 @@ router.get("/settings/status", async (_req, res): Promise<void> => {
   });
 });
 
-/** Admin: read the full settings row + effective state (incl. env override). */
-router.get("/admin/settings", adminAuth, requireRole("admin"), async (_req, res): Promise<void> => {
-  const [row, state] = await Promise.all([getSiteSettings(), getMaintenanceState()]);
-  res.json({
+function settingsPayload(row: Awaited<ReturnType<typeof getSiteSettings>>, state: { envForced: boolean; active: boolean }) {
+  return {
     maintenanceMode: row.maintenanceMode,
     maintenanceMessage: row.maintenanceMessage,
     maintenanceEta: row.maintenanceEta,
@@ -34,16 +32,45 @@ router.get("/admin/settings", adminAuth, requireRole("admin"), async (_req, res)
     updatedBy: row.updatedBy,
     envForced: state.envForced,
     effectiveMaintenance: state.active,
-  });
+    notificationEmail: row.notificationEmail ?? null,
+    newsletterFromName: row.newsletterFromName ?? null,
+    newsletterFromAddress: row.newsletterFromAddress ?? null,
+    newsletterReplyTo: row.newsletterReplyTo ?? null,
+  };
+}
+
+/** Admin: read the full settings row + effective state (incl. env override). */
+router.get("/admin/settings", adminAuth, requireRole("admin"), async (_req, res): Promise<void> => {
+  const [row, state] = await Promise.all([getSiteSettings(), getMaintenanceState()]);
+  res.json(settingsPayload(row, state));
 });
 
-/** Admin: update maintenance settings. Audit-logged. */
+/** Admin: update settings (maintenance + email). Audit-logged. */
 router.put("/admin/settings", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
   const body = req.body ?? {};
-  const { maintenanceMode, maintenanceMessage, maintenanceEta } = body;
+  const {
+    maintenanceMode,
+    maintenanceMessage,
+    maintenanceEta,
+    notificationEmail,
+    newsletterFromName,
+    newsletterFromAddress,
+    newsletterReplyTo,
+  } = body;
 
   if (maintenanceMode !== undefined && typeof maintenanceMode !== "boolean") {
     res.status(400).json({ error: "maintenanceMode must be a boolean" });
+    return;
+  }
+
+  // Validate @mapletechie.com constraint for the newsletter from address
+  if (
+    newsletterFromAddress != null &&
+    typeof newsletterFromAddress === "string" &&
+    newsletterFromAddress.trim() !== "" &&
+    !newsletterFromAddress.trim().toLowerCase().endsWith("@mapletechie.com")
+  ) {
+    res.status(400).json({ error: "newsletterFromAddress must be a @mapletechie.com address" });
     return;
   }
 
@@ -52,6 +79,10 @@ router.put("/admin/settings", adminAuth, requireRole("admin"), async (req, res):
     maintenanceMessage,
     maintenanceEta,
     updatedBy: req.user?.username ?? null,
+    notificationEmail,
+    newsletterFromName,
+    newsletterFromAddress,
+    newsletterReplyTo,
   });
 
   const state = await getMaintenanceState();
@@ -60,23 +91,15 @@ router.put("/admin/settings", adminAuth, requireRole("admin"), async (req, res):
     action: "settings.update",
     entityType: "site_settings",
     entityId: row.id,
-    summary: `Maintenance mode ${row.maintenanceMode ? "enabled" : "disabled"}`,
+    summary: `Settings updated by ${req.user?.username ?? "admin"}`,
     details: {
       maintenanceMode: row.maintenanceMode,
-      maintenanceMessage: row.maintenanceMessage,
-      maintenanceEta: row.maintenanceEta,
+      notificationEmail: row.notificationEmail,
+      newsletterFromAddress: row.newsletterFromAddress,
     },
   });
 
-  res.json({
-    maintenanceMode: row.maintenanceMode,
-    maintenanceMessage: row.maintenanceMessage,
-    maintenanceEta: row.maintenanceEta,
-    updatedAt: row.updatedAt,
-    updatedBy: row.updatedBy,
-    envForced: state.envForced,
-    effectiveMaintenance: state.active,
-  });
+  res.json(settingsPayload(row, state));
 });
 
 export default router;

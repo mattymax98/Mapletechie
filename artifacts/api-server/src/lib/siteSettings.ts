@@ -90,11 +90,29 @@ export async function getMaintenanceState(): Promise<MaintenanceState> {
   };
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function nullableEmail(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const t = v.trim().toLowerCase().slice(0, 254);
+  return EMAIL_RE.test(t) ? t : null;
+}
+
+function nullableStr(v: unknown, max: number): string | null {
+  if (typeof v !== "string") return null;
+  const t = v.trim().slice(0, max);
+  return t || null;
+}
+
 export interface UpdateSiteSettingsInput {
   maintenanceMode?: boolean;
   maintenanceMessage?: string | null;
   maintenanceEta?: string | null;
   updatedBy?: string | null;
+  notificationEmail?: string | null;
+  newsletterFromName?: string | null;
+  newsletterFromAddress?: string | null;
+  newsletterReplyTo?: string | null;
 }
 
 export async function updateSiteSettings(
@@ -115,6 +133,14 @@ export async function updateSiteSettings(
         : null;
   }
   if (input.updatedBy !== undefined) patch.updatedBy = input.updatedBy ?? null;
+  if (input.notificationEmail !== undefined)
+    patch.notificationEmail = nullableEmail(input.notificationEmail);
+  if (input.newsletterFromName !== undefined)
+    patch.newsletterFromName = nullableStr(input.newsletterFromName, 100);
+  if (input.newsletterFromAddress !== undefined)
+    patch.newsletterFromAddress = nullableEmail(input.newsletterFromAddress);
+  if (input.newsletterReplyTo !== undefined)
+    patch.newsletterReplyTo = nullableEmail(input.newsletterReplyTo);
 
   const [row] = await db
     .update(siteSettingsTable)

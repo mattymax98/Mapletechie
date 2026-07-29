@@ -13,6 +13,7 @@ import { writeAuditLog } from "../lib/audit";
 import { logger } from "../lib/logger";
 import { newsletterLimiter } from "../middlewares/rateLimit";
 import { runEditorWeeklyDigestNow } from "../lib/editorWeeklyDigest";
+import { getSiteSettings } from "../lib/siteSettings";
 
 const router = Router();
 
@@ -239,7 +240,15 @@ router.post(
       return;
     }
     try {
-      const posts = await fetchPostsByIds(postIds);
+      const [posts, settings] = await Promise.all([
+        fetchPostsByIds(postIds),
+        getSiteSettings(),
+      ]);
+      const newsletterFrom =
+        settings.newsletterFromName && settings.newsletterFromAddress
+          ? `${settings.newsletterFromName} <${settings.newsletterFromAddress}>`
+          : undefined;
+      const newsletterReplyTo = settings.newsletterReplyTo ?? undefined;
       const html = digestEmailHtml({
         posts,
         editorNote,
@@ -250,6 +259,8 @@ router.post(
         to,
         subject: `[TEST] ${subject}`,
         html,
+        from: newsletterFrom,
+        replyTo: newsletterReplyTo,
         text:
           editorNote +
           (posts.length
@@ -297,7 +308,15 @@ router.post(
         return;
       }
 
-      const posts = await fetchPostsByIds(postIds);
+      const [posts, settings] = await Promise.all([
+        fetchPostsByIds(postIds),
+        getSiteSettings(),
+      ]);
+      const newsletterFrom =
+        settings.newsletterFromName && settings.newsletterFromAddress
+          ? `${settings.newsletterFromName} <${settings.newsletterFromAddress}>`
+          : undefined;
+      const newsletterReplyTo = settings.newsletterReplyTo ?? undefined;
       const label = weekLabel();
       let sent = 0;
       let failed = 0;
@@ -311,6 +330,8 @@ router.post(
             to: s.email,
             subject,
             html,
+            from: newsletterFrom,
+            replyTo: newsletterReplyTo,
             text:
               editorNote +
               (posts.length

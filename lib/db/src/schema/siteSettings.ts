@@ -17,6 +17,14 @@ export const siteSettingsTable = pgTable("site_settings", {
   maintenanceEta: text("maintenance_eta"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: text("updated_by"),
+  /** Address that receives contact form submission notifications. */
+  notificationEmail: text("notification_email"),
+  /** Display name used as sender on outgoing newsletters (e.g. "Mapletechie"). */
+  newsletterFromName: text("newsletter_from_name"),
+  /** @mapletechie.com address used as the From on outgoing newsletters. */
+  newsletterFromAddress: text("newsletter_from_address"),
+  /** Reply-to address on outgoing newsletters — connects replies to the admin's inbox. */
+  newsletterReplyTo: text("newsletter_reply_to"),
 });
 
 export type SiteSettings = typeof siteSettingsTable.$inferSelect;

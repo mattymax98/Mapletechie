@@ -10,4 +10,8 @@ export interface UpdateSiteSettingsInput {
   maintenanceMode?: boolean;
   maintenanceMessage?: string | null;
   maintenanceEta?: string | null;
+  notificationEmail?: string | null;
+  newsletterFromName?: string | null;
+  newsletterFromAddress?: string | null;
+  newsletterReplyTo?: string | null;
 }
