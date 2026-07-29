@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AdminShell } from "@/components/admin/AdminShell";
 import { Link } from "wouter";
 import { useAdmin } from "@/context/AdminContext";
 import { Button } from "@/components/ui/button";
@@ -101,21 +102,7 @@ export default function AdminSendEmail() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 h-16 flex items-center gap-4">
-          <Link href="/admin">
-            <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
-              <ArrowLeft className="w-4 h-4" /> Back
-            </Button>
-          </Link>
-          <div className="flex items-center gap-2">
-            <Mail className="w-5 h-5 text-orange-500" />
-            <h1 className="text-lg font-semibold">Send Email</h1>
-          </div>
-        </div>
-      </header>
-
+    <AdminShell title="Send Email">
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-6">
         {!hasMapletechieEmail && (
           <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/40 text-amber-200 rounded-lg p-4">
@@ -266,6 +253,6 @@ export default function AdminSendEmail() {
           </div>
         </section>
       </main>
-    </div>
+    </AdminShell>
   );
 }

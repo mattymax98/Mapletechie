@@ -1,5 +1,6 @@
+import { AdminShell } from "@/components/admin/AdminShell";
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { useAdmin } from "@/context/AdminContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,22 +57,7 @@ export default function AdminGenerate() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center gap-4">
-          <Link href="/admin">
-            <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </Button>
-          </Link>
-          <h1 className="text-lg font-semibold flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-orange-500" />
-            AI Post Generator
-          </h1>
-        </div>
-      </header>
-
+    <AdminShell title="AI Post Generator">
       <main className="max-w-3xl mx-auto px-4 py-12">
         <div className="mb-10">
           <h2 className="text-3xl font-black uppercase tracking-tight mb-3">
@@ -149,6 +135,6 @@ export default function AdminGenerate() {
           </p>
         </div>
       </main>
-    </div>
+    </AdminShell>
   );
 }

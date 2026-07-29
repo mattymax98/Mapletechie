@@ -1,5 +1,5 @@
+import { AdminShell } from "@/components/admin/AdminShell";
 import { useState } from "react";
-import { Link } from "wouter";
 import {
   useListCategories,
   useCreateCategory,
@@ -205,34 +205,16 @@ export default function AdminCategories() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center gap-4">
-          <Link href="/admin">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-zinc-400 hover:text-white gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" /> Back
-            </Button>
-          </Link>
-          <h1 className="text-lg font-semibold flex items-center gap-2">
-            <Tag className="w-4 h-4 text-orange-500" /> Categories
-          </h1>
-          {canManage && (
-            <div className="ml-auto">
-              <Button
-                onClick={openCreate}
-                className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
-              >
-                <Plus className="w-4 h-4" /> New Category
-              </Button>
-            </div>
-          )}
-        </div>
-      </header>
-
+    <AdminShell
+      title="Categories"
+      actions={
+        canManage ? (
+          <Button onClick={openCreate} className="bg-orange-500 hover:bg-orange-600 text-white gap-2">
+            <Plus className="w-4 h-4" /> New Category
+          </Button>
+        ) : undefined
+      }
+    >
       <main className="max-w-5xl mx-auto px-4 py-8">
         <p className="text-zinc-500 text-sm mb-6">
           Renaming a category automatically updates every post that uses it. Deleting
@@ -482,6 +464,6 @@ export default function AdminCategories() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </AdminShell>
   );
 }

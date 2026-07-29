@@ -9,6 +9,7 @@ import {
   useListEditors,
 } from "@workspace/api-client-react";
 import { useAdmin } from "@/context/AdminContext";
+import { AdminShell } from "@/components/admin/AdminShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -596,19 +597,6 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
-  if (isEditing && loadingPost) {
-    return (
-      <div className="min-h-screen bg-black p-8">
-        <div className="max-w-3xl mx-auto space-y-4">
-          <Skeleton className="h-8 w-48 bg-zinc-900" />
-          <Skeleton className="h-12 w-full bg-zinc-900" />
-          <Skeleton className="h-12 w-full bg-zinc-900" />
-          <Skeleton className="h-64 w-full bg-zinc-900" />
-        </div>
-      </div>
-    );
-  }
-
   const previewTitle = (form.seoTitle.trim() || form.title || "Your post title") + " | Mapletechie";
   const previewDesc =
     form.seoDescription.trim() ||
@@ -617,20 +605,16 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   const previewSlug = form.slug || "your-post-slug";
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-20">
-        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center gap-4">
-          <Link href="/admin">
-            <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </Button>
-          </Link>
-          <h1 className="text-lg font-semibold">{isEditing ? "Edit Post" : "New Post"}</h1>
+    <AdminShell title={isEditing ? "Edit Post" : "New Post"}>
+      {isEditing && loadingPost ? (
+        <div className="max-w-4xl mx-auto px-4 py-8 space-y-4">
+          <Skeleton className="h-8 w-48 bg-zinc-900" />
+          <Skeleton className="h-12 w-full bg-zinc-900" />
+          <Skeleton className="h-12 w-full bg-zinc-900" />
+          <Skeleton className="h-64 w-full bg-zinc-900" />
         </div>
-      </header>
-
-      <main className="max-w-4xl mx-auto px-4 py-8">
+      ) : null}
+      <main className="max-w-4xl mx-auto px-4 py-8" style={isEditing && loadingPost ? { display: "none" } : undefined}>
         <form onSubmit={(e) => submit(e)} className="space-y-6">
           {error && (
             <div
@@ -1242,6 +1226,6 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
           </div>
         </form>
       </main>
-    </div>
+    </AdminShell>
   );
 }

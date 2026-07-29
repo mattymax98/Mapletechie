@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { AdminShell } from "@/components/admin/AdminShell";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, BarChart3, Eye, Globe, Users, RefreshCw, TrendingUp, ExternalLink } from "lucide-react";
@@ -91,26 +91,7 @@ export default function AdminAnalytics() {
   const maxBar = (rows: RowKV[] | null) => (rows && rows.length ? Math.max(...rows.map((r) => r.value)) : 1);
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between gap-3">
-          <Link href="/admin">
-            <div className="flex items-baseline gap-2 leading-none whitespace-nowrap shrink-0 cursor-pointer">
-              <span className="text-base sm:text-lg font-bold tracking-tight">
-                <span className="text-orange-500">MAPLE</span>TECHIE
-              </span>
-              <span className="text-zinc-500 text-sm sm:text-base font-light">/</span>
-              <span className="text-zinc-300 text-xs sm:text-sm font-medium tracking-tight">Analytics</span>
-            </div>
-          </Link>
-          <Link href="/admin">
-            <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white">
-              <ArrowLeft className="w-4 h-4 mr-2" /> Back
-            </Button>
-          </Link>
-        </div>
-      </header>
-
+    <AdminShell title="Analytics">
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -277,7 +258,7 @@ export default function AdminAnalytics() {
           </Panel>
         </div>
       </main>
-    </div>
+    </AdminShell>
   );
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AdminShell } from "@/components/admin/AdminShell";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -108,22 +109,16 @@ export default function AdminJobs() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/admin">
-            <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2">
-              <ArrowLeft className="w-4 h-4" /> Back to Dashboard
-            </Button>
-          </Link>
-          {!editing && (
-            <Button onClick={startNew} className="bg-orange-500 hover:bg-orange-600 text-white gap-2">
-              <PlusCircle className="w-4 h-4" /> New Job Posting
-            </Button>
-          )}
-        </div>
-      </header>
-
+    <AdminShell
+      title="Job Postings"
+      actions={
+        !editing ? (
+          <Button onClick={startNew} className="bg-orange-500 hover:bg-orange-600 text-white gap-2">
+            <PlusCircle className="w-4 h-4" /> New Job Posting
+          </Button>
+        ) : undefined
+      }
+    >
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Job Postings</h1>
@@ -267,6 +262,6 @@ export default function AdminJobs() {
           </div>
         )}
       </main>
-    </div>
+    </AdminShell>
   );
 }
