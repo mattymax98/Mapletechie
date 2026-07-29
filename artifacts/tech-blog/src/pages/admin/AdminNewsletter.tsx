@@ -15,6 +15,7 @@ import {
   FileText,
   Users,
   Eye,
+  ExternalLink,
   X,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -426,15 +427,31 @@ export default function AdminNewsletter() {
                   <span className="text-sm font-semibold text-zinc-200">Email preview</span>
                   <span className="text-xs text-zinc-500 ml-1">— read-only, no email is sent</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setPreviewHtml(null)}
-                  className="text-zinc-400 hover:text-white transition-colors"
-                  aria-label="Close preview"
-                  data-testid="button-close-preview"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const blob = new Blob([previewHtml!], { type: "text/html" });
+                      const url = URL.createObjectURL(blob);
+                      window.open(url, "_blank", "noopener");
+                    }}
+                    className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors px-2 py-1 rounded hover:bg-zinc-800"
+                    aria-label="Open preview in new tab"
+                    data-testid="button-open-preview-tab"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Open in new tab
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewHtml(null)}
+                    className="text-zinc-400 hover:text-white transition-colors"
+                    aria-label="Close preview"
+                    data-testid="button-close-preview"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
               {/* Iframe renders the full email HTML */}
               <iframe
