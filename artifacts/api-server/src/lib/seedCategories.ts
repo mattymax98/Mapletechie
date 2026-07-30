@@ -1,5 +1,5 @@
 import { db, categoriesTable, postsTable } from "@workspace/db";
-import { eq, sql, notInArray } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { logger } from "./logger";
 
 const CURATED = [
@@ -80,31 +80,6 @@ export async function seedCuratedCategories(): Promise<void> {
         logger.info(
           { slug: c.slug, from: existing.name, to: c.name },
           "seedCategories: renamed category",
-        );
-      }
-    }
-
-    // Delete non-curated categories that have no posts. Categories with
-    // posts are FK-protected — the DELETE would raise 23503 if a post
-    // still references them, so we explicitly guard with a count check
-    // and warn instead.
-    const stale = await db
-      .select()
-      .from(categoriesTable)
-      .where(notInArray(categoriesTable.slug, CURATED_SLUGS as unknown as string[]));
-
-    for (const cat of stale) {
-      const [{ count }] = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(postsTable)
-        .where(eq(postsTable.categoryId, cat.id));
-      if (count === 0) {
-        await db.delete(categoriesTable).where(eq(categoriesTable.id, cat.id));
-        logger.info({ slug: cat.slug, name: cat.name }, "seedCategories: removed unused stale category");
-      } else {
-        logger.warn(
-          { slug: cat.slug, name: cat.name, postCount: count },
-          "seedCategories: keeping non-curated category because posts still reference it; reassign manually",
         );
       }
     }
