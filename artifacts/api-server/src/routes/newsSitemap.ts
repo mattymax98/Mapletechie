@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, postsTable, categoriesTable, postCategoriesTable } from "@workspace/db";
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte } from "drizzle-orm";
 
 const router = Router();
 
@@ -42,6 +42,14 @@ router.get("/news-sitemap.xml", async (req, res): Promise<void> => {
     )
     .orderBy(desc(postsTable.publishedAt))
     .limit(1_000);
+
+  // Google's News sitemap spec requires at least one <url>. Return 404 when
+  // the 48-hour window is empty so Google treats it as "no sitemap right now"
+  // rather than flagging a "Missing XML tag" validation error.
+  if (rows.length === 0) {
+    res.status(404).type("text/plain").send("No news articles published in the last 48 hours.");
+    return;
+  }
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset
