@@ -410,6 +410,7 @@ Disallow: /search?
 Crawl-delay: 1
 
 Sitemap: ${ROBOTS_DOMAIN}/api/sitemap.xml
+Sitemap: ${ROBOTS_DOMAIN}/api/news-sitemap.xml
 `;
 app.get("/robots.txt", (_req, res) => {
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
@@ -427,12 +428,30 @@ const sitemapIndexXml = `<?xml version="1.0" encoding="UTF-8"?>
   <sitemap>
     <loc>${ROBOTS_DOMAIN}/api/sitemap.xml</loc>
   </sitemap>
+  <sitemap>
+    <loc>${ROBOTS_DOMAIN}/api/news-sitemap.xml</loc>
+  </sitemap>
 </sitemapindex>
 `;
 app.get("/sitemap.xml", (_req, res) => {
   res.setHeader("Content-Type", "application/xml; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=3600, s-maxage=3600");
   res.send(sitemapIndexXml);
+});
+
+// Proxy /news-sitemap.xml → /api/news-sitemap.xml so Google can reach it at
+// the bare root path (no /api prefix). Registered before sirv and the
+// maintenance gate so crawlers can always read it.
+app.get("/news-sitemap.xml", async (_req, res): Promise<void> => {
+  try {
+    const upstream = await fetch(`${API_BASE}/api/news-sitemap.xml`);
+    const body = await upstream.text();
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=900, s-maxage=900");
+    res.status(upstream.status).send(body);
+  } catch {
+    res.status(502).send("<?xml version=\"1.0\" encoding=\"UTF-8\"?><error>upstream unavailable</error>");
+  }
 });
 
 // Serve static assets (CSS, JS, images, public/* files) from the Vite build.
