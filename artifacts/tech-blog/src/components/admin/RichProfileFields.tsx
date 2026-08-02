@@ -111,7 +111,7 @@ export function RichProfileFieldsEditor({
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-orange-400 text-xs uppercase tracking-wider font-bold">
+        <p className="text-red-400 text-xs uppercase tracking-wider font-bold">
           Public profile details
         </p>
         <p className="text-xs text-zinc-500 mt-1">

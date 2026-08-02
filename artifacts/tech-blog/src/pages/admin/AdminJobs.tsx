@@ -113,7 +113,7 @@ export default function AdminJobs() {
       title="Job Postings"
       actions={
         !editing ? (
-          <Button onClick={startNew} className="bg-orange-500 hover:bg-orange-600 text-white gap-2">
+          <Button onClick={startNew} className="bg-red-500 hover:bg-red-600 text-white gap-2">
             <PlusCircle className="w-4 h-4" /> New Job Posting
           </Button>
         ) : undefined
@@ -122,7 +122,7 @@ export default function AdminJobs() {
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Job Postings</h1>
-          <p className="text-zinc-400 text-sm mt-1">Create and manage open roles. Applications appear in your <Link href="/admin/inbox" className="text-orange-400 hover:underline">Inbox</Link>.</p>
+          <p className="text-zinc-400 text-sm mt-1">Create and manage open roles. Applications appear in your <Link href="/admin/inbox" className="text-red-400 hover:underline">Inbox</Link>.</p>
         </div>
 
         {msg && (
@@ -211,7 +211,7 @@ export default function AdminJobs() {
             </label>
 
             <div className="flex items-center gap-3 pt-2">
-              <Button type="submit" disabled={saving} className="bg-orange-500 hover:bg-orange-600 text-white">
+              <Button type="submit" disabled={saving} className="bg-red-500 hover:bg-red-600 text-white">
                 {saving ? "Saving..." : editing === "new" ? "Publish Job" : "Save Changes"}
               </Button>
               <Button type="button" variant="ghost" onClick={() => setEditing(null)} className="text-zinc-400">Cancel</Button>
@@ -224,7 +224,7 @@ export default function AdminJobs() {
         ) : !jobs.length ? (
           <div className="text-center py-12 text-zinc-500 border border-zinc-800 border-dashed rounded">
             <p>No job postings yet.</p>
-            <Button onClick={startNew} className="mt-4 bg-orange-500 hover:bg-orange-600 text-white">Post your first job</Button>
+            <Button onClick={startNew} className="mt-4 bg-red-500 hover:bg-red-600 text-white">Post your first job</Button>
           </div>
         ) : (
           <div className="space-y-3">

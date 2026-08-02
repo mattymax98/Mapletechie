@@ -14,7 +14,7 @@ export default function NotFound() {
       </Helmet>
       <div className="min-h-[70vh] flex items-center justify-center px-4 py-16">
         <div className="max-w-xl w-full text-center space-y-6">
-          <p className="text-7xl font-display font-bold text-orange-500">404</p>
+          <p className="text-7xl font-display font-bold text-red-500">404</p>
           <h1 className="text-3xl md:text-4xl font-display font-bold text-zinc-100">
             We couldn't find that page
           </h1>
@@ -25,7 +25,7 @@ export default function NotFound() {
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
             <Link href="/">
-              <Button className="bg-orange-500 hover:bg-orange-600 text-white" data-testid="button-not-found-home">
+              <Button className="bg-red-500 hover:bg-red-600 text-white" data-testid="button-not-found-home">
                 <Home className="w-4 h-4 mr-2" /> Back to homepage
               </Button>
             </Link>
