@@ -83,11 +83,11 @@ export default function AdminProfile() {
           <ErrorBanner message={msg?.text} kind={msg?.kind === "ok" ? "success" : "error"} />
 
           <div className="flex items-center gap-4 p-4 bg-zinc-900 rounded-lg border border-zinc-800">
-            <div className="w-20 h-20 rounded-full overflow-hidden bg-zinc-800 border-2 border-orange-500">
+            <div className="w-20 h-20 rounded-full overflow-hidden bg-zinc-800 border-2 border-red-500">
               {form.avatarUrl ? (
                 <img src={form.avatarUrl} alt="" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-orange-400">
+                <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-red-400">
                   {(form.displayName || user?.username || "?").charAt(0).toUpperCase()}
                 </div>
               )}
@@ -144,7 +144,7 @@ export default function AdminProfile() {
           </div>
 
           <div className="flex justify-end pt-4 border-t border-zinc-800">
-            <Button type="submit" disabled={updateMe.isPending} className="bg-orange-500 hover:bg-orange-600 gap-2">
+            <Button type="submit" disabled={updateMe.isPending} className="bg-red-500 hover:bg-red-600 gap-2">
               <Save className="w-4 h-4" /> {updateMe.isPending ? "Saving..." : "Save Profile"}
             </Button>
           </div>

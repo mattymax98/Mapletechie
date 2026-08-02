@@ -177,7 +177,7 @@ export default function AdminInbox() {
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded ${tab === t.id ? "bg-orange-500 text-white" : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"}`}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded ${tab === t.id ? "bg-red-500 text-white" : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"}`}
             >
               <t.icon className="w-4 h-4" />
               {t.label}
@@ -201,7 +201,7 @@ export default function AdminInbox() {
                         </Badge>
                       )}
                     </div>
-                    <a href={`mailto:${app.email}`} className="text-orange-400 text-sm hover:underline">{app.email}</a>
+                    <a href={`mailto:${app.email}`} className="text-red-400 text-sm hover:underline">{app.email}</a>
                     {app.phone && <span className="text-zinc-500 text-sm ml-3">· {app.phone}</span>}
                   </div>
                   <div className="flex items-center gap-3 text-xs text-zinc-500">
@@ -213,14 +213,14 @@ export default function AdminInbox() {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-3 mb-3">
-                  {app.resumeUrl && <a href={app.resumeUrl} target="_blank" rel="noopener" className="text-xs px-2 py-1 bg-zinc-900 border border-zinc-700 rounded text-zinc-300 hover:text-orange-400 inline-flex items-center gap-1"><ExternalLink className="w-3 h-3"/> Resume</a>}
-                  {app.portfolioUrl && <a href={app.portfolioUrl} target="_blank" rel="noopener" className="text-xs px-2 py-1 bg-zinc-900 border border-zinc-700 rounded text-zinc-300 hover:text-orange-400 inline-flex items-center gap-1"><ExternalLink className="w-3 h-3"/> Portfolio</a>}
+                  {app.resumeUrl && <a href={app.resumeUrl} target="_blank" rel="noopener" className="text-xs px-2 py-1 bg-zinc-900 border border-zinc-700 rounded text-zinc-300 hover:text-red-400 inline-flex items-center gap-1"><ExternalLink className="w-3 h-3"/> Resume</a>}
+                  {app.portfolioUrl && <a href={app.portfolioUrl} target="_blank" rel="noopener" className="text-xs px-2 py-1 bg-zinc-900 border border-zinc-700 rounded text-zinc-300 hover:text-red-400 inline-flex items-center gap-1"><ExternalLink className="w-3 h-3"/> Portfolio</a>}
                 </div>
                 <p className="text-zinc-300 text-sm whitespace-pre-line bg-zinc-900/50 p-3 rounded border border-zinc-800">{app.coverLetter}</p>
 
                 {replyTo !== app.id ? (
                   <div className="mt-3 flex items-center gap-2">
-                    <Button size="sm" onClick={() => openReply(app, "forward")} className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5 h-8 px-3 text-xs">
+                    <Button size="sm" onClick={() => openReply(app, "forward")} className="bg-red-500 hover:bg-red-600 text-white gap-1.5 h-8 px-3 text-xs">
                       <Send className="w-3.5 h-3.5" /> Reply via email
                     </Button>
                     <span className="text-xs text-zinc-500">
@@ -243,7 +243,7 @@ export default function AdminInbox() {
                           key={k}
                           type="button"
                           onClick={() => applyTemplate(app, k)}
-                          className="text-xs px-2 py-1 bg-zinc-900 border border-zinc-700 rounded text-zinc-300 hover:bg-zinc-800 hover:text-orange-400"
+                          className="text-xs px-2 py-1 bg-zinc-900 border border-zinc-700 rounded text-zinc-300 hover:bg-zinc-800 hover:text-red-400"
                         >
                           {REPLY_TEMPLATES[k].label}
                         </button>
@@ -291,7 +291,7 @@ export default function AdminInbox() {
                         size="sm"
                         disabled={sending || !replySubject.trim() || !replyMessage.trim()}
                         onClick={() => sendReply(app.id)}
-                        className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5"
+                        className="bg-red-500 hover:bg-red-600 text-white gap-1.5"
                       >
                         <Send className="w-4 h-4" />
                         {sending ? "Sending…" : "Send reply"}
@@ -316,8 +316,8 @@ export default function AdminInbox() {
                   <div>
                     <h3 className="font-bold text-lg">{a.companyName}</h3>
                     <p className="text-sm text-zinc-400">
-                      {a.contactName} · <a href={`mailto:${a.email}`} className="text-orange-400 hover:underline">{a.email}</a>
-                      {a.website && <> · <a href={a.website} target="_blank" rel="noopener" className="text-orange-400 hover:underline">{a.website}</a></>}
+                      {a.contactName} · <a href={`mailto:${a.email}`} className="text-red-400 hover:underline">{a.email}</a>
+                      {a.website && <> · <a href={a.website} target="_blank" rel="noopener" className="text-red-400 hover:underline">{a.website}</a></>}
                     </p>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-zinc-500">
@@ -328,7 +328,7 @@ export default function AdminInbox() {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 mb-3 text-xs">
-                  <span className="bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-1 rounded">{a.adType}</span>
+                  <span className="bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-1 rounded">{a.adType}</span>
                   {a.budget && <span className="bg-zinc-900 border border-zinc-700 px-2 py-1 rounded text-zinc-300">Budget: {a.budget}</span>}
                 </div>
                 <p className="text-zinc-300 text-sm whitespace-pre-line bg-zinc-900/50 p-3 rounded border border-zinc-800">{a.message}</p>
@@ -351,8 +351,8 @@ export default function AdminInbox() {
               <div key={c.id} className="bg-zinc-950 border border-zinc-800 rounded-lg p-5">
                 <div className="flex items-start justify-between gap-4 mb-3 flex-wrap">
                   <div>
-                    <h3 className="font-bold">{c.name || "Anonymous"} <span className="text-zinc-500 font-normal text-sm">on</span> <a href={`/blog/${c.postSlug}`} target="_blank" rel="noopener" className="text-orange-400 hover:underline text-sm">/{c.postSlug}</a></h3>
-                    {c.email && <a href={`mailto:${c.email}`} className="text-orange-400 text-xs hover:underline">{c.email}</a>}
+                    <h3 className="font-bold">{c.name || "Anonymous"} <span className="text-zinc-500 font-normal text-sm">on</span> <a href={`/blog/${c.postSlug}`} target="_blank" rel="noopener" className="text-red-400 hover:underline text-sm">/{c.postSlug}</a></h3>
+                    {c.email && <a href={`mailto:${c.email}`} className="text-red-400 text-xs hover:underline">{c.email}</a>}
                   </div>
                   <span className="text-xs text-zinc-500">{format(new Date(c.createdAt), "MMM d, yyyy · h:mm a")}</span>
                 </div>
@@ -384,7 +384,7 @@ export default function AdminInbox() {
                 <div className="flex items-start justify-between gap-4 mb-2 flex-wrap">
                   <div>
                     <h3 className="font-bold">{c.subject}</h3>
-                    <p className="text-sm text-zinc-400">{c.name} · <a href={`mailto:${c.email}`} className="text-orange-400 hover:underline">{c.email}</a></p>
+                    <p className="text-sm text-zinc-400">{c.name} · <a href={`mailto:${c.email}`} className="text-red-400 hover:underline">{c.email}</a></p>
                   </div>
                   <span className="text-xs text-zinc-500">{format(new Date(c.createdAt), "MMM d, yyyy")}</span>
                 </div>

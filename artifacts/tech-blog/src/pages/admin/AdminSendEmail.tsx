@@ -121,7 +121,7 @@ export default function AdminSendEmail() {
           <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4 text-sm text-zinc-300">
             <p>
               Sending as{" "}
-              <span className="font-mono text-orange-400">
+              <span className="font-mono text-red-400">
                 {me?.displayName} &lt;{senderEmail}&gt;
               </span>
             </p>
@@ -140,7 +140,7 @@ export default function AdminSendEmail() {
                   key={t.label}
                   type="button"
                   onClick={() => applyTemplate(t)}
-                  className="text-xs px-3 py-1.5 bg-zinc-900 border border-zinc-700 rounded text-zinc-300 hover:bg-zinc-800 hover:text-orange-400"
+                  className="text-xs px-3 py-1.5 bg-zinc-900 border border-zinc-700 rounded text-zinc-300 hover:bg-zinc-800 hover:text-red-400"
                 >
                   {t.label}
                 </button>
@@ -164,7 +164,7 @@ export default function AdminSendEmail() {
             <button
               type="button"
               onClick={() => setShowCcBcc(true)}
-              className="text-xs text-zinc-500 hover:text-orange-400 underline"
+              className="text-xs text-zinc-500 hover:text-red-400 underline"
             >
               + Add CC / BCC
             </button>
@@ -242,7 +242,7 @@ export default function AdminSendEmail() {
               type="button"
               onClick={send}
               disabled={sending || !hasMapletechieEmail}
-              className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
+              className="bg-red-500 hover:bg-red-600 text-white gap-2"
             >
               <Send className="w-4 h-4" />
               {sending ? "Sending…" : "Send email"}

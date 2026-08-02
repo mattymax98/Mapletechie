@@ -186,7 +186,7 @@ export default function AdminUsers() {
     <AdminShell
       title="Manage Editors"
       actions={
-        <Button onClick={openCreate} className="bg-orange-500 hover:bg-orange-600 text-white gap-2">
+        <Button onClick={openCreate} className="bg-red-500 hover:bg-red-600 text-white gap-2">
           <Plus className="w-4 h-4" /> Add Editor
         </Button>
       }
@@ -203,7 +203,7 @@ export default function AdminUsers() {
                     {u.avatarUrl ? (
                       <img src={u.avatarUrl} alt={u.displayName} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-orange-400 font-bold">
+                      <div className="w-full h-full flex items-center justify-center text-red-400 font-bold">
                         {u.displayName.charAt(0)}
                       </div>
                     )}
@@ -211,7 +211,7 @@ export default function AdminUsers() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-white">{u.displayName}</span>
-                      <Badge className={u.role === "admin" ? "bg-orange-500/20 text-orange-400 border-orange-500/30" : "bg-blue-500/20 text-blue-400 border-blue-500/30"}>
+                      <Badge className={u.role === "admin" ? "bg-red-500/20 text-red-400 border-red-500/30" : "bg-blue-500/20 text-blue-400 border-blue-500/30"}>
                         {u.role.toUpperCase()}
                       </Badge>
                       {!u.isActive && <Badge className="bg-red-500/20 text-red-400 border-red-500/30">DISABLED</Badge>}
@@ -337,7 +337,7 @@ export default function AdminUsers() {
 
               {me?.role === "admin" && editing?.role !== "admin" && (
                 <div className="col-span-2 space-y-2">
-                  <Label className="text-orange-400 text-xs uppercase tracking-wider font-bold">Admin Permissions</Label>
+                  <Label className="text-red-400 text-xs uppercase tracking-wider font-bold">Admin Permissions</Label>
                   <p className="text-xs text-zinc-500">Grant this editor access to specific admin areas. They will never be able to modify your admin account.</p>
 
                   <PermissionToggle
@@ -406,7 +406,7 @@ export default function AdminUsers() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeAll} className="border-zinc-700 text-zinc-300">Cancel</Button>
-            <Button onClick={submit} disabled={createMut.isPending || updateMut.isPending} className="bg-orange-500 hover:bg-orange-600">
+            <Button onClick={submit} disabled={createMut.isPending || updateMut.isPending} className="bg-red-500 hover:bg-red-600">
               {createMut.isPending || updateMut.isPending ? "Saving..." : creating ? "Create Editor" : "Save Changes"}
             </Button>
           </DialogFooter>

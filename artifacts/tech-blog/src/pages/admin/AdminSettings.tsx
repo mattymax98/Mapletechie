@@ -165,7 +165,7 @@ export default function AdminSettings() {
                   <div
                     className={`flex items-center justify-center w-10 h-10 rounded-lg shrink-0 ${
                       effective
-                        ? "bg-orange-500/15 text-orange-400"
+                        ? "bg-red-500/15 text-red-400"
                         : "bg-zinc-800 text-zinc-400"
                     }`}
                   >
@@ -180,7 +180,7 @@ export default function AdminSettings() {
                     </Label>
                     <p className="text-sm text-zinc-400 mt-0.5">
                       {effective ? (
-                        <span className="text-orange-400">
+                        <span className="text-red-400">
                           The public site is currently offline.
                         </span>
                       ) : (
@@ -248,7 +248,7 @@ export default function AdminSettings() {
 
             {maintenanceMode && !envForced && (
               <div className="flex items-start gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-                <AlertTriangle className="w-5 h-5 text-orange-400 shrink-0 mt-0.5" />
+                <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
                 <p className="text-sm text-zinc-400">
                   With maintenance mode on, visitors see the maintenance page
                   and public API requests return 503. You and other signed-in
@@ -405,7 +405,7 @@ export default function AdminSettings() {
               <Button
                 onClick={handleSave}
                 disabled={updateMutation.isPending || hasEmailErrors}
-                className="bg-orange-500 hover:bg-orange-600 text-white"
+                className="bg-red-500 hover:bg-red-600 text-white"
               >
                 {updateMutation.isPending ? "Saving…" : "Save settings"}
               </Button>

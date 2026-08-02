@@ -53,7 +53,7 @@ export default function AdminLogin() {
       <Card className="w-full max-w-md bg-zinc-900 border-zinc-800">
         <CardHeader className="text-center space-y-3">
           <div className="flex justify-center">
-            <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center">
+            <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
               <Lock className="w-6 h-6 text-white" />
             </div>
           </div>
@@ -75,7 +75,7 @@ export default function AdminLogin() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="your-username"
-                className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-orange-500"
+                className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-red-500"
                 autoFocus
                 autoComplete="username"
               />
@@ -88,7 +88,7 @@ export default function AdminLogin() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter password"
-                className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-orange-500"
+                className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-red-500"
                 autoComplete="current-password"
               />
             </div>
@@ -97,7 +97,7 @@ export default function AdminLogin() {
 
             <Button
               type="submit"
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold"
+              className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold"
               disabled={loginMutation.isPending}
             >
               {loginMutation.isPending ? "Signing in..." : "Sign In"}

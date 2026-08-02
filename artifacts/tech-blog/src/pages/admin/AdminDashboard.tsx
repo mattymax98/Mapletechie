@@ -221,7 +221,7 @@ export default function AdminDashboard() {
           <Button
             variant="outline"
             size="sm"
-            className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10 hover:text-orange-300 gap-1.5"
+            className="border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-red-300 gap-1.5"
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span className="hidden sm:inline text-xs">Generate</span>
@@ -229,7 +229,7 @@ export default function AdminDashboard() {
         </Link>
       )}
       <Link href="/admin/posts/new">
-        <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5">
+        <Button size="sm" className="bg-red-500 hover:bg-red-600 text-white gap-1.5">
           <PlusCircle className="w-3.5 h-3.5" />
           <span className="hidden sm:inline text-xs">New Post</span>
         </Button>
@@ -267,7 +267,7 @@ export default function AdminDashboard() {
               <AnalyticsTile
                 label="Views (30 days)"
                 value={analytics30d?.totalViews}
-                accent="text-orange-400"
+                accent="text-red-400"
                 loading={analyticsLoading}
               />
               <AnalyticsTile
@@ -292,7 +292,7 @@ export default function AdminDashboard() {
                     Traffic — last 7 days
                   </span>
                   <Link href="/admin/analytics">
-                    <span className="text-[11px] text-orange-500 hover:text-orange-400 cursor-pointer transition-colors">
+                    <span className="text-[11px] text-red-500 hover:text-red-400 cursor-pointer transition-colors">
                       Full analytics →
                     </span>
                   </Link>
@@ -436,7 +436,7 @@ export default function AdminDashboard() {
                       checked={allSelected}
                       onCheckedChange={toggleAll}
                       aria-label="Select all posts"
-                      className="border-zinc-600 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                      className="border-zinc-600 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
                     />
                   </th>
                   <th className="text-left text-xs text-zinc-400 font-medium uppercase tracking-wider px-4 py-3">
@@ -467,7 +467,7 @@ export default function AdminDashboard() {
                     key={post.id}
                     className={`transition-colors ${
                       selectedIds.has(post.id)
-                        ? "bg-orange-500/5 hover:bg-orange-500/10"
+                        ? "bg-red-500/5 hover:bg-red-500/10"
                         : "hover:bg-zinc-900/50"
                     }`}
                   >
@@ -476,7 +476,7 @@ export default function AdminDashboard() {
                         checked={selectedIds.has(post.id)}
                         onCheckedChange={() => toggleSelected(post.id)}
                         aria-label={`Select "${post.title}"`}
-                        className="border-zinc-600 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                        className="border-zinc-600 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
                       />
                     </td>
                     <td className="px-4 py-3">
@@ -485,7 +485,7 @@ export default function AdminDashboard() {
                           {post.title}
                         </span>
                         {post.isFeatured && (
-                          <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-xs shrink-0">
+                          <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-xs shrink-0">
                             Featured
                           </Badge>
                         )}
@@ -567,7 +567,7 @@ export default function AdminDashboard() {
                                 className="text-xs cursor-pointer focus:bg-zinc-900 focus:text-white data-[disabled]:opacity-60"
                               >
                                 <span className="flex-1">{c.name}</span>
-                                {isCurrent && <Check className="w-3 h-3 text-orange-400" />}
+                                {isCurrent && <Check className="w-3 h-3 text-red-400" />}
                               </DropdownMenuItem>
                             );
                           })}
@@ -650,7 +650,7 @@ export default function AdminDashboard() {
                   <>
                     <p>No posts yet.</p>
                     <Link href="/admin/posts/new">
-                      <Button className="mt-4 bg-orange-500 hover:bg-orange-600 text-white">
+                      <Button className="mt-4 bg-red-500 hover:bg-red-600 text-white">
                         Create your first post
                       </Button>
                     </Link>
@@ -671,7 +671,7 @@ export default function AdminDashboard() {
               <DropdownMenuTrigger asChild>
                 <Button
                   size="sm"
-                  className="bg-orange-500 hover:bg-orange-600 text-white gap-2 rounded-full"
+                  className="bg-red-500 hover:bg-red-600 text-white gap-2 rounded-full"
                   disabled={bulkMutation.isPending || !categories?.length}
                 >
                   <FolderInput className="w-4 h-4" />
