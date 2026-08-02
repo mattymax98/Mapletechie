@@ -105,7 +105,7 @@
   --popover: 0 0% 100%;
   --popover-foreground: 240 10% 3.9%;
   --popover-border: 240 5.9% 90%;
-  --primary: 0 85% 40%;
+  --primary: 21 90% 37%;
   --primary-foreground: 0 0% 100%;
   --secondary: 240 4.8% 95.9%;
   --secondary-foreground: 240 5.9% 10%;
@@ -117,7 +117,7 @@
   --destructive-foreground: 0 0% 98%;
   --border: 240 5.9% 90%;
   --input: 240 5.9% 90%;
-  --ring: 0 85% 40%;
+  --ring: 21 90% 37%;
   
   --sidebar: 0 0% 98%;
   --sidebar-foreground: 240 5.3% 26.1%;
@@ -144,7 +144,7 @@
   --popover: 240 10% 3.9%;
   --popover-foreground: 0 0% 98%;
   --popover-border: 240 3.7% 15.9%;
-  --primary: 0 85% 65%;
+  --primary: 21 90% 55%;
   --primary-foreground: 0 0% 8%;
   --secondary: 240 3.7% 15.9%;
   --secondary-foreground: 0 0% 98%;
@@ -156,9 +156,9 @@
   --destructive-foreground: 0 0% 98%;
   --border: 240 3.7% 15.9%;
   --input: 240 3.7% 15.9%;
-  --ring: 0 85% 65%;
+  --ring: 21 90% 55%;
   
-  --sidebar: 208 72% 10%;
+  --sidebar: 240 5.9% 10%;
   --sidebar-foreground: 240 4.8% 95.9%;
   --sidebar-border: 240 3.7% 15.9%;
   --sidebar-primary: 224.3 76.3% 48%;
@@ -191,12 +191,12 @@
 .tiptap:focus { outline: none; }
 .tiptap ul { list-style: disc; padding-left: 1.5rem; }
 .tiptap ol { list-style: decimal; padding-left: 1.5rem; }
-.tiptap blockquote { border-left: 3px solid #F04444; padding-left: 1rem; font-style: italic; color: #d4d4d8; }
+.tiptap blockquote { border-left: 3px solid #f97316; padding-left: 1rem; font-style: italic; color: #d4d4d8; }
 .tiptap pre { background: #18181b; padding: 0.75rem 1rem; border-radius: 0.375rem; overflow-x: auto; }
 .tiptap code { background: #27272a; padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.875em; }
 .tiptap pre code { background: transparent; padding: 0; }
 .tiptap img { max-width: 100%; border-radius: 0.375rem; margin: 0.5rem 0; }
-.tiptap a { color: #f47070; text-decoration: underline; }
+.tiptap a { color: #fb923c; text-decoration: underline; }
 .tiptap h2 { font-size: 1.75rem; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.75rem; }
 .tiptap h3 { font-size: 1.375rem; font-weight: 700; margin-top: 1.25rem; margin-bottom: 0.5rem; }
 .tiptap p { margin: 0.5rem 0; line-height: 1.7; }

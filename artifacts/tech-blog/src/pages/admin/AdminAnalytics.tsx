@@ -285,7 +285,7 @@ export default function AdminAnalytics() {
                 onClick={() => setRange(r.id)}
                 className={`px-4 py-2 text-xs font-semibold transition-colors ${
                   range === r.id
-                    ? "bg-red-500 text-black"
+                    ? "bg-orange-500 text-black"
                     : "text-zinc-400 hover:text-white"
                 }`}
               >
@@ -306,7 +306,7 @@ export default function AdminAnalytics() {
             icon={<Eye className="w-5 h-5" />}
             label="Page views"
             value={summary?.totalViews}
-            color="text-red-500"
+            color="text-orange-500"
             loading={loading}
             extra={
               summary && priorViews !== null ? (
@@ -339,7 +339,7 @@ export default function AdminAnalytics() {
         <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
-              <TrendingUp className="w-3.5 h-3.5 text-red-500" /> Daily
+              <TrendingUp className="w-3.5 h-3.5 text-orange-500" /> Daily
               traffic
             </h2>
             <span className="text-xs text-zinc-700">
@@ -441,7 +441,7 @@ export default function AdminAnalytics() {
                         rel="noopener"
                         className="flex-1 min-w-0 group"
                       >
-                        <span className="block text-sm text-zinc-200 group-hover:text-red-400 truncate transition-colors">
+                        <span className="block text-sm text-zinc-200 group-hover:text-orange-400 truncate transition-colors">
                           {meta?.title ?? p.slug}
                         </span>
                         {meta?.category && (
@@ -453,7 +453,7 @@ export default function AdminAnalytics() {
                       <div className="flex items-center gap-2 shrink-0 pt-1">
                         <div className="hidden sm:block w-16 h-1 bg-zinc-800 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-red-500 rounded-full"
+                            className="h-full bg-orange-500 rounded-full"
                             style={{ width: `${Math.max(pct, 3)}%` }}
                           />
                         </div>
@@ -499,7 +499,7 @@ export default function AdminAnalytics() {
                       <div className="flex items-center gap-2 shrink-0">
                         <div className="hidden sm:block w-16 h-1 bg-zinc-800 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-red-500 rounded-full"
+                            className="h-full bg-orange-500 rounded-full"
                             style={{
                               width: `${Math.max(Math.round((r.value / maxV) * 100), 3)}%`,
                             }}
@@ -650,7 +650,7 @@ export default function AdminAnalytics() {
                     rel="noopener"
                     className="flex-1 min-w-0 group"
                   >
-                    <span className="block text-sm text-zinc-300 group-hover:text-red-400 truncate transition-colors">
+                    <span className="block text-sm text-zinc-300 group-hover:text-orange-400 truncate transition-colors">
                       {p.title}
                     </span>
                     <span className="text-[11px] text-zinc-600">

@@ -61,7 +61,7 @@ function ToolbarButton({
       title={title}
       className={`p-2 rounded transition-colors ${
         active
-          ? "bg-red-500 text-white"
+          ? "bg-orange-500 text-white"
           : "text-zinc-300 hover:bg-zinc-700 hover:text-white"
       } disabled:opacity-40 disabled:cursor-not-allowed`}
     >
@@ -357,7 +357,7 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
     editorProps: {
       attributes: {
         class:
-          "tiptap prose prose-invert prose-zinc max-w-none focus:outline-none min-h-[400px] px-4 py-3 text-zinc-100 prose-headings:text-white prose-a:text-red-400 prose-strong:text-white prose-blockquote:border-red-500 prose-blockquote:text-zinc-300 prose-code:text-red-300",
+          "tiptap prose prose-invert prose-zinc max-w-none focus:outline-none min-h-[400px] px-4 py-3 text-zinc-100 prose-headings:text-white prose-a:text-orange-400 prose-strong:text-white prose-blockquote:border-orange-500 prose-blockquote:text-zinc-300 prose-code:text-orange-300",
       },
       handleDrop: (view, event, _slice, moved) => {
         if (moved) return false;
@@ -409,11 +409,11 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
   }
 
   return (
-    <div className="border border-zinc-700 rounded bg-zinc-900 overflow-hidden focus-within:border-red-500 transition-colors relative">
+    <div className="border border-zinc-700 rounded bg-zinc-900 overflow-hidden focus-within:border-orange-500 transition-colors relative">
       <Toolbar editor={editor} />
       <EditorContent editor={editor} />
       {dropping && (
-        <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-red-300 text-sm font-medium pointer-events-none">
+        <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-orange-300 text-sm font-medium pointer-events-none">
           Uploading image…
         </div>
       )}

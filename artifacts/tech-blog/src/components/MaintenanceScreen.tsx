@@ -23,12 +23,12 @@ export function MaintenanceScreen({
       <div className="w-full max-w-lg text-center animate-fade-in-up">
         <div className="flex items-baseline justify-center gap-2 leading-none mb-10">
           <span className="text-2xl font-bold tracking-tight">
-            <span className="text-red-500">MAPLE</span>TECHIE
+            <span className="text-orange-500">MAPLE</span>TECHIE
           </span>
         </div>
 
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-red-500/10 border border-red-500/30 mb-8 animate-wrench-wiggle">
-          <Wrench className="w-9 h-9 text-red-500" />
+        <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-orange-500/10 border border-orange-500/30 mb-8 animate-wrench-wiggle">
+          <Wrench className="w-9 h-9 text-orange-500" />
         </div>
 
         <h1 className="font-serif text-3xl sm:text-4xl font-bold tracking-tight mb-4">
@@ -43,7 +43,7 @@ export function MaintenanceScreen({
 
         {eta?.trim() && (
           <p className="text-sm text-zinc-500 mt-4">
-            Expected back: <span className="text-red-400 font-medium">{eta}</span>
+            Expected back: <span className="text-orange-400 font-medium">{eta}</span>
           </p>
         )}
 

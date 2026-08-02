@@ -664,7 +664,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                 value={form.title}
                 onChange={(e) => handleTitleChange(e.target.value)}
                 placeholder="e.g. Apple Vision Pro 2 review: a year later, is it worth it?"
-                className="bg-zinc-900 border-zinc-700 text-white text-lg focus:border-red-500"
+                className="bg-zinc-900 border-zinc-700 text-white text-lg focus:border-orange-500"
               />
               <p className="text-xs text-zinc-500">
                 Strong titles are clear and specific. Aim for {POST_TITLE_MIN}–{POST_TITLE_MAX} characters so they don't get cut off in Google or social previews.
@@ -685,7 +685,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                   setForm((f) => ({ ...f, slug: e.target.value }));
                 }}
                 placeholder="apple-vision-pro-2-review"
-                className="bg-zinc-900 border-zinc-700 text-white font-mono text-sm focus:border-red-500"
+                className="bg-zinc-900 border-zinc-700 text-white font-mono text-sm focus:border-orange-500"
               />
               <p className="text-xs text-zinc-500">
                 Auto-fills from your title. Lowercase, dashes only — keep it short.
@@ -714,7 +714,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                       }
                       className={`px-3 py-1.5 text-sm border transition-colors ${
                         selected
-                          ? "bg-red-600 border-red-600 text-white"
+                          ? "bg-orange-600 border-orange-600 text-white"
                           : "bg-zinc-900 border-zinc-700 text-zinc-300 hover:border-zinc-500"
                       }`}
                     >
@@ -735,7 +735,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                       setForm((f) => ({ ...f, primaryCategory: v }));
                     }}
                   >
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white focus:border-red-500">
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500">
                       <SelectValue placeholder="Main category">
                         {categories?.find((c: any) => c.slug === form.primaryCategory)?.name ||
                           form.primaryCategory ||
@@ -801,7 +801,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                 max={60}
                 value={form.readTime}
                 onChange={(e) => setForm((f) => ({ ...f, readTime: Number(e.target.value) }))}
-                className="bg-zinc-900 border-zinc-700 text-white focus:border-red-500"
+                className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500"
               />
             </div>
 
@@ -821,7 +821,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                     value={form.coverImageAlt}
                     onChange={(e) => setForm((f) => ({ ...f, coverImageAlt: e.target.value }))}
                     placeholder="Describe the cover image for screen readers and search engines…"
-                    className="bg-zinc-900 border-zinc-700 text-white focus:border-red-500"
+                    className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500"
                   />
                   <p className="text-xs text-zinc-500">
                     Describe what's in the image. Screen readers and search engines use this when they can't see the image.
@@ -830,7 +830,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
               )}
 
               <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 space-y-2">
-                <div className="flex items-center gap-2 text-red-400 text-xs font-medium uppercase tracking-wide">
+                <div className="flex items-center gap-2 text-orange-400 text-xs font-medium uppercase tracking-wide">
                   <Sparkles className="w-3.5 h-3.5" />
                   Generate with AI
                 </div>
@@ -839,14 +839,14 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                     value={aiPrompt}
                     onChange={(e) => setAiPrompt(e.target.value)}
                     placeholder={form.title ? `e.g. ${form.title}` : "Describe the cover image you want…"}
-                    className="bg-zinc-900 border-zinc-700 text-white focus:border-red-500 flex-1"
+                    className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500 flex-1"
                     disabled={aiGenerating}
                   />
                   <Button
                     type="button"
                     onClick={generateCoverWithAI}
                     disabled={aiGenerating || !(aiPrompt.trim() || form.title.trim())}
-                    className="bg-red-500 hover:bg-red-600 text-white gap-2 shrink-0"
+                    className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shrink-0"
                   >
                     {aiGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                     {aiGenerating ? "Generating…" : "Generate"}
@@ -873,7 +873,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                 onChange={(e) => setForm((f) => ({ ...f, excerpt: e.target.value }))}
                 placeholder="A 1–2 sentence summary that hooks the reader. Shows on post cards and in Google results when no SEO description is set."
                 rows={3}
-                className="bg-zinc-900 border-zinc-700 text-white focus:border-red-500 resize-none"
+                className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500 resize-none"
               />
             </div>
 
@@ -918,7 +918,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                 className="w-full flex items-center justify-between p-4 bg-zinc-900 hover:bg-zinc-800/80 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <Search className="w-5 h-5 text-red-400" />
+                  <Search className="w-5 h-5 text-orange-400" />
                   <div className="text-left">
                     <p className="text-sm font-semibold text-white">SEO & Social Sharing</p>
                     <p className="text-xs text-zinc-400">
@@ -954,7 +954,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                       value={form.seoTitle}
                       onChange={(e) => setForm((f) => ({ ...f, seoTitle: e.target.value }))}
                       placeholder="Leave blank to use the post title"
-                      className="bg-zinc-900 border-zinc-700 text-white focus:border-red-500"
+                      className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500"
                     />
                     <p className="text-xs text-zinc-500">
                       The headline Google shows. Aim for 50–60 characters and include your main keyword.
@@ -971,7 +971,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                       onChange={(e) => setForm((f) => ({ ...f, seoDescription: e.target.value }))}
                       placeholder="Leave blank to use the excerpt"
                       rows={3}
-                      className="bg-zinc-900 border-zinc-700 text-white focus:border-red-500 resize-none"
+                      className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500 resize-none"
                     />
                     <p className="text-xs text-zinc-500">
                       The short blurb under the headline. Aim for 140–160 characters with a clear hook.
@@ -984,7 +984,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                       value={form.seoKeywords}
                       onChange={(e) => setForm((f) => ({ ...f, seoKeywords: e.target.value }))}
                       placeholder="iphone 17, apple, smartphone review"
-                      className="bg-zinc-900 border-zinc-700 text-white focus:border-red-500"
+                      className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500"
                     />
                     <p className="text-xs text-zinc-500">
                       Comma-separated. 3–6 specific phrases people might search for.
@@ -1041,7 +1041,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                     onChange={(e) =>
                       setForm((f) => ({ ...f, seriesId: Number(e.target.value) }))
                     }
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded px-3 py-2 text-white focus:border-red-500 focus:outline-none"
+                    className="w-full bg-zinc-950 border border-zinc-700 rounded px-3 py-2 text-white focus:border-orange-500 focus:outline-none"
                   >
                     <option value={0}>— Not part of a series —</option>
                     {seriesList.map((s) => (
@@ -1061,7 +1061,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                       setForm((f) => ({ ...f, seriesPosition: Math.max(1, Number(e.target.value) || 1) }))
                     }
                     disabled={form.seriesId === 0}
-                    className="bg-zinc-950 border-zinc-700 text-white focus:border-red-500"
+                    className="bg-zinc-950 border-zinc-700 text-white focus:border-orange-500"
                   />
                 </div>
               </div>
@@ -1201,7 +1201,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
               type="submit"
               disabled={isPending || hasBrokenImage}
               title={hasBrokenImage ? "Fix the broken image preview before saving." : undefined}
-              className="bg-red-500 hover:bg-red-600 text-white gap-2"
+              className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
               onClick={(e) =>
                 submit(
                   e as any,

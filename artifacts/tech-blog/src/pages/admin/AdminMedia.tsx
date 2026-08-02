@@ -88,7 +88,7 @@ export default function AdminMedia() {
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <ImageIcon className="w-6 h-6 text-red-500" /> Media Library
+            <ImageIcon className="w-6 h-6 text-orange-500" /> Media Library
           </h1>
           <p className="text-zinc-400 text-sm mt-1">
             One place for the images you reuse — cover photos, author headshots, screenshots. Upload here once, then pick from the library when you write a post or send an email.
@@ -116,7 +116,7 @@ export default function AdminMedia() {
                 placeholder="filename.jpg"
                 className="sm:col-span-2 bg-zinc-900 border border-zinc-700 text-white rounded px-3 py-2 text-sm font-mono"
               />
-              <Button onClick={save} disabled={!pendingUrl || !pendingFilename} className="bg-red-500 hover:bg-red-600 text-white">
+              <Button onClick={save} disabled={!pendingUrl || !pendingFilename} className="bg-orange-500 hover:bg-orange-600 text-white">
                 Save to library
               </Button>
             </div>
@@ -151,14 +151,14 @@ export default function AdminMedia() {
                         href={item.source}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="underline hover:text-red-400"
+                        className="underline hover:text-orange-400"
                       >
                         {(() => { try { return new URL(item.source).hostname; } catch { return item.source; } })()}
                       </a>
                     </p>
                   )}
                   <div className="flex gap-1 pt-1">
-                    <Button size="sm" variant="ghost" onClick={() => copyUrl(item.url)} className="h-7 px-2 text-zinc-400 hover:text-red-400 gap-1 text-xs flex-1">
+                    <Button size="sm" variant="ghost" onClick={() => copyUrl(item.url)} className="h-7 px-2 text-zinc-400 hover:text-orange-400 gap-1 text-xs flex-1">
                       <Copy className="w-3 h-3" /> URL
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => remove(item)} className="h-7 px-2 text-zinc-400 hover:text-red-400">

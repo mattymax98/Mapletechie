@@ -224,7 +224,7 @@ export default function AdminNewsletter() {
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Mail className="w-6 h-6 text-red-500" /> Newsletter
+            <Mail className="w-6 h-6 text-orange-500" /> Newsletter
           </h1>
           <p className="text-zinc-400 text-sm mt-1">
             Pick the articles you want to include, write your note, then send. Nothing goes out automatically.
@@ -232,7 +232,7 @@ export default function AdminNewsletter() {
         </div>
 
         <div className="grid sm:grid-cols-3 gap-4 mb-8">
-          <Stat label="Active subscribers" value={active.length} accent="text-red-400" />
+          <Stat label="Active subscribers" value={active.length} accent="text-orange-400" />
           <Stat label="Pending confirmation" value={pending.length} />
           <Stat label="Unsubscribed" value={unsub.length} />
         </div>
@@ -240,7 +240,7 @@ export default function AdminNewsletter() {
         {/* ── Compose section ──────────────────────────────────────────── */}
         <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-5 mb-8 space-y-5">
           <h2 className="text-lg font-bold flex items-center gap-2">
-            <FileText className="w-5 h-5 text-red-400" /> Compose newsletter
+            <FileText className="w-5 h-5 text-orange-400" /> Compose newsletter
           </h2>
 
           <div className="space-y-2">
@@ -283,7 +283,7 @@ export default function AdminNewsletter() {
                 <button
                   type="button"
                   onClick={allSelected ? deselectAll : selectAll}
-                  className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                  className="text-xs text-orange-400 hover:text-orange-300 transition-colors"
                   data-testid="btn-select-all"
                 >
                   {allSelected ? "Deselect all" : "Select all"}
@@ -305,7 +305,7 @@ export default function AdminNewsletter() {
                   <li
                     key={p.id}
                     className={`flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors ${
-                      selected.has(p.id) ? "bg-red-500/5" : "hover:bg-zinc-900/50"
+                      selected.has(p.id) ? "bg-orange-500/5" : "hover:bg-zinc-900/50"
                     }`}
                     onClick={() => togglePost(p.id)}
                   >
@@ -313,13 +313,13 @@ export default function AdminNewsletter() {
                       checked={selected.has(p.id)}
                       onCheckedChange={() => togglePost(p.id)}
                       onClick={(e) => e.stopPropagation()}
-                      className="mt-0.5 shrink-0 border-zinc-600 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
+                      className="mt-0.5 shrink-0 border-zinc-600 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                       data-testid={`checkbox-post-${p.id}`}
                     />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-zinc-100 leading-snug">{p.title}</p>
                       <p className="text-xs text-zinc-500 mt-0.5">
-                        <span className="text-red-400 font-semibold uppercase tracking-wide text-[10px]">
+                        <span className="text-orange-400 font-semibold uppercase tracking-wide text-[10px]">
                           {p.category}
                         </span>
                         {" · "}
@@ -365,7 +365,7 @@ export default function AdminNewsletter() {
             <Button
               onClick={sendNow}
               disabled={busy === "send" || !subject.trim()}
-              className="bg-red-500 hover:bg-red-600 text-white gap-2 ml-auto"
+              className="bg-orange-500 hover:bg-orange-600 text-white gap-2 ml-auto"
               data-testid="button-send-now"
             >
               <Send className="w-4 h-4" />
@@ -417,7 +417,7 @@ export default function AdminNewsletter() {
               {/* Modal header */}
               <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800 shrink-0">
                 <div className="flex items-center gap-2">
-                  <Eye className="w-4 h-4 text-red-400" />
+                  <Eye className="w-4 h-4 text-orange-400" />
                   <span className="text-sm font-semibold text-zinc-200">Email preview</span>
                   <span className="text-xs text-zinc-500 ml-1">— read-only, no email is sent</span>
                 </div>

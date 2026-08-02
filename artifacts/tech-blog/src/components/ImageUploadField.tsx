@@ -114,7 +114,7 @@ export function ImageUploadField({
           onClick={() => setMode("upload")}
           className={`flex-1 px-3 py-2 rounded text-sm font-medium border transition-colors flex items-center justify-center gap-2 ${
             mode === "upload"
-              ? "bg-red-500/15 border-red-500 text-red-300"
+              ? "bg-orange-500/15 border-orange-500 text-orange-300"
               : "bg-zinc-900 border-zinc-700 text-zinc-400 hover:text-white"
           }`}
         >
@@ -126,7 +126,7 @@ export function ImageUploadField({
           onClick={() => setMode("url")}
           className={`flex-1 px-3 py-2 rounded text-sm font-medium border transition-colors flex items-center justify-center gap-2 ${
             mode === "url"
-              ? "bg-red-500/15 border-red-500 text-red-300"
+              ? "bg-orange-500/15 border-orange-500 text-orange-300"
               : "bg-zinc-900 border-zinc-700 text-zinc-400 hover:text-white"
           }`}
         >
@@ -148,7 +148,7 @@ export function ImageUploadField({
           onClick={() => !uploading && fileRef.current?.click()}
           className={`w-full cursor-pointer rounded border-2 border-dashed p-6 text-center transition-colors ${
             dragOver
-              ? "border-red-500 bg-red-500/10"
+              ? "border-orange-500 bg-orange-500/10"
               : "border-zinc-700 bg-zinc-900 hover:border-zinc-600 hover:bg-zinc-800/50"
           } ${uploading ? "opacity-60 cursor-wait" : ""}`}
         >
@@ -178,7 +178,7 @@ export function ImageUploadField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="https://..."
-          className="bg-zinc-900 border-zinc-700 text-white focus:border-red-500"
+          className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500"
         />
       )}
 
