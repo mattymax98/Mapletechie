@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="6" fill="#f97316"/>
-  <text x="50%" y="56%" text-anchor="middle" dominant-baseline="middle"
-        font-family="'Fraunces','Times New Roman',serif"
-        font-size="46" font-weight="900" font-style="italic" fill="#ffffff">M</text>
-  <circle cx="50" cy="50" r="3.5" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <title>Mapletechie Signal Leaf</title>
+  <desc id="desc">A red geometric maple leaf containing a warm-white letter M and data path on a midnight-blue background.</desc>
+  <rect width="512" height="512" fill="#09090B"/>
+  <path fill="#DA753B" d="M256 52 296 145 354 106 344 187 434 163 393 241 458 256 389 315 408 414 300 366 282 460H230l-18-94-108 48 19-99-69-59 65-15-41-78 90 24-10-81 58 39 40-93Z"/>
+  <path fill="#FAFAFA" d="m154 207 66 68 36-37 36 37 66-68v101l-52 53v66l-32 33V347l-18 19-18-19v113l-32-33v-66l-52-53V207Z"/>
 </svg>

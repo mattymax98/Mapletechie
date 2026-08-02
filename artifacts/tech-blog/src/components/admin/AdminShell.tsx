@@ -173,19 +173,16 @@ export function AdminShell({ title, children, actions }: AdminShellProps) {
             collapsed ? "justify-center" : "px-4"
           }`}
         >
-          <Link href="/admin">
-            <span className="font-black tracking-tight cursor-pointer text-sm leading-none">
-              {collapsed ? (
-                <span className="text-orange-500 text-base">M</span>
-              ) : (
-                <>
-                  <span className="text-orange-500">MAPLE</span>
-                  <span className="text-white">TECHIE</span>
-                  <span className="text-zinc-500 font-light ml-1.5 text-xs">/</span>
-                  <span className="text-zinc-400 ml-1 font-normal text-xs">Admin</span>
-                </>
-              )}
-            </span>
+          <Link href="/admin" className="flex items-center gap-1.5">
+            {collapsed ? (
+              <img src="/logo-favicon-v2.svg" alt="" className="w-7 h-7 rounded" />
+            ) : (
+              <>
+                <img src="/mapletechie-wordmark-inverse.svg" alt="" className="h-7 w-auto" />
+                <span className="text-zinc-500 font-light text-xs">/</span>
+                <span className="text-zinc-400 font-normal text-xs">Admin</span>
+              </>
+            )}
           </Link>
         </div>
 
