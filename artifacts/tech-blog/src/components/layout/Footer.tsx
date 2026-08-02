@@ -44,16 +44,9 @@ export function Footer() {
       <div className="container mx-auto px-4 md:px-6 py-12 md:py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
           <div className="md:col-span-1">
-            <Link href="/" className="flex items-center gap-2 mb-4">
-              <span className="flex items-center gap-2.5">
-                <span aria-hidden="true" className="relative flex items-center justify-center h-10 w-10 bg-primary text-primary-foreground shadow-[3px_3px_0_0_hsl(var(--foreground))]">
-                  <span className="font-serif font-black italic text-2xl leading-none -mt-0.5">M</span>
-                  <span className="absolute bottom-1 right-1 w-1 h-1 bg-primary-foreground rounded-full" />
-                </span>
-                <span className="font-serif font-black text-2xl leading-none tracking-tight text-foreground">
-                  Maple<span className="italic text-primary">techie</span><span className="text-primary">.</span>
-                </span>
-              </span>
+            <Link href="/" className="flex items-center mb-4" aria-label="Mapletechie — home">
+              <img src="/mapletechie-wordmark.svg" alt="" className="h-9 w-auto dark:hidden" />
+              <img src="/mapletechie-wordmark-inverse.svg" alt="" className="h-9 w-auto hidden dark:block" />
             </Link>
             <p className="text-muted-foreground text-sm mb-6 max-w-xs">
               Independent tech journalism — sharp opinion, real reviews, and the context the spec sheets leave out.

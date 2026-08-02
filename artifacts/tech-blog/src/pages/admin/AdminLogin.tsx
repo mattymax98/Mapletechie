@@ -57,8 +57,9 @@ export default function AdminLogin() {
               <Lock className="w-6 h-6 text-white" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold text-white">
-            <span className="text-orange-500">MAPLE</span>TECHIE Admin
+          <CardTitle className="flex flex-col items-center gap-1">
+            <img src="/mapletechie-wordmark-inverse.svg" alt="Mapletechie" className="h-8 w-auto" />
+            <span className="text-base font-normal text-zinc-400">Admin Portal</span>
           </CardTitle>
           <CardDescription className="text-zinc-400">
             Sign in with your username and password.
