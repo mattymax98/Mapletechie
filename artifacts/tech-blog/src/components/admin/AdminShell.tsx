@@ -210,7 +210,7 @@ export function AdminShell({ title, children, actions }: AdminShellProps) {
                           }
                           ${
                             active
-                              ? "bg-red-500/15 text-red-400"
+                              ? "bg-orange-500/15 text-orange-400"
                               : "text-zinc-400 hover:text-white hover:bg-zinc-800/60"
                           }`}
                       >
@@ -221,7 +221,7 @@ export function AdminShell({ title, children, actions }: AdminShellProps) {
                           </span>
                         )}
                         {!collapsed && active && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
                         )}
                       </div>
                     </Link>
@@ -255,7 +255,7 @@ export function AdminShell({ title, children, actions }: AdminShellProps) {
               className={`flex items-center gap-2.5 rounded-md transition-colors cursor-pointer
                 ${
                   location === "/admin/profile"
-                    ? "bg-red-500/15 text-red-400"
+                    ? "bg-orange-500/15 text-orange-400"
                     : "text-zinc-400 hover:text-white hover:bg-zinc-800/60"
                 }
                 ${collapsed ? "justify-center w-9 h-9 mx-auto" : "px-2.5 py-2"}`}
@@ -299,7 +299,7 @@ export function AdminShell({ title, children, actions }: AdminShellProps) {
     <div className="min-h-screen bg-zinc-950 text-white flex">
       {/* ── Desktop sidebar ───────────────────────────────────────────── */}
       <aside
-        className={`hidden sm:flex flex-col bg-[#071A2B] border-r border-zinc-800 shrink-0 sticky top-0 h-screen transition-all duration-150 ${sidebarW}`}
+        className={`hidden sm:flex flex-col bg-zinc-950 border-r border-zinc-800 shrink-0 sticky top-0 h-screen transition-all duration-150 ${sidebarW}`}
       >
         <SidebarInner />
       </aside>
@@ -312,7 +312,7 @@ export function AdminShell({ title, children, actions }: AdminShellProps) {
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="relative z-10 w-52 bg-[#071A2B] border-r border-zinc-800 h-full flex flex-col">
+          <aside className="relative z-10 w-52 bg-zinc-950 border-r border-zinc-800 h-full flex flex-col">
             <SidebarInner />
           </aside>
         </div>
@@ -349,7 +349,7 @@ export function AdminShell({ title, children, actions }: AdminShellProps) {
                 className="w-7 h-7 rounded-full object-cover border border-zinc-700"
               />
             ) : (
-              <div className="w-7 h-7 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center text-red-400 font-bold text-xs">
+              <div className="w-7 h-7 rounded-full bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-orange-400 font-bold text-xs">
                 {(user?.displayName || user?.username || "?")
                   .charAt(0)
                   .toUpperCase()}

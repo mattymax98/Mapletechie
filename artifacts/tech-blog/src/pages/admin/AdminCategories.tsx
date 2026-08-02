@@ -209,7 +209,7 @@ export default function AdminCategories() {
       title="Categories"
       actions={
         canManage ? (
-          <Button onClick={openCreate} className="bg-red-500 hover:bg-red-600 text-white gap-2">
+          <Button onClick={openCreate} className="bg-orange-500 hover:bg-orange-600 text-white gap-2">
             <Plus className="w-4 h-4" /> New Category
           </Button>
         ) : undefined
@@ -319,7 +319,7 @@ export default function AdminCategories() {
                       <Badge
                         className={
                           c.postCount > 0
-                            ? "bg-red-500/20 text-red-400 border-red-500/30"
+                            ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
                             : "bg-zinc-800 text-zinc-500 border-zinc-700"
                         }
                       >
@@ -388,7 +388,7 @@ export default function AdminCategories() {
                 className="bg-zinc-800 border-zinc-700"
               />
               {editing && form.name.trim() !== editing.name && editing.postCount > 0 && (
-                <p className="text-xs text-red-400">
+                <p className="text-xs text-orange-400">
                   Renaming will also update {editing.postCount} existing post
                   {editing.postCount === 1 ? "" : "s"}.
                 </p>
@@ -453,7 +453,7 @@ export default function AdminCategories() {
             <Button
               onClick={submit}
               disabled={createMut.isPending || updateMut.isPending}
-              className="bg-red-500 hover:bg-red-600"
+              className="bg-orange-500 hover:bg-orange-600"
             >
               {createMut.isPending || updateMut.isPending
                 ? "Saving..."

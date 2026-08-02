@@ -128,7 +128,7 @@ export default function AdminAudit() {
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <ClipboardList className="w-6 h-6 text-red-400" />
+            <ClipboardList className="w-6 h-6 text-orange-400" />
             Activity Log
           </h1>
           <p className="text-zinc-400 text-sm mt-1">
@@ -140,7 +140,7 @@ export default function AdminAudit() {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Filter by username, action, IP, or summary..."
-          className="w-full mb-6 bg-zinc-900 border border-zinc-700 text-white rounded px-3 py-2 text-sm focus:border-red-500 outline-none"
+          className="w-full mb-6 bg-zinc-900 border border-zinc-700 text-white rounded px-3 py-2 text-sm focus:border-orange-500 outline-none"
         />
 
         <ErrorBanner message={error} className="mb-4" />

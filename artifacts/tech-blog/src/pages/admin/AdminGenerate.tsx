@@ -80,7 +80,7 @@ export default function AdminGenerate() {
               onChange={(e) => setTopic(e.target.value)}
               placeholder="e.g. Tesla's new robotaxi service launches in Austin"
               disabled={loading}
-              className="bg-zinc-900 border-zinc-700 text-white text-lg h-14 focus:border-red-500"
+              className="bg-zinc-900 border-zinc-700 text-white text-lg h-14 focus:border-orange-500"
             />
             <p className="text-xs text-zinc-500">
               Be specific. "iPhone 18 leaked specs" works better than "Apple news".
@@ -91,7 +91,7 @@ export default function AdminGenerate() {
             type="submit"
             disabled={loading || topic.trim().length < 3}
             size="lg"
-            className="bg-red-500 hover:bg-red-600 text-white gap-2 w-full h-14 text-base font-bold uppercase tracking-wider"
+            className="bg-orange-500 hover:bg-orange-600 text-white gap-2 w-full h-14 text-base font-bold uppercase tracking-wider"
           >
             {loading ? (
               <>
@@ -118,7 +118,7 @@ export default function AdminGenerate() {
                 type="button"
                 onClick={() => setTopic(t)}
                 disabled={loading}
-                className="text-sm px-3 py-2 rounded border border-zinc-800 text-zinc-300 hover:border-red-500 hover:text-white transition-colors disabled:opacity-40"
+                className="text-sm px-3 py-2 rounded border border-zinc-800 text-zinc-300 hover:border-orange-500 hover:text-white transition-colors disabled:opacity-40"
               >
                 {t}
               </button>
