@@ -81,10 +81,10 @@ export default function BlogIndex() {
           <Button 
             key={cat.id} 
             asChild 
-            variant={categoryParam === cat.slug ? "default" : "outline"} 
+            variant="outline"
             className="rounded-none uppercase font-bold text-xs tracking-wider"
           >
-            <Link href={`/blog?category=${cat.slug}`}>{cat.name}</Link>
+            <Link href={`/category/${cat.slug}`}>{cat.name}</Link>
           </Button>
         ))}
       </div>
