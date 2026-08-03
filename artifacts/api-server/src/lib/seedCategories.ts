@@ -1,4 +1,4 @@
-import { db, categoriesTable, postsTable } from "@workspace/db";
+import { db, categoriesTable, postsTable, postCategoriesTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { logger } from "./logger";
 
@@ -52,10 +52,114 @@ async function dropLegacyCategorySyncObjects(): Promise<void> {
   await db.execute(sql`DROP FUNCTION IF EXISTS cascade_category_rename() CASCADE`);
 }
 
+/**
+ * Retired placeholder slugs that no longer exist on the live site, mapped to
+ * the real slug they should be merged into. Posts and post_categories rows are
+ * re-pointed to the target before the stale row is deleted, so the operation
+ * is safe to re-run on any environment (dev, staging, production).
+ */
+const RETIRED_SLUG_MAP: Record<string, string> = {
+  "ai-machine-learning": "ai",
+  "cybersecurity": "news",
+  "electric-vehicles": "news",
+  "science-space": "news",
+};
+
+/**
+ * Idempotently retires placeholder categories that no longer exist on the
+ * live site. For each retired slug that still exists in the DB:
+ *  1. Resolve the replacement category's id.
+ *  2. Re-point posts.category_id rows to the replacement.
+ *  3. Re-point post_categories rows (respecting the unique constraint and
+ *     preserving isPrimary).
+ *  4. Delete the now-empty retired category row.
+ *
+ * Safe to run multiple times and across all environments.
+ */
+async function retireStaleCategories(): Promise<void> {
+  for (const [retiredSlug, replacementSlug] of Object.entries(RETIRED_SLUG_MAP)) {
+    const [retired] = await db
+      .select()
+      .from(categoriesTable)
+      .where(eq(categoriesTable.slug, retiredSlug));
+    if (!retired) continue; // already gone
+
+    const [replacement] = await db
+      .select()
+      .from(categoriesTable)
+      .where(eq(categoriesTable.slug, replacementSlug));
+    if (!replacement) {
+      logger.warn(
+        { retiredSlug, replacementSlug },
+        "retireStaleCategories: replacement slug not found, skipping",
+      );
+      continue;
+    }
+
+    await db.transaction(async (tx) => {
+      // 1. Re-point posts.category_id (the primary-category FK column).
+      await tx
+        .update(postsTable)
+        .set({ categoryId: replacement.id })
+        .where(eq(postsTable.categoryId, retired.id));
+
+      // 2. Re-point post_categories rows.
+      //    If the post already has a row for the replacement category, the
+      //    retired row is redundant — delete it. Otherwise remap it.
+      const retiredPcRows = await tx
+        .select()
+        .from(postCategoriesTable)
+        .where(eq(postCategoriesTable.categoryId, retired.id));
+
+      for (const row of retiredPcRows) {
+        const [existing] = await tx
+          .select()
+          .from(postCategoriesTable)
+          .where(
+            sql`${postCategoriesTable.postId} = ${row.postId}
+            AND ${postCategoriesTable.categoryId} = ${replacement.id}`,
+          );
+
+        if (existing) {
+          // Post already has a row for the replacement — drop the retired row
+          // FIRST so the partial unique index on isPrimary is never violated,
+          // then promote the replacement row if the retired one was primary.
+          await tx
+            .delete(postCategoriesTable)
+            .where(eq(postCategoriesTable.id, row.id));
+          if (row.isPrimary && !existing.isPrimary) {
+            await tx
+              .update(postCategoriesTable)
+              .set({ isPrimary: true })
+              .where(eq(postCategoriesTable.id, existing.id));
+          }
+        } else {
+          await tx
+            .update(postCategoriesTable)
+            .set({ categoryId: replacement.id })
+            .where(eq(postCategoriesTable.id, row.id));
+        }
+      }
+
+      // 3. Delete the now-empty retired category row.
+      await tx
+        .delete(categoriesTable)
+        .where(eq(categoriesTable.id, retired.id));
+    });
+
+    logger.info(
+      { retiredSlug, replacementSlug },
+      "retireStaleCategories: retired placeholder category",
+    );
+  }
+}
+
 export async function seedCuratedCategories(): Promise<void> {
   await assertCategorySchemaInvariants();
   await dropLegacyCategorySyncObjects();
 
+  // Step 1: Upsert curated rows. Re-throw on failure so retireStaleCategories
+  // cannot run against a partially-seeded database with missing replacement slugs.
   try {
     // Upsert curated rows by slug (insert if missing, update name/desc/color
     // if present). Renames cascade through the FK ON UPDATE CASCADE on
@@ -83,8 +187,20 @@ export async function seedCuratedCategories(): Promise<void> {
         );
       }
     }
+  } catch (err) {
+    logger.error({ err }, "seedCategories: curated upsert failed");
+    throw err;
+  }
 
-    // Recompute postCount for every remaining category through the FK.
+  // Step 2: Retire placeholder categories that no longer exist on the live
+  // site. Runs after the curated upsert so replacement slugs are guaranteed
+  // to exist on any environment — including a fresh database. Errors
+  // propagate to the caller so failures surface at startup rather than
+  // being silently swallowed.
+  await retireStaleCategories();
+
+  // Step 3: Recompute postCount for every remaining category (best-effort).
+  try {
     const allCats = await db.select().from(categoriesTable);
     for (const cat of allCats) {
       const [{ count }] = await db
@@ -99,6 +215,6 @@ export async function seedCuratedCategories(): Promise<void> {
 
     logger.info({ count: CURATED.length }, "seedCategories: curated categories ready");
   } catch (err) {
-    logger.error({ err }, "seedCategories failed");
+    logger.error({ err }, "seedCategories: postCount recompute failed");
   }
 }

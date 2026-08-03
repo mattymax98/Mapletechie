@@ -12,13 +12,14 @@ export const categoriesTable = pgTable("categories", {
 });
 
 export const defaultCategories = [
-  { name: "AI & Machine Learning", slug: "ai-machine-learning", description: "News, tools, and analysis around AI systems.", color: "#f97316" },
-  { name: "Gadgets", slug: "gadgets", description: "Phones, wearables, and consumer tech reviews.", color: "#f97316" },
-  { name: "Software", slug: "software", description: "Apps, platforms, and software deep dives.", color: "#f97316" },
-  { name: "Cybersecurity", slug: "cybersecurity", description: "Security threats, privacy, and protection advice.", color: "#f97316" },
-  { name: "Electric Vehicles", slug: "electric-vehicles", description: "EV news, ownership, charging, and future mobility.", color: "#f97316" },
-  { name: "Education", slug: "education", description: "Learning, classrooms, and technology in education.", color: "#f97316" },
-  { name: "Tech Jobs", slug: "tech-jobs", description: "Hiring trends, roles, and career advice in tech.", color: "#f97316" },
+  { name: "News", slug: "news", description: "Breaking industry news, launches, funding, and acquisitions", color: "#e0533f" },
+  { name: "Reviews", slug: "reviews", description: "Hands-on reviews of phones, laptops, wearables, and accessories", color: "#f97316" },
+  { name: "AI", slug: "ai", description: "LLMs, generative AI, model releases, and AI policy", color: "#e0992e" },
+  { name: "Gadgets", slug: "gadgets", description: "Consumer hardware first looks, leaks, and comparisons", color: "#3a9b95" },
+  { name: "Software & Apps", slug: "software", description: "OS updates, app launches, dev tools, and productivity", color: "#4f74c4" },
+  { name: "Gaming", slug: "gaming", description: "Consoles, PC, mobile games, esports, and game tech", color: "#9b5cc0" },
+  { name: "Business & Policy", slug: "business", description: "Big Tech, regulation, antitrust, earnings, and the startup ecosystem", color: "#7a8493" },
+  { name: "Canada Tech", slug: "canada-tech", description: "Canadian startups, Shopify, Cohere, CRTC, and the Toronto / Waterloo / Montreal scenes", color: "#c0392b" },
 ] as const;
 
 export const insertCategorySchema = createInsertSchema(categoriesTable).omit({ id: true });
