@@ -1,17 +1,10 @@
-import { db, categoriesTable, postsTable, postCategoriesTable } from "@workspace/db";
+import { db, categoriesTable, defaultCategories, postsTable, postCategoriesTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { logger } from "./logger";
 
-const CURATED = [
-  { name: "News", slug: "news", description: "Breaking industry news, launches, funding, and acquisitions", color: "#e0533f" },
-  { name: "Reviews", slug: "reviews", description: "Hands-on reviews of phones, laptops, wearables, and accessories", color: "#f97316" },
-  { name: "AI", slug: "ai", description: "LLMs, generative AI, model releases, and AI policy", color: "#e0992e" },
-  { name: "Gadgets", slug: "gadgets", description: "Consumer hardware first looks, leaks, and comparisons", color: "#3a9b95" },
-  { name: "Software & Apps", slug: "software", description: "OS updates, app launches, dev tools, and productivity", color: "#4f74c4" },
-  { name: "Gaming", slug: "gaming", description: "Consoles, PC, mobile games, esports, and game tech", color: "#9b5cc0" },
-  { name: "Business & Policy", slug: "business", description: "Big Tech, regulation, antitrust, earnings, and the startup ecosystem", color: "#7a8493" },
-  { name: "Canada Tech", slug: "canada-tech", description: "Canadian startups, Shopify, Cohere, CRTC, and the Toronto / Waterloo / Montreal scenes", color: "#c0392b" },
-] as const;
+// Single source of truth lives in lib/db so both the seed script and the
+// schema stay in sync automatically. Do not duplicate this list here.
+const CURATED = defaultCategories;
 
 const CURATED_SLUGS = CURATED.map((c) => c.slug);
 
