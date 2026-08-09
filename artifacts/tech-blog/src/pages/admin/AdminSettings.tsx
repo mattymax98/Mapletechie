@@ -6,6 +6,7 @@ import {
   getGetSiteSettingsQueryKey,
 } from "@workspace/api-client-react";
 import { useAdmin } from "@/context/AdminContext";
+import { adminJson } from "@/lib/adminFetch";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -20,6 +21,7 @@ import {
   ShieldAlert,
   Globe,
   Mail,
+  Search,
 } from "lucide-react";
 
 const MAPLETECHIE_DOMAIN = "@mapletechie.com";
@@ -34,6 +36,30 @@ export default function AdminSettings() {
     query: { queryKey: getGetSiteSettingsQueryKey(), enabled: isAdmin },
   });
   const updateMutation = useUpdateSiteSettings();
+
+  // Bing IndexNow backfill
+  const [bingSubmitting, setBingSubmitting] = useState(false);
+  const handleBingBackfill = async () => {
+    setBingSubmitting(true);
+    try {
+      const data = await adminJson<{ submitted: number; postCount: number }>(
+        "/api/admin/indexnow/backfill",
+        { method: "POST" },
+      );
+      toast({
+        title: "Submitted to Bing",
+        description: `${data.submitted} URLs queued for re-indexing across ${data.postCount} articles.`,
+      });
+    } catch (err: unknown) {
+      toast({
+        title: "Submission failed",
+        description: err instanceof Error ? err.message : "Something went wrong.",
+        variant: "destructive",
+      });
+    } finally {
+      setBingSubmitting(false);
+    }
+  };
 
   // Maintenance fields
   const [maintenanceMode, setMaintenanceMode] = useState(false);
@@ -384,6 +410,37 @@ export default function AdminSettings() {
                     </p>
                   )}
                 </div>
+              </div>
+            </div>
+
+            {/* ── Search Indexing ─────────────────────────────────────── */}
+            <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-5 space-y-4">
+              <div className="flex items-center gap-3 mb-1">
+                <Search className="w-4 h-4 text-zinc-400" />
+                <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                  Search Indexing
+                </h2>
+              </div>
+              <p className="text-sm text-zinc-400">
+                Tell Bing to re-crawl your articles immediately via IndexNow instead of
+                waiting for the next scheduled crawl. Use this to clear "Blocked" or
+                stale URLs in Bing Webmaster Tools.
+              </p>
+              <div className="flex items-center justify-between gap-4 pt-1">
+                <div className="space-y-0.5 min-w-0">
+                  <p className="text-sm text-white font-medium">Submit all articles to Bing</p>
+                  <p className="text-xs text-zinc-500">
+                    Submits every published article and category URL.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleBingBackfill}
+                  disabled={bingSubmitting}
+                  variant="outline"
+                  className="border-zinc-700 text-zinc-300 hover:text-white shrink-0"
+                >
+                  {bingSubmitting ? "Submitting…" : "Submit to Bing"}
+                </Button>
               </div>
             </div>
 

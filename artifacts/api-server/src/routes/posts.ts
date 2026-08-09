@@ -21,6 +21,7 @@ import {
   getPostCategoryIds,
   postInCategory,
 } from "../lib/postCategoryHelpers";
+import { submitToIndexNow, buildPostUrls } from "../lib/indexNow";
 
 // Re-exported for automation.ts (historical import location).
 export { resolveCategory };
@@ -347,6 +348,11 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     ogImage: values.ogImage,
     content: values.content,
   });
+  // Ping Bing via IndexNow when the post is published so it re-evaluates the
+  // URL immediately instead of waiting for the next Bingbot crawl cycle.
+  if (withCats.status === "published") {
+    void submitToIndexNow(buildPostUrls({ slug: withCats.slug, categorySlugs: withCats.categories?.map((c) => c.slug) ?? (withCats.categorySlug ? [withCats.categorySlug] : []) }));
+  }
   res.status(201).json(imageWarnings.length ? { ...withCats, imageWarnings } : withCats);
 });
 
@@ -657,6 +663,11 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     ogImage: "ogImage" in update ? update.ogImage : undefined,
     content: "content" in update ? update.content : undefined,
   });
+  // Ping Bing when the post is published or when an already-published post is
+  // updated so Bing picks up the latest content without waiting for a crawl.
+  if (updated.status === "published" || existing.status === "published") {
+    void submitToIndexNow(buildPostUrls({ slug: updated.slug, categorySlugs: updated.categories?.map((c) => c.slug) ?? (updated.categorySlug ? [updated.categorySlug] : []) }));
+  }
   res.json(imageWarnings.length ? { ...updated, imageWarnings } : updated);
 });
 
