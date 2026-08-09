@@ -422,6 +422,19 @@ app.get("/robots.txt", (_req, res) => {
   res.send(robotsTxt);
 });
 
+// IndexNow domain-ownership verification file. Bing fetches this to confirm
+// that whoever submitted URLs via IndexNow actually controls this domain.
+// Registered here (before sirv and the maintenance gate) so it is always
+// reachable regardless of maintenance status, CDN caching, or build state.
+const INDEXNOW_KEY = (process.env.INDEXNOW_KEY || "").trim();
+if (INDEXNOW_KEY) {
+  app.get(`/${INDEXNOW_KEY}.txt`, (_req, res) => {
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400");
+    res.send(INDEXNOW_KEY);
+  });
+}
+
 // The sitemap index is generated dynamically for the same reason as
 // robots.txt: it must point at the SITE_DOMAIN the real sitemap uses, never a
 // stale hardcoded domain baked into a static file. Registered BEFORE sirv so a
