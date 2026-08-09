@@ -22,13 +22,21 @@ export default function Contact() {
   const { toast } = useToast();
   const submitContact = useSubmitContact();
 
+  // Pre-fill subject / message when arriving from the 404 "Report a broken
+  // link" button. The 404 page passes the broken URL in the query string so
+  // the admin can immediately see which URL triggered the report.
+  const params =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search)
+      : new URLSearchParams();
+
   const form = useForm<z.infer<typeof contactSchema>>({
     resolver: zodResolver(contactSchema),
     defaultValues: {
       name: "",
       email: "",
-      subject: "",
-      message: "",
+      subject: params.get("subject") ?? "",
+      message: params.get("message") ?? "",
     },
   });
 
