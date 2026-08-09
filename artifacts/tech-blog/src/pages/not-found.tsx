@@ -4,6 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Home, Search, Mail } from "lucide-react";
 
 export default function NotFound() {
+  // Build the pre-filled contact URL so the broken link lands in the message
+  // automatically — the admin can see exactly which URL triggered the 404.
+  const brokenUrl = typeof window !== "undefined" ? window.location.href : "";
+  const reportParams = new URLSearchParams({
+    subject: "Broken link report",
+    message: `Hi,\n\nI found a broken link on Mapletechie:\n\n${brokenUrl}\n\nThis page returned a 404 error.`,
+  });
+  const reportHref = `/contact?${reportParams.toString()}`;
+
   return (
     <>
       <Helmet>
@@ -34,7 +43,7 @@ export default function NotFound() {
                 <Search className="w-4 h-4 mr-2" /> Browse the blog
               </Button>
             </Link>
-            <Link href="/contact">
+            <Link href={reportHref}>
               <Button variant="outline" data-testid="button-not-found-contact">
                 <Mail className="w-4 h-4 mr-2" /> Report a broken link
               </Button>
