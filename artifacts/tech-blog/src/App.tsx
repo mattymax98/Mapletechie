@@ -50,6 +50,7 @@ const AdminSendEmail = lazy(() => import("@/pages/admin/AdminSendEmail"));
 const AdminMedia = lazy(() => import("@/pages/admin/AdminMedia"));
 const AdminCategories = lazy(() => import("@/pages/admin/AdminCategories"));
 const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
+const AdminAbout = lazy(() => import("@/pages/admin/AdminAbout"));
 
 import { AdminProvider } from "@/context/AdminContext";
 import { AdminGuard } from "@/components/AdminGuard";
@@ -121,6 +122,9 @@ function Router() {
       </Route>
       <Route path="/admin/settings">
         <AdminGuard adminOnly><AdminSettings /></AdminGuard>
+      </Route>
+      <Route path="/admin/about">
+        <AdminGuard adminOnly><AdminAbout /></AdminGuard>
       </Route>
       <Route path="/admin/posts/new">
         <AdminGuard><AdminNewPost /></AdminGuard>
