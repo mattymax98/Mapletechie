@@ -56,18 +56,13 @@ router.get("/sitemap.xml", async (req, res): Promise<void> => {
     { loc: `${domain}/careers`, priority: "0.6", changefreq: "weekly" },
     { loc: `${domain}/privacy`, priority: "0.3", changefreq: "yearly" },
     { loc: `${domain}/terms`, priority: "0.3", changefreq: "yearly" },
+    { loc: `${domain}/team`, priority: "0.5", changefreq: "monthly" },
   ];
 
   const categoryUrls: SitemapEntry[] = categories.map((c) => ({
     loc: `${domain}/category/${c.slug}`,
     priority: "0.7",
     changefreq: "weekly",
-  }));
-
-  const categoryFeedUrls: SitemapEntry[] = categories.map((c) => ({
-    loc: `${domain}/api/category/${c.slug}/feed.xml`,
-    priority: "0.4",
-    changefreq: "daily",
   }));
 
   const postUrls: SitemapEntry[] = posts.map((p) => ({
@@ -105,7 +100,6 @@ router.get("/sitemap.xml", async (req, res): Promise<void> => {
   const allUrls: SitemapEntry[] = [
     ...staticPages,
     ...categoryUrls,
-    ...categoryFeedUrls,
     ...postUrls,
     ...authorUrls,
     ...seriesUrls,
