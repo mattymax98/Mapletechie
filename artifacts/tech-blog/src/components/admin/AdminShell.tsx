@@ -20,6 +20,7 @@ import {
   ChevronRight,
   Menu,
   User as UserIcon,
+  Info,
 } from "lucide-react";
 
 interface NavItem {
@@ -73,6 +74,12 @@ const NAV: NavSection[] = [
         href: "/admin/settings",
         label: "Settings",
         icon: Settings,
+        permission: (u) => u?.role === "admin",
+      },
+      {
+        href: "/admin/about",
+        label: "About",
+        icon: Info,
         permission: (u) => u?.role === "admin",
       },
       {
