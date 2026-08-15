@@ -92,6 +92,7 @@ function buildSeoBlock(data: SeoData): string {
     `    <link rel="canonical" href="${url}" />`,
     `    <meta property="og:type" content="${type}" />`,
     `    <meta property="og:site_name" content="Mapletechie" />`,
+    `    <meta property="og:locale" content="en_CA" />`,
     `    <meta property="og:title" content="${title}" />`,
     `    <meta property="og:description" content="${description}" />`,
     `    <meta property="og:url" content="${url}" />`,

@@ -455,6 +455,7 @@ export default function BlogPost() {
         url={`/blog/${post.slug}`}
         type="article"
         publishedTime={post.publishedAt ?? undefined}
+        modifiedTime={post.updatedAt ?? post.publishedAt ?? undefined}
         author={post.author ?? undefined}
         keywords={
           (post as any).seoKeywords && (post as any).seoKeywords.length > 0
