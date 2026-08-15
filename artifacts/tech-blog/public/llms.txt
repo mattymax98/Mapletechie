@@ -8,27 +8,27 @@ Mapletechie is an independent editorial outlet publishing original reporting and
 
 ## Main Sections
 
-- Home: https://mapletechie.com/
-- Blog / All Articles: https://mapletechie.com/blog
-- News: https://mapletechie.com/category/news
-- Reviews: https://mapletechie.com/category/reviews
-- AI: https://mapletechie.com/category/ai
-- Gadgets: https://mapletechie.com/category/gadgets
-- Software & Apps: https://mapletechie.com/category/software-apps
-- Gaming: https://mapletechie.com/category/gaming
-- Business & Policy: https://mapletechie.com/category/business-policy
-- Canada Tech: https://mapletechie.com/category/canada-tech
+- [Home](https://mapletechie.com/)
+- [Blog / All Articles](https://mapletechie.com/blog)
+- [News](https://mapletechie.com/category/news)
+- [Reviews](https://mapletechie.com/category/reviews)
+- [AI](https://mapletechie.com/category/ai)
+- [Gadgets](https://mapletechie.com/category/gadgets)
+- [Software & Apps](https://mapletechie.com/category/software-apps)
+- [Gaming](https://mapletechie.com/category/gaming)
+- [Business & Policy](https://mapletechie.com/category/business-policy)
+- [Canada Tech](https://mapletechie.com/category/canada-tech)
 
 ## Trust & Legal
 
-- About: https://mapletechie.com/about
-- Contact: https://mapletechie.com/contact
-- Advertise: https://mapletechie.com/advertise
-- Careers: https://mapletechie.com/careers
+- [About](https://mapletechie.com/about)
+- [Contact](https://mapletechie.com/contact)
+- [Advertise](https://mapletechie.com/advertise)
+- [Careers](https://mapletechie.com/careers)
 
 ## Sitemap
 
-https://mapletechie.com/sitemap.xml
+[Sitemap](https://mapletechie.com/sitemap.xml)
 
 ## Citation Guidance
 
