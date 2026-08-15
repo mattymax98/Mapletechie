@@ -75,6 +75,7 @@ interface SEOProps {
   url?: string;
   type?: "website" | "article";
   publishedTime?: string;
+  modifiedTime?: string;
   author?: string;
   keywords?: string[];
   noindex?: boolean;
@@ -93,6 +94,7 @@ export function SEO({
   url,
   type = "website",
   publishedTime,
+  modifiedTime,
   author,
   keywords,
   noindex = false,
@@ -134,8 +136,12 @@ export function SEO({
       <meta property="og:url" content={canonicalUrl} />
       <meta property="og:type" content={type} />
       <meta property="og:site_name" content={SITE_NAME} />
+      <meta property="og:locale" content="en_CA" />
       {publishedTime && (
         <meta property="article:published_time" content={publishedTime} />
+      )}
+      {modifiedTime && (
+        <meta property="article:modified_time" content={modifiedTime} />
       )}
       {author && <meta property="article:author" content={author} />}
 
