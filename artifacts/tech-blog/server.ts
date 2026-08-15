@@ -1,7 +1,7 @@
 import express from "express";
 import sirv from "sirv";
 import path from "node:path";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { responsiveCoverProps, COVER_SIZES } from "./src/lib/responsiveImage";
 import { buildSeoTitle } from "./src/lib/seoTitle";
@@ -44,6 +44,31 @@ if (!existsSync(indexHtmlPath)) {
   );
 }
 const indexHtml = readFileSync(indexHtmlPath, "utf-8");
+
+// Discover the built CSS entry file at startup so we can emit a preload Link
+// header on every HTML response. The browser then starts fetching the
+// stylesheet in parallel with HTML parsing instead of waiting until the parser
+// finds the <link rel="stylesheet"> tag — eliminating the render-blocking
+// delay Lighthouse reports. server.ts only runs against a built /dist, so no
+// NODE_ENV guard is needed; we log a warning if the file can't be found.
+let cssPreloadLink = "";
+try {
+  const assetsDir = path.join(distDir, "assets");
+  const cssFile = readdirSync(assetsDir).find((f) =>
+    /^index-[^.]+\.css$/.test(f),
+  );
+  if (cssFile) {
+    cssPreloadLink = `</assets/${cssFile}>; rel=preload; as=style`;
+  } else {
+    console.warn(
+      "[tech-blog] CSS preload: no index-*.css found in /assets — preload header will be skipped",
+    );
+  }
+} catch {
+  console.warn(
+    "[tech-blog] CSS preload: could not scan assets dir — preload header will be skipped",
+  );
+}
 
 const SEO_BLOCK_RE = /<!-- SEO_HEAD_START -->[\s\S]*?<!-- SEO_HEAD_END -->/;
 const ROOT_RE = /<div id="root"><\/div>/;
@@ -362,6 +387,18 @@ app.use((req, _res, next) => {
   }
   next();
 });
+
+// Emit a Link: rel=preload header for the main CSS bundle on every response.
+// Browsers begin fetching the stylesheet as soon as they receive the response
+// headers — before the HTML parser finds the <link rel="stylesheet"> tag —
+// eliminating most of the render-blocking delay. Safe to include on non-HTML
+// responses (browsers silently ignore mismatched preload hints).
+if (cssPreloadLink) {
+  app.use((_req, res, next) => {
+    res.setHeader("Link", cssPreloadLink);
+    next();
+  });
+}
 
 // Legacy cover compatibility: the cover/hero/author images were migrated from
 // PNG to WebP. Any historical reference (old DB rows, cached HTML, external
