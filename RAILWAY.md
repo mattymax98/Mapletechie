@@ -50,8 +50,8 @@ R2_SECRET_ACCESS_KEY = <Secret Access Key from step 1.3>
 # These tell the app which bucket/prefix to use.
 # Keep the same format as your current Replit values,
 # but replace the GCS bucket name with "mapletechie".
-PRIVATE_OBJECT_DIR         = /mapletechie/private
-PUBLIC_OBJECT_SEARCH_PATHS = /mapletechie/covers,/mapletechie/public
+PRIVATE_OBJECT_DIR         = /mapletechie/.private
+PUBLIC_OBJECT_SEARCH_PATHS = /mapletechie/public
 ```
 
 > **Note:** If your existing PRIVATE_OBJECT_DIR or PUBLIC_OBJECT_SEARCH_PATHS
@@ -151,8 +151,8 @@ AI_INTEGRATIONS_ANTHROPIC_BASE_URL  = <from Replit>
 R2_ACCOUNT_ID               = <your Cloudflare Account ID>
 R2_ACCESS_KEY_ID            = <from step 1.3>
 R2_SECRET_ACCESS_KEY        = <from step 1.3>
-PRIVATE_OBJECT_DIR          = /mapletechie/private
-PUBLIC_OBJECT_SEARCH_PATHS  = /mapletechie/covers,/mapletechie/public
+PRIVATE_OBJECT_DIR          = /mapletechie/.private
+PUBLIC_OBJECT_SEARCH_PATHS  = /mapletechie/public
 
 # DATABASE_URL is added automatically by Railway's PostgreSQL addon.
 ```
