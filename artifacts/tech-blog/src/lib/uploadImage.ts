@@ -23,44 +23,27 @@ export async function uploadImage(rawFile: File): Promise<UploadResult> {
   const token = typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;
   const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
-  // 1. Ask the server for a presigned upload URL.
-  const requestRes = await fetch("/api/storage/uploads/request-url", {
+  // POST the raw file bytes to the API server, which writes them directly to
+  // R2/GCS. This avoids a cross-origin presigned PUT (which would require CORS
+  // to be configured on the R2 bucket).
+  const uploadRes = await fetch("/api/storage/uploads", {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type": file.type,
       ...authHeaders,
     },
-    body: JSON.stringify({
-      name: file.name,
-      size: file.size,
-      contentType: file.type,
-    }),
-  });
-
-  if (!requestRes.ok) {
-    const text = await requestRes.text();
-    throw new Error(`Could not start upload: ${text}`);
-  }
-
-  const { uploadURL, objectPath } = (await requestRes.json()) as {
-    uploadURL: string;
-    objectPath: string;
-  };
-
-  // 2. PUT the file directly to the presigned URL (goes to GCS, not our server).
-  const putRes = await fetch(uploadURL, {
-    method: "PUT",
-    headers: { "Content-Type": file.type },
     body: file,
   });
 
-  if (!putRes.ok) {
-    throw new Error("Upload failed. Please try again.");
+  if (!uploadRes.ok) {
+    const text = await uploadRes.text();
+    throw new Error(`Upload failed: ${text}`);
   }
 
-  // The serving URL is /api/storage + objectPath (e.g. /api/storage/objects/uploads/uuid)
-  return {
-    url: `/api/storage${objectPath}`,
-    objectPath,
+  const { url, objectPath } = (await uploadRes.json()) as {
+    url: string;
+    objectPath: string;
   };
+
+  return { url, objectPath };
 }
