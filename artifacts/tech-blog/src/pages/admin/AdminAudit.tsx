@@ -127,10 +127,6 @@ export default function AdminAudit() {
     >
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <ClipboardList className="w-6 h-6 text-orange-400" />
-            Activity Log
-          </h1>
           <p className="text-zinc-400 text-sm mt-1">
             Every login, post change, and moderation action — with timestamps and IP addresses. Use this to track who did what.
           </p>

@@ -47,6 +47,25 @@ export async function getSiteSettings(): Promise<SiteSettings> {
   return row!;
 }
 
+/**
+ * Whether maintenance is currently active based on the scheduled window.
+ * Returns true if now() is within [startsAt, endsAt].
+ * If only startsAt is set: active from startsAt onwards.
+ * If only endsAt is set: active until endsAt.
+ */
+function isWithinScheduledWindow(
+  startsAt: Date | null,
+  endsAt: Date | null,
+): boolean {
+  if (!startsAt && !endsAt) return false;
+  const now = Date.now();
+  const afterStart = startsAt ? now >= startsAt.getTime() : true;
+  const beforeEnd = endsAt ? now <= endsAt.getTime() : true;
+  return afterStart && beforeEnd;
+}
+
+export type MaintenanceSeverity = "full" | "banner";
+
 export interface MaintenanceState {
   /** Whether the public site should be gated right now. */
   active: boolean;
@@ -54,11 +73,21 @@ export interface MaintenanceState {
   eta: string | null;
   /** True when forced on by the MAINTENANCE_MODE env var (cannot be turned off in the UI). */
   envForced: boolean;
+  /** Scheduled start time (ISO string), if set. */
+  startsAt: string | null;
+  /** Scheduled end time (ISO string), if set. */
+  endsAt: string | null;
+  /** 'full' for full-page lockout, 'banner' for dismissible top banner. */
+  severity: MaintenanceSeverity;
 }
 
 /**
  * The effective maintenance state, combining the env override (which always
  * wins) with the DB row. The env override only ever turns maintenance ON.
+ *
+ * Scheduling logic: when startsAt/endsAt are set, the effective state is
+ * active when now() falls within the window. The manual toggle (maintenanceMode)
+ * acts as override when no schedule is set (neither startsAt nor endsAt).
  */
 export async function getMaintenanceState(): Promise<MaintenanceState> {
   const envForced = envForcedMaintenance();
@@ -70,23 +99,49 @@ export async function getMaintenanceState(): Promise<MaintenanceState> {
   if (envForced) {
     try {
       const row = await getSiteSettings();
+      const startsAt = row.maintenanceStartsAt ?? null;
+      const endsAt = row.maintenanceEndsAt ?? null;
       return {
         active: true,
         message: row.maintenanceMessage ?? null,
         eta: row.maintenanceEta ?? null,
         envForced: true,
+        startsAt: startsAt ? startsAt.toISOString() : null,
+        endsAt: endsAt ? endsAt.toISOString() : null,
+        severity: (row.maintenanceSeverity as MaintenanceSeverity) ?? "full",
       };
     } catch {
-      return { active: true, message: null, eta: null, envForced: true };
+      return {
+        active: true,
+        message: null,
+        eta: null,
+        envForced: true,
+        startsAt: null,
+        endsAt: null,
+        severity: "full",
+      };
     }
   }
 
   const row = await getSiteSettings();
+  const startsAt = row.maintenanceStartsAt ?? null;
+  const endsAt = row.maintenanceEndsAt ?? null;
+  const hasSchedule = !!(startsAt || endsAt);
+
+  // If a schedule is configured, use the window to determine active state.
+  // Otherwise fall back to the manual toggle.
+  const active = hasSchedule
+    ? isWithinScheduledWindow(startsAt, endsAt)
+    : row.maintenanceMode;
+
   return {
-    active: row.maintenanceMode,
+    active,
     message: row.maintenanceMessage ?? null,
     eta: row.maintenanceEta ?? null,
     envForced: false,
+    startsAt: startsAt ? startsAt.toISOString() : null,
+    endsAt: endsAt ? endsAt.toISOString() : null,
+    severity: (row.maintenanceSeverity as MaintenanceSeverity) ?? "full",
   };
 }
 
@@ -104,10 +159,20 @@ function nullableStr(v: unknown, max: number): string | null {
   return t || null;
 }
 
+function nullableDate(v: unknown): Date | null {
+  if (v === null || v === undefined || v === "") return null;
+  if (typeof v !== "string") return null;
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 export interface UpdateSiteSettingsInput {
   maintenanceMode?: boolean;
   maintenanceMessage?: string | null;
   maintenanceEta?: string | null;
+  maintenanceStartsAt?: string | null;
+  maintenanceEndsAt?: string | null;
+  maintenanceSeverity?: string | null;
   updatedBy?: string | null;
   notificationEmail?: string | null;
   newsletterFromName?: string | null;
@@ -131,6 +196,16 @@ export async function updateSiteSettings(
       typeof input.maintenanceEta === "string"
         ? input.maintenanceEta.trim().slice(0, 200) || null
         : null;
+  }
+  if (input.maintenanceStartsAt !== undefined) {
+    patch.maintenanceStartsAt = nullableDate(input.maintenanceStartsAt);
+  }
+  if (input.maintenanceEndsAt !== undefined) {
+    patch.maintenanceEndsAt = nullableDate(input.maintenanceEndsAt);
+  }
+  if (input.maintenanceSeverity !== undefined) {
+    const sev = input.maintenanceSeverity;
+    patch.maintenanceSeverity = sev === "banner" ? "banner" : "full";
   }
   if (input.updatedBy !== undefined) patch.updatedBy = input.updatedBy ?? null;
   if (input.notificationEmail !== undefined)

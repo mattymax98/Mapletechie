@@ -242,4 +242,86 @@ router.get("/admin/analytics/top-referrers", adminAuth, requireRole("admin"), as
   res.json(rows);
 });
 
+/**
+ * Per-post analytics for the authenticated user's own posts only.
+ * Available to all authenticated admin users (editors included) — no requireRole guard.
+ */
+router.get("/admin/analytics/my-post-views", adminAuth, async (req, res): Promise<void> => {
+  const since = rangeToDate(req.query.range as string);
+  const authorId = (req as any).user?.id;
+  if (!authorId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const rows = await db
+    .select({
+      slug: postsTable.slug,
+      title: postsTable.title,
+      publishedAt: postsTable.publishedAt,
+      views: sql<number>`coalesce(count(${pageViewsTable.id})::int, 0)`,
+    })
+    .from(postsTable)
+    .leftJoin(
+      pageViewsTable,
+      and(
+        eq(pageViewsTable.postSlug, postsTable.slug),
+        gte(pageViewsTable.createdAt, since),
+      ),
+    )
+    .where(
+      and(
+        eq(postsTable.status, "published"),
+        isNotNull(postsTable.publishedAt),
+        eq(postsTable.authorId, authorId),
+      ),
+    )
+    .groupBy(postsTable.id)
+    .orderBy(desc(sql`coalesce(count(${pageViewsTable.id})::int, 0)`));
+  res.json(rows);
+});
+
+/**
+ * CSV export of post-views data. Admin only.
+ * GET /api/admin/analytics/export.csv?range=7d|30d|90d|all
+ */
+router.get("/admin/analytics/export.csv", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+  const range = (req.query.range as string) || "30d";
+  const since = rangeToDate(range);
+  const rows = await db
+    .select({
+      slug: postsTable.slug,
+      title: postsTable.title,
+      publishedAt: postsTable.publishedAt,
+      views: sql<number>`coalesce(count(${pageViewsTable.id})::int, 0)`,
+    })
+    .from(postsTable)
+    .leftJoin(
+      pageViewsTable,
+      and(
+        eq(pageViewsTable.postSlug, postsTable.slug),
+        gte(pageViewsTable.createdAt, since),
+      ),
+    )
+    .where(
+      and(
+        eq(postsTable.status, "published"),
+        isNotNull(postsTable.publishedAt),
+      ),
+    )
+    .groupBy(postsTable.id)
+    .orderBy(desc(sql`coalesce(count(${pageViewsTable.id})::int, 0)`));
+
+  const escape = (v: string) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const lines: string[] = ["Title,Slug,Views,Published Date"];
+  for (const r of rows) {
+    const pub = r.publishedAt ? new Date(r.publishedAt).toISOString().slice(0, 10) : "";
+    lines.push([escape(r.title ?? ""), escape(r.slug ?? ""), String(r.views), escape(pub)].join(","));
+  }
+  const csv = lines.join("\r\n");
+
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="analytics-${range}.csv"`);
+  res.send(csv);
+});
+
 export default router;

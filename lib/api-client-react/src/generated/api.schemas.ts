@@ -9,12 +9,18 @@ export interface MaintenanceStatus {
   maintenance: boolean;
   message?: string | null;
   eta?: string | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  severity?: "full" | "banner";
 }
 
 export interface SiteSettings {
   maintenanceMode: boolean;
   maintenanceMessage?: string | null;
   maintenanceEta?: string | null;
+  maintenanceStartsAt?: string | null;
+  maintenanceEndsAt?: string | null;
+  maintenanceSeverity?: "full" | "banner";
   updatedAt?: string;
   updatedBy?: string | null;
   envForced: boolean;
@@ -29,6 +35,9 @@ export interface UpdateSiteSettingsInput {
   maintenanceMode?: boolean;
   maintenanceMessage?: string | null;
   maintenanceEta?: string | null;
+  maintenanceStartsAt?: string | null;
+  maintenanceEndsAt?: string | null;
+  maintenanceSeverity?: "full" | "banner" | null;
   notificationEmail?: string | null;
   newsletterFromName?: string | null;
   newsletterFromAddress?: string | null;

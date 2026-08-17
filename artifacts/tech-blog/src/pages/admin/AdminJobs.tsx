@@ -121,7 +121,6 @@ export default function AdminJobs() {
     >
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold">Job Postings</h1>
           <p className="text-zinc-400 text-sm mt-1">Create and manage open roles. Applications appear in your <Link href="/admin/inbox" className="text-orange-400 hover:underline">Inbox</Link>.</p>
         </div>
 

@@ -1,4 +1,4 @@
-import { pgTable, boolean, text, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, boolean, text, integer, timestamp, varchar } from "drizzle-orm/pg-core";
 
 /**
  * Site-wide settings. This is a singleton table — there is exactly one row
@@ -15,6 +15,20 @@ export const siteSettingsTable = pgTable("site_settings", {
   maintenanceMode: boolean("maintenance_mode").notNull().default(false),
   maintenanceMessage: text("maintenance_message"),
   maintenanceEta: text("maintenance_eta"),
+  /**
+   * When set, maintenance activates automatically at this UTC timestamp.
+   * Works in combination with maintenanceEndsAt to define a scheduled window.
+   */
+  maintenanceStartsAt: timestamp("maintenance_starts_at", { withTimezone: true }),
+  /**
+   * When set, maintenance deactivates automatically at this UTC timestamp.
+   * Works in combination with maintenanceStartsAt to define a scheduled window.
+   */
+  maintenanceEndsAt: timestamp("maintenance_ends_at", { withTimezone: true }),
+  /**
+   * 'full' = full-page lockout (default); 'banner' = dismissible amber top banner.
+   */
+  maintenanceSeverity: varchar("maintenance_severity", { length: 10 }).notNull().default("full"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: text("updated_by"),
   /** Address that receives contact form submission notifications. */

@@ -108,6 +108,7 @@ export default function AdminDashboard() {
   };
 
   const [showOnlyAltMissing, setShowOnlyAltMissing] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
   const altMissingIds = useMemo(() => {
     const ids = new Set<number>();
@@ -119,13 +120,15 @@ export default function AdminDashboard() {
     return ids;
   }, [posts]);
 
-  const visiblePosts = useMemo(
-    () =>
-      showOnlyAltMissing
-        ? (posts ?? []).filter((p: any) => altMissingIds.has(p.id))
-        : (posts ?? []),
-    [posts, showOnlyAltMissing, altMissingIds],
-  );
+  const visiblePosts = useMemo(() => {
+    let list = posts ?? [];
+    if (statusFilter) list = list.filter((p: any) => p.status === statusFilter);
+    if (showOnlyAltMissing) list = list.filter((p: any) => altMissingIds.has(p.id));
+    return list;
+  }, [posts, statusFilter, showOnlyAltMissing, altMissingIds]);
+
+  const toggleStatusFilter = (status: string) =>
+    setStatusFilter((prev) => (prev === status ? null : status));
 
   const allSelected =
     !!visiblePosts.length && visiblePosts.every((p: any) => selectedIds.has(p.id));
@@ -137,6 +140,58 @@ export default function AdminDashboard() {
   const handleBulkMove = (categorySlug: string) => {
     if (selectedIds.size === 0 || bulkMutation.isPending) return;
     bulkMutation.mutate({ data: { postIds: [...selectedIds], category: categorySlug } });
+  };
+
+  const [bulkActionPending, setBulkActionPending] = useState<"delete" | "publish" | null>(null);
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0 || bulkActionPending || !token) return;
+    const count = selectedIds.size;
+    if (!confirm(`Delete ${count} selected post${count === 1 ? "" : "s"}? This cannot be undone.`)) return;
+    setBulkActionPending("delete");
+    try {
+      const h = { Authorization: `Bearer ${token}` };
+      await Promise.all([...selectedIds].map((id) => fetch(`/api/posts/${id}`, { method: "DELETE", headers: h })));
+      toast({ title: `Deleted ${count} post${count === 1 ? "" : "s"}` });
+      setSelectedIds(new Set());
+      queryClient.invalidateQueries();
+    } catch {
+      toast({ title: "Couldn't delete posts", description: "Please try again.", variant: "destructive" });
+    } finally {
+      setBulkActionPending(null);
+    }
+  };
+
+  const handleBulkPublish = async () => {
+    if (selectedIds.size === 0 || bulkActionPending || !token) return;
+    const draftIds = [...selectedIds].filter((id) => {
+      const p = (posts ?? []).find((p: any) => p.id === id);
+      return p && p.status !== "published";
+    });
+    if (draftIds.length === 0) {
+      toast({ title: "All selected posts are already published." });
+      return;
+    }
+    setBulkActionPending("publish");
+    try {
+      const h = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+      await Promise.all(
+        draftIds.map((id) =>
+          fetch(`/api/posts/${id}`, {
+            method: "PUT",
+            headers: h,
+            body: JSON.stringify({ status: "published", publishedAt: new Date().toISOString() }),
+          }),
+        ),
+      );
+      toast({ title: `Published ${draftIds.length} post${draftIds.length === 1 ? "" : "s"}` });
+      setSelectedIds(new Set());
+      queryClient.invalidateQueries();
+    } catch {
+      toast({ title: "Couldn't publish posts", description: "Please try again.", variant: "destructive" });
+    } finally {
+      setBulkActionPending(null);
+    }
   };
 
   // ── Post count stat tiles ────────────────────────────────────────────
@@ -252,10 +307,10 @@ export default function AdminDashboard() {
           </div>
         ) : stats ? (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-            <StatTile label="Total" value={stats.total} />
-            <StatTile label="Published" value={stats.published} accent="text-green-400" />
-            <StatTile label="Drafts" value={stats.draft} accent="text-amber-400" />
-            <StatTile label="Scheduled" value={stats.scheduled} accent="text-blue-400" />
+            <StatTile label="Total" value={stats.total} onClick={() => setStatusFilter(null)} active={statusFilter === null} />
+            <StatTile label="Published" value={stats.published} accent="text-green-400" onClick={() => toggleStatusFilter("published")} active={statusFilter === "published"} />
+            <StatTile label="Drafts" value={stats.draft} accent="text-amber-400" onClick={() => toggleStatusFilter("draft")} active={statusFilter === "draft"} />
+            <StatTile label="Scheduled" value={stats.scheduled} accent="text-blue-400" onClick={() => toggleStatusFilter("scheduled")} active={statusFilter === "scheduled"} />
           </div>
         ) : null}
 
@@ -661,21 +716,24 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ── Bulk-move floating bar ──────────────────────────────────── */}
+        {/* ── Bulk-action floating bar ────────────────────────────────── */}
         {selectedIds.size > 0 && (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 rounded-full border border-zinc-700 bg-zinc-900/95 backdrop-blur px-4 py-2 shadow-xl shadow-black/50">
-            <span className="text-sm text-zinc-300 whitespace-nowrap">
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900/95 backdrop-blur px-4 py-2 shadow-xl shadow-black/50">
+            <span className="text-sm text-zinc-300 whitespace-nowrap pr-1">
               {selectedIds.size} selected
             </span>
+
+            {/* Move to category */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   size="sm"
-                  className="bg-orange-500 hover:bg-orange-600 text-white gap-2 rounded-full"
-                  disabled={bulkMutation.isPending || !categories?.length}
+                  variant="outline"
+                  className="border-zinc-700 text-zinc-200 hover:bg-zinc-800 gap-1.5 rounded-full h-8"
+                  disabled={!!bulkActionPending || bulkMutation.isPending || !categories?.length}
                 >
-                  <FolderInput className="w-4 h-4" />
-                  {bulkMutation.isPending ? "Moving..." : "Move to..."}
+                  <FolderInput className="w-3.5 h-3.5" />
+                  {bulkMutation.isPending ? "Moving…" : "Move to…"}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent
@@ -698,11 +756,41 @@ export default function AdminDashboard() {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* Bulk publish (admin only) */}
+            {isAdmin && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-zinc-700 text-green-400 hover:bg-zinc-800 hover:text-green-300 gap-1.5 rounded-full h-8"
+                disabled={!!bulkActionPending || bulkMutation.isPending}
+                onClick={handleBulkPublish}
+                title="Publish all selected draft/scheduled posts"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                {bulkActionPending === "publish" ? "Publishing…" : "Publish"}
+              </Button>
+            )}
+
+            {/* Bulk delete */}
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-zinc-700 text-red-400 hover:bg-zinc-800 hover:text-red-300 gap-1.5 rounded-full h-8"
+              disabled={!!bulkActionPending || bulkMutation.isPending}
+              onClick={handleBulkDelete}
+              title="Delete all selected posts"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {bulkActionPending === "delete" ? "Deleting…" : "Delete"}
+            </Button>
+
+            {/* Clear selection */}
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setSelectedIds(new Set())}
-              className="h-8 w-8 p-0 rounded-full text-zinc-400 hover:text-white"
+              className="h-8 w-8 p-0 rounded-full text-zinc-400 hover:text-white ml-1"
               title="Clear selection"
             >
               <X className="w-4 h-4" />
@@ -747,15 +835,28 @@ function StatTile({
   label,
   value,
   accent = "text-white",
+  onClick,
+  active,
 }: {
   label: string;
   value: number;
   accent?: string;
+  onClick?: () => void;
+  active?: boolean;
 }) {
   return (
-    <div className="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3">
+    <button
+      type="button"
+      onClick={onClick}
+      className={`text-left w-full bg-zinc-950 border rounded-lg px-4 py-3 transition-colors ${
+        active
+          ? "border-orange-500/60 ring-1 ring-orange-500/30"
+          : "border-zinc-800 hover:border-zinc-600"
+      }`}
+    >
       <p className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold">{label}</p>
       <p className={`text-2xl font-bold tabular-nums mt-1 ${accent}`}>{value}</p>
-    </div>
+      {active && <p className="text-[10px] text-orange-400 mt-0.5">Filtering ↑</p>}
+    </button>
   );
 }

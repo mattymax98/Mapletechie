@@ -164,7 +164,6 @@ export default function AdminInbox() {
     <AdminShell title="Inbox">
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold">Inbox</h1>
           <p className="text-zinc-400 text-sm mt-1">All submissions from your readers, advertisers, and applicants in one place.</p>
           <p className="text-amber-400/80 text-xs mt-2 bg-amber-500/10 border border-amber-500/30 rounded px-3 py-2 inline-block">
             <FileText className="w-3 h-3 inline mr-1" />

@@ -1382,6 +1382,9 @@ components:
         maintenance: { type: boolean }
         message: { type: string, nullable: true }
         eta: { type: string, nullable: true }
+        startsAt: { type: string, format: date-time, nullable: true }
+        endsAt: { type: string, format: date-time, nullable: true }
+        severity: { type: string, enum: [full, banner] }
       required: [maintenance]
     SiteSettings:
       type: object
@@ -1389,6 +1392,9 @@ components:
         maintenanceMode: { type: boolean }
         maintenanceMessage: { type: string, nullable: true }
         maintenanceEta: { type: string, nullable: true }
+        maintenanceStartsAt: { type: string, format: date-time, nullable: true }
+        maintenanceEndsAt: { type: string, format: date-time, nullable: true }
+        maintenanceSeverity: { type: string, enum: [full, banner] }
         updatedAt: { type: string, format: date-time }
         updatedBy: { type: string, nullable: true }
         envForced: { type: boolean }
@@ -1404,6 +1410,9 @@ components:
         maintenanceMode: { type: boolean }
         maintenanceMessage: { type: string, nullable: true }
         maintenanceEta: { type: string, nullable: true }
+        maintenanceStartsAt: { type: string, format: date-time, nullable: true }
+        maintenanceEndsAt: { type: string, format: date-time, nullable: true }
+        maintenanceSeverity: { type: string, enum: [full, banner], nullable: true }
         notificationEmail: { type: string, nullable: true }
         newsletterFromName: { type: string, nullable: true }
         newsletterFromAddress: { type: string, nullable: true }

@@ -140,7 +140,6 @@ export default function AdminAbout() {
     <AdminShell title="About This Site">
       <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">About This Site</h1>
           <p className="text-zinc-400 text-sm mt-1">
             The full technology stack powering Mapletechie — libraries,
             infrastructure, and build tooling.

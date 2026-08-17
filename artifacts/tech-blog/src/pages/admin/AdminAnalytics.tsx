@@ -11,6 +11,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Minus,
+  Download,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -25,8 +26,12 @@ import {
 } from "recharts";
 import { format, parseISO } from "date-fns";
 import ErrorBanner from "@/components/ErrorBanner";
+import { useAdmin } from "@/context/AdminContext";
 
 const TOKEN_KEY = "mapletechie_admin_token";
+
+const EMPTY_STATE_MSG =
+  "No data yet — views will appear here once readers start visiting.";
 
 interface Summary {
   totalViews: number;
@@ -117,15 +122,20 @@ export default function AdminAnalytics() {
   const [priorViews, setPriorViews] = useState<number | null>(null);
   const [topPostRows, setTopPostRows] = useState<PostRow[] | null>(null);
   const [postViewsInRange, setPostViewsInRange] = useState<PostViewRow[] | null>(null);
+  const [myPostViews, setMyPostViews] = useState<PostViewRow[] | null>(null);
   const [topCategories, setTopCategories] = useState<RowKV[] | null>(null);
   const [topCountries, setTopCountries] = useState<CountryRow[] | null>(null);
   const [topReferrers, setTopReferrers] = useState<RowKV[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const { user, token: ctxToken } = useAdmin();
+  const isAdmin = user?.role === "admin";
+
   const { data: allPosts } = useListAdminPosts();
   const token =
-    typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;
+    ctxToken ??
+    (typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null);
 
   /** slug → { title, category, publishedAt } */
   const postMeta = useMemo(() => {
@@ -168,70 +178,98 @@ export default function AdminAnalytics() {
         if (!res.ok) throw new Error("err");
         return res.json();
       };
-      // Fetch a wider range to derive prior-period comparison
-      const expandedRange =
-        range === "7d" ? "30d" : range === "30d" ? "90d" : null;
-      const [s, posts, pvRows, cats, countries, refs, expandedS] =
-        await Promise.all([
-          fetchJson(`/api/admin/analytics/summary?range=${range}`),
-          fetchJson(`/api/admin/analytics/top-posts?range=${range}`),
-          fetchJson(`/api/admin/analytics/post-views?range=${range}`),
-          fetchJson(`/api/admin/analytics/top-categories?range=${range}`),
-          fetchJson(`/api/admin/analytics/top-countries?range=${range}`),
-          fetchJson(`/api/admin/analytics/top-referrers?range=${range}`),
-          expandedRange
-            ? fetchJson(`/api/admin/analytics/summary?range=${expandedRange}`)
-            : Promise.resolve(null),
-        ]);
-      setSummary(s);
-      setTopPostRows(
-        posts.map((p: any) => ({ slug: p.slug, views: p.views })),
+
+      // Always fetch my-post-views (available to all authenticated users)
+      const myPostsPromise = fetchJson(
+        `/api/admin/analytics/my-post-views?range=${range}`,
       );
-      // post-views endpoint returns ALL published posts in the period with
-      // accurate view counts (including zero) via a LEFT JOIN — use this for
-      // the underperforming section so posts outside the top-15 aren't falsely
-      // labelled as zero-view.
-      setPostViewsInRange(
-        Array.isArray(pvRows)
-          ? pvRows.map((r: any) => ({
-              slug: r.slug,
-              title: r.title,
-              publishedAt: r.publishedAt ?? null,
-              views: r.views ?? 0,
-            }))
-          : null,
-      );
-      setTopCategories(
-        cats.map((c: any) => ({ label: c.category, value: c.views })),
-      );
-      setTopCountries(
-        countries.map((c: any) => ({
-          code: c.code ?? "",
-          label: c.name || c.code || "Unknown",
-          value: c.views,
-        })),
-      );
-      setTopReferrers(
-        refs.map((r: any) => ({ label: r.source, value: r.views })),
-      );
-      // Extract prior-period views from the expanded daily series
-      if (expandedS && expandedRange) {
-        const currentDays = range === "7d" ? 7 : 30;
-        const priorEnd = new Date(
-          Date.now() - currentDays * 24 * 60 * 60 * 1000,
+
+      if (isAdmin) {
+        // Fetch a wider range to derive prior-period comparison
+        const expandedRange =
+          range === "7d" ? "30d" : range === "30d" ? "90d" : null;
+        const [s, posts, pvRows, cats, countries, refs, expandedS, myRows] =
+          await Promise.all([
+            fetchJson(`/api/admin/analytics/summary?range=${range}`),
+            fetchJson(`/api/admin/analytics/top-posts?range=${range}`),
+            fetchJson(`/api/admin/analytics/post-views?range=${range}`),
+            fetchJson(`/api/admin/analytics/top-categories?range=${range}`),
+            fetchJson(`/api/admin/analytics/top-countries?range=${range}`),
+            fetchJson(`/api/admin/analytics/top-referrers?range=${range}`),
+            expandedRange
+              ? fetchJson(`/api/admin/analytics/summary?range=${expandedRange}`)
+              : Promise.resolve(null),
+            myPostsPromise,
+          ]);
+        setSummary(s);
+        setTopPostRows(
+          posts.map((p: any) => ({ slug: p.slug, views: p.views })),
         );
-        const priorStart = new Date(
-          Date.now() - currentDays * 2 * 24 * 60 * 60 * 1000,
+        setPostViewsInRange(
+          Array.isArray(pvRows)
+            ? pvRows.map((r: any) => ({
+                slug: r.slug,
+                title: r.title,
+                publishedAt: r.publishedAt ?? null,
+                views: r.views ?? 0,
+              }))
+            : null,
         );
-        const prior = (
-          expandedS.daily as { day: string; views: number }[]
-        )
-          .filter((d) => {
-            const dt = new Date(d.day);
-            return dt >= priorStart && dt < priorEnd;
-          })
-          .reduce((sum, d) => sum + d.views, 0);
-        setPriorViews(prior);
+        setTopCategories(
+          cats.map((c: any) => ({ label: c.category, value: c.views })),
+        );
+        setTopCountries(
+          countries.map((c: any) => ({
+            code: c.code ?? "",
+            label: c.name || c.code || "Unknown",
+            value: c.views,
+          })),
+        );
+        setTopReferrers(
+          refs.map((r: any) => ({ label: r.source, value: r.views })),
+        );
+        // Extract prior-period views from the expanded daily series
+        if (expandedS && expandedRange) {
+          const currentDays = range === "7d" ? 7 : 30;
+          const priorEnd = new Date(
+            Date.now() - currentDays * 24 * 60 * 60 * 1000,
+          );
+          const priorStart = new Date(
+            Date.now() - currentDays * 2 * 24 * 60 * 60 * 1000,
+          );
+          const prior = (
+            expandedS.daily as { day: string; views: number }[]
+          )
+            .filter((d) => {
+              const dt = new Date(d.day);
+              return dt >= priorStart && dt < priorEnd;
+            })
+            .reduce((sum, d) => sum + d.views, 0);
+          setPriorViews(prior);
+        }
+        setMyPostViews(
+          Array.isArray(myRows)
+            ? myRows.map((r: any) => ({
+                slug: r.slug,
+                title: r.title,
+                publishedAt: r.publishedAt ?? null,
+                views: r.views ?? 0,
+              }))
+            : null,
+        );
+      } else {
+        // Editor: only fetch their own post views
+        const myRows = await myPostsPromise;
+        setMyPostViews(
+          Array.isArray(myRows)
+            ? myRows.map((r: any) => ({
+                slug: r.slug,
+                title: r.title,
+                publishedAt: r.publishedAt ?? null,
+                views: r.views ?? 0,
+              }))
+            : null,
+        );
       }
     } catch (e: any) {
       setError(
@@ -247,7 +285,7 @@ export default function AdminAnalytics() {
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range]);
+  }, [range, isAdmin]);
 
   const chartData = useMemo(
     () =>
@@ -264,15 +302,31 @@ export default function AdminAnalytics() {
     <AdminShell
       title="Analytics"
       actions={
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => void load()}
-          disabled={loading}
-          className="text-zinc-400 hover:text-white"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-        </Button>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                (window.location.href = `/api/admin/analytics/export.csv?range=${range}`)
+              }
+              className="text-zinc-400 hover:text-white gap-1.5"
+              title="Export CSV"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline text-xs">Export CSV</span>
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void load()}
+            disabled={loading}
+            className="text-zinc-400 hover:text-white"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
       }
     >
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-5">
@@ -300,137 +354,356 @@ export default function AdminAnalytics() {
 
         <ErrorBanner message={error} />
 
-        {/* Summary stat cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <StatCard
-            icon={<Eye className="w-5 h-5" />}
-            label="Page views"
-            value={summary?.totalViews}
-            color="text-orange-500"
-            loading={loading}
-            extra={
-              summary && priorViews !== null ? (
-                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                  <ChangeBadge current={totalViews} prior={priorViews} />
-                  <span className="text-[11px] text-zinc-600">
-                    vs prior {range === "7d" ? "7 days" : "30 days"}
-                  </span>
-                </div>
-              ) : undefined
-            }
-          />
-          <StatCard
-            icon={<Users className="w-5 h-5" />}
-            label="Unique visitors"
-            value={summary?.uniqueSessions}
-            color="text-emerald-500"
-            loading={loading}
-          />
-          <StatCard
-            icon={<Globe className="w-5 h-5" />}
-            label="Countries reached"
-            value={summary?.uniqueCountries}
-            color="text-blue-400"
-            loading={loading}
-          />
-        </div>
+        {/* Admin-only: full site analytics */}
+        {isAdmin && (
+          <>
+            {/* Summary stat cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <StatCard
+                icon={<Eye className="w-5 h-5" />}
+                label="Page views"
+                value={totalViews === 0 && summary ? undefined : summary?.totalViews}
+                displayDash={summary !== null && totalViews === 0}
+                color="text-orange-500"
+                loading={loading}
+                extra={
+                  summary && priorViews !== null && totalViews > 0 ? (
+                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                      <ChangeBadge current={totalViews} prior={priorViews} />
+                      <span className="text-[11px] text-zinc-600">
+                        vs prior {range === "7d" ? "7 days" : "30 days"}
+                      </span>
+                    </div>
+                  ) : undefined
+                }
+              />
+              <StatCard
+                icon={<Users className="w-5 h-5" />}
+                label="Unique visitors"
+                value={summary?.uniqueSessions === 0 && summary ? undefined : summary?.uniqueSessions}
+                displayDash={summary !== null && (summary?.uniqueSessions ?? 0) === 0}
+                color="text-emerald-500"
+                loading={loading}
+              />
+              <StatCard
+                icon={<Globe className="w-5 h-5" />}
+                label="Countries reached"
+                value={summary?.uniqueCountries === 0 && summary ? undefined : summary?.uniqueCountries}
+                displayDash={summary !== null && (summary?.uniqueCountries ?? 0) === 0}
+                color="text-blue-400"
+                loading={loading}
+              />
+            </div>
 
-        {/* Daily traffic chart */}
-        <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
-              <TrendingUp className="w-3.5 h-3.5 text-orange-500" /> Daily
-              traffic
-            </h2>
-            <span className="text-xs text-zinc-700">
-              {chartData.length} days
-            </span>
-          </div>
-          <div className="h-52">
-            {chartData.length === 0 ? (
-              <EmptyChart />
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  data={chartData}
-                  margin={{ top: 8, right: 8, left: -22, bottom: 0 }}
-                >
-                  <defs>
-                    <linearGradient
-                      id="analyticsGrad"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
+            {/* Daily traffic chart */}
+            <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+                  <TrendingUp className="w-3.5 h-3.5 text-orange-500" /> Daily
+                  traffic
+                </h2>
+                <span className="text-xs text-zinc-700">
+                  {chartData.length} days
+                </span>
+              </div>
+              <div className="h-52">
+                {chartData.length === 0 || totalViews === 0 ? (
+                  <EmptyState />
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                      data={chartData}
+                      margin={{ top: 8, right: 8, left: -22, bottom: 0 }}
                     >
-                      <stop
-                        offset="0%"
-                        stopColor="#f97316"
-                        stopOpacity={0.35}
+                      <defs>
+                        <linearGradient
+                          id="analyticsGrad"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="0%"
+                            stopColor="#f97316"
+                            stopOpacity={0.35}
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor="#f97316"
+                            stopOpacity={0}
+                          />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                      <XAxis
+                        dataKey="label"
+                        stroke="#71717a"
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={false}
                       />
-                      <stop
-                        offset="100%"
-                        stopColor="#f97316"
-                        stopOpacity={0}
+                      <YAxis
+                        stroke="#71717a"
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={false}
+                        allowDecimals={false}
                       />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                  <XAxis
-                    dataKey="label"
-                    stroke="#71717a"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    stroke="#71717a"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                    allowDecimals={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "#09090b",
-                      border: "1px solid #27272a",
-                      borderRadius: 6,
-                      fontSize: 12,
-                    }}
-                    labelStyle={{ color: "#a1a1aa" }}
-                    itemStyle={{ color: "#fafafa" }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="views"
-                    stroke="#f97316"
-                    strokeWidth={2}
-                    fill="url(#analyticsGrad)"
-                    dot={false}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
+                      <Tooltip
+                        contentStyle={{
+                          background: "#09090b",
+                          border: "1px solid #27272a",
+                          borderRadius: 6,
+                          fontSize: 12,
+                        }}
+                        labelStyle={{ color: "#a1a1aa" }}
+                        itemStyle={{ color: "#fafafa" }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="views"
+                        stroke="#f97316"
+                        strokeWidth={2}
+                        fill="url(#analyticsGrad)"
+                        dot={false}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
 
-        {/* Main 2-column panels */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {/* Top pages */}
-          <Panel
-            title="Top pages"
-            subtitle="By views in selected period"
-            empty="No page views yet."
-          >
-            {topPostRows && topPostRows.length > 0 && (
-              <ol className="space-y-3">
-                {topPostRows.map((p, i) => {
-                  const meta = postMeta.get(p.slug);
-                  const pct =
-                    totalViews > 0
-                      ? Math.round((p.views / totalViews) * 100)
-                      : 0;
-                  return (
+            {/* Main 2-column panels */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              {/* Top pages */}
+              <Panel
+                title="Top pages"
+                subtitle="By views in selected period"
+              >
+                {topPostRows && topPostRows.length > 0 ? (
+                  <ol className="space-y-3">
+                    {topPostRows.map((p, i) => {
+                      const meta = postMeta.get(p.slug);
+                      const pct =
+                        totalViews > 0
+                          ? Math.round((p.views / totalViews) * 100)
+                          : 0;
+                      return (
+                        <li key={p.slug} className="flex items-start gap-2.5">
+                          <span className="text-xs text-zinc-600 w-4 shrink-0 tabular-nums pt-0.5">
+                            {i + 1}
+                          </span>
+                          <a
+                            href={`/blog/${p.slug}`}
+                            target="_blank"
+                            rel="noopener"
+                            className="flex-1 min-w-0 group"
+                          >
+                            <span className="block text-sm text-zinc-200 group-hover:text-orange-400 truncate transition-colors">
+                              {meta?.title ?? p.slug}
+                            </span>
+                            {meta?.category && (
+                              <span className="text-[11px] text-zinc-600 capitalize">
+                                {meta.category}
+                              </span>
+                            )}
+                          </a>
+                          <div className="flex items-center gap-2 shrink-0 pt-1">
+                            <div className="hidden sm:block w-16 h-1 bg-zinc-800 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-orange-500 rounded-full"
+                                style={{ width: `${Math.max(pct, 3)}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-zinc-400 tabular-nums w-14 text-right">
+                              {p.views.toLocaleString()}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                ) : (
+                  <EmptyState />
+                )}
+              </Panel>
+
+              {/* Traffic sources */}
+              <Panel
+                title="Traffic sources"
+                subtitle="How people found you"
+              >
+                {topReferrers && topReferrers.length > 0 ? (
+                  <ol className="space-y-2">
+                    {topReferrers.map((r, i) => {
+                      let display = r.label;
+                      try {
+                        if (r.label !== "Direct") display = new URL(r.label).hostname;
+                      } catch { /* keep raw */ }
+                      const maxV = Math.max(
+                        ...topReferrers.map((x) => x.value),
+                        1,
+                      );
+                      return (
+                        <li key={r.label} className="flex items-center gap-2.5">
+                          <span className="text-xs text-zinc-600 w-4 shrink-0 tabular-nums">
+                            {i + 1}
+                          </span>
+                          <span
+                            className="flex-1 truncate text-sm text-zinc-200"
+                            title={r.label}
+                          >
+                            {display}
+                          </span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="hidden sm:block w-16 h-1 bg-zinc-800 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-orange-500 rounded-full"
+                                style={{
+                                  width: `${Math.max(Math.round((r.value / maxV) * 100), 3)}%`,
+                                }}
+                              />
+                            </div>
+                            <span className="text-xs text-zinc-400 tabular-nums w-14 text-right">
+                              {r.value.toLocaleString()}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                ) : (
+                  <EmptyState />
+                )}
+              </Panel>
+
+              {/* Countries */}
+              <Panel
+                title="Countries"
+                subtitle="Where your readers are"
+              >
+                {topCountries && topCountries.length > 0 ? (
+                  <ol className="space-y-2">
+                    {topCountries.map((c, i) => {
+                      const maxV = Math.max(
+                        ...topCountries.map((x) => x.value),
+                        1,
+                      );
+                      const flag = countryFlag(c.code);
+                      return (
+                        <li
+                          key={c.code || c.label}
+                          className="flex items-center gap-2.5"
+                        >
+                          <span className="text-xs text-zinc-600 w-4 shrink-0 tabular-nums">
+                            {i + 1}
+                          </span>
+                          {flag ? (
+                            <span className="text-base leading-none shrink-0 select-none">
+                              {flag}
+                            </span>
+                          ) : (
+                            <span className="w-5 shrink-0" />
+                          )}
+                          <span className="flex-1 truncate text-sm text-zinc-200">
+                            {c.label}
+                          </span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="hidden sm:block w-16 h-1 bg-zinc-800 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-blue-500 rounded-full"
+                                style={{
+                                  width: `${Math.max(Math.round((c.value / maxV) * 100), 3)}%`,
+                                }}
+                              />
+                            </div>
+                            <span className="text-xs text-zinc-400 tabular-nums w-14 text-right">
+                              {c.value.toLocaleString()}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                ) : (
+                  <EmptyState />
+                )}
+              </Panel>
+
+              {/* Categories chart */}
+              <Panel
+                title="Categories"
+                subtitle="Where readers spend time"
+              >
+                {topCategories && topCategories.length > 0 ? (
+                  <div className="h-52">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={topCategories.map((c) => ({
+                          name: c.label,
+                          value: c.value,
+                        }))}
+                        layout="vertical"
+                        margin={{ top: 0, right: 8, left: 8, bottom: 0 }}
+                      >
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke="#27272a"
+                          horizontal={false}
+                        />
+                        <XAxis
+                          type="number"
+                          stroke="#71717a"
+                          fontSize={11}
+                          tickLine={false}
+                          axisLine={false}
+                          allowDecimals={false}
+                        />
+                        <YAxis
+                          type="category"
+                          dataKey="name"
+                          stroke="#71717a"
+                          fontSize={11}
+                          width={90}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            background: "#09090b",
+                            border: "1px solid #27272a",
+                            borderRadius: 6,
+                            fontSize: 12,
+                          }}
+                          labelStyle={{ color: "#a1a1aa" }}
+                          itemStyle={{ color: "#fafafa" }}
+                          cursor={{ fill: "rgba(249,115,22,0.07)" }}
+                        />
+                        <Bar dataKey="value" fill="#f97316" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <EmptyState />
+                )}
+              </Panel>
+            </div>
+
+            {/* Underperforming / needs attention */}
+            <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-5">
+              <div className="mb-4">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                  Needs attention
+                </h2>
+                <p className="text-xs text-zinc-600 mt-0.5">
+                  Posts published in this period with the fewest tracked views —
+                  they may need more promotion or editing.
+                </p>
+              </div>
+              {underperforming && underperforming.length > 0 ? (
+                <ol className="space-y-2.5">
+                  {underperforming.map((p, i) => (
                     <li key={p.slug} className="flex items-start gap-2.5">
                       <span className="text-xs text-zinc-600 w-4 shrink-0 tabular-nums pt-0.5">
                         {i + 1}
@@ -441,241 +714,98 @@ export default function AdminAnalytics() {
                         rel="noopener"
                         className="flex-1 min-w-0 group"
                       >
-                        <span className="block text-sm text-zinc-200 group-hover:text-orange-400 truncate transition-colors">
-                          {meta?.title ?? p.slug}
+                        <span className="block text-sm text-zinc-300 group-hover:text-orange-400 truncate transition-colors">
+                          {p.title}
                         </span>
-                        {meta?.category && (
-                          <span className="text-[11px] text-zinc-600 capitalize">
-                            {meta.category}
-                          </span>
-                        )}
+                        <span className="text-[11px] text-zinc-600">
+                          {p.publishedAt
+                            ? format(new Date(p.publishedAt), "MMM d, yyyy")
+                            : ""}
+                          {postMeta.get(p.slug)?.category
+                            ? ` · ${postMeta.get(p.slug)!.category}`
+                            : ""}
+                        </span>
                       </a>
-                      <div className="flex items-center gap-2 shrink-0 pt-1">
-                        <div className="hidden sm:block w-16 h-1 bg-zinc-800 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-orange-500 rounded-full"
-                            style={{ width: `${Math.max(pct, 3)}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-zinc-400 tabular-nums w-14 text-right">
-                          {p.views.toLocaleString()}
-                        </span>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ol>
-            )}
-          </Panel>
-
-          {/* Traffic sources */}
-          <Panel
-            title="Traffic sources"
-            subtitle="How people found you"
-            empty="No referrer data yet."
-          >
-            {topReferrers && topReferrers.length > 0 && (
-              <ol className="space-y-2">
-                {topReferrers.map((r, i) => {
-                  let display = r.label;
-                  try {
-                    if (r.label !== "Direct") display = new URL(r.label).hostname;
-                  } catch { /* keep raw */ }
-                  const maxV = Math.max(
-                    ...topReferrers.map((x) => x.value),
-                    1,
-                  );
-                  return (
-                    <li key={r.label} className="flex items-center gap-2.5">
-                      <span className="text-xs text-zinc-600 w-4 shrink-0 tabular-nums">
-                        {i + 1}
-                      </span>
                       <span
-                        className="flex-1 truncate text-sm text-zinc-200"
-                        title={r.label}
+                        className={`text-xs tabular-nums shrink-0 pt-0.5 ${
+                          p.views === 0 ? "text-zinc-700" : "text-zinc-400"
+                        }`}
                       >
-                        {display}
+                        {p.views === 0
+                          ? "no views"
+                          : `${p.views.toLocaleString()} views`}
                       </span>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div className="hidden sm:block w-16 h-1 bg-zinc-800 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-orange-500 rounded-full"
-                            style={{
-                              width: `${Math.max(Math.round((r.value / maxV) * 100), 3)}%`,
-                            }}
-                          />
-                        </div>
-                        <span className="text-xs text-zinc-400 tabular-nums w-14 text-right">
-                          {r.value.toLocaleString()}
-                        </span>
-                      </div>
                     </li>
-                  );
-                })}
-              </ol>
-            )}
-          </Panel>
-
-          {/* Countries */}
-          <Panel
-            title="Countries"
-            subtitle="Where your readers are"
-            empty="Country data will appear here."
-          >
-            {topCountries && topCountries.length > 0 && (
-              <ol className="space-y-2">
-                {topCountries.map((c, i) => {
-                  const maxV = Math.max(
-                    ...topCountries.map((x) => x.value),
-                    1,
-                  );
-                  const flag = countryFlag(c.code);
-                  return (
-                    <li
-                      key={c.code || c.label}
-                      className="flex items-center gap-2.5"
-                    >
-                      <span className="text-xs text-zinc-600 w-4 shrink-0 tabular-nums">
-                        {i + 1}
-                      </span>
-                      {flag ? (
-                        <span className="text-base leading-none shrink-0 select-none">
-                          {flag}
-                        </span>
-                      ) : (
-                        <span className="w-5 shrink-0" />
-                      )}
-                      <span className="flex-1 truncate text-sm text-zinc-200">
-                        {c.label}
-                      </span>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div className="hidden sm:block w-16 h-1 bg-zinc-800 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-blue-500 rounded-full"
-                            style={{
-                              width: `${Math.max(Math.round((c.value / maxV) * 100), 3)}%`,
-                            }}
-                          />
-                        </div>
-                        <span className="text-xs text-zinc-400 tabular-nums w-14 text-right">
-                          {c.value.toLocaleString()}
-                        </span>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ol>
-            )}
-          </Panel>
-
-          {/* Categories chart */}
-          <Panel
-            title="Categories"
-            subtitle="Where readers spend time"
-            empty="No category views yet."
-          >
-            {topCategories && topCategories.length > 0 && (
-              <div className="h-52">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={topCategories.map((c) => ({
-                      name: c.label,
-                      value: c.value,
-                    }))}
-                    layout="vertical"
-                    margin={{ top: 0, right: 8, left: 8, bottom: 0 }}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="#27272a"
-                      horizontal={false}
-                    />
-                    <XAxis
-                      type="number"
-                      stroke="#71717a"
-                      fontSize={11}
-                      tickLine={false}
-                      axisLine={false}
-                      allowDecimals={false}
-                    />
-                    <YAxis
-                      type="category"
-                      dataKey="name"
-                      stroke="#71717a"
-                      fontSize={11}
-                      width={90}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        background: "#09090b",
-                        border: "1px solid #27272a",
-                        borderRadius: 6,
-                        fontSize: 12,
-                      }}
-                      labelStyle={{ color: "#a1a1aa" }}
-                      itemStyle={{ color: "#fafafa" }}
-                      cursor={{ fill: "rgba(249,115,22,0.07)" }}
-                    />
-                    <Bar dataKey="value" fill="#f97316" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </Panel>
-        </div>
-
-        {/* Underperforming / needs attention */}
-        {underperforming && underperforming.length > 0 && (
-          <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-5">
-            <div className="mb-4">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                Needs attention
-              </h2>
-              <p className="text-xs text-zinc-600 mt-0.5">
-                Posts published in this period with the fewest tracked views —
-                they may need more promotion or editing.
-              </p>
+                  ))}
+                </ol>
+              ) : (
+                <EmptyState />
+              )}
             </div>
-            <ol className="space-y-2.5">
-              {underperforming.map((p, i) => (
-                <li key={p.slug} className="flex items-start gap-2.5">
-                  <span className="text-xs text-zinc-600 w-4 shrink-0 tabular-nums pt-0.5">
-                    {i + 1}
-                  </span>
-                  <a
-                    href={`/blog/${p.slug}`}
-                    target="_blank"
-                    rel="noopener"
-                    className="flex-1 min-w-0 group"
-                  >
-                    <span className="block text-sm text-zinc-300 group-hover:text-orange-400 truncate transition-colors">
-                      {p.title}
-                    </span>
-                    <span className="text-[11px] text-zinc-600">
-                      {p.publishedAt
-                        ? format(new Date(p.publishedAt), "MMM d, yyyy")
-                        : ""}
-                      {postMeta.get(p.slug)?.category
-                        ? ` · ${postMeta.get(p.slug)!.category}`
-                        : ""}
-                    </span>
-                  </a>
-                  <span
-                    className={`text-xs tabular-nums shrink-0 pt-0.5 ${
-                      p.views === 0 ? "text-zinc-700" : "text-zinc-400"
-                    }`}
-                  >
-                    {p.views === 0
-                      ? "no views"
-                      : `${p.views.toLocaleString()} views`}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </div>
+          </>
         )}
+
+        {/* My Posts section — visible to all authenticated users */}
+        <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-5">
+          <div className="mb-4">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+              My Posts
+            </h2>
+            <p className="text-xs text-zinc-600 mt-0.5">
+              Views for your published articles in the selected period.
+            </p>
+          </div>
+          {loading ? (
+            <div className="text-center text-zinc-700 text-sm py-8 animate-pulse">
+              Loading…
+            </div>
+          ) : myPostViews && myPostViews.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-zinc-600 border-b border-zinc-800">
+                    <th className="pb-2 pr-4 font-semibold">Post Title</th>
+                    <th className="pb-2 pr-4 font-semibold whitespace-nowrap">
+                      Published Date
+                    </th>
+                    <th className="pb-2 font-semibold text-right">Views</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/60">
+                  {myPostViews.map((p) => (
+                    <tr key={p.slug} className="group">
+                      <td className="py-2.5 pr-4">
+                        <a
+                          href={`/blog/${p.slug}`}
+                          target="_blank"
+                          rel="noopener"
+                          className="text-zinc-200 group-hover:text-orange-400 transition-colors truncate block max-w-xs"
+                          title={p.title}
+                        >
+                          {p.title}
+                        </a>
+                      </td>
+                      <td className="py-2.5 pr-4 text-zinc-500 whitespace-nowrap tabular-nums text-xs">
+                        {p.publishedAt
+                          ? format(new Date(p.publishedAt), "MMM d, yyyy")
+                          : "—"}
+                      </td>
+                      <td className="py-2.5 text-right tabular-nums text-zinc-400">
+                        {p.views === 0 ? (
+                          <span className="text-zinc-700">—</span>
+                        ) : (
+                          p.views.toLocaleString()
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState />
+          )}
+        </div>
       </main>
     </AdminShell>
   );
@@ -685,6 +815,7 @@ function StatCard({
   icon,
   label,
   value,
+  displayDash,
   color,
   loading,
   extra,
@@ -692,6 +823,7 @@ function StatCard({
   icon: React.ReactNode;
   label: string;
   value: number | undefined;
+  displayDash?: boolean;
   color: string;
   loading?: boolean;
   extra?: React.ReactNode;
@@ -707,6 +839,8 @@ function StatCard({
       <div className="text-3xl font-bold tabular-nums">
         {loading ? (
           <span className="text-zinc-700 animate-pulse">—</span>
+        ) : displayDash ? (
+          <span className="text-zinc-600">—</span>
         ) : value === undefined ? (
           <span className="text-zinc-600">—</span>
         ) : (
@@ -721,16 +855,12 @@ function StatCard({
 function Panel({
   title,
   subtitle,
-  empty,
   children,
 }: {
   title: string;
   subtitle: string;
-  empty: string;
   children: React.ReactNode;
 }) {
-  const hasContent =
-    !!children && (Array.isArray(children) ? children.length > 0 : true);
   return (
     <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-5">
       <div className="mb-4">
@@ -739,19 +869,15 @@ function Panel({
         </h2>
         <p className="text-xs text-zinc-600 mt-0.5">{subtitle}</p>
       </div>
-      {hasContent ? (
-        children
-      ) : (
-        <div className="text-center text-zinc-700 text-sm py-8">{empty}</div>
-      )}
+      {children}
     </div>
   );
 }
 
-function EmptyChart() {
+function EmptyState() {
   return (
-    <div className="h-full flex items-center justify-center text-zinc-700 text-sm">
-      No traffic data yet for this range.
+    <div className="text-center text-zinc-600 text-sm py-8">
+      {EMPTY_STATE_MSG}
     </div>
   );
 }

@@ -907,7 +907,9 @@ router.get("/posts/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [post] = await postsBaseQuery().where(eq(postsTable.id, parsed.data.id));
+  const [post] = await postsBaseQuery().where(
+    and(eq(postsTable.id, parsed.data.id), eq(postsTable.status, "published")),
+  );
   if (!post) {
     res.status(404).json({ error: "Post not found" });
     return;
