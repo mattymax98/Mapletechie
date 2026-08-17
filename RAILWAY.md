@@ -145,8 +145,10 @@ AUTOMATION_DRAFT_TOKEN      = <from Replit>
 INDEXNOW_KEY                = <from Replit>
 MCP_CONNECTOR_TOKEN         = <from Replit>
 
-# Resend email — get this from https://resend.com/api-keys
-# (NOT from Replit; the Replit secret was removed during the git-history scrub)
+# Resend email — IMPORTANT: use the API key from the Resend workspace that has
+# mapletechie.com listed under Domains (resend.com → workspace switcher top-left
+# → Domains). The miinikaanens.com workspace will NOT work for mapletechie.com
+# sender addresses and Resend will return a 403 domain-not-verified error.
 RESEND_API_KEY              = re_...
 
 # AI integrations — Replit's proxy values (localhost:1106) don't work in
@@ -243,7 +245,8 @@ DNS changes typically take 5–30 minutes to propagate.
 | `PUBLIC_OBJECT_SEARCH_PATHS` | Set manually | `/mapletechie/covers,/mapletechie/public` |
 | `SITE_URL` | Set manually | `https://mapletechie.com` (frontend only) |
 | `API_BASE` | Set manually | Railway URL of the API service (frontend only) |
-| `SITE_DOMAIN` | Set manually | `mapletechie.com` (API only) |
+| `RESEND_API_KEY` | Resend (mapletechie.com workspace) | Must be from the workspace with `mapletechie.com` in Domains — see Phase 4 note |
+| `SITE_DOMAIN` | Set manually | `https://mapletechie.com` — **must include the https:// prefix** (API only) |
 | `BASE_PATH` | Set manually | `/` (frontend only) |
 
 ## Schema repair after pg_restore (August 2026)
