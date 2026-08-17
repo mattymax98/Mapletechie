@@ -40,8 +40,12 @@ export async function publicMaintenanceGate(
       next();
       return;
     }
+    // Use 423 (Locked) instead of 503 so Cloudflare doesn't intercept and
+    // replace the response with its own error page — the React app needs to
+    // read this JSON to decide whether to show the maintenance screen.
+    // Crawlers that understand 503 will also understand 423 as "unavailable".
     res.setHeader("Retry-After", "3600");
-    res.status(503).json({
+    res.status(423).json({
       error: "maintenance",
       maintenance: true,
       message: state.message,
