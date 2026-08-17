@@ -220,6 +220,10 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   const [aiError, setAiError] = useState("");
   const [autoSlug, setAutoSlug] = useState(!isEditing);
   const [seoOpen, setSeoOpen] = useState(false);
+  // ogPreviewSrc is either a direct image URL (when ogImage is set) or a
+  // blob URL created from a fetched branded card (when only coverImage is set).
+  const [ogPreviewSrc, setOgPreviewSrc] = useState("");
+  const ogPreviewBlobRef = useRef("");
   const hydratedRef = useRef(false);
   const errorBannerRef = useRef<HTMLDivElement | null>(null);
 
@@ -347,6 +351,75 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     }, 800);
     return () => clearTimeout(t);
   }, [form, draftKey, draftRestored]);
+
+  // Build the OG preview whenever share-relevant fields change (debounced 800ms).
+  //
+  // When the editor has set a custom Social Share Image (ogImage), that URL IS
+  // the og:image social networks will consume — show it directly.
+  //
+  // When only a cover image is present, the published post uses the branded
+  // card route. We mirror that by fetching /api/admin/og-preview.png (admin-
+  // authenticated) and turning the response into a blob URL so the <img> tag
+  // can display it without needing the Authorization header in the src.
+  useEffect(() => {
+    // Clean up any previous blob URL immediately when inputs change.
+    const prevBlob = ogPreviewBlobRef.current;
+    if (prevBlob) {
+      URL.revokeObjectURL(prevBlob);
+      ogPreviewBlobRef.current = "";
+    }
+
+    // If a custom social image is set, show it directly — that's the real card.
+    if (form.ogImage) {
+      setOgPreviewSrc(form.ogImage);
+      return;
+    }
+
+    if (!form.title) {
+      setOgPreviewSrc("");
+      return;
+    }
+
+    const controller = new AbortController();
+    const t = setTimeout(async () => {
+      const kicker =
+        categories?.find((c: any) => c.slug === form.primaryCategory)?.name ?? "";
+      const params = new URLSearchParams();
+      params.set("title", form.title);
+      if (form.excerpt) params.set("subtitle", form.excerpt);
+      if (kicker) params.set("kicker", kicker);
+      // Only pass the cover image if it is an internal object-storage path —
+      // the server enforces the same rule, but belt-and-suspenders here too.
+      if (form.coverImage.startsWith("/api/storage/objects/")) {
+        params.set("coverImage", form.coverImage);
+      }
+      try {
+        const resp = await fetch(`/api/admin/og-preview.png?${params.toString()}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        });
+        if (!resp.ok) return;
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        ogPreviewBlobRef.current = url;
+        setOgPreviewSrc(url);
+      } catch {
+        // AbortError or network failure — silently skip.
+      }
+    }, 800);
+
+    return () => {
+      clearTimeout(t);
+      controller.abort();
+    };
+  }, [form.title, form.excerpt, form.ogImage, form.coverImage, form.primaryCategory, categories, token]);
+
+  // Revoke any lingering blob URL when the editor unmounts.
+  useEffect(() => {
+    return () => {
+      if (ogPreviewBlobRef.current) URL.revokeObjectURL(ogPreviewBlobRef.current);
+    };
+  }, []);
 
   // Browser-level "you have unsaved changes" warning. Fires whenever the
   // current form differs from the canonical baseline (covers every field,
@@ -999,6 +1072,45 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                       onStatusChange={setOgImageStatus}
                       helpText="Used when this post is shared on X, Facebook, or LinkedIn. Leave blank to fall back to the cover image. Recommended: 1200×630."
                     />
+                  </div>
+
+                  {/* Live social share card preview */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-zinc-300">Share Card Preview</Label>
+                        <p className="text-xs text-zinc-500 mt-0.5">
+                          How your post will look when shared on social media. Updates as you type.
+                        </p>
+                      </div>
+                    </div>
+                    {/* Label row ends above; description row is already inside the div */}
+                    {ogPreviewSrc ? (
+                      <div className="relative w-full overflow-hidden rounded border border-zinc-700 bg-zinc-900">
+                        {/* 1200:630 = 52.5% aspect ratio */}
+                        <div className="relative w-full" style={{ paddingBottom: "52.5%" }}>
+                          <img
+                            src={ogPreviewSrc}
+                            alt="Social share card preview"
+                            className="absolute inset-0 w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).style.display = "none";
+                            }}
+                          />
+                        </div>
+                        {form.ogImage && (
+                          <p className="px-3 py-1.5 text-xs text-zinc-500 border-t border-zinc-800">
+                            Showing your custom Social Share Image — this is the image social networks will use.
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center rounded border border-dashed border-zinc-700 bg-zinc-900/50 py-10 text-xs text-zinc-500">
+                        {form.title
+                          ? "Building preview…"
+                          : "Add a title to see the share card preview."}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
