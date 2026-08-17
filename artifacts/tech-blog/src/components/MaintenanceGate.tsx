@@ -71,9 +71,7 @@ export function MaintenanceGate({ children }: { children: ReactNode }) {
       queryKey: getGetMaintenanceStatusQueryKey(),
       refetchInterval: 30_000,
       refetchOnWindowFocus: true,
-      // Keep data fresh for 60 s so navigating between pages doesn't cause
-      // a re-blank — the refetchInterval handles background updates.
-      staleTime: 60_000,
+      staleTime: 0,
     },
   });
 

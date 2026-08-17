@@ -4,6 +4,7 @@ import {
   useGetSiteSettings,
   useUpdateSiteSettings,
   getGetSiteSettingsQueryKey,
+  getGetMaintenanceStatusQueryKey,
 } from "@workspace/api-client-react";
 import { useAdmin } from "@/context/AdminContext";
 import { adminJson } from "@/lib/adminFetch";
@@ -201,6 +202,10 @@ export default function AdminSettings() {
       },
       {
         onSuccess: () => {
+          // Fully remove (not just invalidate) the maintenance status cache so
+          // MaintenanceGate sees data===undefined on next mount and blocks
+          // children from rendering until a fresh fetch confirms the new state.
+          queryClient.removeQueries({ queryKey: getGetMaintenanceStatusQueryKey() });
           queryClient.invalidateQueries();
           toast({ title: "Settings saved", description: "Site settings updated." });
         },
