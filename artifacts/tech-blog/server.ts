@@ -1,6 +1,8 @@
 import express from "express";
 import sirv from "sirv";
 import path from "node:path";
+import http from "node:http";
+import https from "node:https";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { responsiveCoverProps, COVER_SIZES } from "./src/lib/responsiveImage";
@@ -402,59 +404,66 @@ if (cssPreloadLink) {
 
 // API proxy: forward /api/* requests from the browser to the API server so
 // the React SPA can use plain relative /api/... URLs without knowing the
-// separate Railway API service domain. Raw body capture handles JSON, multipart
-// uploads, and form-encoded payloads transparently.
-app.use(
-  "/api",
-  express.raw({ type: "*/*", limit: "50mb" }),
-  async (req, res): Promise<void> => {
-    const target = `${API_BASE}${req.originalUrl}`;
-    const method = req.method.toUpperCase();
-    const isBodyless =
-      method === "GET" || method === "HEAD" || method === "OPTIONS";
+// separate Railway API service domain.
+//
+// Implementation uses Node.js http/https streaming so the request body is
+// piped directly — nothing is buffered in this process. The API server enforces
+// its own body-size limits; the blog service stays a thin passthrough.
+app.use("/api", (req, res): void => {
+  const target = new URL(`${API_BASE}${req.originalUrl}`);
+  const isHttps = target.protocol === "https:";
+  const transport: typeof http | typeof https = isHttps ? https : http;
 
-    const proxyHeaders: Record<string, string> = {};
-    for (const [key, value] of Object.entries(req.headers)) {
-      if (["host", "connection", "transfer-encoding"].includes(key.toLowerCase()))
-        continue;
-      const v = Array.isArray(value) ? value.join(", ") : value;
-      if (v) proxyHeaders[key] = v;
+  // Forward all headers except hop-by-hop ones. Replace Host so the API
+  // server sees its own hostname, not the blog's.
+  const proxyHeaders: http.OutgoingHttpHeaders = {};
+  for (const [key, value] of Object.entries(req.headers)) {
+    const lk = key.toLowerCase();
+    if (lk === "host" || lk === "connection" || lk === "transfer-encoding") continue;
+    proxyHeaders[key] = value;
+  }
+
+  const proxyReq = transport.request(
+    {
+      hostname: target.hostname,
+      port: target.port || (isHttps ? 443 : 80),
+      path: target.pathname + target.search,
+      method: req.method,
+      headers: proxyHeaders,
+    },
+    (proxyRes) => {
+      const outHeaders: Record<string, string | string[]> = {};
+      for (const [key, value] of Object.entries(proxyRes.headers)) {
+        const lk = key.toLowerCase();
+        if (lk === "connection" || lk === "keep-alive" || lk === "transfer-encoding")
+          continue;
+        if (value !== undefined) outHeaders[key] = value as string | string[];
+      }
+      res.writeHead(proxyRes.statusCode ?? 502, outHeaders);
+      proxyRes.pipe(res);
+    },
+  );
+
+  // Abort the upstream request after 30 s.
+  proxyReq.setTimeout(30_000, () => {
+    proxyReq.destroy(new Error("upstream timeout"));
+  });
+
+  proxyReq.on("error", (err) => {
+    console.error(
+      "[tech-blog] API proxy error:",
+      `${API_BASE}${req.originalUrl}`,
+      err.message,
+    );
+    if (!res.headersSent) {
+      res.writeHead(502, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "API service unavailable" }));
     }
+  });
 
-    try {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 30_000);
-      const upstream = await fetch(target, {
-        method,
-        headers: proxyHeaders,
-        body:
-          isBodyless
-            ? undefined
-            : Buffer.isBuffer(req.body) && req.body.length > 0
-              ? req.body
-              : undefined,
-        signal: ctrl.signal,
-      });
-      clearTimeout(timer);
-
-      res.status(upstream.status);
-      upstream.headers.forEach((value, key) => {
-        if (
-          ["transfer-encoding", "connection", "keep-alive"].includes(
-            key.toLowerCase(),
-          )
-        )
-          return;
-        res.setHeader(key, value);
-      });
-      const buf = await upstream.arrayBuffer();
-      res.end(Buffer.from(buf));
-    } catch (err) {
-      console.error("[tech-blog] API proxy error:", target, err);
-      res.status(502).json({ error: "API service unavailable" });
-    }
-  },
-);
+  // Pipe the client request body (if any) straight through to the API server.
+  req.pipe(proxyReq);
+});
 
 // Legacy cover compatibility: the cover/hero/author images were migrated from
 // PNG to WebP. Any historical reference (old DB rows, cached HTML, external
