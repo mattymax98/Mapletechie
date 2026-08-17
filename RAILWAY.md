@@ -245,3 +245,23 @@ DNS changes typically take 5–30 minutes to propagate.
 | `API_BASE` | Set manually | Railway URL of the API service (frontend only) |
 | `SITE_DOMAIN` | Set manually | `mapletechie.com` (API only) |
 | `BASE_PATH` | Set manually | `/` (frontend only) |
+
+## Schema repair after pg_restore (August 2026)
+
+The pg_restore from the Replit production database stripped FK and PK constraints
+from several tables (the Replit DB had an older schema predating these constraints).
+Fixed by running the SQL below directly against the Railway DB:
+
+- Added PRIMARY KEY to: `categories`, `jobs`, `audit_logs`, `contacts`, `media`,
+  `page_views`, `post_categories`
+- Added UNIQUE constraints to: `categories.name`, `categories.slug`, `media.url`,
+  `posts.slug`
+- Added FK: `posts.category_id → categories.id` (the constraint `assertCategorySchemaInvariants()`
+  requires at boot — without it the API server exits immediately)
+- Added FKs: `post_categories → posts`, `post_categories → categories`,
+  `job_applications → jobs`
+
+**If you ever run pg_restore again:** always run
+`pnpm --filter @workspace/db run push` (with `DATABASE_URL` pointing at Railway)
+immediately after to restore these constraints. Or apply the repair SQL in
+`scripts/repair-railway-schema.sql`.
