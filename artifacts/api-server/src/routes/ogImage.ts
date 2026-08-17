@@ -168,9 +168,15 @@ async function renderOgImage(input: OgRenderInput): Promise<Buffer> {
   return base.composite([{ input: svg, top: 0, left: 0 }]).png({ compressionLevel: 8 }).toBuffer();
 }
 
-function sendPng(res: Response, buf: Buffer) {
+function sendPng(res: Response, buf: Buffer, opts?: { sMaxAge?: number }) {
+  // sMaxAge controls how long CDN edge nodes cache this image.
+  // Post/category/series/author/tag cards change rarely → 7-day CDN cache.
+  // The site card uses the featured post's cover, which can change at any
+  // time, so it gets a 1-hour CDN TTL to avoid serving stale images after
+  // a post is featured or un-featured.
+  const sMaxAge = opts?.sMaxAge ?? 604800;
   res.setHeader("Content-Type", "image/png");
-  res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=604800");
+  res.setHeader("Cache-Control", `public, max-age=86400, s-maxage=${sMaxAge}`);
   res.send(buf);
 }
 
@@ -197,7 +203,10 @@ router.get("/og/site.png", async (req, res) => {
         "No press junkets. No hype cycles. Sharp opinion, real reviews, and the context the spec sheets leave out.",
       coverImage: featured?.coverImage ?? null,
     });
-    sendPng(res, buf);
+    // 1-hour CDN TTL: the featured post (and therefore this image) can
+    // change at any time, so we don't want edge caches serving a stale
+    // card for up to 7 days after a new post is featured.
+    sendPng(res, buf, { sMaxAge: 3600 });
   } catch (err) {
     sendError(req, res, err, "site");
   }
