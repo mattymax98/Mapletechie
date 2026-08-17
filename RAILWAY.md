@@ -269,6 +269,14 @@ Fixed by running the SQL below directly against the Railway DB:
 immediately after to restore these constraints. Or apply the repair SQL in
 `scripts/repair-railway-schema.sql`.
 
+### Engagement signals migration (2026-08-17)
+
+Three new columns on `page_views` and two new tables (`search_queries`, `link_clicks`) added by the engagement tracking feature. Apply to any fresh Railway DB with:
+
+```sql
+psql "$RAILWAY_DATABASE_URL" -f scripts/migrations/0002_engagement_signals.sql
+```
+
 ### Maintenance scheduling migration (2026-08-17)
 
 Three columns were added to `site_settings` for scheduled maintenance windows and
