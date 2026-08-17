@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import express from "express";
 import { Readable } from "stream";
 import {
   RequestUploadUrlBody,
@@ -6,6 +7,7 @@ import {
 } from "@workspace/api-zod";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
+import { adminAuth } from "../middlewares/adminAuth";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -13,11 +15,17 @@ const objectStorageService = new ObjectStorageService();
 /**
  * POST /storage/uploads/request-url
  *
- * Request a presigned URL for file upload.
+ * Request a presigned URL for file upload (server-side callers only).
  * The client sends JSON metadata (name, size, contentType) — NOT the file.
  * Then uploads the file directly to the returned presigned URL.
+ *
+ * NOTE: This endpoint is intended for server-side callers (AI generation,
+ * external image persistence) that PUT from a server context. Browser-based
+ * admin panel uploads must use POST /storage/uploads instead, because direct
+ * browser PUT to the presigned R2 URL requires CORS configuration that is
+ * not available with the current S3 API credentials.
  */
-router.post("/storage/uploads/request-url", async (req: Request, res: Response) => {
+router.post("/storage/uploads/request-url", adminAuth, async (req: Request, res: Response) => {
   const parsed = RequestUploadUrlBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Missing or invalid required fields" });
@@ -42,6 +50,57 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
     res.status(500).json({ error: "Failed to generate upload URL" });
   }
 });
+
+const ACCEPTED_UPLOAD_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+];
+
+/**
+ * POST /storage/uploads
+ *
+ * Server-side upload: the client sends the raw image bytes in the request body.
+ * The API server writes them directly to R2/GCS and returns the serving URL.
+ *
+ * This replaces the old presigned-URL flow (/storage/uploads/request-url +
+ * browser PUT) for admin panel uploads. The browser-direct-to-R2 approach
+ * requires CORS configuration on the R2 bucket, which the S3 API key cannot
+ * set. By proxying through the API server we avoid CORS entirely.
+ *
+ * Auth: requires a valid admin session token (Bearer).
+ * Body: raw image bytes; Content-Type must be image/jpeg, image/png, image/webp,
+ *       or image/gif. Max 25 MB.
+ */
+router.post(
+  "/storage/uploads",
+  adminAuth,
+  express.raw({ limit: "25mb", type: ACCEPTED_UPLOAD_TYPES }),
+  async (req: Request, res: Response) => {
+    const contentType = (req.headers["content-type"] ?? "").split(";")[0].trim();
+    if (!ACCEPTED_UPLOAD_TYPES.includes(contentType)) {
+      res.status(400).json({
+        error: `Unsupported content type. Accepted: ${ACCEPTED_UPLOAD_TYPES.join(", ")}`,
+      });
+      return;
+    }
+
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+      res.status(400).json({ error: "Request body is empty or not binary data" });
+      return;
+    }
+
+    try {
+      const objectPath = await objectStorageService.putObjectEntity(req.body, contentType);
+      const url = `/api/storage${objectPath}`;
+      res.json({ url, objectPath });
+    } catch (error) {
+      req.log.error({ err: error }, "Error uploading object");
+      res.status(500).json({ error: "Upload failed" });
+    }
+  },
+);
 
 /**
  * GET /storage/public-objects/*

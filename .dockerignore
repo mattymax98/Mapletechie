@@ -1,0 +1,39 @@
+# Development secrets — must never be baked into a Docker image
+.env
+.env.*
+!.env.example
+
+# Local package installs (each image installs its own)
+node_modules
+**/node_modules
+
+# Build artefacts that are re-generated inside the image
+**/dist
+**/.cache
+
+# Replit workspace metadata
+.replit
+replit.nix
+.upm
+.config
+
+# Git history (not needed at runtime; slims context)
+.git
+.gitignore
+
+# Agent memory / task metadata (never ship to prod)
+.agents
+.local
+
+# Editor / IDE files
+.vscode
+.idea
+*.swp
+
+# OS artefacts
+.DS_Store
+Thumbs.db
+
+# Test output
+coverage
+*.lcov

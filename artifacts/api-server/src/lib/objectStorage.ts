@@ -360,6 +360,57 @@ export class ObjectStorageService {
     return signGcsObjectURL({ bucketName, objectName, method: "PUT", ttlSec: 900 });
   }
 
+  /**
+   * Upload a binary buffer directly to object storage (server-side).
+   * Returns the normalised /objects/uploads/<uuid> path that can be served
+   * via GET /storage/objects/*.
+   *
+   * Use this instead of getObjectEntityUploadURL() when the upload originates
+   * on the server (e.g. admin panel POST proxied through the API) so that the
+   * client never needs a cross-origin presigned PUT — which would require R2
+   * CORS configuration.
+   */
+  async putObjectEntity(body: Buffer, contentType: string): Promise<string> {
+    const privateObjectDir = this.getPrivateObjectDir();
+    const objectId = randomUUID();
+    const fullPath = `${privateObjectDir}/uploads/${objectId}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+
+    if (this.useR2) {
+      await this.r2.send(
+        new PutObjectCommand({
+          Bucket: bucketName,
+          Key: objectName,
+          Body: body,
+          ContentType: contentType,
+          ContentLength: body.length,
+        }),
+      );
+    } else {
+      // GCS: generate a short-lived presigned PUT URL and upload server-side.
+      const signedUrl = await signGcsObjectURL({
+        bucketName,
+        objectName,
+        method: "PUT",
+        ttlSec: 900,
+      });
+      const putRes = await fetch(signedUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": contentType,
+          "Content-Length": String(body.length),
+        },
+        body: body,
+        signal: AbortSignal.timeout(60_000),
+      });
+      if (!putRes.ok) {
+        throw new Error(`GCS PUT failed (${putRes.status})`);
+      }
+    }
+
+    return `/objects/uploads/${objectId}`;
+  }
+
   async getObjectEntityFile(objectPath: string): Promise<StorageFile> {
     if (!objectPath.startsWith("/objects/")) throw new ObjectNotFoundError();
 
