@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Trash2, Copy, Image as ImageIcon, RefreshCw } from "lucide-react";
+import { ArrowLeft, Trash2, Copy, Image as ImageIcon, RefreshCw, Wand2 } from "lucide-react";
 import { format } from "date-fns";
 import { ImageUploadField } from "@/components/ImageUploadField";
 import { adminFetch, adminJson } from "@/lib/adminFetch";
@@ -24,7 +24,33 @@ export default function AdminMedia() {
   const [busy, setBusy] = useState(false);
   const [pendingUrl, setPendingUrl] = useState("");
   const [pendingFilename, setPendingFilename] = useState("");
+  const [sweeping, setSweeping] = useState(false);
+  const [sweepResult, setSweepResult] = useState<{ imagesRehosted: number; postsUpdated: number } | null>(null);
   const { toast } = useToast();
+
+  async function runSweep() {
+    if (sweeping) return;
+    if (!confirm("This will scan all posts and re-host any remaining external images to your own storage. It may take a minute. Continue?")) return;
+    setSweeping(true);
+    setSweepResult(null);
+    try {
+      const result = await adminJson<{ imagesRehosted: number; postsUpdated: number }>(
+        "/admin/maintenance/rehost-images",
+        { method: "POST" },
+      );
+      setSweepResult(result);
+      toast({
+        title: result.imagesRehosted > 0
+          ? `Re-hosted ${result.imagesRehosted} image${result.imagesRehosted === 1 ? "" : "s"} across ${result.postsUpdated} post${result.postsUpdated === 1 ? "" : "s"}`
+          : "All clear — no external images found",
+      });
+      await load();
+    } catch (err: any) {
+      toast({ title: "Sweep failed", description: err?.message ?? "Try again", variant: "destructive" });
+    } finally {
+      setSweeping(false);
+    }
+  }
 
   async function load() {
     setBusy(true);
@@ -80,16 +106,26 @@ export default function AdminMedia() {
     <AdminShell
       title="Media Library"
       actions={
-        <Button variant="outline" size="sm" onClick={load} disabled={busy} className="border-zinc-700 text-zinc-300 gap-2">
-          <RefreshCw className={`w-4 h-4 ${busy ? "animate-spin" : ""}`} /> Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={runSweep}
+            disabled={sweeping || busy}
+            className="border-zinc-700 text-zinc-300 hover:text-white gap-2"
+            title="Scan all posts and re-host any remaining external images to your own storage"
+          >
+            <Wand2 className={`w-4 h-4 ${sweeping ? "animate-pulse" : ""}`} />
+            {sweeping ? "Sweeping…" : "Re-host External Images"}
+          </Button>
+          <Button variant="outline" size="sm" onClick={load} disabled={busy} className="border-zinc-700 text-zinc-300 gap-2">
+            <RefreshCw className={`w-4 h-4 ${busy ? "animate-spin" : ""}`} /> Refresh
+          </Button>
+        </div>
       }
     >
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <ImageIcon className="w-6 h-6 text-orange-500" /> Media Library
-          </h1>
           <p className="text-zinc-400 text-sm mt-1">
             One place for the images you reuse — cover photos, author headshots, screenshots. Upload here once, then pick from the library when you write a post or send an email.
           </p>

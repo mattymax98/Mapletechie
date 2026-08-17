@@ -792,6 +792,19 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
   const videoLds = await Promise.all(
     youtubeEmbeds.map((e) => buildVideoObjectJsonLd(e, post)),
   );
+
+  // Build the Article JSON-LD with a "mentions" array for social embeds so
+  // search engines learn which social posts are referenced in this article.
+  // YouTube is excluded from mentions (it already appears as VideoObject);
+  // include every other provider's embeds as SocialMediaPosting references.
+  const socialMentions = embeds
+    .filter((e) => e.provider !== "youtube")
+    .map((e) => ({ "@type": "SocialMediaPosting", url: e.url }));
+  const jsonLdWithMentions: Record<string, unknown> = { ...jsonLd };
+  if (socialMentions.length > 0) {
+    jsonLdWithMentions.mentions = socialMentions;
+  }
+
   // JSON.stringify escapes quotes; we additionally escape `<` so the JSON
   // body cannot prematurely close the surrounding <script> tag.
   const ldSafe = (obj: Record<string, unknown>) =>
@@ -799,9 +812,24 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
   const videoScripts = videoLds
     .map((ld) => `    <script type="application/ld+json">${ldSafe(ld)}</script>\n`)
     .join("");
+
+  // OG video tags for the first YouTube embed, so social crawlers (Facebook,
+  // LinkedIn, Slack, etc.) know there's a playable video in this article.
+  // Only the first video is announced via OG tags (one og:video per page).
+  let ogVideoTags = "";
+  if (youtubeEmbeds.length > 0) {
+    const firstVideo = youtubeEmbeds[0];
+    ogVideoTags =
+      `    <meta property="og:video" content="https://www.youtube.com/embed/${htmlEscape(firstVideo.id)}" />\n` +
+      `    <meta property="og:video:type" content="text/html" />\n` +
+      `    <meta property="og:video:width" content="1280" />\n` +
+      `    <meta property="og:video:height" content="720" />\n`;
+  }
+
   const seoWithJsonLd = seo.replace(
     "<!-- SEO_HEAD_END -->",
-    `    <script type="application/ld+json">${ldSafe(jsonLd)}</script>\n` +
+    ogVideoTags +
+      `    <script type="application/ld+json">${ldSafe(jsonLdWithMentions)}</script>\n` +
       `    <script type="application/ld+json">${ldSafe(breadcrumbLd)}</script>\n` +
       videoScripts +
       `    <!-- SEO_HEAD_END -->`,

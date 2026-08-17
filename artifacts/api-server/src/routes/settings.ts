@@ -20,14 +20,20 @@ router.get("/settings/status", async (_req, res): Promise<void> => {
     maintenance: state.active,
     message: state.message,
     eta: state.eta,
+    startsAt: state.startsAt,
+    endsAt: state.endsAt,
+    severity: state.severity,
   });
 });
 
-function settingsPayload(row: Awaited<ReturnType<typeof getSiteSettings>>, state: { envForced: boolean; active: boolean }) {
+function settingsPayload(row: Awaited<ReturnType<typeof getSiteSettings>>, state: { envForced: boolean; active: boolean; startsAt: string | null; endsAt: string | null; severity: string }) {
   return {
     maintenanceMode: row.maintenanceMode,
     maintenanceMessage: row.maintenanceMessage,
     maintenanceEta: row.maintenanceEta,
+    maintenanceStartsAt: row.maintenanceStartsAt ? row.maintenanceStartsAt.toISOString() : null,
+    maintenanceEndsAt: row.maintenanceEndsAt ? row.maintenanceEndsAt.toISOString() : null,
+    maintenanceSeverity: row.maintenanceSeverity ?? "full",
     updatedAt: row.updatedAt,
     updatedBy: row.updatedBy,
     envForced: state.envForced,
@@ -52,6 +58,9 @@ router.put("/admin/settings", adminAuth, requireRole("admin"), async (req, res):
     maintenanceMode,
     maintenanceMessage,
     maintenanceEta,
+    maintenanceStartsAt,
+    maintenanceEndsAt,
+    maintenanceSeverity,
     notificationEmail,
     newsletterFromName,
     newsletterFromAddress,
@@ -74,10 +83,30 @@ router.put("/admin/settings", adminAuth, requireRole("admin"), async (req, res):
     return;
   }
 
+  // Validate that endsAt is after startsAt when both are provided
+  if (
+    maintenanceStartsAt != null &&
+    maintenanceEndsAt != null &&
+    typeof maintenanceStartsAt === "string" &&
+    typeof maintenanceEndsAt === "string" &&
+    maintenanceStartsAt.trim() !== "" &&
+    maintenanceEndsAt.trim() !== ""
+  ) {
+    const start = new Date(maintenanceStartsAt);
+    const end = new Date(maintenanceEndsAt);
+    if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end <= start) {
+      res.status(400).json({ error: "maintenanceEndsAt must be after maintenanceStartsAt" });
+      return;
+    }
+  }
+
   const row = await updateSiteSettings({
     maintenanceMode,
     maintenanceMessage,
     maintenanceEta,
+    maintenanceStartsAt,
+    maintenanceEndsAt,
+    maintenanceSeverity,
     updatedBy: req.user?.username ?? null,
     notificationEmail,
     newsletterFromName,
@@ -94,6 +123,7 @@ router.put("/admin/settings", adminAuth, requireRole("admin"), async (req, res):
     summary: `Settings updated by ${req.user?.username ?? "admin"}`,
     details: {
       maintenanceMode: row.maintenanceMode,
+      maintenanceSeverity: row.maintenanceSeverity,
       notificationEmail: row.notificationEmail,
       newsletterFromAddress: row.newsletterFromAddress,
     },

@@ -268,3 +268,14 @@ Fixed by running the SQL below directly against the Railway DB:
 `pnpm --filter @workspace/db run push` (with `DATABASE_URL` pointing at Railway)
 immediately after to restore these constraints. Or apply the repair SQL in
 `scripts/repair-railway-schema.sql`.
+
+### Maintenance scheduling migration (2026-08-17)
+
+Three columns were added to `site_settings` for scheduled maintenance windows and
+banner-vs-lockout severity. Apply to any fresh Railway DB with:
+
+```sql
+psql "$RAILWAY_DATABASE_URL" -f scripts/migrations/0001_maintenance_schedule_and_severity.sql
+```
+
+The file is idempotent (`ADD COLUMN IF NOT EXISTS`) and safe to re-run.
