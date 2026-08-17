@@ -164,6 +164,42 @@ beforeEach(() => {
   process.env.SITE_DOMAIN = "https://feeds.test";
 });
 
+// --- SITE_DOMAIN protocol normalisation --------------------------------------
+
+describe("SITE_DOMAIN protocol normalisation", () => {
+  it("produces https:// URLs in the feed when SITE_DOMAIN has no protocol prefix", async () => {
+    process.env.SITE_DOMAIN = "mapletechie.com"; // no https://
+    selectQueue = [[POST_A]];
+
+    const { status, body } = await get("/feed.xml");
+
+    expect(status).toBe(200);
+    // Channel link and self-link must use https://, not the bare domain.
+    expect(body).toContain("<link>https://mapletechie.com</link>");
+    expect(body).toContain('href="https://mapletechie.com/api/feed.xml"');
+    // Post permalink must also use https://.
+    expect(body).toContain(
+      '<guid isPermaLink="true">https://mapletechie.com/blog/the-future-of-ai</guid>',
+    );
+    // The bare domain must not appear anywhere in a URL context.
+    expect(body).not.toMatch(/<link>mapletechie\.com/);
+    expect(body).not.toMatch(/href="mapletechie\.com/);
+  });
+
+  it("produces https:// URLs when SITE_DOMAIN already has the https:// prefix", async () => {
+    process.env.SITE_DOMAIN = "https://mapletechie.com";
+    selectQueue = [[POST_A]];
+
+    const { status, body } = await get("/feed.xml");
+
+    expect(status).toBe(200);
+    expect(body).toContain("<link>https://mapletechie.com</link>");
+    expect(body).toContain(
+      '<guid isPermaLink="true">https://mapletechie.com/blog/the-future-of-ai</guid>',
+    );
+  });
+});
+
 // --- Site-wide feed -----------------------------------------------------------
 
 describe("GET /feed.xml — site-wide feed shape", () => {
