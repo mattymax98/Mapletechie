@@ -21,6 +21,13 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
+// Log key env-var presence at startup so Railway deploy logs confirm what
+// the runtime actually received (values are never logged, only presence).
+logger.info({
+  resendConfigured: Boolean(process.env["RESEND_API_KEY"]),
+  siteDomain: process.env["SITE_DOMAIN"] ?? "(not set — using fallback)",
+}, "Startup env check");
+
 // Bootstrap is fatal: seedCuratedCategories() asserts the posts.category_id
 // FK is installed before any route can run. If it fails we MUST crash so a
 // process supervisor restarts us instead of serving with a broken schema.
