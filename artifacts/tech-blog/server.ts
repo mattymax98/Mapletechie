@@ -697,8 +697,15 @@ async function getMaintenanceStatus(): Promise<MaintenanceStatus> {
 }
 
 app.use(async (req, res, next) => {
-  // The admin panel must stay reachable while the public site is down.
-  if (req.path === "/admin" || req.path.startsWith("/admin/")) {
+  // The admin panel and all API routes must stay reachable while the public
+  // site is down. API requests are forwarded to the API server, which has its
+  // own maintenance gate with the correct exemptions (e.g. /api/settings/status
+  // is always available so the React app can poll maintenance state).
+  if (
+    req.path === "/admin" ||
+    req.path.startsWith("/admin/") ||
+    req.path.startsWith("/api/")
+  ) {
     return next();
   }
   const status = await getMaintenanceStatus();
