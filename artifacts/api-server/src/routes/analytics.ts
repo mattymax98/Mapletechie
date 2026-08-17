@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, pageViewsTable, postsTable } from "@workspace/db";
 import { sql, gte, and, isNotNull, desc, eq } from "drizzle-orm";
-import { adminAuth } from "../middlewares/adminAuth";
+import { adminAuth, requireRole } from "../middlewares/adminAuth";
 import { logger } from "../lib/logger";
 import { extractIp, lookupCountry } from "../lib/geoip";
 
@@ -104,7 +104,7 @@ function rangeToDate(range?: string): Date {
   return new Date(now - days * 24 * 60 * 60 * 1000);
 }
 
-router.get("/admin/analytics/summary", adminAuth, async (req, res): Promise<void> => {
+router.get("/admin/analytics/summary", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
   const since = rangeToDate(req.query.range as string);
 
   const [totalViews] = await db
@@ -147,7 +147,7 @@ router.get("/admin/analytics/summary", adminAuth, async (req, res): Promise<void
   });
 });
 
-router.get("/admin/analytics/top-posts", adminAuth, async (req, res): Promise<void> => {
+router.get("/admin/analytics/top-posts", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
   const since = rangeToDate(req.query.range as string);
   const rows = await db
     .select({
@@ -167,7 +167,7 @@ router.get("/admin/analytics/top-posts", adminAuth, async (req, res): Promise<vo
  * Uses a LEFT JOIN so posts with zero tracked views are still included.
  * Ordered by views ASC — lowest first — for the "underperforming" panel.
  */
-router.get("/admin/analytics/post-views", adminAuth, async (req, res): Promise<void> => {
+router.get("/admin/analytics/post-views", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
   const since = rangeToDate(req.query.range as string);
   const rows = await db
     .select({
@@ -196,7 +196,7 @@ router.get("/admin/analytics/post-views", adminAuth, async (req, res): Promise<v
   res.json(rows);
 });
 
-router.get("/admin/analytics/top-categories", adminAuth, async (req, res): Promise<void> => {
+router.get("/admin/analytics/top-categories", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
   const since = rangeToDate(req.query.range as string);
   const rows = await db
     .select({
@@ -211,7 +211,7 @@ router.get("/admin/analytics/top-categories", adminAuth, async (req, res): Promi
   res.json(rows);
 });
 
-router.get("/admin/analytics/top-countries", adminAuth, async (req, res): Promise<void> => {
+router.get("/admin/analytics/top-countries", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
   const since = rangeToDate(req.query.range as string);
   const rows = await db
     .select({
@@ -227,7 +227,7 @@ router.get("/admin/analytics/top-countries", adminAuth, async (req, res): Promis
   res.json(rows);
 });
 
-router.get("/admin/analytics/top-referrers", adminAuth, async (req, res): Promise<void> => {
+router.get("/admin/analytics/top-referrers", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
   const since = rangeToDate(req.query.range as string);
   const rows = await db
     .select({

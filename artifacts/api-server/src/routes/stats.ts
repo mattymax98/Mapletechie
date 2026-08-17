@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { db, postsTable, categoriesTable, productsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { adminAuth } from "../middlewares/adminAuth";
 
 const router = Router();
 
-router.get("/stats/summary", async (req, res): Promise<void> => {
+router.get("/stats/summary", adminAuth, async (req, res): Promise<void> => {
   const [postStats] = await db
     .select({ total: sql<number>`count(*)`, views: sql<number>`sum(${postsTable.viewCount})` })
     .from(postsTable);
