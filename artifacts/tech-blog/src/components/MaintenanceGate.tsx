@@ -6,16 +6,17 @@ import { X } from "lucide-react";
 
 /**
  * Wraps the public site. Polls the always-available maintenance status
- * endpoint (~30s) and, when maintenance mode is on:
+ * endpoint and, when maintenance mode is on:
  *  - mode === 'full'   → replaces the public site with the full maintenance screen
  *  - mode === 'banner' → renders a dismissible amber top banner
  *
  * Signed-in admins/editors bypass the full lockout so they can keep previewing
- * the site while it's "down" for everyone else. The banner is still shown to
- * admins so they can see what visitors see.
+ * the site while it's "down" for everyone else.
  *
- * While the very first status request is in flight we render children rather
- * than flashing a maintenance screen — fail-open is the friendlier default.
+ * While the very first status request is in flight we render nothing (null)
+ * rather than failing-open with children — failing open lets child components
+ * fire API calls that all return 423 during maintenance, causing crashes/errors
+ * before the maintenance screen has a chance to appear.
  */
 
 function MaintenanceBanner({
@@ -63,60 +64,30 @@ function MaintenanceBanner({
   );
 }
 
-const STORAGE_KEY = "mapletechie_maintenance_last";
-
-function readCachedState(): { maintenance: boolean; severity: string } | null {
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeCachedState(maintenance: boolean, severity: string) {
-  try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ maintenance, severity }));
-  } catch {
-    // ignore
-  }
-}
-
 export function MaintenanceGate({ children }: { children: ReactNode }) {
   const { user } = useAdmin();
-
-  // Seed from sessionStorage so the very first render already knows the last
-  // known maintenance state — prevents the fail-open flash of broken content.
-  const cached = readCachedState();
-  const [localState] = useState<{ maintenance: boolean; severity: string } | null>(cached);
-
-  const { data, isLoading } = useGetMaintenanceStatus({
+  const { data } = useGetMaintenanceStatus({
     query: {
       queryKey: getGetMaintenanceStatusQueryKey(),
       refetchInterval: 30_000,
       refetchOnWindowFocus: true,
-      staleTime: 0,
+      // Keep data fresh for 60 s so navigating between pages doesn't cause
+      // a re-blank — the refetchInterval handles background updates.
+      staleTime: 60_000,
     },
   });
 
-  // Persist the latest known state so the next page render starts correctly.
-  if (data !== undefined) {
-    writeCachedState(data.maintenance, data.severity ?? "full");
-  }
-
-  // Use live data once it arrives; fall back to cached; if neither exists yet
-  // and we're still loading, block rendering rather than showing broken content.
-  const maintenance = data?.maintenance ?? localState?.maintenance ?? null;
-  const severity = (data?.severity ?? localState?.severity ?? "full") as string;
-  const message = data?.message;
-
-  // Still on the very first fetch with no cached hint → show nothing rather than
-  // letting child components fire API calls that will all fail with 503.
-  if (isLoading && maintenance === null) {
+  // Status hasn't arrived yet — render nothing rather than letting children
+  // fire API calls that will all fail during maintenance.
+  // The /api/settings/status response is served from a 5-second in-memory
+  // cache on the API server, so this blank is typically < 100 ms.
+  if (data === undefined) {
     return null;
   }
 
-  const inMaintenance = maintenance === true;
+  const inMaintenance = data.maintenance === true;
+  const severity = data.severity ?? "full";
+  const message = data.message;
 
   // Full lockout: admins bypass, public visitors see the screen
   if (inMaintenance && severity === "full" && !user) {
@@ -125,6 +96,7 @@ export function MaintenanceGate({ children }: { children: ReactNode }) {
 
   // Banner mode: shown to everyone (including admins) so they see what visitors see
   if (inMaintenance && severity === "banner") {
+    // Use the message as part of the dismiss key so it re-shows when message changes
     const dismissKey = message?.trim() || "__default__";
     return (
       <>
