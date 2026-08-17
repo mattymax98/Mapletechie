@@ -191,8 +191,8 @@ router.get("/og/site.png", async (req, res) => {
       .limit(1);
 
     const buf = await renderOgImage({
-      kicker: "Independent Tech Publication",
-      title: "Tech, told straight.",
+      kicker: "Independent Canadian Tech",
+      title: "Canadian Tech News, Gadget Reviews & AI",
       subtitle:
         "No press junkets. No hype cycles. Sharp opinion, real reviews, and the context the spec sheets leave out.",
       coverImage: featured?.coverImage ?? null,
