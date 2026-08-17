@@ -63,9 +63,34 @@ function MaintenanceBanner({
   );
 }
 
+const STORAGE_KEY = "mapletechie_maintenance_last";
+
+function readCachedState(): { maintenance: boolean; severity: string } | null {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedState(maintenance: boolean, severity: string) {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ maintenance, severity }));
+  } catch {
+    // ignore
+  }
+}
+
 export function MaintenanceGate({ children }: { children: ReactNode }) {
   const { user } = useAdmin();
-  const { data } = useGetMaintenanceStatus({
+
+  // Seed from sessionStorage so the very first render already knows the last
+  // known maintenance state — prevents the fail-open flash of broken content.
+  const cached = readCachedState();
+  const [localState] = useState<{ maintenance: boolean; severity: string } | null>(cached);
+
+  const { data, isLoading } = useGetMaintenanceStatus({
     query: {
       queryKey: getGetMaintenanceStatusQueryKey(),
       refetchInterval: 30_000,
@@ -74,9 +99,24 @@ export function MaintenanceGate({ children }: { children: ReactNode }) {
     },
   });
 
-  const inMaintenance = data?.maintenance === true;
-  const severity = data?.severity ?? "full";
+  // Persist the latest known state so the next page render starts correctly.
+  if (data !== undefined) {
+    writeCachedState(data.maintenance, data.severity ?? "full");
+  }
+
+  // Use live data once it arrives; fall back to cached; if neither exists yet
+  // and we're still loading, block rendering rather than showing broken content.
+  const maintenance = data?.maintenance ?? localState?.maintenance ?? null;
+  const severity = (data?.severity ?? localState?.severity ?? "full") as string;
   const message = data?.message;
+
+  // Still on the very first fetch with no cached hint → show nothing rather than
+  // letting child components fire API calls that will all fail with 503.
+  if (isLoading && maintenance === null) {
+    return null;
+  }
+
+  const inMaintenance = maintenance === true;
 
   // Full lockout: admins bypass, public visitors see the screen
   if (inMaintenance && severity === "full" && !user) {
@@ -85,7 +125,6 @@ export function MaintenanceGate({ children }: { children: ReactNode }) {
 
   // Banner mode: shown to everyone (including admins) so they see what visitors see
   if (inMaintenance && severity === "banner") {
-    // Use the message as part of the dismiss key so re-showing when message changes
     const dismissKey = message?.trim() || "__default__";
     return (
       <>
