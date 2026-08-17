@@ -34,6 +34,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { buildArticleJsonLd, buildBreadcrumbJsonLd } from "@/lib/articleSchema";
 import { splitSocialEmbeds, SocialEmbedView } from "@/components/SocialEmbeds";
 import { AdSlot, adPlacementEnabled, splitHtmlForInArticleAds } from "@/components/AdSlot";
+import { trackEvent } from "@/lib/tracker";
 
 const SITE_URL = "https://mapletechie.com";
 
@@ -74,6 +75,27 @@ function PostContent({
     // data-responsive marker.
     applyResponsiveImages(ref.current);
   }, [html, onHeadingsExtracted]);
+
+  // Delegated click listener: any external link inside the article body is
+  // tracked as an outbound click (share buttons are tracked separately).
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onClick = (e: MouseEvent) => {
+      const anchor = (e.target as HTMLElement | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!anchor) return;
+      const href = anchor.href;
+      if (!/^https?:/i.test(href)) return;
+      try {
+        if (new URL(href).host === window.location.host) return;
+      } catch {
+        return;
+      }
+      trackEvent("outbound", { href });
+    };
+    el.addEventListener("click", onClick);
+    return () => el.removeEventListener("click", onClick);
+  }, [html]);
 
   // Inject srcset/sizes into the HTML string before first render so the
   // preload scanner never downloads the full-size original on phones.
@@ -338,7 +360,13 @@ function ShareButtons({ title, url }: { title: string; url: string }) {
           className="rounded-none border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
           title={t}
         >
-          <a href={href} target="_blank" rel="noopener noreferrer" aria-label={t}>
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={t}
+            onClick={() => trackEvent("social", { href })}
+          >
             <Icon className="h-4 w-4" />
           </a>
         </Button>

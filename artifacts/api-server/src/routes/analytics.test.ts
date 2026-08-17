@@ -22,14 +22,28 @@ function makeSelectChain(queue: unknown[][]) {
   return proxy;
 }
 
+const insertedValues: unknown[] = [];
 const db = {
   select: vi.fn(() => makeSelectChain(selectQueue)),
-  insert: vi.fn(() => ({ values: vi.fn(async () => undefined) })),
+  insert: vi.fn(() => ({
+    values: vi.fn(async (v: unknown) => {
+      insertedValues.push(v);
+    }),
+  })),
   update: vi.fn(() => ({ set: vi.fn(() => ({ where: vi.fn(async () => undefined) })) })),
+  execute: vi.fn(async () => undefined),
 };
 
 vi.mock("@workspace/db", () => ({
   db,
+  searchQueriesTable: { query: "query", path: "path", sessionId: "session_id", createdAt: "created_at" },
+  linkClicksTable: {
+    linkType: "link_type",
+    href: "href",
+    postSlug: "post_slug",
+    sessionId: "session_id",
+    createdAt: "created_at",
+  },
   pageViewsTable: {
     createdAt: "created_at",
     sessionId: "session_id",
@@ -39,6 +53,12 @@ vi.mock("@workspace/db", () => ({
     postSlug: "post_slug",
     id: "id",
     category: "category",
+    deviceType: "device_type",
+    browser: "browser",
+    isReturning: "is_returning",
+    scrollDepth: "scroll_depth",
+    durationMs: "duration_ms",
+    readingTimeSec: "reading_time_sec",
   },
   postsTable: { slug: "slug", status: "status", publishedAt: "published_at", viewCount: "view_count" },
 }));
@@ -115,8 +135,33 @@ async function get(
 beforeEach(() => {
   vi.clearAllMocks();
   selectQueue = [];
+  insertedValues.length = 0;
   currentUser = null;
 });
+
+async function post(
+  app: express.Express,
+  path: string,
+  body: unknown,
+): Promise<{ status: number }> {
+  const server = createServer(app);
+  await new Promise<void>((r) => server.listen(0, r));
+  const addr = server.address();
+  const port = typeof addr === "object" && addr ? addr.port : 0;
+  try {
+    const resp = await fetch(`http://127.0.0.1:${port}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0",
+      },
+      body: JSON.stringify(body),
+    });
+    return { status: resp.status };
+  } finally {
+    server.close();
+  }
+}
 
 const ANALYTICS_ROUTES = [
   "/admin/analytics/summary",
@@ -125,6 +170,13 @@ const ANALYTICS_ROUTES = [
   "/admin/analytics/top-categories",
   "/admin/analytics/top-countries",
   "/admin/analytics/top-referrers",
+  "/admin/analytics/hourly",
+  "/admin/analytics/device-breakdown",
+  "/admin/analytics/new-vs-returning",
+  "/admin/analytics/reading-time",
+  "/admin/analytics/link-clicks",
+  "/admin/analytics/search-queries",
+  "/admin/analytics/post-detail/some-post",
 ];
 
 describe("Analytics endpoints — unauthenticated caller", () => {
@@ -189,5 +241,202 @@ describe("Analytics endpoints — admin caller", () => {
     selectQueue = [[{ source: "https://google.com", views: 20 }]];
     const { status } = await get(makeApp(), "/admin/analytics/top-referrers", "admin-token");
     expect(status).toBe(200);
+  });
+
+  it("GET /admin/analytics/hourly returns 24 buckets", async () => {
+    selectQueue = [[{ hour: 9, views: 5 }, { hour: 14, views: 12 }]];
+    const { status, json } = await get(makeApp(), "/admin/analytics/hourly", "admin-token");
+    expect(status).toBe(200);
+    const buckets = json as Array<{ hour: number; views: number }>;
+    expect(buckets).toHaveLength(24);
+    expect(buckets[9]).toEqual({ hour: 9, views: 5 });
+    expect(buckets[0]).toEqual({ hour: 0, views: 0 });
+  });
+
+  it("GET /admin/analytics/device-breakdown returns devices and browsers", async () => {
+    selectQueue = [
+      [{ deviceType: "mobile", views: 40 }],
+      [{ browser: "Chrome", views: 55 }],
+    ];
+    const { status, json } = await get(makeApp(), "/admin/analytics/device-breakdown", "admin-token");
+    expect(status).toBe(200);
+    expect(json).toMatchObject({
+      devices: [{ deviceType: "mobile", views: 40 }],
+      browsers: [{ browser: "Chrome", views: 55 }],
+    });
+  });
+
+  it("GET /admin/analytics/new-vs-returning returns both counters", async () => {
+    selectQueue = [[{ newSessions: 80, returningSessions: 20 }]];
+    const { status, json } = await get(makeApp(), "/admin/analytics/new-vs-returning", "admin-token");
+    expect(status).toBe(200);
+    expect(json).toEqual({ newSessions: 80, returningSessions: 20 });
+  });
+
+  it("GET /admin/analytics/reading-time returns rows", async () => {
+    selectQueue = [[{ slug: "a", title: "A", avgReadingTimeSec: 120, estimatedReadingTimeSec: 300, samples: 4 }]];
+    const { status, json } = await get(makeApp(), "/admin/analytics/reading-time", "admin-token");
+    expect(status).toBe(200);
+    expect(Array.isArray(json)).toBe(true);
+  });
+
+  it("GET /admin/analytics/link-clicks returns social and outbound lists", async () => {
+    selectQueue = [
+      [{ href: "https://twitter.com/intent/tweet", clicks: 7 }],
+      [{ domain: "github.com", clicks: 3 }],
+    ];
+    const { status, json } = await get(makeApp(), "/admin/analytics/link-clicks", "admin-token");
+    expect(status).toBe(200);
+    expect(json).toMatchObject({
+      social: [{ href: "https://twitter.com/intent/tweet", clicks: 7 }],
+      outbound: [{ domain: "github.com", clicks: 3 }],
+    });
+  });
+
+  it("GET /admin/analytics/search-queries returns rows", async () => {
+    selectQueue = [[{ query: "react", count: 9 }]];
+    const { status, json } = await get(makeApp(), "/admin/analytics/search-queries", "admin-token");
+    expect(status).toBe(200);
+    expect(json).toEqual([{ query: "react", count: 9 }]);
+  });
+
+  it("GET /admin/analytics/post-detail/:slug returns the drilldown shape", async () => {
+    selectQueue = [
+      [{ slug: "hello-world", title: "Hello", publishedAt: "2026-01-01" }], // post lookup
+      [{ day: "2026-08-01", views: 3 }],                                   // daily
+      [{ source: "Direct", views: 2 }],                                    // referrers
+      [{ code: "CA", name: "Canada", views: 2 }],                          // countries
+      [{ avgScrollDepth: 72, avgReadingTimeSec: 95, totalViews: 3 }],      // averages
+    ];
+    const { status, json } = await get(makeApp(), "/admin/analytics/post-detail/hello-world", "admin-token");
+    expect(status).toBe(200);
+    expect(json).toMatchObject({
+      post: { slug: "hello-world" },
+      avgScrollDepth: 72,
+      avgReadingTimeSec: 95,
+      totalViews: 3,
+    });
+  });
+
+  it("GET /admin/analytics/post-detail/:slug returns 404 for a missing post", async () => {
+    selectQueue = [[]]; // post lookup finds nothing
+    const { status } = await get(makeApp(), "/admin/analytics/post-detail/does-not-exist", "admin-token");
+    expect(status).toBe(404);
+  });
+
+  it("GET /admin/analytics/post-detail/:slug returns 404 for an invalid slug", async () => {
+    const { status } = await get(makeApp(), "/admin/analytics/post-detail/NOT%20a%20slug", "admin-token");
+    expect(status).toBe(404);
+  });
+});
+
+describe("POST /track/event", () => {
+  const flush = () => new Promise((r) => setTimeout(r, 20));
+
+  it("stores a search event in search_queries", async () => {
+    const { status } = await post(makeApp(), "/track/event", {
+      type: "search",
+      query: "typescript tips",
+      path: "/search",
+      sessionId: "abcd1234efgh5678",
+    });
+    expect(status).toBe(204);
+    await flush();
+    expect(insertedValues).toHaveLength(1);
+    expect(insertedValues[0]).toMatchObject({ query: "typescript tips", path: "/search" });
+  });
+
+  it("stores a social click in link_clicks", async () => {
+    const { status } = await post(makeApp(), "/track/event", {
+      type: "social",
+      href: "https://twitter.com/intent/tweet?text=hi",
+      postSlug: "hello-world",
+      sessionId: "abcd1234efgh5678",
+    });
+    expect(status).toBe(204);
+    await flush();
+    expect(insertedValues[0]).toMatchObject({ linkType: "social", postSlug: "hello-world" });
+  });
+
+  it("stores an outbound click in link_clicks", async () => {
+    await post(makeApp(), "/track/event", {
+      type: "outbound",
+      href: "https://github.com/some/repo",
+      path: "/blog/hello-world",
+      postSlug: "hello-world",
+    });
+    await flush();
+    expect(insertedValues[0]).toMatchObject({ linkType: "outbound", href: "https://github.com/some/repo" });
+  });
+
+  it("drops events with an unknown type", async () => {
+    const { status } = await post(makeApp(), "/track/event", { type: "evil", href: "https://x.com" });
+    expect(status).toBe(204);
+    await flush();
+    expect(insertedValues).toHaveLength(0);
+  });
+
+  it("drops link events with a non-http(s) href", async () => {
+    await post(makeApp(), "/track/event", { type: "outbound", href: "javascript:alert(1)" });
+    await flush();
+    expect(insertedValues).toHaveLength(0);
+  });
+});
+
+describe("POST /track with engagement fields", () => {
+  const flush = () => new Promise((r) => setTimeout(r, 20));
+
+  it("persists the new optional fields", async () => {
+    const { status } = await post(makeApp(), "/track", {
+      path: "/blog/hello-world",
+      postSlug: "hello-world",
+      sessionId: "abcd1234efgh5678",
+      scrollDepth: 55,
+      durationMs: 4200,
+      deviceType: "mobile",
+      browser: "Chrome",
+      isReturning: true,
+    });
+    expect(status).toBe(204);
+    await flush();
+    expect(insertedValues[0]).toMatchObject({
+      path: "/blog/hello-world",
+      scrollDepth: 55,
+      durationMs: 4200,
+      deviceType: "mobile",
+      browser: "Chrome",
+      isReturning: true,
+    });
+  });
+
+  it("still accepts the old payload shape (new fields null)", async () => {
+    const { status } = await post(makeApp(), "/track", {
+      path: "/blog/hello-world",
+      postSlug: "hello-world",
+      sessionId: "abcd1234efgh5678",
+    });
+    expect(status).toBe(204);
+    await flush();
+    expect(insertedValues[0]).toMatchObject({
+      path: "/blog/hello-world",
+      scrollDepth: null,
+      deviceType: null,
+      browser: null,
+      isReturning: null,
+    });
+  });
+
+  it("routes a reading beacon to an update, not an insert", async () => {
+    const { status } = await post(makeApp(), "/track", {
+      path: "/blog/hello-world",
+      sessionId: "abcd1234efgh5678",
+      readingBeacon: true,
+      readingTimeSec: 90,
+      scrollDepth: 100,
+    });
+    expect(status).toBe(204);
+    await flush();
+    expect(insertedValues).toHaveLength(0);
+    expect(db.execute).toHaveBeenCalledTimes(1);
   });
 });
