@@ -10,6 +10,7 @@ import {
 } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 import { ObjectStorageService } from "../lib/objectStorage";
+import { adminAuth } from "../middlewares/adminAuth";
 
 const router: IRouter = Router();
 const objectStorage = new ObjectStorageService();
@@ -203,9 +204,6 @@ router.get("/og/site.png", async (req, res) => {
         "No press junkets. No hype cycles. Sharp opinion, real reviews, and the context the spec sheets leave out.",
       coverImage: featured?.coverImage ?? null,
     });
-    // 1-hour CDN TTL: the featured post (and therefore this image) can
-    // change at any time, so we don't want edge caches serving a stale
-    // card for up to 7 days after a new post is featured.
     sendPng(res, buf, { sMaxAge: 3600 });
   } catch (err) {
     sendError(req, res, err, "site");
@@ -349,6 +347,31 @@ router.get("/og/page.png", async (req, res) => {
     sendPng(res, buf);
   } catch (err) {
     sendError(req, res, err, "page");
+  }
+});
+
+/**
+ * GET /api/admin/og-preview.png — admin-authenticated branded card preview for draft posts.
+ *
+ * Accepts title, subtitle, kicker, and coverImage (internal object-storage paths only).
+ * The coverImage allowlist prevents SSRF: only paths starting with /api/storage/objects/
+ * are accepted; all other values are silently ignored so fetchCoverBuffer never
+ * makes an outbound HTTP request on behalf of an unauthenticated caller.
+ */
+router.get("/admin/og-preview.png", adminAuth, async (req, res) => {
+  try {
+    const title = String(req.query.title || "Mapletechie").slice(0, 200);
+    const subtitle = req.query.subtitle ? String(req.query.subtitle).slice(0, 280) : null;
+    const kicker = req.query.kicker ? String(req.query.kicker).slice(0, 60) : null;
+    // Restrict coverImage to internal object-storage paths to prevent SSRF.
+    const rawCover = req.query.coverImage ? String(req.query.coverImage) : "";
+    const coverImage = rawCover.startsWith("/api/storage/objects/") ? rawCover : null;
+    const buf = await renderOgImage({ kicker, title, subtitle, coverImage });
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "no-store");
+    res.send(buf);
+  } catch (err) {
+    sendError(req, res, err, "admin-preview");
   }
 });
 
