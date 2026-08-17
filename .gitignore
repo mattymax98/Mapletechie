@@ -44,7 +44,7 @@ Thumbs.db
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
 
-# Replit
+# Replit internal directories (not needed on GitHub)
 .cache/
 .local/
 .agents/

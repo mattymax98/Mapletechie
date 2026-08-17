@@ -2,14 +2,14 @@
 
 ## Project Overview
 
-Mapletechie (mapletechie.com) is a production tech-blog platform built on a pnpm monorepo. The stack is React + Vite (frontend) served by a Node.js/Express 5 API, backed by PostgreSQL via Drizzle ORM. It is deployed publicly on Replit Autoscale. Users are unauthenticated readers and a small, trusted set of internal editors/admins who manage content through an admin panel.
+Mapletechie (mapletechie.com) is a production tech-blog platform built on a pnpm monorepo. The stack is React + Vite (frontend) served by a Node.js/Express 5 API, backed by PostgreSQL via Drizzle ORM. It is deployed on Railway. Users are unauthenticated readers and a small, trusted set of internal editors/admins who manage content through an admin panel.
 
 ## Assets
 
 - **Admin credentials** — username/password pairs for editors and the founding admin (`matthew`). Compromise gives full content management capability (create, publish, delete posts; manage editors; send bulk email; configure maintenance mode).
 - **Resend API key** — authenticates outbound email via `resend.com`. Compromise allows sending arbitrary email from `@mapletechie.com` addresses (phishing, spam, quota exhaustion, email log access).
 - **Session tokens** — 30-day bearer tokens issued after login. Compromise impersonates the holder.
-- **Object storage** — Uploaded images and media files, backed by Replit object storage. Abuse could cause storage/bandwidth cost escalation or serve malicious content.
+- **Object storage** — Uploaded images and media files, backed by Cloudflare R2. Abuse could cause storage/bandwidth cost escalation or serve malicious content.
 - **Reader PII** — Email addresses in the newsletter subscriber list, contact form submissions, and job applications. Exfiltration harms subscribers and may trigger GDPR obligations.
 - **Published content** — Blog posts, categories, and editorial configuration. Unauthorized modification damages brand reputation.
 - **Automation / MCP tokens** — `AUTOMATION_DRAFT_TOKEN` and `MCP_CONNECTOR_TOKEN` allow external AI agents to submit draft posts. Exposure allows spamming the draft queue.

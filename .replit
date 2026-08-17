@@ -79,16 +79,8 @@ localPort = 27002
 externalPort = 5173
 
 [userenv]
-
-[userenv.shared]
-ADMIN_PASSWORD = "Maple2025!Admin"
-INDEXNOW_KEY = "110d231bb1bd4ad19397e30c130860f4"
-
-[userenv.development]
-RESEND_API_KEY = "REDACTED_RESEND_KEY"
-
-[userenv.production]
-RESEND_API_KEY = "REDACTED_RESEND_KEY"
+# Secrets are managed via Railway Variables (production) and the Replit Secrets
+# panel (development). Do not hardcode credentials here.
 
 [objectStorage]
 defaultBucketID = "replit-objstore-a8ef13b0-f006-4ca0-b05a-aa565a732f54"

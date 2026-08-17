@@ -34,7 +34,7 @@ pnpm workspace monorepo using TypeScript. Contains "Mapletechie" (mapletechie.co
 - Express 5 REST API
 - Routes: posts (CRUD + scheduled publish), categories, contact, stats, admin login, media library, newsletter, send-email, sitemap.xml. The legacy `products` and `reviews` routers were removed in May 2026.
 - Admin auth: `Authorization: Bearer <session-token>` header required for protected routes. Sessions are issued by `POST /api/admin/login` against the `users` table (bcrypt-hashed passwords). The legacy `ADMIN_PASSWORD` bearer-token bypass and `/admin/verify` endpoint were removed.
-- Rate limiting: `express-rate-limit` middleware in `src/middlewares/rateLimit.ts` protects public-write endpoints (`/contact`, `/comments`, `/newsletter/subscribe`, `/advertise`, `/admin/login`, `/admin/generate-post`) plus a per-editor `emailSendLimiter` (50 sends / 24 h, keyed by `user:<id>` using `ipKeyGenerator` for IPv6 fallback) on `/admin/send-email`. `app.set('trust proxy', 1)` so limiters see the real client IP behind the Replit/Cloudflare proxy.
+- Rate limiting: `express-rate-limit` middleware in `src/middlewares/rateLimit.ts` protects public-write endpoints (`/contact`, `/comments`, `/newsletter/subscribe`, `/advertise`, `/admin/login`, `/admin/generate-post`) plus a per-editor `emailSendLimiter` (50 sends / 24 h, keyed by `user:<id>` using `ipKeyGenerator` for IPv6 fallback) on `/admin/send-email`. `app.set('trust proxy', 1)` so limiters see the real client IP behind the Railway/Cloudflare proxy.
 
 ### Posts: scheduled publishing
 - `posts.status` enum is `draft | scheduled | published`. `posts.scheduledFor` (timestamp, nullable) holds the future go-live time.
@@ -91,7 +91,7 @@ Dashboard, Posts (CRUD), Users, Profile, **Jobs** (`/admin/jobs` — full CRUD),
 
 - Reader newsletter is **manual** — the auto-`startNewsletterScheduler` was removed in May 2026. An admin composes each digest on `/admin/newsletter`: `subject` (required) + optional `editorNote` markdown, with a live preview of the past-7-days posts that will be appended via `digestEmailHtml`. `POST /api/admin/newsletter/test` accepts `{to, subject, editorNote}` (single test send); `POST /api/admin/newsletter/send-now` accepts `{subject, editorNote}` and broadcasts to every `status='active'` subscriber.
 - A separate weekly **editor digest** cron (`startEditorWeeklyDigestCron`, Sunday 8 PM America/Toronto) emails the founding admin a week-in-review of new posts, comments, and inbox activity — purely internal, never sent to subscribers.
-- Provider: Resend (used directly via `RESEND_API_KEY` secret — user dismissed the Replit Resend integration).
+- Provider: Resend (used directly via `RESEND_API_KEY` secret).
 - Sender: `Mapletechie <newsletter@mapletechie.com>` (requires DNS records in Namecheap: SPF TXT, DKIM TXT records from Resend, optional DMARC).
 - Footer subscribe form uses `useSubscribeNewsletter` hook.
 - Admin page `/admin/newsletter` (admin-only): stats, send test, send now, subscriber list with delete.
@@ -142,8 +142,8 @@ pnpm --filter @workspace/api-spec run codegen
 
 ## Key Environment Variables
 
-- `DATABASE_URL` — PostgreSQL connection string (auto-managed by Replit)
-- `SESSION_SECRET` — Session secret (set in Replit Secrets)
+- `DATABASE_URL` — PostgreSQL connection string (managed by Railway)
+- `SESSION_SECRET` — Session secret (set in Railway Variables)
 - `ADMIN_PASSWORD` — Used **only** to bootstrap the founding admin (`matthew`) on first boot via `bootstrapAdmin()`. After that, login goes through `POST /api/admin/login` against the `users` table. Not used as an auth bypass anywhere else.
 - `SITE_DOMAIN` — Used in sitemap.xml generation (default: `https://mapletechie.com`)
 

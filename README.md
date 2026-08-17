@@ -12,7 +12,7 @@ careers and advertising pages, and on-site analytics.
 - Frontend: React + Vite + Tailwind + shadcn/ui
 - Backend: Express 5 + Drizzle ORM + PostgreSQL
 - Email: Resend
-- Hosted on Replit
+- Hosted on Railway
 
 ## Project layout
 
