@@ -4,6 +4,11 @@ import { desc, eq, sql } from "drizzle-orm";
 
 const router = Router();
 
+// Some crawlers and old links hit /sitemap/xml (slash) instead of /sitemap.xml (dot)
+router.get("/sitemap/xml", (_req, res) => {
+  res.redirect(301, "/api/sitemap.xml");
+});
+
 router.get("/sitemap.xml", async (req, res): Promise<void> => {
   const _siteDomain = process.env.SITE_DOMAIN || "https://mapletechie.com";
   const domain = _siteDomain.startsWith("http") ? _siteDomain : `https://${_siteDomain}`;
