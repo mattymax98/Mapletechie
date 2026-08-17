@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, index, smallint, integer, varchar, boolean } from "drizzle-orm/pg-core";
 
 export const pageViewsTable = pgTable(
   "page_views",
@@ -12,6 +12,12 @@ export const pageViewsTable = pgTable(
     referrer: text("referrer"),
     sessionId: text("session_id"),
     userAgent: text("user_agent"),
+    scrollDepth: smallint("scroll_depth"),
+    durationMs: integer("duration_ms"),
+    deviceType: varchar("device_type", { length: 20 }),
+    browser: varchar("browser", { length: 40 }),
+    isReturning: boolean("is_returning"),
+    readingTimeSec: smallint("reading_time_sec"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

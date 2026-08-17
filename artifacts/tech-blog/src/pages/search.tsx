@@ -5,6 +5,7 @@ import { Search as SearchIcon, Loader2 } from "lucide-react";
 import { SEO } from "@/components/SEO";
 import { PostCategoryChips } from "@/components/CategoryChip";
 import { format } from "date-fns";
+import { trackEvent } from "@/lib/tracker";
 
 interface PostRow {
   id: number;
@@ -54,7 +55,10 @@ export default function SearchPage() {
         } else {
           setResults([]);
         }
-        setExecuted(q);
+        setExecuted((prev) => {
+          if (prev !== q) trackEvent("search", { query: q });
+          return q;
+        });
       } catch (e: any) {
         if (e?.name === "AbortError") return;
         setResults([]);

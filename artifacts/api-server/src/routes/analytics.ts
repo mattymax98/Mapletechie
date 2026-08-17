@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, pageViewsTable, postsTable } from "@workspace/db";
+import { db, pageViewsTable, postsTable, searchQueriesTable, linkClicksTable } from "@workspace/db";
 import { sql, gte, and, isNotNull, desc, eq } from "drizzle-orm";
 import { adminAuth, requireRole } from "../middlewares/adminAuth";
 import { logger } from "../lib/logger";
@@ -18,6 +18,11 @@ function cleanStr(v: unknown, max: number): string | null {
   const t = v.trim();
   if (!t) return null;
   return t.slice(0, max);
+}
+
+function clampInt(v: unknown, min: number, max: number): number | null {
+  if (typeof v !== "number" || !Number.isFinite(v)) return null;
+  return Math.min(max, Math.max(min, Math.round(v)));
 }
 
 // Simple in-memory rate limit: 30 events / minute per IP
@@ -70,6 +75,37 @@ router.post("/track", async (req, res): Promise<void> => {
     const ip = extractIp(req as any);
     if (rateLimited(ip)) return;
 
+    // New optional engagement fields — all default to null for old clients
+    const scrollDepth = clampInt(body.scrollDepth, 0, 100);
+    const durationMs = clampInt(body.durationMs, 0, 2_147_000_000);
+    const readingTimeSec = clampInt(body.readingTimeSec, 0, 32_000);
+    const deviceType =
+      typeof body.deviceType === "string" && ["mobile", "tablet", "desktop"].includes(body.deviceType)
+        ? body.deviceType
+        : null;
+    const rawBrowser = cleanStr(body.browser, 40);
+    const browser = rawBrowser && /^[A-Za-z0-9 .\-]{1,40}$/.test(rawBrowser) ? rawBrowser : null;
+    const isReturning = typeof body.isReturning === "boolean" ? body.isReturning : null;
+
+    // Reading-time beacon: sent on visibilitychange/beforeunload. Update the
+    // most recent page view for this session+path instead of inserting a new
+    // row (a second insert would double-count the view).
+    if (body.readingBeacon === true) {
+      if (!sessionId) return;
+      await db.execute(sql`
+        update page_views set
+          reading_time_sec = coalesce(${readingTimeSec}, reading_time_sec),
+          scroll_depth = greatest(coalesce(scroll_depth, 0), coalesce(${scrollDepth}, 0)),
+          duration_ms = coalesce(${durationMs}, duration_ms)
+        where id = (
+          select id from page_views
+          where session_id = ${sessionId} and path = ${path}
+          order by created_at desc limit 1
+        )
+      `);
+      return;
+    }
+
     const cfCountry = req.headers["cf-ipcountry"] as string | undefined;
     const country = await lookupCountry(ip, cfCountry);
 
@@ -82,6 +118,11 @@ router.post("/track", async (req, res): Promise<void> => {
       referrer,
       sessionId,
       userAgent,
+      scrollDepth,
+      durationMs,
+      deviceType,
+      browser,
+      isReturning,
     });
 
     // Keep the public per-post counter in sync: every tracked (bot-filtered,
@@ -95,6 +136,52 @@ router.post("/track", async (req, res): Promise<void> => {
     }
   } catch (err) {
     logger.warn({ err }, "track failed");
+  }
+});
+
+// Public event endpoint — social shares, outbound clicks, on-site searches.
+// Same bot filtering + rate limiting as /track.
+router.post("/track/event", async (req, res): Promise<void> => {
+  res.status(204).end();
+  try {
+    const body = req.body || {};
+    const type = body.type;
+    if (type !== "social" && type !== "outbound" && type !== "search") return;
+
+    const userAgent = String(req.headers["user-agent"] || "").slice(0, 500);
+    if (!userAgent) return;
+    if (/bot|crawler|spider|preview|facebookexternalhit|whatsapp|slackbot|linkedin|curl|wget|python|httpclient/i.test(userAgent)) return;
+
+    const ip = extractIp(req as any);
+    if (rateLimited(ip)) return;
+
+    const rawPath = cleanStr(body.path, 500);
+    const path = rawPath && PATH_RE.test(rawPath) ? rawPath : null;
+    const rawSlug = cleanStr(body.postSlug, 200);
+    const postSlug = rawSlug && SLUG_RE.test(rawSlug) ? rawSlug : null;
+    const rawSession = cleanStr(body.sessionId, 64);
+    const sessionId = rawSession && SESSION_RE.test(rawSession) ? rawSession : null;
+
+    if (type === "search") {
+      const query = cleanStr(body.query, 200);
+      if (!query) return;
+      await db.insert(searchQueriesTable).values({ query, path, sessionId });
+      return;
+    }
+
+    // social | outbound → link_clicks; href must be a valid http(s) URL
+    const rawHref = cleanStr(body.href, 1000);
+    if (!rawHref) return;
+    let href: string | null = null;
+    try {
+      const u = new URL(rawHref);
+      if (u.protocol === "http:" || u.protocol === "https:") href = u.href.slice(0, 1000);
+    } catch { /* invalid URL, drop */ }
+    if (!href) return;
+
+    await db.insert(linkClicksTable).values({ linkType: type, href, postSlug, sessionId });
+  } catch (err) {
+    logger.warn({ err }, "track event failed");
   }
 });
 
@@ -322,6 +409,213 @@ router.get("/admin/analytics/export.csv", adminAuth, requireRole("admin"), async
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename="analytics-${range}.csv"`);
   res.send(csv);
+});
+
+// ---------------------------------------------------------------------------
+// Engagement analytics endpoints (admin only)
+// ---------------------------------------------------------------------------
+
+/** View counts grouped by hour-of-day — always returns 24 buckets. */
+router.get("/admin/analytics/hourly", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+  const since = rangeToDate(req.query.range as string);
+  const rows = await db
+    .select({
+      hour: sql<number>`extract(hour from ${pageViewsTable.createdAt})::int`,
+      views: sql<number>`count(*)::int`,
+    })
+    .from(pageViewsTable)
+    .where(gte(pageViewsTable.createdAt, since))
+    .groupBy(sql`extract(hour from ${pageViewsTable.createdAt})`)
+    .orderBy(sql`extract(hour from ${pageViewsTable.createdAt})`);
+
+  const byHour = new Map(rows.map((r) => [r.hour, r.views]));
+  const buckets = Array.from({ length: 24 }, (_, hour) => ({ hour, views: byHour.get(hour) || 0 }));
+  res.json(buckets);
+});
+
+/** Counts by device type and by browser family. */
+router.get("/admin/analytics/device-breakdown", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+  const since = rangeToDate(req.query.range as string);
+  const devices = await db
+    .select({
+      deviceType: pageViewsTable.deviceType,
+      views: sql<number>`count(*)::int`,
+    })
+    .from(pageViewsTable)
+    .where(and(gte(pageViewsTable.createdAt, since), isNotNull(pageViewsTable.deviceType)))
+    .groupBy(pageViewsTable.deviceType)
+    .orderBy(desc(sql`count(*)`));
+
+  const browsers = await db
+    .select({
+      browser: pageViewsTable.browser,
+      views: sql<number>`count(*)::int`,
+    })
+    .from(pageViewsTable)
+    .where(and(gte(pageViewsTable.createdAt, since), isNotNull(pageViewsTable.browser)))
+    .groupBy(pageViewsTable.browser)
+    .orderBy(desc(sql`count(*)`))
+    .limit(15);
+
+  res.json({ devices, browsers });
+});
+
+/** New vs. returning: distinct sessions with is_returning false vs true. */
+router.get("/admin/analytics/new-vs-returning", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+  const since = rangeToDate(req.query.range as string);
+  const [row] = await db
+    .select({
+      newSessions: sql<number>`count(distinct ${pageViewsTable.sessionId}) filter (where ${pageViewsTable.isReturning} = false)::int`,
+      returningSessions: sql<number>`count(distinct ${pageViewsTable.sessionId}) filter (where ${pageViewsTable.isReturning} = true)::int`,
+    })
+    .from(pageViewsTable)
+    .where(and(gte(pageViewsTable.createdAt, since), isNotNull(pageViewsTable.sessionId)));
+
+  res.json({ newSessions: row?.newSessions || 0, returningSessions: row?.returningSessions || 0 });
+});
+
+/** Per-post average actual vs. estimated reading time (word count / 200 wpm). */
+router.get("/admin/analytics/reading-time", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+  const since = rangeToDate(req.query.range as string);
+  const rows = await db
+    .select({
+      slug: postsTable.slug,
+      title: postsTable.title,
+      avgReadingTimeSec: sql<number>`round(avg(${pageViewsTable.readingTimeSec}))::int`,
+      estimatedReadingTimeSec: sql<number>`round(array_length(regexp_split_to_array(${postsTable.content}, '\\s+'), 1) / 200.0 * 60)::int`,
+      samples: sql<number>`count(${pageViewsTable.readingTimeSec})::int`,
+    })
+    .from(postsTable)
+    .innerJoin(
+      pageViewsTable,
+      and(
+        eq(pageViewsTable.postSlug, postsTable.slug),
+        gte(pageViewsTable.createdAt, since),
+        isNotNull(pageViewsTable.readingTimeSec),
+      ),
+    )
+    .where(eq(postsTable.status, "published"))
+    .groupBy(postsTable.id)
+    .orderBy(desc(sql`count(${pageViewsTable.readingTimeSec})`))
+    .limit(30);
+  res.json(rows);
+});
+
+/** Top social share targets and top outbound domains. */
+router.get("/admin/analytics/link-clicks", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+  const since = rangeToDate(req.query.range as string);
+  const social = await db
+    .select({
+      href: linkClicksTable.href,
+      clicks: sql<number>`count(*)::int`,
+    })
+    .from(linkClicksTable)
+    .where(and(gte(linkClicksTable.createdAt, since), eq(linkClicksTable.linkType, "social")))
+    .groupBy(linkClicksTable.href)
+    .orderBy(desc(sql`count(*)`))
+    .limit(10);
+
+  const outbound = await db
+    .select({
+      domain: sql<string>`substring(${linkClicksTable.href} from '^https?://([^/]+)')`,
+      clicks: sql<number>`count(*)::int`,
+    })
+    .from(linkClicksTable)
+    .where(and(gte(linkClicksTable.createdAt, since), eq(linkClicksTable.linkType, "outbound")))
+    .groupBy(sql`substring(${linkClicksTable.href} from '^https?://([^/]+)')`)
+    .orderBy(desc(sql`count(*)`))
+    .limit(10);
+
+  res.json({ social, outbound });
+});
+
+/** Top on-site search terms with counts. */
+router.get("/admin/analytics/search-queries", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+  const since = rangeToDate(req.query.range as string);
+  const rows = await db
+    .select({
+      query: sql<string>`lower(${searchQueriesTable.query})`,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(searchQueriesTable)
+    .where(gte(searchQueriesTable.createdAt, since))
+    .groupBy(sql`lower(${searchQueriesTable.query})`)
+    .orderBy(desc(sql`count(*)`))
+    .limit(25);
+  res.json(rows);
+});
+
+/** Per-post drilldown: daily views, top referrers, top countries, engagement averages. */
+router.get("/admin/analytics/post-detail/:slug", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
+  const slug = String(req.params.slug || "");
+  if (!SLUG_RE.test(slug)) {
+    res.status(404).json({ error: "Post not found" });
+    return;
+  }
+  const [post] = await db
+    .select({ slug: postsTable.slug, title: postsTable.title, publishedAt: postsTable.publishedAt })
+    .from(postsTable)
+    .where(eq(postsTable.slug, slug))
+    .limit(1);
+  if (!post) {
+    res.status(404).json({ error: "Post not found" });
+    return;
+  }
+
+  const since = rangeToDate(req.query.range as string);
+  const scope = and(eq(pageViewsTable.postSlug, slug), gte(pageViewsTable.createdAt, since));
+
+  const daily = await db
+    .select({
+      day: sql<string>`to_char(date_trunc('day', ${pageViewsTable.createdAt}), 'YYYY-MM-DD')`,
+      views: sql<number>`count(*)::int`,
+    })
+    .from(pageViewsTable)
+    .where(scope)
+    .groupBy(sql`date_trunc('day', ${pageViewsTable.createdAt})`)
+    .orderBy(sql`date_trunc('day', ${pageViewsTable.createdAt})`);
+
+  const topReferrers = await db
+    .select({
+      source: sql<string>`coalesce(nullif(${pageViewsTable.referrer}, ''), 'Direct')`,
+      views: sql<number>`count(*)::int`,
+    })
+    .from(pageViewsTable)
+    .where(scope)
+    .groupBy(sql`coalesce(nullif(${pageViewsTable.referrer}, ''), 'Direct')`)
+    .orderBy(desc(sql`count(*)`))
+    .limit(10);
+
+  const topCountries = await db
+    .select({
+      code: pageViewsTable.country,
+      name: pageViewsTable.countryName,
+      views: sql<number>`count(*)::int`,
+    })
+    .from(pageViewsTable)
+    .where(and(scope, isNotNull(pageViewsTable.country)))
+    .groupBy(pageViewsTable.country, pageViewsTable.countryName)
+    .orderBy(desc(sql`count(*)`))
+    .limit(10);
+
+  const [averages] = await db
+    .select({
+      avgScrollDepth: sql<number | null>`round(avg(${pageViewsTable.scrollDepth}))::int`,
+      avgReadingTimeSec: sql<number | null>`round(avg(${pageViewsTable.readingTimeSec}))::int`,
+      totalViews: sql<number>`count(*)::int`,
+    })
+    .from(pageViewsTable)
+    .where(scope);
+
+  res.json({
+    post,
+    daily,
+    topReferrers,
+    topCountries,
+    avgScrollDepth: averages?.avgScrollDepth ?? null,
+    avgReadingTimeSec: averages?.avgReadingTimeSec ?? null,
+    totalViews: averages?.totalViews || 0,
+  });
 });
 
 export default router;

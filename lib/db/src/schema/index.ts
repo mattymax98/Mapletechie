@@ -11,6 +11,8 @@ export * from "./subscribers";
 export * from "./auditLogs";
 export * from "./comments";
 export * from "./pageViews";
+export * from "./searchQueries";
+export * from "./linkClicks";
 export * from "./series";
 export * from "./media";
 export * from "./siteSettings";
