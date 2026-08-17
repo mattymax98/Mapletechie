@@ -45,8 +45,8 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
           <div className="md:col-span-1">
             <Link href="/" className="flex items-center mb-4" aria-label="Mapletechie — home">
-              <img src="/mapletechie-wordmark.svg" alt="" className="h-9 w-auto dark:hidden" />
-              <img src="/mapletechie-wordmark-inverse.svg" alt="" className="h-9 w-auto hidden dark:block" />
+              <img src="/mapletechie-wordmark.svg" alt="Mapletechie" className="h-9 w-auto dark:hidden" />
+              <img src="/mapletechie-wordmark-inverse.svg" alt="Mapletechie" className="h-9 w-auto hidden dark:block" />
             </Link>
             <p className="text-muted-foreground text-sm mb-6 max-w-xs">
               Independent tech journalism — sharp opinion, real reviews, and the context the spec sheets leave out.

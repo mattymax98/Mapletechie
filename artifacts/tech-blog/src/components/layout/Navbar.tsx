@@ -44,7 +44,7 @@ export function Navbar() {
           <Link href="/" className="flex items-center group" aria-label="Mapletechie — home">
             <img
               src={themeReady && resolvedTheme === 'dark' ? '/mapletechie-wordmark-inverse.svg' : '/mapletechie-wordmark.svg'}
-              alt=""
+              alt="Mapletechie"
               className="h-9 w-auto transition-opacity group-hover:opacity-80"
             />
           </Link>
