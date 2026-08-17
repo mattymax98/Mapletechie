@@ -134,7 +134,9 @@ Go to the API Server service → **Variables** tab. Add each of the following:
 
 ```
 NODE_ENV                    = production
-SITE_DOMAIN                 = mapletechie.com
+# ⚠️  Must include the https:// prefix — the feed and sitemap generators use
+#     this value verbatim when building absolute URLs.
+SITE_DOMAIN                 = https://mapletechie.com
 
 # Copy these from your removed-platform Secrets:
 SESSION_SECRET              = <from removed-platform>
@@ -142,10 +144,18 @@ ADMIN_PASSWORD              = <from removed-platform>
 AUTOMATION_DRAFT_TOKEN      = <from removed-platform>
 INDEXNOW_KEY                = <from removed-platform>
 MCP_CONNECTOR_TOKEN         = <from removed-platform>
-AI_INTEGRATIONS_OPENAI_API_KEY      = <from removed-platform>
-AI_INTEGRATIONS_OPENAI_BASE_URL     = <from removed-platform>
-AI_INTEGRATIONS_ANTHROPIC_API_KEY   = <from removed-platform>
-AI_INTEGRATIONS_ANTHROPIC_BASE_URL  = <from removed-platform>
+
+# Resend email — get this from https://resend.com/api-keys
+# (NOT from removed-platform; the removed-platform secret was removed during the git-history scrub)
+RESEND_API_KEY              = re_...
+
+# AI integrations — removed-platform's proxy values (localhost:1106) don't work in
+# Railway.  Supply real API keys from platform.openai.com / console.anthropic.com
+# OR leave these unset to disable AI-draft generation on Railway.
+AI_INTEGRATIONS_OPENAI_API_KEY      = sk-...
+AI_INTEGRATIONS_OPENAI_BASE_URL     = https://api.openai.com/v1
+AI_INTEGRATIONS_ANTHROPIC_API_KEY   = sk-ant-...
+AI_INTEGRATIONS_ANTHROPIC_BASE_URL  = https://api.anthropic.com
 
 # R2 storage (from Phase 1):
 R2_ACCOUNT_ID               = <your Cloudflare Account ID>
