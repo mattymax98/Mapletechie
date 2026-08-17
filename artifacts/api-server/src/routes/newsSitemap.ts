@@ -15,7 +15,8 @@ function xmlEscape(str: string): string {
 }
 
 router.get("/news-sitemap.xml", async (req, res): Promise<void> => {
-  const domain = process.env.SITE_DOMAIN || "https://mapletechie.com";
+  const _siteDomain = process.env.SITE_DOMAIN || "https://mapletechie.com";
+  const domain = _siteDomain.startsWith("http") ? _siteDomain : `https://${_siteDomain}`;
 
   // Two days ago (48-hour rolling window Google News requires).
   const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);

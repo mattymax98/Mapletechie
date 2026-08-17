@@ -31,7 +31,8 @@ interface CategoryInfo {
  * the per-category feed URL; otherwise it is the unchanged site-wide feed.
  */
 async function sendFeed(res: Response, category?: CategoryInfo): Promise<void> {
-  const domain = process.env.SITE_DOMAIN || "https://mapletechie.com";
+  const _siteDomain = process.env.SITE_DOMAIN || "https://mapletechie.com";
+  const domain = _siteDomain.startsWith("http") ? _siteDomain : `https://${_siteDomain}`;
 
   // A post appears in a category feed when it belongs to that category —
   // primary OR secondary membership (post_categories join table).

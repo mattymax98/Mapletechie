@@ -5,7 +5,8 @@ import { desc, eq, sql } from "drizzle-orm";
 const router = Router();
 
 router.get("/sitemap.xml", async (req, res): Promise<void> => {
-  const domain = process.env.SITE_DOMAIN || "https://mapletechie.com";
+  const _siteDomain = process.env.SITE_DOMAIN || "https://mapletechie.com";
+  const domain = _siteDomain.startsWith("http") ? _siteDomain : `https://${_siteDomain}`;
 
   const [posts, categories, authors, allSeries, jobs, tagRows] = await Promise.all([
     db
