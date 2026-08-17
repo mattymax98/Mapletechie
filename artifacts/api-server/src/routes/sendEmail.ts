@@ -141,7 +141,10 @@ router.post(
       });
     } catch (err: any) {
       req.log.error({ err: err?.message || String(err), from: fromAddress }, "Failed to send composed email");
-      res.status(502).json({
+      // Use 422 (not 502) so Cloudflare passes the JSON body through.
+      // Cloudflare intercepts 5xx origin responses and replaces them with
+      // its own error page, hiding the real Resend error from the client.
+      res.status(422).json({
         error: "Email send failed",
         message: err?.message || "Resend rejected the message.",
       });
