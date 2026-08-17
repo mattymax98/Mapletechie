@@ -134,7 +134,9 @@ Go to the API Server service → **Variables** tab. Add each of the following:
 
 ```
 NODE_ENV                    = production
-SITE_DOMAIN                 = mapletechie.com
+# ⚠️  Must include the https:// prefix — the feed and sitemap generators use
+#     this value verbatim when building absolute URLs.
+SITE_DOMAIN                 = https://mapletechie.com
 
 # Copy these from your Replit Secrets:
 SESSION_SECRET              = <from Replit>
@@ -142,10 +144,18 @@ ADMIN_PASSWORD              = <from Replit>
 AUTOMATION_DRAFT_TOKEN      = <from Replit>
 INDEXNOW_KEY                = <from Replit>
 MCP_CONNECTOR_TOKEN         = <from Replit>
-AI_INTEGRATIONS_OPENAI_API_KEY      = <from Replit>
-AI_INTEGRATIONS_OPENAI_BASE_URL     = <from Replit>
-AI_INTEGRATIONS_ANTHROPIC_API_KEY   = <from Replit>
-AI_INTEGRATIONS_ANTHROPIC_BASE_URL  = <from Replit>
+
+# Resend email — get this from https://resend.com/api-keys
+# (NOT from Replit; the Replit secret was removed during the git-history scrub)
+RESEND_API_KEY              = re_...
+
+# AI integrations — Replit's proxy values (localhost:1106) don't work in
+# Railway.  Supply real API keys from platform.openai.com / console.anthropic.com
+# OR leave these unset to disable AI-draft generation on Railway.
+AI_INTEGRATIONS_OPENAI_API_KEY      = sk-...
+AI_INTEGRATIONS_OPENAI_BASE_URL     = https://api.openai.com/v1
+AI_INTEGRATIONS_ANTHROPIC_API_KEY   = sk-ant-...
+AI_INTEGRATIONS_ANTHROPIC_BASE_URL  = https://api.anthropic.com
 
 # R2 storage (from Phase 1):
 R2_ACCOUNT_ID               = <your Cloudflare Account ID>
