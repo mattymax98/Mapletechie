@@ -400,6 +400,62 @@ if (cssPreloadLink) {
   });
 }
 
+// API proxy: forward /api/* requests from the browser to the API server so
+// the React SPA can use plain relative /api/... URLs without knowing the
+// separate Railway API service domain. Raw body capture handles JSON, multipart
+// uploads, and form-encoded payloads transparently.
+app.use(
+  "/api",
+  express.raw({ type: "*/*", limit: "50mb" }),
+  async (req, res): Promise<void> => {
+    const target = `${API_BASE}${req.originalUrl}`;
+    const method = req.method.toUpperCase();
+    const isBodyless =
+      method === "GET" || method === "HEAD" || method === "OPTIONS";
+
+    const proxyHeaders: Record<string, string> = {};
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (["host", "connection", "transfer-encoding"].includes(key.toLowerCase()))
+        continue;
+      const v = Array.isArray(value) ? value.join(", ") : value;
+      if (v) proxyHeaders[key] = v;
+    }
+
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 30_000);
+      const upstream = await fetch(target, {
+        method,
+        headers: proxyHeaders,
+        body:
+          isBodyless
+            ? undefined
+            : Buffer.isBuffer(req.body) && req.body.length > 0
+              ? req.body
+              : undefined,
+        signal: ctrl.signal,
+      });
+      clearTimeout(timer);
+
+      res.status(upstream.status);
+      upstream.headers.forEach((value, key) => {
+        if (
+          ["transfer-encoding", "connection", "keep-alive"].includes(
+            key.toLowerCase(),
+          )
+        )
+          return;
+        res.setHeader(key, value);
+      });
+      const buf = await upstream.arrayBuffer();
+      res.end(Buffer.from(buf));
+    } catch (err) {
+      console.error("[tech-blog] API proxy error:", target, err);
+      res.status(502).json({ error: "API service unavailable" });
+    }
+  },
+);
+
 // Legacy cover compatibility: the cover/hero/author images were migrated from
 // PNG to WebP. Any historical reference (old DB rows, cached HTML, external
 // links, bookmarks) to the now-deleted .png files is permanently redirected to
