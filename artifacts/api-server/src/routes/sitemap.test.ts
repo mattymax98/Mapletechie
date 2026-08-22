@@ -122,4 +122,40 @@ describe("GET /sitemap.xml — SITE_DOMAIN protocol normalisation", () => {
 
     expect(body).toContain("<loc>https://mapletechie.com/blog/test-post</loc>");
   });
+
+  it("does not emit malformed legacy route segments", async () => {
+    process.env.SITE_DOMAIN = "https://mapletechie.com";
+    let callCount = 0;
+    db.select.mockImplementation(() => {
+      callCount += 1;
+      const rows = [
+        [
+          { slug: "valid-post", publishedAt: "2026-08-01T00:00:00.000Z" },
+          { slug: "mapletechie.com", publishedAt: "2026-08-01T00:00:00.000Z" },
+        ],
+        [{ slug: "valid-category" }, { slug: "science.space" }],
+        [
+          { username: "matthew" },
+          { username: "jane_doe" },
+          { username: "jane.doe" },
+          { username: "not/a-user" },
+        ],
+        [{ slug: "valid-series" }, { slug: "series.name" }],
+        [{ slug: "valid-job" }, { slug: "editor.job" }],
+      ][callCount - 1] ?? [];
+      return makeChain(rows);
+    });
+
+    const { body } = await get("/sitemap.xml");
+
+    expect(body).toContain("/blog/valid-post");
+    expect(body).toContain("/category/valid-category");
+    expect(body).toContain("/author/matthew");
+    expect(body).toContain("/author/jane_doe");
+    expect(body).toContain("/author/jane.doe");
+    expect(body).not.toContain("not/a-user");
+    expect(body).not.toContain("science.space");
+    expect(body).not.toContain("series.name");
+    expect(body).not.toContain("editor.job");
+  });
 });

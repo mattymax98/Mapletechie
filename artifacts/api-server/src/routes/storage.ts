@@ -12,6 +12,31 @@ import { adminAuth } from "../middlewares/adminAuth";
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 
+function isObjectMissing(error: unknown): boolean {
+  if (error instanceof ObjectNotFoundError) return true;
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as {
+    name?: string;
+    code?: string;
+    $metadata?: { httpStatusCode?: number };
+  };
+  return (
+    candidate.$metadata?.httpStatusCode === 404 ||
+    candidate.name === "NotFound" ||
+    candidate.name === "NoSuchKey" ||
+    candidate.code === "NotFound" ||
+    candidate.code === "NoSuchKey"
+  );
+}
+
+function sendMissingObject(res: Response, message: string): void {
+  // Missing uploaded objects must not become a cached 5xx when a post still
+  // references an old/deleted image. No-store lets a restored object recover
+  // immediately and prevents CDN error caching from masking that recovery.
+  res.setHeader("Cache-Control", "no-store");
+  res.status(404).json({ error: message });
+}
+
 /**
  * POST /storage/uploads/request-url
  *
@@ -115,7 +140,7 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
     const filePath = Array.isArray(raw) ? raw.join("/") : raw;
     const file = await objectStorageService.searchPublicObject(filePath);
     if (!file) {
-      res.status(404).json({ error: "File not found" });
+      sendMissingObject(res, "File not found");
       return;
     }
 
@@ -131,6 +156,10 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
       res.end();
     }
   } catch (error) {
+    if (isObjectMissing(error)) {
+      sendMissingObject(res, "File not found");
+      return;
+    }
     req.log.error({ err: error }, "Error serving public object");
     res.status(500).json({ error: "Failed to serve public object" });
   }
@@ -180,9 +209,9 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
       res.end();
     }
   } catch (error) {
-    if (error instanceof ObjectNotFoundError) {
+    if (isObjectMissing(error)) {
       req.log.warn({ err: error }, "Object not found");
-      res.status(404).json({ error: "Object not found" });
+      sendMissingObject(res, "Object not found");
       return;
     }
     req.log.error({ err: error }, "Error serving object");
