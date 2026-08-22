@@ -140,9 +140,9 @@ function makeApp() {
 import { createServer } from "node:http";
 async function request(
   app: express.Express,
-  method: "POST" | "PUT" | "DELETE",
+  method: "GET" | "POST" | "PUT" | "DELETE",
   path: string,
-  body: unknown,
+  body?: unknown,
 ): Promise<{ status: number; json: any }> {
   const server = createServer(app);
   await new Promise<void>((r) => server.listen(0, r));
@@ -152,7 +152,7 @@ async function request(
     const resp = await fetch(`http://127.0.0.1:${port}${path}`, {
       method,
       headers: { "Content-Type": "application/json", Authorization: "Bearer test" },
-      body: method === "DELETE" ? undefined : JSON.stringify(body),
+      body: method === "GET" || method === "DELETE" ? undefined : JSON.stringify(body),
     });
     const json = await resp.json().catch(() => null);
     return { status: resp.status, json };
@@ -244,6 +244,47 @@ describe("POST /posts — external image persistence", () => {
     });
 
     expect(body.imageWarnings).toBeUndefined();
+  });
+});
+
+describe("GET /posts/:id — editor detail", () => {
+  it("returns an automation draft to an authenticated admin for editing", async () => {
+    const draft = {
+      id: 42,
+      title: "Automation draft",
+      status: "draft",
+      authorId: 77,
+      categoryId: 7,
+      content: "<p>Ready for review</p>",
+    };
+    // Post lookup, followed by the category-membership lookup.
+    selectQueue = [[draft], []];
+
+    const { status, json } = await request(makeApp(), "GET", "/posts/42");
+
+    expect(status).toBe(200);
+    expect(json).toMatchObject({
+      id: 42,
+      title: "Automation draft",
+      status: "draft",
+      content: "<p>Ready for review</p>",
+    });
+  });
+
+  it("does not let an untrusted editor read a colleague's draft", async () => {
+    currentUser = {
+      id: 2,
+      role: "editor",
+      displayName: "Ed",
+      canPublishDirectly: false,
+      canEditOthersPosts: false,
+    };
+    selectQueue = [[{ id: 42, authorId: 77, categoryId: 7, status: "draft" }]];
+
+    const { status, json } = await request(makeApp(), "GET", "/posts/42");
+
+    expect(status).toBe(403);
+    expect(json.error).toMatch(/own posts/i);
   });
 });
 

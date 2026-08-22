@@ -901,17 +901,28 @@ router.delete("/posts/:id", adminAuth, async (req, res): Promise<void> => {
   res.status(204).send();
 });
 
-router.get("/posts/:id", async (req, res): Promise<void> => {
+// The admin editor needs drafts as well as published posts. Keep this detail
+// route authenticated so drafts are never exposed publicly, and apply the
+// same ownership rule as the update route.
+router.get("/posts/:id", adminAuth, async (req, res): Promise<void> => {
   const parsed = GetPostParams.safeParse({ id: Number(req.params.id) });
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [post] = await postsBaseQuery().where(
-    and(eq(postsTable.id, parsed.data.id), eq(postsTable.status, "published")),
-  );
+  const [post] = await postsBaseQuery().where(eq(postsTable.id, parsed.data.id));
   if (!post) {
     res.status(404).json({ error: "Post not found" });
+    return;
+  }
+  const user = req.user;
+  if (
+    user &&
+    user.role !== "admin" &&
+    !user.canEditOthersPosts &&
+    post.authorId !== user.id
+  ) {
+    res.status(403).json({ error: "You can only edit your own posts" });
     return;
   }
   const [withCats] = await attachCategories([post]);
