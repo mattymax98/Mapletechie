@@ -17,7 +17,7 @@ import { notifyEditorsOfAutomationDraft } from "../lib/automationDraftNotificati
 
 /**
  * Private automation draft API — lets an external AI client (run and
- * scheduled outside Replit) submit blog post DRAFTS. Hard guarantees:
+ * scheduled by an external service) submit blog post DRAFTS. Hard guarantees:
  *
  *  - Bearer-token auth against the AUTOMATION_DRAFT_TOKEN secret (401 otherwise).
  *  - Status is ALWAYS "draft"; there is no code path here that can publish.

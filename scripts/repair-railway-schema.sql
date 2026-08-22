@@ -1,4 +1,4 @@
--- Run this after any pg_restore from a Replit/older-schema dump.
+-- Run this after any pg_restore from a legacy or older-schema dump.
 -- Every statement is idempotent (DO $$ IF NOT EXISTS ... END $$).
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'categories_pkey' AND conrelid = 'categories'::regclass) THEN ALTER TABLE categories ADD PRIMARY KEY (id); END IF; END $$;

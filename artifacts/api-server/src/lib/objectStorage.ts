@@ -1,7 +1,7 @@
 /**
  * Object storage abstraction with two backends:
  *
- *   • Replit / GCS  — used when R2_ACCOUNT_ID is NOT set (dev on Replit)
+ *   • Development GCS sidecar — used when R2_ACCOUNT_ID is NOT set
  *   • Cloudflare R2 — used when R2_ACCOUNT_ID IS set  (production / Railway)
  *
  * All public methods return/accept the StorageFile interface so callers
@@ -39,7 +39,7 @@ function parseObjectPath(path: string): { bucketName: string; objectName: string
   return { bucketName: parts[1], objectName: parts.slice(2).join("/") };
 }
 
-// ─── GCS / Replit backend ─────────────────────────────────────────────────────
+// ─── GCS development backend ───────────────────────────────────────────────────
 
 const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 
@@ -115,7 +115,7 @@ async function signGcsObjectURL(opts: {
   );
   if (!response.ok) {
     throw new Error(
-      `Failed to sign GCS URL (${response.status}). Make sure you are running on Replit.`,
+      `Failed to sign GCS URL (${response.status}). Make sure the development storage sidecar is running.`,
     );
   }
   const data = (await response.json()) as { signed_url?: string };
@@ -257,7 +257,7 @@ export class ObjectNotFoundError extends Error {
 // ─── ObjectStorageService ─────────────────────────────────────────────────────
 
 export class ObjectStorageService {
-  /** true → use Cloudflare R2;  false → use Replit GCS sidecar */
+  /** true → use Cloudflare R2; false → use the development GCS sidecar */
   private readonly useR2: boolean;
   private _r2Client: S3Client | null = null;
 

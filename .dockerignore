@@ -11,7 +11,7 @@ node_modules
 **/dist
 **/.cache
 
-# Replit workspace metadata
+# Workspace metadata
 .replit
 replit.nix
 .upm

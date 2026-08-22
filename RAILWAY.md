@@ -48,7 +48,7 @@ R2_ACCESS_KEY_ID    = <Access Key ID from step 1.3>
 R2_SECRET_ACCESS_KEY = <Secret Access Key from step 1.3>
 
 # These tell the app which bucket/prefix to use.
-# Keep the same format as your current Replit values,
+# Keep the same format as your current development values,
 # but replace the GCS bucket name with "mapletechie".
 PRIVATE_OBJECT_DIR         = /mapletechie/.private
 PUBLIC_OBJECT_SEARCH_PATHS = /mapletechie/public
@@ -62,18 +62,18 @@ PUBLIC_OBJECT_SEARCH_PATHS = /mapletechie/public
 
 ## Phase 2 — Migrate your images to R2
 
-🧑 Add the three R2 secrets to your Replit project (Settings → Secrets):
+🧑 Add the three R2 secrets to your development secret store:
    - `R2_ACCOUNT_ID`
    - `R2_ACCESS_KEY_ID`
    - `R2_SECRET_ACCESS_KEY`
 
-🤖 The agent will run the migration script from the Replit shell:
+🤖 The agent will run the migration script from the workspace shell:
 
 ```bash
 node scripts/migrate-storage-to-r2.mjs
 ```
 
-The script copies every cover image and uploaded file from Replit's storage
+The script copies every cover image and uploaded file from the legacy GCS storage
 into R2. It skips files already copied, so it's safe to run multiple times.
 
 ---
@@ -138,12 +138,12 @@ NODE_ENV                    = production
 #     this value verbatim when building absolute URLs.
 SITE_DOMAIN                 = https://mapletechie.com
 
-# Copy these from your Replit Secrets:
-SESSION_SECRET              = <from Replit>
-ADMIN_PASSWORD              = <from Replit>
-AUTOMATION_DRAFT_TOKEN      = <from Replit>
-INDEXNOW_KEY                = <from Replit>
-MCP_CONNECTOR_TOKEN         = <from Replit>
+# Copy these from your development secret store:
+SESSION_SECRET              = <from development secret store>
+ADMIN_PASSWORD              = <from development secret store>
+AUTOMATION_DRAFT_TOKEN      = <from development secret store>
+INDEXNOW_KEY                = <from development secret store>
+MCP_CONNECTOR_TOKEN         = <from development secret store>
 
 # Resend email — IMPORTANT: use the API key from the Resend workspace that has
 # mapletechie.com listed under Domains (resend.com → workspace switcher top-left
@@ -151,7 +151,7 @@ MCP_CONNECTOR_TOKEN         = <from Replit>
 # sender addresses and Resend will return a 403 domain-not-verified error.
 RESEND_API_KEY              = re_...
 
-# AI integrations — Replit's proxy values (localhost:1106) don't work in
+# AI integrations — development proxy values (localhost:1106) don't work in
 # Railway.  Supply real API keys from platform.openai.com / console.anthropic.com
 # OR leave these unset to disable AI-draft generation on Railway.
 AI_INTEGRATIONS_OPENAI_API_KEY      = sk-...
@@ -184,12 +184,12 @@ API_BASE   = https://<api-server-railway-domain>   ← the domain from step 3.4
 
 ## Phase 5 — Migrate the database
 
-🤖 The agent will run these commands to export your Replit Postgres data and
+🤖 The agent will run these commands to export your legacy Postgres data and
 import it into Railway's Postgres.
 
-From the Replit shell:
+From the workspace shell:
 ```bash
-# Export from Replit
+# Export from the legacy source database
 pg_dump $DATABASE_URL --no-owner --no-acl -Fc -f /tmp/mapletechie.dump
 
 # Import into Railway (replace with your Railway DATABASE_URL)
@@ -232,12 +232,11 @@ DNS changes typically take 5–30 minutes to propagate.
 | `DATABASE_URL` | Railway (auto) | Added automatically by the Postgres addon |
 | `PORT` | Railway (auto) | Injected automatically per service |
 | `NODE_ENV` | Set manually | `production` |
-| `SESSION_SECRET` | Replit Secrets | Copy as-is |
-| `ADMIN_PASSWORD` | Replit Secrets | Copy as-is |
-| `AUTOMATION_DRAFT_TOKEN` | Replit Secrets | Copy as-is; automation URLs don't change |
-| `INDEXNOW_KEY` | Replit Secrets | Copy as-is |
-| `MCP_CONNECTOR_TOKEN` | Replit Secrets | Copy as-is |
-| `AI_INTEGRATIONS_*` | Replit Secrets | Copy all four as-is |
+| `SESSION_SECRET` | Development secret store | Copy as-is |
+| `ADMIN_PASSWORD` | Development secret store | Copy as-is |
+| `AUTOMATION_DRAFT_TOKEN` | Development secret store | Copy as-is; automation URLs don't change |
+| `INDEXNOW_KEY` | Development secret store | Copy as-is |
+| `MCP_CONNECTOR_TOKEN` | Development secret store | Copy all four as-is |
 | `R2_ACCOUNT_ID` | Cloudflare | From Phase 1 |
 | `R2_ACCESS_KEY_ID` | Cloudflare | From Phase 1 |
 | `R2_SECRET_ACCESS_KEY` | Cloudflare | From Phase 1 |
@@ -251,8 +250,8 @@ DNS changes typically take 5–30 minutes to propagate.
 
 ## Schema repair after pg_restore (August 2026)
 
-The pg_restore from the Replit production database stripped FK and PK constraints
-from several tables (the Replit DB had an older schema predating these constraints).
+The pg_restore from the legacy production database stripped FK and PK constraints
+from several tables (the source database had an older schema predating these constraints).
 Fixed by running the SQL below directly against the Railway DB:
 
 - Added PRIMARY KEY to: `categories`, `jobs`, `audit_logs`, `contacts`, `media`,

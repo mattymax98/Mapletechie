@@ -145,7 +145,7 @@ const techStackResponse: TechStackResponse = {
       id: "infrastructure",
       name: "Infrastructure",
       items: [
-        { name: "Replit",         version: "Autoscale", description: "Hosting & deployment platform" },
+        { name: "Railway",        version: "Autoscale", description: "Hosting & deployment platform" },
         { name: "Cloudflare",     version: "CDN",       description: "CDN, DNS, and DDoS protection" },
         { name: "Object Storage", version: "R2",        description: "Uploaded images & media" },
         { name: "Resend",         version: "API",       description: "Transactional email delivery" },

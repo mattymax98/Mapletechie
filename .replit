@@ -14,7 +14,7 @@ runButton = "Project"
 [[workflows.workflow]]
 name = "Project"
 mode = "parallel"
-author = "agent"
+author = "mattymax98"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
@@ -22,7 +22,7 @@ args = "test"
 
 [[workflows.workflow]]
 name = "test"
-author = "agent"
+author = "mattymax98"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
@@ -79,8 +79,8 @@ localPort = 27002
 externalPort = 5173
 
 [userenv]
-# Secrets are managed via Railway Variables (production) and the Replit Secrets
-# panel (development). Do not hardcode credentials here.
+# Secrets are managed via Railway Variables (production) and the workspace
+# secret store (development). Do not hardcode credentials here.
 
 [objectStorage]
 defaultBucketID = "replit-objstore-a8ef13b0-f006-4ca0-b05a-aa565a732f54"

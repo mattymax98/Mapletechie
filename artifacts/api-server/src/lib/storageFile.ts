@@ -1,7 +1,7 @@
 /**
  * Backend-agnostic file handle returned by ObjectStorageService.
  *
- * Both the Replit-GCS backend (development) and the Cloudflare-R2 backend
+ * Both the development GCS backend and the Cloudflare-R2 backend
  * (production / Railway) implement this interface, so the rest of the app
  * (routes, objectAcl) never needs to know which one is active.
  */

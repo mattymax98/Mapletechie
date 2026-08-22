@@ -7,7 +7,7 @@ import { publicMaintenanceGate } from "./middlewares/maintenance";
 
 const app: Express = express();
 
-// We're behind a reverse proxy (Replit deploy + Cloudflare). Without this
+// We're behind a reverse proxy (Railway + Cloudflare). Without this
 // express-rate-limit and req.ip would see the proxy IP, not the real client.
 // The "1" tells Express to trust exactly one hop, which is correct for our
 // single-proxy setup and avoids the "permissive trust proxy" warning from

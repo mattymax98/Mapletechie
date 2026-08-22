@@ -35,7 +35,7 @@ Mapletechie (mapletechie.com) is a production tech-blog platform built on a pnpm
 - `artifacts/api-server/src/routes/automation.ts` — external AI draft submission
 
 **Highest-risk areas:**
-- `.replit` — contains hardcoded RESEND_API_KEY and ADMIN_PASSWORD (plaintext)
+- Workspace configuration — must not contain hardcoded secrets
 - `artifacts/api-server/src/routes/storage.ts` — `POST /storage/uploads/request-url` is unauthenticated
 - `artifacts/api-server/src/lib/persistExternalImage.ts` — SSRF guard implementation
 
@@ -52,13 +52,13 @@ Mapletechie (mapletechie.com) is a production tech-blog platform built on a pnpm
 
 ### Spoofing / Authentication
 
-Admin sessions are 30-day bearer tokens (64 hex chars, crypto-random). Login goes through `POST /api/admin/login` with bcrypt-verified passwords (cost 10). The legacy `ADMIN_PASSWORD` bearer-bypass was removed. The MCP and Automation endpoints use independent, constant-time-compared tokens. The main risk is credential leakage via the `.replit` config file, which stores both the admin bootstrap password (`ADMIN_PASSWORD`) and the Resend API key in plaintext.
+Admin sessions are 30-day bearer tokens (64 hex chars, crypto-random). Login goes through `POST /api/admin/login` with bcrypt-verified passwords (cost 10). The legacy `ADMIN_PASSWORD` bearer-bypass was removed. The MCP and Automation endpoints use independent, constant-time-compared tokens. The main risk is credential leakage through a misconfigured workspace secret store or an accidentally committed configuration file.
 
 ### Information Disclosure
 
 The `GET /editors` public endpoint returns editor usernames, roles, bios, and social URLs — by design for the public "Our Team" page. No passwords or email addresses are exposed. The `GET /storage/objects/*` endpoint is unauthenticated; uploaded objects are served publicly to anyone who guesses or learns the UUID-based path.
 
-The Resend API key is hardcoded in `.replit` (both development and production environments), making it accessible to anyone with repository read access. This key grants the ability to send email from the verified Mapletechie domain, view email logs, and exhaust the sending quota.
+The Resend API key must remain in the environment's secret store and never be committed. Exposure would let an attacker send email from the verified Mapletechie domain, view email logs, and exhaust the sending quota.
 
 ### Tampering
 
