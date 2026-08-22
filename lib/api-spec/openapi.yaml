@@ -91,7 +91,7 @@ paths:
     get:
       operationId: getPost
       tags: [posts]
-      summary: Get a single blog post
+      summary: Get a single post for editing
       parameters:
         - name: id
           in: path
@@ -107,6 +107,8 @@ paths:
                 $ref: "#/components/schemas/Post"
         "404":
           description: Not found
+        "403":
+          description: Not permitted to edit this post
     put:
       operationId: updatePost
       tags: [posts]

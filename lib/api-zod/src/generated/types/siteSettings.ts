@@ -5,11 +5,15 @@
  * API specification for Tech Blog
  * OpenAPI spec version: 0.1.0
  */
+import type { SiteSettingsMaintenanceSeverity } from "./siteSettingsMaintenanceSeverity";
 
 export interface SiteSettings {
   maintenanceMode: boolean;
   maintenanceMessage?: string | null;
   maintenanceEta?: string | null;
+  maintenanceStartsAt?: Date | null;
+  maintenanceEndsAt?: Date | null;
+  maintenanceSeverity?: SiteSettingsMaintenanceSeverity;
   updatedAt?: Date;
   updatedBy?: string | null;
   envForced: boolean;

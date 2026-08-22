@@ -119,7 +119,7 @@ export const CreatePostBody = zod.object({
 });
 
 /**
- * @summary Get a single blog post
+ * @summary Get a single post for editing
  */
 export const GetPostParams = zod.object({
   id: zod.coerce.number(),
@@ -1843,6 +1843,9 @@ export const GetMaintenanceStatusResponse = zod.object({
   maintenance: zod.boolean(),
   message: zod.string().nullish(),
   eta: zod.string().nullish(),
+  startsAt: zod.coerce.date().nullish(),
+  endsAt: zod.coerce.date().nullish(),
+  severity: zod.enum(["full", "banner"]).optional(),
 });
 
 /**
@@ -1852,6 +1855,9 @@ export const GetSiteSettingsResponse = zod.object({
   maintenanceMode: zod.boolean(),
   maintenanceMessage: zod.string().nullish(),
   maintenanceEta: zod.string().nullish(),
+  maintenanceStartsAt: zod.coerce.date().nullish(),
+  maintenanceEndsAt: zod.coerce.date().nullish(),
+  maintenanceSeverity: zod.enum(["full", "banner"]).optional(),
   updatedAt: zod.coerce.date().optional(),
   updatedBy: zod.string().nullish(),
   envForced: zod.boolean(),
@@ -1869,6 +1875,9 @@ export const UpdateSiteSettingsBody = zod.object({
   maintenanceMode: zod.boolean().optional(),
   maintenanceMessage: zod.string().nullish(),
   maintenanceEta: zod.string().nullish(),
+  maintenanceStartsAt: zod.coerce.date().nullish(),
+  maintenanceEndsAt: zod.coerce.date().nullish(),
+  maintenanceSeverity: zod.enum(["full", "banner"]).nullish(),
   notificationEmail: zod.string().nullish(),
   newsletterFromName: zod.string().nullish(),
   newsletterFromAddress: zod.string().nullish(),
@@ -1879,6 +1888,9 @@ export const UpdateSiteSettingsResponse = zod.object({
   maintenanceMode: zod.boolean(),
   maintenanceMessage: zod.string().nullish(),
   maintenanceEta: zod.string().nullish(),
+  maintenanceStartsAt: zod.coerce.date().nullish(),
+  maintenanceEndsAt: zod.coerce.date().nullish(),
+  maintenanceSeverity: zod.enum(["full", "banner"]).optional(),
   updatedAt: zod.coerce.date().optional(),
   updatedBy: zod.string().nullish(),
   envForced: zod.boolean(),
