@@ -111,7 +111,16 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     isLoading: loadingPost,
     isError: postLoadFailed,
   } = useGetPost(postId ?? 0, {
-    query: { enabled: isEditing, queryKey: getGetPostQueryKey(postId ?? 0) },
+    // The authenticated editor detail route must receive the current token on
+    // its first request. Supplying it here avoids relying on the provider's
+    // effect that registers the shared request token getter after mount.
+    query: {
+      enabled: isEditing && !!token,
+      queryKey: getGetPostQueryKey(postId ?? 0),
+    },
+    request: token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : undefined,
   });
 
   const canChooseStatus = user?.role === "admin" || user?.canPublishDirectly === true;
