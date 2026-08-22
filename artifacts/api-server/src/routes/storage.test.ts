@@ -35,12 +35,15 @@ vi.mock("../lib/objectAcl", () => ({
 
 // ─── ObjectStorageService mock ───────────────────────────────────────────────
 
-const mockPutObjectEntity = vi.fn<[Buffer, string], Promise<string>>();
-const mockGetObjectEntityUploadURL = vi.fn<[], Promise<string>>();
+const mockPutObjectEntity = vi.fn<
+  (body: Buffer, contentType: string) => Promise<string>
+>();
+const mockGetObjectEntityUploadURL = vi.fn<() => Promise<string>>();
 const mockGetObjectEntityFile = vi.fn();
 const mockNormalizeObjectEntityPath = vi.fn((p: string) => p);
 const mockDownloadObject = vi.fn();
 const mockSearchPublicObject = vi.fn();
+type FetchBody = NonNullable<Parameters<typeof fetch>[1]>["body"];
 
 vi.mock("../lib/objectStorage", () => {
   class MockObjectStorageService {
@@ -113,7 +116,7 @@ async function request(
         ...opts.headers,
       },
       body: isBuffer
-        ? opts.body
+        ? (opts.body as Buffer as unknown as FetchBody)
         : opts.body
           ? JSON.stringify(opts.body)
           : undefined,
