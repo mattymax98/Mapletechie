@@ -286,6 +286,15 @@ describe("GET /posts/:id — editor detail", () => {
     expect(status).toBe(403);
     expect(json.error).toMatch(/own posts/i);
   });
+
+  it("returns not found when the requested post no longer exists", async () => {
+    selectQueue = [[]];
+
+    const { status, json } = await request(makeApp(), "GET", "/posts/999");
+
+    expect(status).toBe(404);
+    expect(json.error).toMatch(/not found/i);
+  });
 });
 
 describe("PUT /posts/:id — external image persistence", () => {

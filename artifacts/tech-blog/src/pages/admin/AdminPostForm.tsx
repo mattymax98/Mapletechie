@@ -106,7 +106,11 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   const { data: categories } = useListCategories();
   const { data: editors } = useListEditors();
 
-  const { data: existingPost, isLoading: loadingPost } = useGetPost(postId ?? 0, {
+  const {
+    data: existingPost,
+    isLoading: loadingPost,
+    isError: postLoadFailed,
+  } = useGetPost(postId ?? 0, {
     query: { enabled: isEditing, queryKey: getGetPostQueryKey(postId ?? 0) },
   });
 
@@ -686,8 +690,21 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
           <Skeleton className="h-12 w-full bg-zinc-900" />
           <Skeleton className="h-64 w-full bg-zinc-900" />
         </div>
-      ) : null}
-      <main className="max-w-4xl mx-auto px-4 py-8" style={isEditing && loadingPost ? { display: "none" } : undefined}>
+      ) : isEditing && (postLoadFailed || !existingPost) ? (
+        <main className="max-w-4xl mx-auto px-4 py-16">
+          <div className="max-w-lg mx-auto border border-zinc-800 bg-zinc-900/60 rounded-lg p-8 text-center">
+            <AlertCircle className="w-10 h-10 mx-auto mb-4 text-amber-400" />
+            <h1 className="text-xl font-semibold text-white mb-2">Post could not be loaded</h1>
+            <p className="text-sm text-zinc-400 mb-6">
+              This post may no longer exist, or you may not have permission to edit it.
+            </p>
+            <Button asChild variant="outline" className="border-zinc-700 text-zinc-200">
+              <Link href="/admin">Back to dashboard</Link>
+            </Button>
+          </div>
+        </main>
+      ) : (
+      <main className="max-w-4xl mx-auto px-4 py-8">
         <form onSubmit={(e) => submit(e)} className="space-y-6">
           {error && (
             <div
@@ -1338,6 +1355,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
           </div>
         </form>
       </main>
+      )}
     </AdminShell>
   );
 }

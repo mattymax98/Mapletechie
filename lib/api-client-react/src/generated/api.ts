@@ -346,7 +346,7 @@ export const useCreatePost = <
 };
 
 /**
- * @summary Get a single blog post
+ * @summary Get a single post for editing
  */
 export const getGetPostUrl = (id: number) => {
   return `/api/posts/${id}`;
@@ -400,7 +400,7 @@ export type GetPostQueryResult = NonNullable<
 export type GetPostQueryError = ErrorType<void>;
 
 /**
- * @summary Get a single blog post
+ * @summary Get a single post for editing
  */
 
 export function useGetPost<

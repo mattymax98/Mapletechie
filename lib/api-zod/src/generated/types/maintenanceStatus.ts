@@ -5,9 +5,13 @@
  * API specification for Tech Blog
  * OpenAPI spec version: 0.1.0
  */
+import type { MaintenanceStatusSeverity } from "./maintenanceStatusSeverity";
 
 export interface MaintenanceStatus {
   maintenance: boolean;
   message?: string | null;
   eta?: string | null;
+  startsAt?: Date | null;
+  endsAt?: Date | null;
+  severity?: MaintenanceStatusSeverity;
 }

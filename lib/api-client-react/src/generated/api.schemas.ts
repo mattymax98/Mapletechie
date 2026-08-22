@@ -5,14 +5,30 @@
  * API specification for Tech Blog
  * OpenAPI spec version: 0.1.0
  */
+export type MaintenanceStatusSeverity =
+  (typeof MaintenanceStatusSeverity)[keyof typeof MaintenanceStatusSeverity];
+
+export const MaintenanceStatusSeverity = {
+  full: "full",
+  banner: "banner",
+} as const;
+
 export interface MaintenanceStatus {
   maintenance: boolean;
   message?: string | null;
   eta?: string | null;
   startsAt?: string | null;
   endsAt?: string | null;
-  severity?: "full" | "banner";
+  severity?: MaintenanceStatusSeverity;
 }
+
+export type SiteSettingsMaintenanceSeverity =
+  (typeof SiteSettingsMaintenanceSeverity)[keyof typeof SiteSettingsMaintenanceSeverity];
+
+export const SiteSettingsMaintenanceSeverity = {
+  full: "full",
+  banner: "banner",
+} as const;
 
 export interface SiteSettings {
   maintenanceMode: boolean;
@@ -20,7 +36,7 @@ export interface SiteSettings {
   maintenanceEta?: string | null;
   maintenanceStartsAt?: string | null;
   maintenanceEndsAt?: string | null;
-  maintenanceSeverity?: "full" | "banner";
+  maintenanceSeverity?: SiteSettingsMaintenanceSeverity;
   updatedAt?: string;
   updatedBy?: string | null;
   envForced: boolean;
@@ -31,13 +47,22 @@ export interface SiteSettings {
   newsletterReplyTo?: string | null;
 }
 
+export type UpdateSiteSettingsInputMaintenanceSeverity =
+  | (typeof UpdateSiteSettingsInputMaintenanceSeverity)[keyof typeof UpdateSiteSettingsInputMaintenanceSeverity]
+  | null;
+
+export const UpdateSiteSettingsInputMaintenanceSeverity = {
+  full: "full",
+  banner: "banner",
+} as const;
+
 export interface UpdateSiteSettingsInput {
   maintenanceMode?: boolean;
   maintenanceMessage?: string | null;
   maintenanceEta?: string | null;
   maintenanceStartsAt?: string | null;
   maintenanceEndsAt?: string | null;
-  maintenanceSeverity?: "full" | "banner" | null;
+  maintenanceSeverity?: UpdateSiteSettingsInputMaintenanceSeverity;
   notificationEmail?: string | null;
   newsletterFromName?: string | null;
   newsletterFromAddress?: string | null;

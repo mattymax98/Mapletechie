@@ -5,11 +5,15 @@
  * API specification for Tech Blog
  * OpenAPI spec version: 0.1.0
  */
+import type { UpdateSiteSettingsInputMaintenanceSeverity } from "./updateSiteSettingsInputMaintenanceSeverity";
 
 export interface UpdateSiteSettingsInput {
   maintenanceMode?: boolean;
   maintenanceMessage?: string | null;
   maintenanceEta?: string | null;
+  maintenanceStartsAt?: Date | null;
+  maintenanceEndsAt?: Date | null;
+  maintenanceSeverity?: UpdateSiteSettingsInputMaintenanceSeverity;
   notificationEmail?: string | null;
   newsletterFromName?: string | null;
   newsletterFromAddress?: string | null;
