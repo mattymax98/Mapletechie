@@ -1,10 +1,10 @@
 /**
  * migrate-storage-to-r2.mjs
  *
- * Copies every file from removed-platform's object storage (Google Cloud Storage,
- * accessed via the removed-platform sidecar) to Cloudflare R2.
+ * Copies every file from legacy object storage (Google Cloud Storage,
+ * accessed via the development sidecar) to Cloudflare R2.
  *
- * Run this ONCE on removed-platform BEFORE cutting over to Railway:
+ * Run this ONCE before cutting over to Railway:
  *
  *   R2_ACCOUNT_ID=xxx R2_ACCESS_KEY_ID=xxx R2_SECRET_ACCESS_KEY=xxx \
  *     node scripts/migrate-storage-to-r2.mjs
