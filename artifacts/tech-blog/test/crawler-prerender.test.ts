@@ -583,6 +583,24 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).not.toContain('<div id="root"></div>');
     });
 
+    it("keeps the article's author and publish date in crawler-visible JSON-LD", async () => {
+      const { body } = await get(`/blog/${ARTICLE.slug}`, GOOGLEBOT_UA);
+      const scripts = [
+        ...body.matchAll(
+          /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g,
+        ),
+      ].map((m) => JSON.parse(m[1]));
+      const article = scripts.find((schema) => schema["@type"] === "NewsArticle");
+      expect(article).toMatchObject({
+        datePublished: ARTICLE.publishedAt,
+        author: { "@type": "Person", name: ARTICLE.author },
+      });
+      // The current source intentionally emits NewsArticle, not stale forum
+      // markup. Search Console's Discussion forum warning is from an older
+      // crawl and will clear after it reprocesses this valid page response.
+      expect(scripts.some((schema) => schema["@type"] === "DiscussionForumPosting")).toBe(false);
+    });
+
     it("emits the BreadcrumbList JSON-LD in the prerendered HTML", async () => {
       const { body } = await get(`/blog/${ARTICLE.slug}`, GOOGLEBOT_UA);
       const scripts = [
@@ -841,6 +859,31 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
     });
   });
 
+  describe("reported legacy Search Console paths", () => {
+    it("redirects the old homepage alias to the canonical root", async () => {
+      const response = await fetch(`${baseUrl}/home/`, {
+        headers: { "user-agent": GOOGLEBOT_UA },
+        redirect: "manual",
+      });
+      expect(response.status).toBe(301);
+      expect(response.headers.get("location")).toBe("/");
+    });
+
+    it.each([
+      "/blog/mapletechie.com",
+      "/author/mapletechie.com",
+      "/careers/editor",
+    ])("uses the data-aware noindex 404 when no replacement record exists for %s", async (pathname) => {
+      const { status, body } = await get(pathname, GOOGLEBOT_UA);
+      // The normal post/author/job lookup owns these paths. That keeps a
+      // future real slug from being shadowed while letting Google remove the
+      // currently absent URLs without treating the SPA shell as a soft 404.
+      expect(status).toBe(404);
+      expect(body).toContain("noindex");
+      expect(body).not.toContain('<div id="root"></div>');
+    });
+  });
+
   describe("author /author/:username", () => {
     it("301-redirects a crawler from a renamed author's old page URL to the current one", async () => {
       // redirect: "manual" so we can observe the 301 itself instead of following it.
@@ -1081,12 +1124,12 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).not.toContain('<div id="root">');
     });
 
-    it("serves a dynamic /sitemap.xml index pointing at the configured domain", async () => {
+    it("serves a dynamic /sitemap.xml index pointing at the canonical domain", async () => {
       const { status, body } = await get("/sitemap.xml", GOOGLEBOT_UA);
       expect(status).toBe(200);
       expect(body).toContain("<sitemapindex");
-      const domain = (process.env.SITE_DOMAIN || "https://mapletechie.com").replace(/\/+$/, "");
-      expect(body).toContain(`<loc>${domain}/api/sitemap.xml</loc>`);
+      expect(body).toContain(`<loc>${SITE_URL}/api/sitemap.xml</loc>`);
+      expect(body).not.toContain("<loc>mapletechie/");
       expect(body).not.toContain('<div id="root">');
     });
   });

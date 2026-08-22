@@ -3,6 +3,23 @@ import { db, postsTable, categoriesTable, usersTable, seriesTable, jobsTable } f
 import { desc, eq, sql } from "drizzle-orm";
 
 const router = Router();
+const SLUG_SEGMENT_RE = /^[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?$/;
+// Usernames support dots and underscores in the admin API, so they need their
+// own sitemap guard instead of inheriting the stricter content-slug rule.
+const USERNAME_SEGMENT_RE = /^[a-z0-9]+(?:[a-z0-9._-]*[a-z0-9])?$/i;
+
+/**
+ * The sitemap must never be the source of malformed paths. Slugs are normally
+ * validated before they reach the database, but this final guard prevents
+ * legacy/manual rows such as "mapletechie.com" from being published to Google.
+ */
+function isPublicSlug(value: unknown): value is string {
+  return typeof value === "string" && SLUG_SEGMENT_RE.test(value);
+}
+
+function isPublicUsername(value: unknown): value is string {
+  return typeof value === "string" && USERNAME_SEGMENT_RE.test(value);
+}
 
 // Some crawlers and old links hit /sitemap/xml (slash) instead of /sitemap.xml (dot)
 router.get("/sitemap/xml", (_req, res) => {
@@ -65,36 +82,46 @@ router.get("/sitemap.xml", async (req, res): Promise<void> => {
     { loc: `${domain}/team`, priority: "0.5", changefreq: "monthly" },
   ];
 
-  const categoryUrls: SitemapEntry[] = categories.map((c) => ({
-    loc: `${domain}/category/${c.slug}`,
-    priority: "0.7",
-    changefreq: "weekly",
-  }));
+  const categoryUrls: SitemapEntry[] = categories
+    .filter((c) => isPublicSlug(c.slug))
+    .map((c) => ({
+      loc: `${domain}/category/${c.slug}`,
+      priority: "0.7",
+      changefreq: "weekly",
+    }));
 
-  const postUrls: SitemapEntry[] = posts.map((p) => ({
-    loc: `${domain}/blog/${p.slug}`,
-    priority: "0.8",
-    changefreq: "monthly",
-    lastmod: p.publishedAt ? new Date(p.publishedAt).toISOString().split("T")[0] : undefined,
-  }));
+  const postUrls: SitemapEntry[] = posts
+    .filter((p) => isPublicSlug(p.slug))
+    .map((p) => ({
+      loc: `${domain}/blog/${p.slug}`,
+      priority: "0.8",
+      changefreq: "monthly",
+      lastmod: p.publishedAt ? new Date(p.publishedAt).toISOString().split("T")[0] : undefined,
+    }));
 
-  const authorUrls: SitemapEntry[] = authors.map((u) => ({
-    loc: `${domain}/author/${u.username}`,
-    priority: "0.6",
-    changefreq: "weekly",
-  }));
+  const authorUrls: SitemapEntry[] = authors
+    .filter((u) => isPublicUsername(u.username))
+    .map((u) => ({
+      loc: `${domain}/author/${u.username}`,
+      priority: "0.6",
+      changefreq: "weekly",
+    }));
 
-  const seriesUrls: SitemapEntry[] = allSeries.map((s) => ({
-    loc: `${domain}/series/${s.slug}`,
-    priority: "0.6",
-    changefreq: "weekly",
-  }));
+  const seriesUrls: SitemapEntry[] = allSeries
+    .filter((s) => isPublicSlug(s.slug))
+    .map((s) => ({
+      loc: `${domain}/series/${s.slug}`,
+      priority: "0.6",
+      changefreq: "weekly",
+    }));
 
-  const jobUrls: SitemapEntry[] = jobs.map((j) => ({
-    loc: `${domain}/careers/${j.slug}`,
-    priority: "0.6",
-    changefreq: "weekly",
-  }));
+  const jobUrls: SitemapEntry[] = jobs
+    .filter((j) => isPublicSlug(j.slug))
+    .map((j) => ({
+      loc: `${domain}/careers/${j.slug}`,
+      priority: "0.6",
+      changefreq: "weekly",
+    }));
 
   const tags = (tagRows.rows ?? (tagRows as unknown as { tag: string }[])) as { tag: string }[];
   const tagUrls: SitemapEntry[] = tags.map((r) => ({

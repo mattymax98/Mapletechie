@@ -476,10 +476,11 @@ app.get(LEGACY_PNG_RE, (req, res) => {
 
 // robots.txt is generated dynamically (registered BEFORE the static middleware
 // so it can't be shadowed by a stale file in the build output, and BEFORE the
-// maintenance gate so crawlers can always read it). It uses the same
-// SITE_DOMAIN env fallback as the API server's sitemap.ts so the Sitemap:
-// pointer always matches the domain the sitemap itself uses.
-const ROBOTS_DOMAIN = (process.env.SITE_DOMAIN || "https://mapletechie.com").replace(/\/+$/, "");
+// maintenance gate so crawlers can always read it). Use the same canonical
+// SITE_URL as page canonicals; SITE_DOMAIN is a legacy API-service setting and
+// an invalid value there once caused the root sitemap to advertise
+// "mapletechie/api/…" instead of an absolute URL.
+const ROBOTS_DOMAIN = SITE_URL;
 const robotsTxt = `User-agent: *
 Allow: /
 
@@ -658,6 +659,13 @@ const serveStatic = sirv(distDir, {
 app.use((req, res, next) => {
   if (req.path === "/") return next();
   return serveStatic(req, res, next);
+});
+
+// --- Historic URL cleanup -------------------------------------------------
+// This was the old homepage alias found by Google. It has one clear successor,
+// so preserve its accumulated signals with a permanent redirect.
+app.get(/^\/home\/?$/i, (_req, res) => {
+  res.redirect(301, "/");
 });
 
 // --- Maintenance gate ---------------------------------------------------

@@ -246,3 +246,28 @@ describe("POST /storage/uploads/request-url", () => {
     expect(res.body.objectPath).toBe("/objects/uploads/uuid");
   });
 });
+
+describe("GET /storage object serving", () => {
+  it("returns a cache-safe 404 when a public object does not exist", async () => {
+    mockSearchPublicObject.mockResolvedValue(null);
+
+    const res = await request("get", "/storage/public-objects/missing.webp");
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "File not found" });
+    expect(res.headers["cache-control"]).toBe("no-store");
+  });
+
+  it("maps an R2 no-such-key response to a cache-safe 404", async () => {
+    mockGetObjectEntityFile.mockRejectedValue({
+      name: "NoSuchKey",
+      $metadata: { httpStatusCode: 404 },
+    });
+
+    const res = await request("get", "/storage/objects/uploads/deleted-object");
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "Object not found" });
+    expect(res.headers["cache-control"]).toBe("no-store");
+  });
+});
