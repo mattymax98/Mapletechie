@@ -275,6 +275,7 @@ describe("POST /mcp — tools", () => {
     expect(res.status).toBe(200);
     const names = res.body.result.tools.map((t: any) => t.name);
     expect(names).toContain("list_mapletechie_categories");
+    expect(names).toContain("list_mapletechie_posts");
     expect(names).toContain("create_mapletechie_draft");
   });
 
@@ -285,6 +286,50 @@ describe("POST /mcp — tools", () => {
     const payload = JSON.parse(res.body.result.content[0].text);
     expect(payload).toHaveLength(2);
     expect(payload[0]).toMatchObject({ id: 10, name: "News" });
+  });
+
+  it("list_mapletechie_posts returns recent posts with image metadata", async () => {
+    selectQueue = [[
+      {
+        id: 265,
+        title: "Newest draft",
+        slug: "newest-draft",
+        status: "draft",
+        cover_image: "/api/storage/objects/cover-265",
+        cover_image_alt: null,
+      },
+      {
+        id: 264,
+        title: "Older draft",
+        slug: "older-draft",
+        status: "draft",
+        cover_image: null,
+        cover_image_alt: null,
+      },
+    ]];
+
+    const res = await authed(callTool("list_mapletechie_posts", { status: "draft", limit: 29 }));
+
+    expect(res.status).toBe(200);
+    expect(res.body.result.isError).toBeFalsy();
+    expect(JSON.parse(res.body.result.content[0].text)).toEqual([
+      {
+        id: 265,
+        title: "Newest draft",
+        slug: "newest-draft",
+        status: "draft",
+        cover_image: "/api/storage/objects/cover-265",
+        cover_image_alt: null,
+      },
+      {
+        id: 264,
+        title: "Older draft",
+        slug: "older-draft",
+        status: "draft",
+        cover_image: null,
+        cover_image_alt: null,
+      },
+    ]);
   });
 
   it("create_mapletechie_draft creates a draft with bot authorship", async () => {
