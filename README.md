@@ -77,6 +77,13 @@ send the complete updated `content` HTML to add or repair inline images. When
 operation preserves the post's current author, byline, status, slug, and
 publish time, so it also works after an editor changes the author to themselves.
 
+The `list_mapletechie_posts` MCP tool is the read-only discovery step for
+backfills. It can filter by `status` and limit the result count, and returns
+each post's `id`, `title`, `slug`, `status`, `cover_image`, and
+`cover_image_alt`, newest first. For example, use `status: "draft", limit: 29`
+to find the latest drafts that need image metadata repairs before calling
+`backfill_mapletechie_images`.
+
 ## Required environment variables
 
 Set these as secrets in your hosting environment (never commit them):

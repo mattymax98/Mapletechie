@@ -3,8 +3,8 @@ import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { db, categoriesTable } from "@workspace/db";
-import { asc } from "drizzle-orm";
+import { db, categoriesTable, postsTable } from "@workspace/db";
+import { asc, desc, eq } from "drizzle-orm";
 import { writeAuditLogForUser } from "../lib/audit";
 import { persistImageBuffer } from "../lib/persistExternalImage";
 import { logger } from "../lib/logger";
@@ -131,6 +131,50 @@ function buildMcpServer(req: Request): McpServer {
         .from(categoriesTable)
         .orderBy(asc(categoriesTable.name));
       return { content: [{ type: "text", text: JSON.stringify(categories, null, 2) }] };
+    },
+  );
+
+  server.registerTool(
+    "list_mapletechie_posts",
+    {
+      title: "List Mapletechie posts",
+      description:
+        "Read-only list of recent Mapletechie posts. Optionally filter by status (draft, scheduled, or published). Returns id, title, slug, status, cover_image, and cover_image_alt, newest first.",
+      inputSchema: z
+        .object({
+          status: z
+            .enum(["draft", "scheduled", "published"])
+            .optional()
+            .describe("Only return posts with this status"),
+          limit: z
+            .number()
+            .int()
+            .min(1)
+            .max(100)
+            .default(20)
+            .describe("Maximum number of posts to return (1–100; default 20)"),
+        })
+        .strict(),
+    },
+    async (args) => {
+      const { status, limit } = args as {
+        status?: "draft" | "scheduled" | "published";
+        limit: number;
+      };
+      const posts = await db
+        .select({
+          id: postsTable.id,
+          title: postsTable.title,
+          slug: postsTable.slug,
+          status: postsTable.status,
+          cover_image: postsTable.coverImage,
+          cover_image_alt: postsTable.coverImageAlt,
+        })
+        .from(postsTable)
+        .where(status ? eq(postsTable.status, status) : undefined)
+        .orderBy(desc(postsTable.createdAt))
+        .limit(limit);
+      return { content: [{ type: "text", text: JSON.stringify(posts, null, 2) }] };
     },
   );
 
