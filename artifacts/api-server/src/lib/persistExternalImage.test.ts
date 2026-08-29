@@ -1,9 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
+const { mediaInserts } = vi.hoisted(() => ({
+  mediaInserts: [] as Record<string, unknown>[],
+}));
+
 // Silence the pino logger during tests.
 vi.mock("@workspace/db", () => ({
   db: {
-    insert: () => ({ values: () => ({ onConflictDoNothing: async () => undefined }) }),
+    insert: () => ({
+      values: (values: Record<string, unknown>) => {
+        mediaInserts.push(values);
+        return { onConflictDoNothing: async () => undefined };
+      },
+    }),
   },
   mediaTable: {},
 }));
@@ -89,6 +98,7 @@ describe("isExternalImageUrl", () => {
 
 describe("persistExternalImage — fallback (never throws, returns original URL)", () => {
   beforeEach(() => {
+    mediaInserts.length = 0;
     lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
     getObjectEntityUploadURL.mockResolvedValue(
       "https://storage.googleapis.com/bucket/.private/uploads/abc-123",
@@ -178,6 +188,7 @@ describe("persistExternalImage — fallback (never throws, returns original URL)
 
 describe("persistExternalImage — success", () => {
   beforeEach(() => {
+    mediaInserts.length = 0;
     lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
     getObjectEntityUploadURL.mockResolvedValue(
       "https://storage.googleapis.com/bucket/.private/uploads/abc-123",
@@ -209,10 +220,31 @@ describe("persistExternalImage — success", () => {
       "image/webp",
     );
   });
+
+  it("records supplied alt text with the persisted media item", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (_input: unknown, init?: { method?: string }) => {
+      if (init?.method === "PUT") {
+        return { ok: true, status: 200, headers: { get: () => null } } as unknown as Response;
+      }
+      return imageGetResponse();
+    }));
+
+    await persistExternalImage("https://example.com/a.png", {
+      alt: "Red processor package photographed from above",
+    });
+
+    expect(mediaInserts).toContainEqual(
+      expect.objectContaining({
+        alt: "Red processor package photographed from above",
+        source: "https://example.com/a.png",
+      }),
+    );
+  });
 });
 
 describe("persistExternalImagesInHtml", () => {
   beforeEach(() => {
+    mediaInserts.length = 0;
     lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
     getObjectEntityUploadURL.mockResolvedValue(
       "https://storage.googleapis.com/bucket/.private/uploads/abc-123",
@@ -241,6 +273,7 @@ describe("persistExternalImagesInHtml", () => {
     expect(out).toContain(`src="/api/storage/objects/abc-123"`);
     expect(out).not.toContain("example.com");
     expect(out).toContain("<p>hi</p>");
+    expect(mediaInserts).toContainEqual(expect.objectContaining({ alt: "a" }));
   });
 
   it("leaves local, storage, and own-domain srcs untouched and skips fetching them", async () => {

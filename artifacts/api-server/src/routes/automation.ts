@@ -43,6 +43,7 @@ const ALLOWED_FIELDS = new Set([
   "excerpt",
   "content",
   "coverImage",
+  "coverImageAlt",
   "tags",
   "readTime",
   "categoryId",
@@ -76,6 +77,7 @@ const FORBIDDEN_FIELDS = new Set([
 /** Map snake_case payload keys (the agreed external contract) to camelCase. */
 const SNAKE_TO_CAMEL: Record<string, string> = {
   cover_image: "coverImage",
+  cover_image_alt: "coverImageAlt",
   read_time: "readTime",
   category_id: "categoryId",
   primary_category: "primaryCategory",
@@ -98,6 +100,43 @@ function normalizeBody(raw: Record<string, unknown>): Record<string, unknown> {
     out[SNAKE_TO_CAMEL[k] ?? k] = v;
   }
   return out;
+}
+
+const AUTOMATION_INTERNAL_IMAGE_RE = /^\/(?:api\/storage\/objects|covers)\/[^\s"'<>]+$/i;
+
+function isSupportedAutomationImageSource(src: string): boolean {
+  if (AUTOMATION_INTERNAL_IMAGE_RE.test(src)) return true;
+  try {
+    const parsed = new URL(src);
+    return (parsed.protocol === "http:" || parsed.protocol === "https:") && !!parsed.hostname;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Automation clients must provide accessible, editor-compatible image markup.
+ * Run this after cleanHtml so unsupported schemes/attributes have already been
+ * removed and cannot hide behind malformed source HTML.
+ */
+export function validateAutomationImages(html: string): string | null {
+  const imageTags = html.match(/<img\b[^>]*>/gi) ?? [];
+  for (let index = 0; index < imageTags.length; index += 1) {
+    const tag = imageTags[index];
+    const imageNumber = index + 1;
+    const src = tag.match(/\bsrc="([^"]+)"/i)?.[1]?.trim() ?? "";
+    const alt = tag.match(/\balt="([^"]*)"/i)?.[1]
+      ?.replace(/&(?:nbsp|#160|#xA0);/gi, " ")
+      .trim() ?? "";
+
+    if (!src || !isSupportedAutomationImageSource(src)) {
+      return `Inline image ${imageNumber} has an unsupported or missing src. Use an http(s) URL, /api/storage/objects/... upload URL, or /covers/... path.`;
+    }
+    if (!alt) {
+      return `Inline image ${imageNumber} is missing meaningful alt text. Every article image must include a non-empty alt attribute.`;
+    }
+  }
+  return null;
 }
 
 /** Constant-time bearer-token check against the AUTOMATION_DRAFT_TOKEN secret. */
@@ -292,12 +331,27 @@ export async function createAutomationDraft(
   if (ogImageError) {
     return fail(400, ogImageError);
   }
+  const coverImageAlt = cleanText(body.coverImageAlt);
+  if (body.coverImage && !coverImageAlt) {
+    return fail(400, "cover_image_alt is required when cover_image is provided");
+  }
+  if (!body.coverImage && coverImageAlt) {
+    return fail(400, "cover_image_alt requires cover_image");
+  }
+
+  const sanitizedContent = cleanHtml(body.content);
+  const inlineImageError = validateAutomationImages(sanitizedContent);
+  if (inlineImageError) {
+    return fail(400, inlineImageError);
+  }
 
   // Re-host external images on our own storage (best-effort, SSRF-guarded).
   const persistCtx = { uploaderId: botUser.id, uploaderName: botUser.displayName };
   let coverImage = typeof body.coverImage === "string" ? body.coverImage : null;
   let ogImage = typeof body.ogImage === "string" ? body.ogImage : null;
-  if (isExternalImageUrl(coverImage)) coverImage = await persistExternalImage(coverImage, persistCtx);
+  if (isExternalImageUrl(coverImage)) {
+    coverImage = await persistExternalImage(coverImage, { ...persistCtx, alt: coverImageAlt });
+  }
   if (isExternalImageUrl(ogImage)) ogImage = await persistExternalImage(ogImage, persistCtx);
 
   const toStringArray = (v: unknown): string[] =>
@@ -307,8 +361,9 @@ export async function createAutomationDraft(
     title: String(body.title).trim().slice(0, 300),
     slug,
     excerpt: typeof body.excerpt === "string" ? body.excerpt.trim() : "",
-    content: await persistExternalImagesInHtml(cleanHtml(body.content), persistCtx),
+    content: await persistExternalImagesInHtml(sanitizedContent, persistCtx),
     coverImage,
+    coverImageAlt,
     categoryId: resolvedCategory.id,
     tags: toStringArray(body.tags),
     author: botUser.displayName,
