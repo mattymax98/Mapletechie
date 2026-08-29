@@ -103,6 +103,11 @@ function normalizeBody(raw: Record<string, unknown>): Record<string, unknown> {
 }
 
 const AUTOMATION_INTERNAL_IMAGE_RE = /^\/(?:api\/storage\/objects|covers)\/[^\s"'<>]+$/i;
+const BACKFILL_ALLOWED_FIELDS = new Set(["postId", "slug", "content", "coverImageAlt"]);
+const BACKFILL_SNAKE_TO_CAMEL: Record<string, string> = {
+  post_id: "postId",
+  cover_image_alt: "coverImageAlt",
+};
 
 function isSupportedAutomationImageSource(src: string): boolean {
   if (AUTOMATION_INTERNAL_IMAGE_RE.test(src)) return true;
@@ -137,6 +142,14 @@ export function validateAutomationImages(html: string): string | null {
     }
   }
   return null;
+}
+
+function normalizeBackfillBody(raw: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    out[BACKFILL_SNAKE_TO_CAMEL[key] ?? key] = value;
+  }
+  return out;
 }
 
 /** Constant-time bearer-token check against the AUTOMATION_DRAFT_TOKEN secret. */
@@ -203,6 +216,135 @@ function editUrl(postId: number): string {
 export interface DraftCreationResult {
   status: number;
   body: Record<string, unknown>;
+}
+
+/**
+ * Update only image-related fields on an existing post. This deliberately
+ * avoids the general post update surface: the automation may backfill a live
+ * article, but it can never change its author, status, slug, or publish time.
+ */
+export async function backfillAutomationPostImages(
+  req: Request,
+  rawBody: Record<string, unknown>,
+): Promise<DraftCreationResult> {
+  const botUser = await getBotUser();
+  if (!botUser) {
+    return { status: 500, body: { error: "Could not resolve the bot author account" } };
+  }
+  const bot = { id: botUser.id, username: botUser.username };
+  const fail = async (statusCode: number, error: string): Promise<DraftCreationResult> => {
+    await writeAuditLogForUser(req, bot, {
+      action: "automation.post.backfill.rejected",
+      entityType: "post",
+      summary: `Automation image backfill rejected (${statusCode}): ${error}`,
+      details: { postId: rawBody.post_id ?? rawBody.postId ?? null, slug: rawBody.slug ?? null },
+    });
+    return { status: statusCode, body: { error } };
+  };
+
+  const body = normalizeBackfillBody(rawBody);
+  const hasOwn = (key: string) => Object.prototype.hasOwnProperty.call(rawBody, key);
+  if (hasOwn("post_id") && hasOwn("postId")) {
+    return fail(400, "Provide only one spelling of the target: post_id or postId");
+  }
+  if (hasOwn("cover_image_alt") && hasOwn("coverImageAlt")) {
+    return fail(400, "Provide only one spelling of the cover alt field: cover_image_alt or coverImageAlt");
+  }
+  const unknown = Object.keys(body).filter((key) => !BACKFILL_ALLOWED_FIELDS.has(key));
+  if (unknown.length > 0) {
+    return fail(422, `Unknown field(s): ${unknown.join(", ")}`);
+  }
+
+  const suppliedPostId = hasOwn("post_id") || hasOwn("postId");
+  const suppliedSlug = hasOwn("slug");
+  if (suppliedPostId === suppliedSlug) {
+    return fail(400, "Provide exactly one target: post_id or slug");
+  }
+
+  let target;
+  if (suppliedPostId) {
+    if (typeof body.postId !== "number" || !Number.isInteger(body.postId) || body.postId <= 0) {
+      return fail(400, "Invalid post_id: must be a positive integer");
+    }
+    [target] = await db.select().from(postsTable).where(eq(postsTable.id, body.postId));
+  } else {
+    if (typeof body.slug !== "string" || !body.slug.trim()) {
+      return fail(400, "Invalid slug: must be a non-empty string");
+    }
+    [target] = await db
+      .select()
+      .from(postsTable)
+      .where(eq(postsTable.slug, String(body.slug).trim().toLowerCase()));
+  }
+  if (!target) {
+    return fail(404, "Post not found");
+  }
+
+  const hasContent = Object.prototype.hasOwnProperty.call(body, "content");
+  const hasCoverAlt = Object.prototype.hasOwnProperty.call(body, "coverImageAlt");
+  if (!hasContent && !hasCoverAlt) {
+    return fail(400, "Provide content and/or cover_image_alt to backfill");
+  }
+
+  const values: { content?: string; coverImageAlt?: string } = {};
+  if (hasCoverAlt) {
+    const coverImageAlt = cleanText(body.coverImageAlt);
+    if (!coverImageAlt) {
+      return fail(400, "cover_image_alt must be meaningful and non-empty");
+    }
+    if (!target.coverImage) {
+      return fail(400, "cover_image_alt cannot be set because this post has no cover image");
+    }
+    values.coverImageAlt = coverImageAlt;
+  }
+
+  let sanitizedContent = "";
+  if (hasContent) {
+    if (typeof body.content !== "string" || !body.content.trim()) {
+      return fail(400, "content must be a non-empty HTML string");
+    }
+    sanitizedContent = cleanHtml(body.content);
+    const inlineImageError = validateAutomationImages(sanitizedContent);
+    if (inlineImageError) {
+      return fail(400, inlineImageError);
+    }
+    values.content = await persistExternalImagesInHtml(sanitizedContent, {
+      uploaderId: botUser.id,
+      uploaderName: botUser.displayName,
+    });
+  }
+
+  const [updated] = await db
+    .update(postsTable)
+    .set(values)
+    .where(eq(postsTable.id, target.id))
+    .returning();
+  if (!updated) {
+    return fail(404, "Post no longer exists");
+  }
+
+  await writeAuditLogForUser(req, bot, {
+    action: "automation.post.backfill",
+    entityType: "post",
+    entityId: target.id,
+    summary: `Automation backfilled images on post "${target.title}"`,
+    details: {
+      updatedFields: Object.keys(values),
+      previousAuthorId: target.authorId,
+      previousStatus: target.status,
+    },
+  });
+
+  return {
+    status: 200,
+    body: {
+      id: updated.id,
+      slug: updated.slug,
+      status: updated.status,
+      edit_url: editUrl(updated.id),
+      updated_fields: Object.keys(values),
+    },
+  };
 }
 
 /**
@@ -467,6 +609,11 @@ router.post("/automation/posts/drafts", automationAuth, async (req, res): Promis
       ? idempotencyKeyHeader.trim().slice(0, 200)
       : null;
   const result = await createAutomationDraft(req, rawBody, idempotencyKey);
+  res.status(result.status).json(result.body);
+});
+
+router.post("/automation/posts/backfill", automationAuth, async (req, res): Promise<void> => {
+  const result = await backfillAutomationPostImages(req, (req.body ?? {}) as Record<string, unknown>);
   res.status(result.status).json(result.body);
 });
 

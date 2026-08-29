@@ -3,7 +3,10 @@ import express from "express";
 
 // --- Mocks (same conventions as automation.test.ts) ----------------------
 
-const captured: { insertValues?: Record<string, unknown>[] } = { insertValues: [] };
+const captured: {
+  insertValues?: Record<string, unknown>[];
+  updateValues?: Record<string, unknown>[];
+} = { insertValues: [], updateValues: [] };
 
 function makeSelectChain(queue: unknown[][]) {
   const proxy: unknown = new Proxy(function () {}, {
@@ -23,6 +26,7 @@ function makeSelectChain(queue: unknown[][]) {
 
 let selectQueue: unknown[][] = [];
 let insertReturn: unknown[] = [];
+let updateReturn: unknown[] = [];
 
 const db = {
   select: vi.fn(() => makeSelectChain(selectQueue)),
@@ -34,6 +38,16 @@ const db = {
         onConflictDoNothing: vi.fn(() => ({
           returning: vi.fn(async () => insertReturn),
           then: (resolve: (v: unknown) => void) => Promise.resolve(undefined).then(resolve),
+        })),
+      };
+    }),
+  })),
+  update: vi.fn(() => ({
+    set: vi.fn((values: Record<string, unknown>) => {
+      captured.updateValues!.push(values);
+      return {
+        where: vi.fn(() => ({
+          returning: vi.fn(async () => updateReturn),
         })),
       };
     }),
@@ -207,7 +221,9 @@ beforeEach(() => {
   process.env.AUTOMATION_DRAFT_TOKEN = "unrelated-secret-1234567890";
   selectQueue = [];
   insertReturn = [];
+  updateReturn = [];
   captured.insertValues = [];
+  captured.updateValues = [];
   auditCalls.length = 0;
   vi.clearAllMocks();
 });
@@ -350,6 +366,45 @@ describe("POST /mcp — tools", () => {
     expect(res.status).toBe(200);
     expect(res.body.result.isError).toBe(true);
     expect(persistImageBufferMock).not.toHaveBeenCalled();
+  });
+
+  it("backfill_mapletechie_images updates a published post while preserving its byline", async () => {
+    const existing = {
+      id: 52,
+      title: "Published MCP story",
+      slug: "published-mcp-story",
+      authorId: 12,
+      status: "published",
+      coverImage: "/api/storage/objects/cover",
+    };
+    selectQueue = [[BOT_USER], [existing]];
+    updateReturn = [{ ...existing, coverImageAlt: "A circuit board under inspection" }];
+
+    const res = await authed(callTool("backfill_mapletechie_images", {
+      slug: "published-mcp-story",
+      cover_image_alt: "A circuit board under inspection",
+    }));
+
+    expect(res.status).toBe(200);
+    expect(res.body.result.isError).toBeFalsy();
+    const payload = JSON.parse(res.body.result.content[0].text);
+    expect(payload).toMatchObject({ id: 52, status: "published" });
+    expect(captured.updateValues).toContainEqual({
+      coverImageAlt: "A circuit board under inspection",
+    });
+    expect(auditCalls.some((c) => c.input.action === "automation.post.backfill")).toBe(true);
+  });
+
+  it("backfill_mapletechie_images rejects unsupported fields instead of stripping them", async () => {
+    const res = await authed(callTool("backfill_mapletechie_images", {
+      post_id: 52,
+      cover_image_alt: "A circuit board under inspection",
+      status: "draft",
+    }));
+
+    expect(res.status).toBe(200);
+    expect(res.body.result.isError).toBe(true);
+    expect(captured.updateValues).toHaveLength(0);
   });
 
   it("create_mapletechie_draft replays for a repeated idempotency key", async () => {

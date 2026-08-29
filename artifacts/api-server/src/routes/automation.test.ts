@@ -3,7 +3,10 @@ import express from "express";
 
 // --- Mocks --------------------------------------------------------------
 
-const captured: { insertValues?: Record<string, unknown>[] } = { insertValues: [] };
+const captured: {
+  insertValues?: Record<string, unknown>[];
+  updateValues?: Record<string, unknown>[];
+} = { insertValues: [], updateValues: [] };
 
 function makeSelectChain(queue: unknown[][]) {
   const proxy: unknown = new Proxy(function () {}, {
@@ -23,6 +26,7 @@ function makeSelectChain(queue: unknown[][]) {
 
 let selectQueue: unknown[][] = [];
 let insertReturn: unknown[] = [];
+let updateReturn: unknown[] = [];
 
 const db = {
   select: vi.fn(() => makeSelectChain(selectQueue)),
@@ -41,6 +45,16 @@ const db = {
     };
     return chain;
   }),
+  update: vi.fn(() => ({
+    set: vi.fn((values: Record<string, unknown>) => {
+      captured.updateValues!.push(values);
+      return {
+        where: vi.fn(() => ({
+          returning: vi.fn(async () => updateReturn),
+        })),
+      };
+    }),
+  })),
   transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => {
     const tx = {
       insert: vi.fn(() => ({
@@ -189,7 +203,9 @@ beforeEach(() => {
   process.env.AUTOMATION_DRAFT_TOKEN = TOKEN;
   selectQueue = [];
   insertReturn = [];
+  updateReturn = [];
   captured.insertValues = [];
+  captured.updateValues = [];
   auditCalls.length = 0;
   vi.clearAllMocks();
   persistExternalImageMock.mockResolvedValue("/api/storage/objects/persisted-cover");
@@ -392,5 +408,121 @@ describe("POST /automation/posts/drafts — contract", () => {
     const res = await post({ ...validBody(), slug: "Bad Slug!" });
     expect(res.status).toBe(400);
     expect(res.json.error).toMatch(/Invalid slug/);
+  });
+});
+
+describe("POST /automation/posts/backfill — live image updates", () => {
+  const backfill = (body: unknown) =>
+    httpPost("/automation/posts/backfill", body, AUTH);
+
+  it("updates a published post by id without changing its author or status", async () => {
+    const existing = {
+      id: 42,
+      title: "Published story",
+      slug: "published-story",
+      authorId: 12,
+      status: "published",
+      coverImage: "/api/storage/objects/cover",
+    };
+    selectQueue = [[BOT_USER], [existing]];
+    updateReturn = [{ ...existing, content: "<p>Updated.</p>" }];
+    persistExternalImagesInHtmlMock.mockImplementation(async (html: string) =>
+      html.replace("https://example.com/inline.jpg", "/api/storage/objects/inline"),
+    );
+
+    const res = await backfill({
+      post_id: 42,
+      cover_image_alt: "A person testing a laptop in a lab",
+      content:
+        '<p>Updated.</p><img src="https://example.com/inline.jpg" alt="A laptop connected to an AI testing rig">',
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.json).toMatchObject({
+      id: 42,
+      status: "published",
+      updated_fields: ["coverImageAlt", "content"],
+    });
+    const update = captured.updateValues![0];
+    expect(update.coverImageAlt).toBe("A person testing a laptop in a lab");
+    expect(update.content).toContain('src="/api/storage/objects/inline"');
+    expect(update.content).toContain('alt="A laptop connected to an AI testing rig"');
+    expect(auditCalls.some((c) => c.input.action === "automation.post.backfill")).toBe(true);
+  });
+
+  it("can target a post by slug and rejects a missing alt-only target cover", async () => {
+    selectQueue = [[BOT_USER], [{
+      id: 43,
+      title: "No cover",
+      slug: "no-cover",
+      authorId: 12,
+      status: "published",
+      coverImage: null,
+    }]];
+
+    const res = await backfill({ slug: "no-cover", cover_image_alt: "Not applicable" });
+
+    expect(res.status).toBe(400);
+    expect(res.json.error).toMatch(/no cover image/i);
+    expect(captured.updateValues).toHaveLength(0);
+  });
+
+  it("rejects inline content with an image missing alt text", async () => {
+    selectQueue = [[BOT_USER], [{
+      id: 44,
+      title: "Existing story",
+      slug: "existing-story",
+      authorId: 12,
+      status: "published",
+      coverImage: "/covers/news.webp",
+    }]];
+
+    const res = await backfill({
+      post_id: 44,
+      content: '<p>Text</p><img src="https://example.com/photo.jpg">',
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.json.error).toMatch(/missing meaningful alt text/i);
+    expect(captured.updateValues).toHaveLength(0);
+  });
+
+  it("rejects conflicting target aliases before selecting or updating a post", async () => {
+    selectQueue = [[BOT_USER]];
+    const res = await backfill({
+      post_id: 44,
+      postId: 45,
+      cover_image_alt: "A server rack in a data centre",
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.json.error).toMatch(/only one spelling/i);
+    expect(captured.updateValues).toHaveLength(0);
+  });
+
+  it("rejects a second target even when its slug is blank", async () => {
+    selectQueue = [[BOT_USER]];
+    const res = await backfill({
+      post_id: 44,
+      slug: "   ",
+      cover_image_alt: "A server rack in a data centre",
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.json.error).toMatch(/exactly one target/i);
+    expect(captured.updateValues).toHaveLength(0);
+  });
+
+  it("rejects unsupported live-post fields instead of silently ignoring them", async () => {
+    selectQueue = [[BOT_USER]];
+    const res = await backfill({
+      post_id: 44,
+      cover_image_alt: "A server rack in a data centre",
+      status: "draft",
+    });
+
+    expect(res.status).toBe(422);
+    expect(res.json.error).toMatch(/unknown field.*status/i);
+    expect(captured.updateValues).toHaveLength(0);
   });
 });

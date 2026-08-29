@@ -66,6 +66,17 @@ Image rules:
   use the returned URL in `cover_image`/`cover_image_alt` or an inline
   `<img src="..." alt="...">` inside `content`.
 
+### Live image backfills
+
+The private `POST /api/automation/posts/backfill` endpoint and the
+`backfill_mapletechie_images` MCP tool can update image fields on an existing
+post, including a published post. Target exactly one post with `post_id` or
+`slug`. Send `cover_image_alt` to fill the existing cover's alt text and/or
+send the complete updated `content` HTML to add or repair inline images. When
+`content` is supplied, every `<img>` must have meaningful alt text. The
+operation preserves the post's current author, byline, status, slug, and
+publish time, so it also works after an editor changes the author to themselves.
+
 ## Required environment variables
 
 Set these as secrets in your hosting environment (never commit them):
