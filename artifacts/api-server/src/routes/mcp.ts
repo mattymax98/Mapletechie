@@ -8,7 +8,7 @@ import { asc } from "drizzle-orm";
 import { writeAuditLogForUser } from "../lib/audit";
 import { persistImageBuffer } from "../lib/persistExternalImage";
 import { logger } from "../lib/logger";
-import { createAutomationDraft } from "./automation";
+import { backfillAutomationPostImages, createAutomationDraft } from "./automation";
 
 /**
  * MCP connector for ChatGPT — exposes the automation draft pipeline as a
@@ -185,6 +185,41 @@ function buildMcpServer(req: Request): McpServer {
           isError: true,
         };
       }
+    },
+  );
+
+  server.registerTool(
+    "backfill_mapletechie_images",
+    {
+      title: "Backfill images on a Mapletechie post",
+      description:
+        "Update image-related fields on an existing post immediately, including published posts. Target exactly one post by post_id or slug. Send cover_image_alt to fill cover alt text, and/or send the complete updated TipTap-compatible content HTML to add or repair inline images. The current author, byline, status, slug and publish time are preserved. Every img in supplied content must have meaningful alt text.",
+      inputSchema: z.object({
+        post_id: z.number().int().positive().optional().describe("Existing post ID; provide this OR slug"),
+        slug: z.string().min(1).optional().describe("Existing post slug; provide this OR post_id"),
+        content: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("Complete replacement HTML body with inline images placed where they should appear"),
+        cover_image_alt: z
+          .string()
+          .trim()
+          .min(1)
+          .optional()
+          .describe("Meaningful alt text for the post's existing cover image"),
+      }).strict(),
+    },
+    async (args) => {
+      const body: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(args as Record<string, unknown>)) {
+        if (value !== undefined) body[key] = value;
+      }
+      const result = await backfillAutomationPostImages(req, body);
+      return {
+        content: [{ type: "text", text: JSON.stringify(result.body, null, 2) }],
+        isError: result.status >= 400,
+      };
     },
   );
 
