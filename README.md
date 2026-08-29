@@ -35,6 +35,37 @@ pnpm run build          # build all artifacts
 
 Each artifact has its own `dev` script (`pnpm --filter @workspace/tech-blog run dev`, etc.).
 
+## ChatGPT draft image contract
+
+The private `POST /api/automation/posts/drafts` endpoint accepts
+TipTap-compatible HTML in `content`. Article images belong directly in that
+HTML at the position where they should appear:
+
+```json
+{
+  "title": "Example story",
+  "slug": "example-story",
+  "category_id": "ai",
+  "cover_image": "https://images.example.com/example-cover.jpg",
+  "cover_image_alt": "A researcher examining an AI processor in a laboratory",
+  "content": "<p>Opening paragraph.</p><img src=\"https://images.example.com/processor.jpg\" alt=\"Close-up of a processor designed for AI workloads\"><p>Article continues.</p>"
+}
+```
+
+Image rules:
+
+- Every `cover_image` requires a non-empty `cover_image_alt`.
+- Every inline `<img>` requires a supported `src` and meaningful, non-empty
+  `alt` text.
+- Inline sources may be `http(s)` URLs, `/api/storage/objects/...` URLs
+  returned by the MCP image-upload tool, or bundled `/covers/...` paths.
+- Remote cover and inline images are copied to Mapletechie storage through the
+  existing SSRF-protected image pipeline. Alt text remains in the post and is
+  also recorded with newly stored media.
+- The MCP workflow is: call `upload_mapletechie_image` with `alt_text`, then
+  use the returned URL in `cover_image`/`cover_image_alt` or an inline
+  `<img src="..." alt="...">` inside `content`.
+
 ## Required environment variables
 
 Set these as secrets in your hosting environment (never commit them):

@@ -65,9 +65,15 @@ export function mcpAuth(req: Request, res: Response, next: NextFunction): void {
 const DRAFT_INPUT_SHAPE = {
   title: z.string().min(1).describe("Post title"),
   slug: z.string().min(1).describe("URL slug: lowercase letters, digits and hyphens only"),
-  content: z.string().min(1).describe("Sanitized HTML body (TipTap-compatible)"),
+  content: z.string().min(1).describe(
+    'Sanitized TipTap-compatible HTML body. To place an uploaded image inside the article, include its returned URL exactly where it belongs, for example: <img src="/api/storage/objects/..." alt="Specific description of the image">. Every img must have non-empty alt text.',
+  ),
   excerpt: z.string().optional().describe("Short summary shown in lists"),
   cover_image: z.string().optional().describe("Cover image URL (external URLs are re-hosted)"),
+  cover_image_alt: z
+    .string()
+    .optional()
+    .describe("Required when cover_image is provided: meaningful accessibility description of the cover"),
   og_image: z.string().optional().describe("Social share image URL"),
   tags: z.array(z.string()).optional(),
   read_time: z.number().optional().describe("Estimated read time in minutes"),
@@ -133,7 +139,7 @@ function buildMcpServer(req: Request): McpServer {
     {
       title: "Upload Mapletechie image",
       description:
-        "Upload an image (base64-encoded, optionally a data: URI) to the blog's own storage. Returns a local URL to use as cover_image or og_image in create_mapletechie_draft. Max ~6MB of image data per upload.",
+        "Upload an image (base64-encoded, optionally a data: URI) to the blog's own storage. Returns a local URL to use as cover_image, og_image, or an inline <img src> inside content for create_mapletechie_draft. Max ~6MB of image data per upload.",
       inputSchema: {
         image_base64: z
           .string()
@@ -143,10 +149,19 @@ function buildMcpServer(req: Request): McpServer {
           .string()
           .optional()
           .describe("Optional descriptive filename for the media library, e.g. 'ai-chips-cover.png'"),
+        alt_text: z
+          .string()
+          .trim()
+          .min(1)
+          .describe("Meaningful image description for accessibility; also use this exact text in the draft's cover_image_alt or inline img alt attribute"),
       },
     },
     async (args) => {
-      const { image_base64, filename } = args as { image_base64: string; filename?: string };
+      const { image_base64, filename, alt_text } = args as {
+        image_base64: string;
+        filename?: string;
+        alt_text: string;
+      };
       try {
         // Accept both raw base64 and data: URIs.
         const b64 = image_base64.replace(/^data:[^;]+;base64,/, "").replace(/\s+/g, "");
@@ -156,6 +171,7 @@ function buildMcpServer(req: Request): McpServer {
         const url = await persistImageBuffer(buffer, name, {
           uploaderId: null,
           uploaderName: "Mapletechie AI",
+          alt: alt_text.trim(),
         });
         void writeAuditLogForUser(req, null, {
           action: "mcp.image.uploaded",
@@ -177,7 +193,7 @@ function buildMcpServer(req: Request): McpServer {
     {
       title: "Create Mapletechie draft",
       description:
-        "Submit a blog post DRAFT for human review. The server forces draft status and the 'Mapletechie AI' byline; it can never publish. Do not send status, author or publish dates. A draft can belong to MULTIPLE categories: pass `categories` (first entry = primary unless primary_category is set), or legacy single `category_id`. Returns id, status, slug and edit_url.",
+        "Submit a blog post DRAFT for human review. The server forces draft status and the 'Mapletechie AI' byline; it can never publish. Do not send status, author or publish dates. For article images, first call upload_mapletechie_image, then place each returned URL in content as <img src=\"URL\" alt=\"meaningful description\">. cover_image requires cover_image_alt. A draft can belong to MULTIPLE categories: pass `categories` (first entry = primary unless primary_category is set), or legacy single `category_id`. Returns id, status, slug and edit_url.",
       inputSchema: DRAFT_INPUT_SHAPE,
     },
     async (args) => {

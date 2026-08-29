@@ -9,6 +9,8 @@ import { logger } from "./logger";
 export interface PersistContext {
   uploaderId?: number | null;
   uploaderName?: string | null;
+  /** Accessibility description to preserve in the Media library. */
+  alt?: string | null;
 }
 
 const objectStorageService = new ObjectStorageService();
@@ -120,15 +122,25 @@ export async function persistExternalImagesInHtml(
   try {
     const srcRe = /(<img\b[^>]*\bsrc=")([^"]+)(")/gi;
     const externals = new Set<string>();
-    for (const m of html.matchAll(srcRe)) {
-      const src = m[2].replace(/&amp;/g, "&");
-      if (isExternalImageUrl(src)) externals.add(src);
+    const altByUrl = new Map<string, string>();
+    for (const tagMatch of html.matchAll(/<img\b[^>]*>/gi)) {
+      const tag = tagMatch[0];
+      const srcMatch = tag.match(/\bsrc="([^"]+)"/i);
+      if (!srcMatch) continue;
+      const src = srcMatch[1].replace(/&amp;/g, "&");
+      if (!isExternalImageUrl(src)) continue;
+      externals.add(src);
+      const alt = tag.match(/\balt="([^"]*)"/i)?.[1]?.trim();
+      if (alt && !altByUrl.has(src)) altByUrl.set(src, alt);
     }
     if (externals.size === 0) return html;
 
     const replacements = new Map<string, string>();
     for (const url of externals) {
-      const persisted = await persistExternalImage(url, ctx);
+      const persisted = await persistExternalImage(url, {
+        ...ctx,
+        alt: altByUrl.get(url) ?? ctx?.alt ?? null,
+      });
       if (persisted !== url) replacements.set(url, persisted);
     }
     if (replacements.size === 0) return html;
@@ -198,6 +210,7 @@ async function registerInMediaLibrary(
       filename: mediaFilenameFromUrl(sourceUrl),
       mimeType: "image/webp",
       size: bytes,
+      alt: ctx?.alt?.trim().slice(0, 1000) || null,
       source: sourceUrl.slice(0, 2000),
       uploaderId: ctx?.uploaderId ?? null,
       uploaderName: ctx?.uploaderName ?? null,

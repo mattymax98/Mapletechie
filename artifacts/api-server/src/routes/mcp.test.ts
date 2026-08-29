@@ -133,6 +133,8 @@ vi.mock("../middlewares/adminAuth", () => ({
 }));
 
 const mcpRouter = (await import("./mcp")).default;
+const imagePersistence = await import("../lib/persistExternalImage");
+const persistImageBufferMock = vi.mocked(imagePersistence.persistImageBuffer);
 
 const KEY = "test-mcp-connector-key-1234567890";
 const BOT_USER = { id: 77, username: "mapletechie-ai", displayName: "Mapletechie AI", avatarUrl: null };
@@ -298,29 +300,56 @@ describe("POST /mcp — tools", () => {
 
   it("upload_mapletechie_image stores the image and returns a local URL", async () => {
     const b64 = Buffer.from("fake-image-bytes").toString("base64");
-    const res = await authed(callTool("upload_mapletechie_image", { image_base64: b64, filename: "cover.png" }));
+    const res = await authed(callTool("upload_mapletechie_image", {
+      image_base64: b64,
+      filename: "cover.png",
+      alt_text: "A processor package beside a Canadian flag",
+    }));
     expect(res.status).toBe(200);
     expect(res.body.result.isError).toBeFalsy();
     const payload = JSON.parse(res.body.result.content[0].text);
     expect(payload.url).toBe("/api/storage/objects/uploads/mock-upload");
+    expect(persistImageBufferMock).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      "cover.png",
+      expect.objectContaining({ alt: "A processor package beside a Canadian flag" }),
+    );
     expect(auditCalls.some((c) => c.input.action === "mcp.image.uploaded")).toBe(true);
   });
 
   it("upload_mapletechie_image accepts a data: URI prefix", async () => {
     const b64 = `data:image/png;base64,${Buffer.from("fake-image-bytes").toString("base64")}`;
-    const res = await authed(callTool("upload_mapletechie_image", { image_base64: b64 }));
+    const res = await authed(callTool("upload_mapletechie_image", {
+      image_base64: b64,
+      alt_text: "Diagram of an AI model pipeline",
+    }));
     expect(res.status).toBe(200);
     const payload = JSON.parse(res.body.result.content[0].text);
     expect(payload.url).toBe("/api/storage/objects/uploads/mock-upload");
   });
 
   it("upload_mapletechie_image rejects invalid base64 with a tool-level error", async () => {
-    const res = await authed(callTool("upload_mapletechie_image", { image_base64: "not valid base64 !!!" }));
+    const res = await authed(callTool("upload_mapletechie_image", {
+      image_base64: "not valid base64 !!!",
+      alt_text: "Invalid test image",
+    }));
     expect(res.status).toBe(200);
     expect(res.body.result.isError).toBe(true);
     const payload = JSON.parse(res.body.result.content[0].text);
     expect(payload.error).toBeTruthy();
     expect(auditCalls.some((c) => c.input.action === "mcp.image.uploaded")).toBe(false);
+  });
+
+  it("upload_mapletechie_image rejects whitespace-only alt text", async () => {
+    const b64 = Buffer.from("fake-image-bytes").toString("base64");
+    const res = await authed(callTool("upload_mapletechie_image", {
+      image_base64: b64,
+      alt_text: "   ",
+    }));
+
+    expect(res.status).toBe(200);
+    expect(res.body.result.isError).toBe(true);
+    expect(persistImageBufferMock).not.toHaveBeenCalled();
   });
 
   it("create_mapletechie_draft replays for a repeated idempotency key", async () => {

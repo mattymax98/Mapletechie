@@ -129,6 +129,9 @@ vi.mock("../middlewares/adminAuth", () => ({
 }));
 
 const automationRouter = (await import("./automation")).default;
+const imagePersistence = await import("../lib/persistExternalImage");
+const persistExternalImageMock = vi.mocked(imagePersistence.persistExternalImage);
+const persistExternalImagesInHtmlMock = vi.mocked(imagePersistence.persistExternalImagesInHtml);
 
 const TOKEN = "test-automation-token-1234567890";
 const BOT_USER = { id: 77, username: "mapletechie-ai", displayName: "Mapletechie AI", avatarUrl: null };
@@ -189,6 +192,8 @@ beforeEach(() => {
   captured.insertValues = [];
   auditCalls.length = 0;
   vi.clearAllMocks();
+  persistExternalImageMock.mockResolvedValue("/api/storage/objects/persisted-cover");
+  persistExternalImagesInHtmlMock.mockImplementation(async (html: string) => html);
 });
 
 describe("POST /automation/posts/drafts — auth", () => {
@@ -287,7 +292,11 @@ describe("POST /automation/posts/drafts — contract", () => {
   it("creates a draft: forces draft status and bot authorship, returns edit_url", async () => {
     selectQueue = [[BOT_USER], [CATEGORY], []]; // bot, category, slug-clash check
     insertReturn = [{ id: 42, title: "Test story", slug: "test-story", status: "draft" }];
-    const res = await post({ ...validBody(), cover_image: "https://example.com/cover.jpg" });
+    const res = await post({
+      ...validBody(),
+      cover_image: "https://example.com/cover.jpg",
+      cover_image_alt: "A close-up of a processor on a circuit board",
+    });
     expect(res.status).toBe(201);
     expect(res.json).toMatchObject({ id: 42, status: "draft", slug: "test-story" });
     expect(res.json.edit_url).toMatch(/\/admin\/posts\/42\/edit$/);
@@ -299,7 +308,70 @@ describe("POST /automation/posts/drafts — contract", () => {
     expect(values.isFeatured).toBe(false);
     // external cover was re-hosted
     expect(values.coverImage).toBe("/api/storage/objects/persisted-cover");
+    expect(values.coverImageAlt).toBe("A close-up of a processor on a circuit board");
+    expect(persistExternalImageMock).toHaveBeenCalledWith(
+      "https://example.com/cover.jpg",
+      expect.objectContaining({ alt: "A close-up of a processor on a circuit board" }),
+    );
     expect(auditCalls.some((c) => c.input.action === "automation.draft.create")).toBe(true);
+  });
+
+  it("preserves inline image alt text while re-hosting the article image", async () => {
+    selectQueue = [[BOT_USER], [CATEGORY], []];
+    insertReturn = [{ id: 44, title: "Test story", slug: "test-story", status: "draft" }];
+    persistExternalImagesInHtmlMock.mockImplementation(async (html: string) =>
+      html.replace("https://example.com/chip.jpg", "/api/storage/objects/persisted-inline"),
+    );
+
+    const res = await post({
+      ...validBody(),
+      content:
+        '<p>Before.</p><img src="https://example.com/chip.jpg" alt="A technician installing an AI accelerator"><p>After.</p>',
+    });
+
+    expect(res.status).toBe(201);
+    const values = captured.insertValues!.find((v) => v.title === "Test story")!;
+    expect(values.content).toContain('src="/api/storage/objects/persisted-inline"');
+    expect(values.content).toContain('alt="A technician installing an AI accelerator"');
+    expect(persistExternalImagesInHtmlMock).toHaveBeenCalledWith(
+      expect.stringContaining('alt="A technician installing an AI accelerator"'),
+      expect.objectContaining({ uploaderId: 77, uploaderName: "Mapletechie AI" }),
+    );
+  });
+
+  it("rejects an inline image without meaningful alt text", async () => {
+    selectQueue = [[BOT_USER], [CATEGORY], []];
+    const res = await post({
+      ...validBody(),
+      content: '<p>Before.</p><img src="https://example.com/chip.jpg" alt=""><p>After.</p>',
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.json.error).toMatch(/missing meaningful alt text/i);
+    expect(persistExternalImagesInHtmlMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an inline image whose source is removed as unsafe", async () => {
+    selectQueue = [[BOT_USER], [CATEGORY], []];
+    const res = await post({
+      ...validBody(),
+      content: '<p>Before.</p><img src="data:image/png;base64,abc" alt="Embedded image"><p>After.</p>',
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.json.error).toMatch(/unsupported or missing src/i);
+  });
+
+  it("requires cover alt text whenever a cover image is supplied", async () => {
+    selectQueue = [[BOT_USER], [CATEGORY], []];
+    const res = await post({
+      ...validBody(),
+      cover_image: "https://example.com/cover.jpg",
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.json.error).toMatch(/cover_image_alt is required/i);
+    expect(persistExternalImageMock).not.toHaveBeenCalled();
   });
 
   it("replays the original draft for a repeated Idempotency-Key", async () => {
