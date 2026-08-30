@@ -376,6 +376,79 @@ describe("PUT /posts/:id — external image persistence", () => {
   });
 });
 
+describe("PUT /posts/:id — publication ordering", () => {
+  it("timestamps a draft when it is published so public lists place it by publication time", async () => {
+    const draftCreatedAt = new Date("2026-01-01T12:00:00.000Z");
+    const existing = {
+      id: 42,
+      authorId: 1,
+      categoryId: 7,
+      title: "Draft",
+      status: "draft",
+      publishedAt: draftCreatedAt,
+    };
+    const updated = { ...existing, status: "published" };
+    // Existing row; current category memberships; joined refetch; category
+    // attachment; raw refetch for the audit snapshot.
+    selectQueue = [[existing], [], [updated], [], [updated]];
+    const beforePublish = Date.now();
+
+    const { status } = await request(makeApp(), "PUT", "/posts/42", {
+      status: "published",
+    });
+
+    const publishedAt = captured.updateSet?.publishedAt;
+    expect(status).toBe(200);
+    expect(publishedAt).toBeInstanceOf(Date);
+    expect((publishedAt as Date).getTime()).toBeGreaterThanOrEqual(beforePublish);
+    expect((publishedAt as Date).getTime()).not.toBe(draftCreatedAt.getTime());
+  });
+
+  it("preserves an explicit publication date when publishing a draft", async () => {
+    const existing = {
+      id: 42,
+      authorId: 1,
+      categoryId: 7,
+      title: "Imported draft",
+      status: "draft",
+      publishedAt: new Date("2026-01-01T12:00:00.000Z"),
+    };
+    const updated = { ...existing, status: "published" };
+    selectQueue = [[existing], [], [updated], [], [updated]];
+    const explicitDate = "2025-06-15T09:30:00.000Z";
+
+    const { status } = await request(makeApp(), "PUT", "/posts/42", {
+      status: "published",
+      publishedAt: explicitDate,
+    });
+
+    expect(status).toBe(200);
+    expect(captured.updateSet?.publishedAt).toEqual(new Date(explicitDate));
+  });
+
+  it("does not move an already-published article when it is edited", async () => {
+    const originalPublishedAt = new Date("2026-01-01T12:00:00.000Z");
+    const existing = {
+      id: 42,
+      authorId: 1,
+      categoryId: 7,
+      title: "Published article",
+      status: "published",
+      publishedAt: originalPublishedAt,
+    };
+    const updated = { ...existing, title: "Corrected title" };
+    selectQueue = [[existing], [], [updated], [], [updated]];
+
+    const { status } = await request(makeApp(), "PUT", "/posts/42", {
+      title: "Corrected title",
+      status: "published",
+    });
+
+    expect(status).toBe(200);
+    expect(captured.updateSet).not.toHaveProperty("publishedAt");
+  });
+});
+
 // --- Ownership / canEditOthersPosts permission ----------------------------
 
 const auditMock = (await import("../lib/audit")).writeAuditLog as ReturnType<typeof vi.fn>;

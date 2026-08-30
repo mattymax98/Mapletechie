@@ -582,6 +582,20 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     update.publishedAt = new Date(update.publishedAt as string);
   }
 
+  // Drafts receive an initial publishedAt value when they are created, but
+  // public lists use this field for newest-first ordering. Refresh it when a
+  // post actually transitions into the published state so it appears where it
+  // was published, not where its draft was first written. Keep an explicitly
+  // supplied date intact for intentional backdating/imports; scheduled posts
+  // are timestamped by the scheduled-publish worker when their time arrives.
+  if (
+    update.status === "published" &&
+    existing.status !== "published" &&
+    !("publishedAt" in body)
+  ) {
+    update.publishedAt = new Date();
+  }
+
   // Category changes. Three shapes are accepted:
   // - `categories` array (+ optional `primaryCategory`) — full replacement.
   // - legacy single `category` — replaces the PRIMARY, keeps secondaries.
