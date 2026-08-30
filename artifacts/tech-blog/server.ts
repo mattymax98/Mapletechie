@@ -312,50 +312,6 @@ function buildHeroPreloadLink(coverImage: string | null | undefined): string {
   return `    <link ${attrs}>\n`;
 }
 
-/** Minimal shape of YouTube's public oEmbed response. */
-interface YouTubeOEmbed {
-  title?: string;
-  author_name?: string;
-  thumbnail_url?: string;
-}
-
-/**
- * Build a schema.org VideoObject for a YouTube embed found in article content.
- * Title/thumbnail come from YouTube's keyless oEmbed endpoint when reachable;
- * otherwise we fall back to the deterministic i.ytimg.com thumbnail and the
- * article context so crawlers still get valid structured data. uploadDate is
- * approximated with the article publish date (oEmbed does not expose it).
- */
-async function buildVideoObjectJsonLd(
-  embed: ParsedSocialEmbed,
-  post: { title: string; excerpt?: string | null; publishedAt?: string | null },
-): Promise<Record<string, unknown>> {
-  const oembed = await fetchJson<YouTubeOEmbed>(
-    `https://www.youtube.com/oembed?url=${encodeURIComponent(embed.url)}&format=json`,
-    2500,
-  );
-  const ld: Record<string, unknown> = {
-    "@context": "https://schema.org",
-    "@type": "VideoObject",
-    name: oembed?.title || `Video: ${post.title}`,
-    description:
-      oembed?.title ||
-      stripHtml(post.excerpt, 160) ||
-      `Video embedded in the Mapletechie article "${post.title}".`,
-    thumbnailUrl:
-      oembed?.thumbnail_url || `https://i.ytimg.com/vi/${embed.id}/hqdefault.jpg`,
-    embedUrl: `https://www.youtube-nocookie.com/embed/${embed.id}`,
-    contentUrl: embed.url,
-  };
-  if (oembed?.author_name) {
-    ld.author = { "@type": "Person", name: oembed.author_name };
-  }
-  if (post.publishedAt) {
-    ld.uploadDate = post.publishedAt;
-  }
-  return ld;
-}
-
 /**
  * Rewrite tweet embed placeholders in crawler-facing article HTML into
  * Twitter/X's canonical `<blockquote class="twitter-tweet">` markup, which
@@ -795,23 +751,22 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
   const jsonLd = buildArticleJsonLd(post, { siteUrl: SITE_URL });
   const breadcrumbLd = buildBreadcrumbJsonLd(post, { siteUrl: SITE_URL });
 
-  // VideoObject JSON-LD for each YouTube embed in the content, so crawlers
-  // that only see the fallback link still learn there's a video here (and
-  // articles become eligible for video rich results). Deduped by video id.
+  // Keep YouTube embeds available for social previews, but do not emit
+  // VideoObject JSON-LD on ordinary article pages. Google only treats a page
+  // as a video result when the video is the primary content; these articles
+  // are written as text-first pages and Search Console otherwise reports
+  // "Video isn't on a watch page".
   const embeds = extractSocialEmbeds(post.content);
   const youtubeEmbeds = [
     ...new Map(
       embeds.filter((e) => e.provider === "youtube").map((e) => [e.id, e]),
     ).values(),
   ].slice(0, 10);
-  const videoLds = await Promise.all(
-    youtubeEmbeds.map((e) => buildVideoObjectJsonLd(e, post)),
-  );
 
   // Build the Article JSON-LD with a "mentions" array for social embeds so
   // search engines learn which social posts are referenced in this article.
-  // YouTube is excluded from mentions (it already appears as VideoObject);
-  // include every other provider's embeds as SocialMediaPosting references.
+  // YouTube is excluded because its embed is retained as page content and OG
+  // metadata, not represented as a separate schema.org object on this page.
   const socialMentions = embeds
     .filter((e) => e.provider !== "youtube")
     .map((e) => ({ "@type": "SocialMediaPosting", url: e.url }));
@@ -824,9 +779,6 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
   // body cannot prematurely close the surrounding <script> tag.
   const ldSafe = (obj: Record<string, unknown>) =>
     JSON.stringify(obj).replace(/</g, "\\u003c");
-  const videoScripts = videoLds
-    .map((ld) => `    <script type="application/ld+json">${ldSafe(ld)}</script>\n`)
-    .join("");
 
   // OG video tags for the first YouTube embed, so social crawlers (Facebook,
   // LinkedIn, Slack, etc.) know there's a playable video in this article.
@@ -846,7 +798,6 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
     ogVideoTags +
       `    <script type="application/ld+json">${ldSafe(jsonLdWithMentions)}</script>\n` +
       `    <script type="application/ld+json">${ldSafe(breadcrumbLd)}</script>\n` +
-      videoScripts +
       `    <!-- SEO_HEAD_END -->`,
   );
 
