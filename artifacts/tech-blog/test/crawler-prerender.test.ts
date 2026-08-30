@@ -632,7 +632,7 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).not.toContain("Large language models are reshaping");
     });
 
-    it("emits VideoObject JSON-LD for each YouTube embed in the content", async () => {
+    it("does not emit VideoObject JSON-LD for embedded videos on text-first article pages", async () => {
       const { status, body } = await get(`/blog/${EMBED_ARTICLE.slug}`, GOOGLEBOT_UA);
       expect(status).toBe(200);
       const scripts = [
@@ -641,13 +641,10 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
         ),
       ].map((m) => JSON.parse(m[1]));
       const videos = scripts.filter((s) => s["@type"] === "VideoObject");
-      expect(videos).toHaveLength(1);
-      const video = videos[0];
-      expect(video.embedUrl).toBe("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ");
-      expect(video.contentUrl).toBe("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
-      expect(video.thumbnailUrl).toBeTruthy();
-      expect(video.name).toBeTruthy();
-      expect(video.uploadDate).toBe(EMBED_ARTICLE.publishedAt);
+      expect(videos).toHaveLength(0);
+      // The embed and social-preview metadata remain available.
+      expect(body).toContain('data-provider="youtube"');
+      expect(body).toContain('property="og:video"');
     });
 
     it("rewrites tweet placeholders into twitter-tweet blockquotes for crawlers only", async () => {
