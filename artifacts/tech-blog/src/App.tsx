@@ -27,7 +27,6 @@ const CareerDetail = lazy(() => import("@/pages/career-detail"));
 const Advertise = lazy(() => import("@/pages/advertise"));
 const SearchPage = lazy(() => import("@/pages/search"));
 const AuthorPage = lazy(() => import("@/pages/author"));
-const OurTeamPage = lazy(() => import("@/pages/our-team"));
 const TagPage = lazy(() => import("@/pages/tag"));
 const SeriesPage = lazy(() => import("@/pages/series"));
 const Privacy = lazy(() => import("@/pages/privacy"));
@@ -154,7 +153,6 @@ function Router() {
             <Route path="/terms" component={Terms} />
             <Route path="/category/:slug" component={CategoryIndex} />
             <Route path="/author/:username" component={AuthorPage} />
-            <Route path="/team" component={OurTeamPage} />
             <Route path="/tag/:tag" component={TagPage} />
             <Route path="/series/:slug" component={SeriesPage} />
             <Route component={NotFound} />

@@ -617,11 +617,35 @@ app.use((req, res, next) => {
   return serveStatic(req, res, next);
 });
 
-// --- Historic URL cleanup -------------------------------------------------
-// This was the old homepage alias found by Google. It has one clear successor,
-// so preserve its accumulated signals with a permanent redirect.
-app.get(/^\/home\/?$/i, (_req, res) => {
-  res.redirect(301, "/");
+// --- Permanently retired URLs ---------------------------------------------
+// These URLs are no longer part of the publication. Return a real 410 to
+// every client, including crawlers, so search engines stop treating them as
+// live pages. Keep the list exact so unrelated blog/category/career routes
+// continue to work normally.
+const PERMANENTLY_RETIRED_PATHS = new Set([
+  "/blog/kimi-k3-the-chinese-ai-model-silicon-valley-underestimated",
+  "/blog/york-university-tech-ambitions-hype-or-real-momentum",
+  "/blog/mapletechie.com",
+  "/careers/editor",
+  "/home",
+  "/author/mapletechie.com",
+  "/category/science-space",
+  "/category/ai-machine-learning",
+  "/team",
+  "/category/cybersecurity",
+]);
+
+function normalizedPathname(pathname: string): string {
+  const normalized = pathname.replace(/\/+$/, "");
+  return normalized || "/";
+}
+
+app.all(/.*/, (req, res, next) => {
+  if (PERMANENTLY_RETIRED_PATHS.has(normalizedPathname(req.path))) {
+    send404(res, "Page Permanently Removed", 410);
+    return;
+  }
+  next();
 });
 
 // --- Maintenance gate ---------------------------------------------------
@@ -1345,7 +1369,7 @@ app.get(/^\/author\/([^/]+)\/?$/, async (req, res, next) => {
       `    <script type="application/ld+json">${jsonLdSafe}</script>\n    <!-- SEO_HEAD_END -->`,
     );
   }
-  // BreadcrumbList (Home > Authors > Name) — always emitted, even for authors
+  // BreadcrumbList (Home > Author) — always emitted, even for authors
   // with no structured profile fields; the SPA emits the same schema.
   const authorBreadcrumbLd = buildAuthorBreadcrumbJsonLd(author, {
     siteUrl: SITE_URL,
@@ -1532,7 +1556,7 @@ const KNOWN_SPA_ROUTES: RegExp[] = [
   /^\/$/,
   /^\/blog\/?$/,
   /^\/careers\/?$/,
-  /^\/(about|contact|advertise|search|privacy|terms|team)\/?$/,
+  /^\/(about|contact|advertise|search|privacy|terms)\/?$/,
   /^\/admin(\/.*)?$/,
 ];
 

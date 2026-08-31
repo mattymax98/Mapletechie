@@ -141,8 +141,7 @@ export function buildCategoryBreadcrumbJsonLd(
 }
 
 /**
- * BreadcrumbList (Home > Authors > Name) for an author profile page.
- * "Authors" points at the /team roster page, the site's author index.
+ * BreadcrumbList (Home > Author) for an author profile page.
  * Shared by the crawler prerender server and the SPA author page.
  */
 export function buildAuthorBreadcrumbJsonLd(
@@ -152,7 +151,6 @@ export function buildAuthorBreadcrumbJsonLd(
   const siteUrl = (opts.siteUrl || DEFAULT_SITE_URL).replace(/\/+$/, "");
   return buildTrailBreadcrumbJsonLd([
     { name: "Home", item: siteUrl },
-    { name: "Authors", item: `${siteUrl}/team` },
     {
       name: author.displayName || author.username,
       item: `${siteUrl}/author/${author.username}`,
