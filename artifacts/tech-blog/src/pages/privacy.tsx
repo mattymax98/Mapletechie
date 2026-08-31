@@ -1,7 +1,7 @@
 import { SEO } from "@/components/SEO";
 
 export default function Privacy() {
-  const updated = "May 7, 2026";
+  const updated = "August 31, 2026";
   return (
     <>
       <SEO
@@ -28,6 +28,7 @@ export default function Privacy() {
             <li><strong>Information collected automatically.</strong> Like most websites, our servers log basic technical data such as IP address, browser type, pages viewed, and the time of your visit. We use this to keep the Site secure, fix bugs, and understand which articles readers find useful.</li>
             <li><strong>First-party cookies.</strong> We use a small number of cookies that we set ourselves to remember your dark/light theme choice and to keep editors logged into the admin area.</li>
             <li><strong>Advertising cookies.</strong> We display ads on the Site through Google AdSense (see Section 4). Google and its partners use cookies and similar technologies to serve ads, measure performance, and — where permitted — personalize what you see. If you visit the Site from the European Economic Area, the United Kingdom, or Switzerland, you'll see a consent banner the first time you visit, and Google's ad partners will only use personalization cookies if you accept them.</li>
+            <li><strong>Google Analytics.</strong> When a Google Analytics 4 measurement ID is configured for the production Site, Google Analytics collects pseudonymous information about public page views and navigation, such as the page path, device, browser, and approximate location. We do not send article-author details, account information, or other user-provided personal information to Google Analytics.</li>
           </ul>
 
           <h2>2. How we use your information</h2>
@@ -103,6 +104,20 @@ export default function Privacy() {
             can change that choice at any time by clearing your cookies for
             this Site.
           </p>
+          <h3>Google Analytics</h3>
+          <p>
+            We may use Google Analytics 4 on the production Site to understand
+            aggregate traffic and improve our coverage. It is optional
+            deployment configuration and is not loaded on admin, API, or
+            preview-only paths. Google may use cookies and similar technologies
+            to distinguish visits and measure navigation across public pages.
+            We send public page paths only; we do not send article-author
+            details, account information, or other user-provided personal
+            information. For more information, see{" "}
+            <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">
+              Google's Privacy Policy
+            </a>.
+          </p>
           <h3>Other links</h3>
           <p>
             Articles on the Site may include links to external websites (including affiliate links — see our Terms of Service). We are not responsible for the privacy practices of those sites.
@@ -114,6 +129,7 @@ export default function Privacy() {
             <li><strong>Access, correction, deletion:</strong> email <a href="mailto:hello@mapletechie.com">hello@mapletechie.com</a> with the email address you used and we'll handle requests to view, correct, or delete your data within a reasonable timeframe.</li>
             <li><strong>Cookies:</strong> you can clear or block cookies in your browser; the Site will still work, you'll just need to re-pick your theme each visit.</li>
             <li><strong>Personalized ads:</strong> use the Google Ads Settings link in Section 4 to turn off personalization. You'll still see ads on the Site, but they won't be tailored to your browsing history.</li>
+            <li><strong>Google Analytics:</strong> you can block cookies or use browser privacy controls and extensions to limit analytics collection.</li>
             <li><strong>EEA / UK / Switzerland readers:</strong> you have additional rights under the GDPR and UK GDPR — including the right to access, rectify, erase, restrict, or port your personal data, and to object to processing. To exercise any of these, email us at the address in Section 8.</li>
           </ul>
 

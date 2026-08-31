@@ -1151,7 +1151,7 @@ app.get(/^\/privacy\/?$/, (req, res, next) => {
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>Privacy Policy</h1>
   <p>${htmlEscape(description)}</p>
-  <p>Mapletechie collects minimal data to operate the site: analytics (page views, referrers), contact form submissions, and newsletter subscriptions. We use Google AdSense for advertising. We do not sell personal data. You may request deletion of your data by contacting <a href="mailto:tips@mapletechie.com">tips@mapletechie.com</a>.</p>
+  <p>Mapletechie collects minimal data to operate the site: first-party analytics (page views, referrers, and engagement), and — when configured for production — Google Analytics 4 for aggregate public page-view reporting. We also process contact form submissions and newsletter subscriptions. We use Google AdSense for advertising. We do not send article-author or user-provided personal information to Google Analytics, and we do not sell personal data. You may request deletion of your data by contacting <a href="mailto:tips@mapletechie.com">tips@mapletechie.com</a>.</p>
   <p>Full policy at <a href="${htmlEscape(`${SITE_URL}/privacy`)}">mapletechie.com/privacy</a>.</p>
 </main>`;
   res.setHeader("Content-Type", "text/html; charset=utf-8");

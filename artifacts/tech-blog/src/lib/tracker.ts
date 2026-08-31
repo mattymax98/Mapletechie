@@ -1,6 +1,20 @@
 const SESSION_KEY = "mt_session_id";
 const ADMIN_TOKEN_KEY = "mapletechie_admin_token";
 const RETURNING_KEY = "mt_returning";
+const GA4_MEASUREMENT_ID = import.meta.env.VITE_GA4_MEASUREMENT_ID?.trim();
+
+type Gtag = (...args: unknown[]) => void;
+
+declare global {
+  interface Window {
+    dataLayer?: unknown[];
+    gtag?: Gtag;
+  }
+}
+
+let ga4Initialized = false;
+let ga4ScriptRequested = false;
+let lastGa4Path: string | null = null;
 
 function getSessionId(): string {
   try {
@@ -70,13 +84,56 @@ function isReturningVisitor(): boolean {
 }
 
 function shouldSkipTracking(path: string): boolean {
-  if (path.startsWith("/admin")) return true;
+  if (
+    path.startsWith("/admin") ||
+    path.startsWith("/api") ||
+    path.startsWith("/preview") ||
+    path.startsWith("/__")
+  ) {
+    return true;
+  }
   try {
     if (localStorage.getItem(ADMIN_TOKEN_KEY)) return true;
   } catch {
     /* noop */
   }
   return false;
+}
+
+function trackGa4PageView(path: string): void {
+  if (!import.meta.env.PROD || !GA4_MEASUREMENT_ID || lastGa4Path === path) return;
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+
+  lastGa4Path = path;
+  const dataLayer = (window.dataLayer ??= []);
+  window.gtag ??= (...args: unknown[]) => {
+    dataLayer.push(args);
+  };
+
+  if (!ga4Initialized) {
+    window.gtag("js", new Date());
+    // Page views are sent explicitly below so SPA route changes do not get
+    // double-counted by gtag's default config behavior.
+    window.gtag("config", GA4_MEASUREMENT_ID, { send_page_view: false });
+    ga4Initialized = true;
+  }
+
+  if (!ga4ScriptRequested) {
+    const script = document.createElement("script");
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(GA4_MEASUREMENT_ID)}`;
+    document.head.appendChild(script);
+    ga4ScriptRequested = true;
+  }
+
+  // Use only the public pathname supplied by the router. Do not forward query
+  // strings or any application/user fields to Google Analytics.
+  const pagePath = path.split(/[?#]/, 1)[0] || "/";
+  window.gtag("event", "page_view", {
+    page_path: pagePath,
+    page_location: `${window.location.origin}${pagePath}`,
+    page_title: document.title,
+  });
 }
 
 function sendJson(url: string, payload: unknown): void {
@@ -208,6 +265,7 @@ export function trackPageView(path: string): void {
   };
 
   sendJson(`${import.meta.env.BASE_URL}api/track`, payload);
+  trackGa4PageView(path);
 }
 
 // ---------------------------------------------------------------------------

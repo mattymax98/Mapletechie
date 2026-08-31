@@ -154,3 +154,4 @@ Fixed, designed ad units (`artifacts/tech-blog/src/components/AdSlot.tsx`) — A
 Frontend env vars (set for the deployment; slot ids come from the AdSense dashboard, Ads → By ad unit):
 - `VITE_ADSENSE_CLIENT` — publisher id (defaults to `ca-pub-9581001238069953`)
 - `VITE_ADSENSE_SLOT_SIDEBAR`, `VITE_ADSENSE_SLOT_BANNER`, `VITE_ADSENSE_SLOT_BELOW_ARTICLE`, `VITE_ADSENSE_SLOT_IN_ARTICLE` — per-placement slot ids; a placement renders nothing until its slot id is set
+- `VITE_GA4_MEASUREMENT_ID` — optional public Google Analytics 4 measurement ID (for example, `G-XXXXXXXXXX`). GA4 loads only in production when this is configured; it does not require a private API key.

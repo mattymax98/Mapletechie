@@ -178,6 +178,8 @@ NODE_ENV   = production
 BASE_PATH  = /
 SITE_URL   = https://mapletechie.com
 API_BASE   = https://<api-server-railway-domain>   ← the domain from step 3.4
+# Optional GA4 web measurement ID; no private API key is required.
+VITE_GA4_MEASUREMENT_ID = G-XXXXXXXXXX
 ```
 
 ---
@@ -244,6 +246,7 @@ DNS changes typically take 5–30 minutes to propagate.
 | `PUBLIC_OBJECT_SEARCH_PATHS` | Set manually | `/mapletechie/covers,/mapletechie/public` |
 | `SITE_URL` | Set manually | `https://mapletechie.com` (frontend only) |
 | `API_BASE` | Set manually | Railway URL of the API service (frontend only) |
+| `VITE_GA4_MEASUREMENT_ID` | Google Analytics | Optional public GA4 web measurement ID; loaded only in production, no private API key required |
 | `RESEND_API_KEY` | Resend (mapletechie.com workspace) | Must be from the workspace with `mapletechie.com` in Domains — see Phase 4 note |
 | `SITE_DOMAIN` | Set manually | `https://mapletechie.com` — **must include the https:// prefix** (API only) |
 | `BASE_PATH` | Set manually | `/` (frontend only) |
