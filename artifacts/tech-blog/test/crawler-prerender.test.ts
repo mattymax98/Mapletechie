@@ -667,11 +667,11 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).not.toContain("twitter-tweet");
     });
 
-    it("returns 200 for the static /team page to any client (it needs no DB lookup)", async () => {
+    it("returns 410 for the retired /team page to any client", async () => {
       for (const ua of [GOOGLEBOT_UA, BROWSER_UA]) {
         const { status, body } = await get("/team", ua);
-        expect(status).toBe(200);
-        expect(body).toContain('<div id="root">');
+        expect(status).toBe(410);
+        expect(body).toContain("Page Permanently Removed");
       }
     });
 
@@ -857,27 +857,33 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
   });
 
   describe("reported legacy Search Console paths", () => {
-    it("redirects the old homepage alias to the canonical root", async () => {
-      const response = await fetch(`${baseUrl}/home/`, {
-        headers: { "user-agent": GOOGLEBOT_UA },
-        redirect: "manual",
-      });
-      expect(response.status).toBe(301);
-      expect(response.headers.get("location")).toBe("/");
+    it("returns 410 for the retired homepage alias", async () => {
+      const { status, body } = await get("/home/", GOOGLEBOT_UA);
+      expect(status).toBe(410);
+      expect(body).toContain("Page Permanently Removed");
     });
 
     it.each([
       "/blog/mapletechie.com",
       "/author/mapletechie.com",
       "/careers/editor",
-    ])("uses the data-aware noindex 404 when no replacement record exists for %s", async (pathname) => {
+    ])("returns a permanent 410 for the retired URL %s", async (pathname) => {
       const { status, body } = await get(pathname, GOOGLEBOT_UA);
-      // The normal post/author/job lookup owns these paths. That keeps a
-      // future real slug from being shadowed while letting Google remove the
-      // currently absent URLs without treating the SPA shell as a soft 404.
-      expect(status).toBe(404);
+      expect(status).toBe(410);
       expect(body).toContain("noindex");
       expect(body).not.toContain('<div id="root"></div>');
+    });
+
+    it.each([
+      "/blog/kimi-k3-the-chinese-ai-model-silicon-valley-underestimated",
+      "/blog/york-university-tech-ambitions-hype-or-real-momentum",
+      "/category/science-space",
+      "/category/ai-machine-learning",
+      "/category/cybersecurity",
+    ])("returns a permanent 410 for the retired content URL %s", async (pathname) => {
+      const { status, body } = await get(pathname, GOOGLEBOT_UA);
+      expect(status).toBe(410);
+      expect(body).toContain("noindex");
     });
   });
 
@@ -947,7 +953,7 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).toContain("Canadian Youth Road Safety Council");
     });
 
-    it("emits the BreadcrumbList JSON-LD (Home > Authors > Name) in the prerendered HTML", async () => {
+    it("emits the BreadcrumbList JSON-LD (Home > Author) in the prerendered HTML", async () => {
       const { body } = await get(`/author/${AUTHOR.username}`, GOOGLEBOT_UA);
       const scripts = [
         ...body.matchAll(
@@ -958,9 +964,8 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(crumbs).toBeDefined();
       expect(
         crumbs!.itemListElement.map((i: { name: string }) => i.name),
-      ).toEqual(["Home", "Authors", AUTHOR.displayName]);
-      expect(crumbs!.itemListElement[1].item).toBe(`${SITE_URL}/team`);
-      expect(crumbs!.itemListElement[2].item).toBe(
+      ).toEqual(["Home", AUTHOR.displayName]);
+      expect(crumbs!.itemListElement[1].item).toBe(
         `${SITE_URL}/author/${AUTHOR.username}`,
       );
     });
@@ -976,7 +981,7 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(crumbs).toBeDefined();
       expect(
         crumbs!.itemListElement.map((i: { name: string }) => i.name),
-      ).toEqual(["Home", "Authors", PLAIN_AUTHOR.displayName]);
+      ).toEqual(["Home", PLAIN_AUTHOR.displayName]);
     });
 
     it("returns a noindex 404 to Googlebot for an unknown author", async () => {

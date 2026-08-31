@@ -132,7 +132,7 @@ export default function AuthorPage() {
           <script type="application/ld+json">{JSON.stringify(personJsonLd)}</script>
         </Helmet>
       )}
-      {/* BreadcrumbList (Home > Authors > Name) — same schema the crawler
+      {/* BreadcrumbList (Home > Author) — same schema the crawler
           prerender emits server-side, so Google sees an identical trail. */}
       <Helmet>
         <script type="application/ld+json">
@@ -147,7 +147,6 @@ export default function AuthorPage() {
             className="mb-8"
             items={[
               { label: "Home", href: "/" },
-              { label: "Authors", href: "/team" },
               { label: author.displayName },
             ]}
           />
