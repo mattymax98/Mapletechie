@@ -70,6 +70,10 @@ import {
   isDropOffRisk,
 } from "@/components/admin/analytics/ReadingTimeChart";
 import { PostDetailPanel } from "@/components/admin/analytics/PostDetailPanel";
+import {
+  BOUNCE_RATE_DEFINITION,
+  formatBounceRate,
+} from "@/lib/bounceRate";
 
 const TOKEN_KEY = "mapletechie_admin_token";
 
@@ -635,12 +639,14 @@ export default function AdminAnalytics() {
                   icon={<Percent className="w-5 h-5" />}
                   label="Bounce rate"
                   value={undefined}
-                  displayText={
-                    bounceRate != null ? `${Math.round(bounceRate)}%` : undefined
-                  }
-                  displayDash={bounceRate == null}
+                  displayText={formatBounceRate(bounceRate, summary?.uniqueSessions)}
                   color="text-purple-400"
                   loading={loading}
+                  extra={
+                    <p className="text-[11px] leading-4 text-zinc-600 mt-1.5">
+                      {BOUNCE_RATE_DEFINITION}
+                    </p>
+                  }
                 />
               </div>
             )}

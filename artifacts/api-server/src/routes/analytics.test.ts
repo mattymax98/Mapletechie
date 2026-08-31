@@ -5,6 +5,7 @@ import { createServer } from "node:http";
 // --- Mocks -------------------------------------------------------------------
 
 let selectQueue: unknown[][] = [];
+const gteValues: unknown[] = [];
 
 function makeSelectChain(queue: unknown[][]) {
   const proxy: unknown = new Proxy(function () {}, {
@@ -65,7 +66,10 @@ vi.mock("@workspace/db", () => ({
 
 vi.mock("drizzle-orm", () => ({
   sql: (strings: TemplateStringsArray, ...vals: unknown[]) => strings.join(""),
-  gte: () => ({}),
+  gte: (_column: unknown, value: unknown) => {
+    gteValues.push(value);
+    return {};
+  },
   and: (...args: unknown[]) => ({}),
   isNotNull: () => ({}),
   desc: () => ({}),
@@ -135,6 +139,7 @@ async function get(
 beforeEach(() => {
   vi.clearAllMocks();
   selectQueue = [];
+  gteValues.length = 0;
   insertedValues.length = 0;
   currentUser = null;
 });
@@ -210,12 +215,78 @@ describe("Analytics endpoints — admin caller", () => {
     selectQueue = [
       [{ c: 500 }],   // totalViews
       [{ c: 120 }],   // uniqueSessions
+      [
+        { sessionId: "session-1", views: 1 },
+        { sessionId: "session-2", views: 2 },
+      ],               // session page-view counts
       [{ c: 15 }],    // uniqueCountries
       [],             // daily series
     ];
     const { status, json } = await get(makeApp(), "/admin/analytics/summary", "admin-token");
     expect(status).toBe(200);
-    expect(json).toMatchObject({ totalViews: 500, uniqueSessions: 120, uniqueCountries: 15 });
+    expect(json).toMatchObject({
+      totalViews: 500,
+      uniqueSessions: 120,
+      uniqueCountries: 15,
+      bounceRate: 50,
+    });
+  });
+
+  it("returns no bounce rate when there are no valid sessions", async () => {
+    selectQueue = [
+      [{ c: 0 }], // totalViews
+      [{ c: 0 }], // uniqueSessions
+      [],         // session page-view counts
+      [{ c: 0 }], // uniqueCountries
+      [],         // daily series
+    ];
+    const { json } = await get(makeApp(), "/admin/analytics/summary?range=7d", "admin-token");
+    expect(json).toMatchObject({ uniqueSessions: 0, bounceRate: null });
+  });
+
+  it("counts every one-page session as a bounce", async () => {
+    selectQueue = [
+      [{ c: 3 }],
+      [{ c: 3 }],
+      [
+        { sessionId: "session-1", views: 1 },
+        { sessionId: "session-2", views: 1 },
+        { sessionId: "session-3", views: 1 },
+      ],
+      [{ c: 1 }],
+      [],
+    ];
+    const { json } = await get(makeApp(), "/admin/analytics/summary", "admin-token");
+    expect(json).toMatchObject({ bounceRate: 100 });
+  });
+
+  it("does not count multi-page sessions as bounces", async () => {
+    selectQueue = [
+      [{ c: 4 }],
+      [{ c: 2 }],
+      [
+        { sessionId: "session-1", views: 2 },
+        { sessionId: "session-2", views: 2 },
+      ],
+      [{ c: 1 }],
+      [],
+    ];
+    const { json } = await get(makeApp(), "/admin/analytics/summary", "admin-token");
+    expect(json).toMatchObject({ bounceRate: 0 });
+  });
+
+  it("uses the selected range for the session calculation", async () => {
+    selectQueue = [
+      [{ c: 2 }],
+      [{ c: 1 }],
+      [{ sessionId: "session-1", views: 1 }],
+      [{ c: 1 }],
+      [],
+    ];
+    const { json } = await get(makeApp(), "/admin/analytics/summary?range=7d", "admin-token");
+    expect(json).toMatchObject({ bounceRate: 100 });
+    expect(gteValues).toHaveLength(5);
+    for (const value of gteValues) expect(value).toBeInstanceOf(Date);
   });
 
   it("GET /admin/analytics/top-posts returns 200 with rows", async () => {

@@ -204,6 +204,21 @@ router.get("/admin/analytics/summary", adminAuth, requireRole("admin"), async (r
     .from(pageViewsTable)
     .where(and(gte(pageViewsTable.createdAt, since), isNotNull(pageViewsTable.sessionId)));
 
+  // Page views are bot-filtered at ingestion. Group the remaining views by
+  // valid session ID within the selected range so a session that spans the
+  // range is counted only from the views visible in that range.
+  const sessionPageViews = await db
+    .select({
+      sessionId: pageViewsTable.sessionId,
+      views: sql<number>`count(*)::int`,
+    })
+    .from(pageViewsTable)
+    .where(and(gte(pageViewsTable.createdAt, since), isNotNull(pageViewsTable.sessionId)))
+    .groupBy(pageViewsTable.sessionId);
+  const sessionCount = sessionPageViews.length;
+  const singlePageSessions = sessionPageViews.filter((session) => Number(session.views) === 1).length;
+  const bounceRate = sessionCount > 0 ? (singlePageSessions / sessionCount) * 100 : null;
+
   const [uniqueCountries] = await db
     .select({ c: sql<number>`count(distinct ${pageViewsTable.country})::int` })
     .from(pageViewsTable)
@@ -230,6 +245,7 @@ router.get("/admin/analytics/summary", adminAuth, requireRole("admin"), async (r
     totalViews: totalViews?.c || 0,
     uniqueSessions: uniqueSessions?.c || 0,
     uniqueCountries: uniqueCountries?.c || 0,
+    bounceRate,
     daily,
   });
 });
