@@ -253,7 +253,7 @@ async function fetchImageSafely(startUrl: string): Promise<Response | null> {
         signal: ctrl.signal,
         redirect: "manual",
         // Some hosts (e.g. Wikimedia) reject requests without a UA.
-        headers: { "User-Agent": "MapletechieBot/1.0 (+https://mapletechie.com)" },
+        headers: { "User-Agent": "MapletechieBot/1.0 (+https://www.mapletechie.com)" },
       });
     } finally {
       clearTimeout(timer);

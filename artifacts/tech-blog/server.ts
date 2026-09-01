@@ -32,8 +32,23 @@ if (!Number.isFinite(PORT) || PORT <= 0) {
   throw new Error(`Invalid or missing PORT env var: "${process.env.PORT}"`);
 }
 
-const SITE_URL = (process.env.SITE_URL || "https://mapletechie.com").replace(/\/+$/, "");
-const API_BASE = (process.env.API_BASE || "http://localhost").replace(/\/+$/, "");
+function canonicalProductionUrl(value: string): string {
+  const raw = value.trim();
+  try {
+    const url = new URL(raw);
+    if (url.hostname.toLowerCase() === "mapletechie.com") {
+      url.hostname = "www.mapletechie.com";
+    }
+    return url.toString().replace(/\/+$/, "");
+  } catch {
+    return raw.replace(/\/+$/, "");
+  }
+}
+
+const SITE_URL = canonicalProductionUrl(
+  process.env.SITE_URL || "https://www.mapletechie.com",
+);
+const API_BASE = canonicalProductionUrl(process.env.API_BASE || "http://localhost");
 const DEFAULT_OG_IMAGE = `${SITE_URL}/opengraph-v2.jpg`;
 const DEFAULT_DESCRIPTION =
   "Mapletechie — Your go-to source for tech news, gadget reviews, software deep dives, and the latest in AI, EVs, and cybersecurity.";
@@ -336,6 +351,29 @@ function tweetBlockquotesForCrawlers(html: string): string {
 const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
+
+// The public site has one canonical host. Keep this redirect at the
+// application boundary as a reversible safety net while Cloudflare/Railway
+// DNS is being cut over. Query strings are preserved by Express's redirect
+// helper, including for legacy URLs that still need their path handlers.
+const CANONICAL_HOST = "www.mapletechie.com";
+app.use((req, res, next) => {
+  const host = (req.hostname || "").toLowerCase();
+  const forwardedProto = String(req.headers["x-forwarded-proto"] || "")
+    .split(",")[0]
+    .trim()
+    .toLowerCase();
+  const protocol = forwardedProto || req.protocol;
+  if (
+    host === "mapletechie.com" ||
+    (host === CANONICAL_HOST && protocol !== "https")
+  ) {
+    const location = `https://${CANONICAL_HOST}${req.originalUrl}`;
+    res.redirect(308, location);
+    return;
+  }
+  next();
+});
 
 // Tiny request log so prod issues are debuggable.
 app.use((req, _res, next) => {
@@ -1264,7 +1302,7 @@ app.get(/^\/careers\/([^/]+)\/?$/, async (req, res, next) => {
     hiringOrganization: {
       "@type": "Organization",
       name: "Mapletechie",
-      sameAs: "https://mapletechie.com",
+      sameAs: "https://www.mapletechie.com",
     },
     jobLocation: {
       "@type": "Place",

@@ -1,3 +1,5 @@
+import { getSiteUrl } from "./siteUrl";
+
 /**
  * IndexNow — real-time URL submission to Bing (and Yandex, Seznam).
  *
@@ -9,7 +11,7 @@
  * Protocol spec: https://www.indexnow.org/documentation
  */
 
-const SITE_DOMAIN = (process.env.SITE_DOMAIN || "https://mapletechie.com").replace(/\/+$/, "");
+const SITE_DOMAIN = getSiteUrl();
 const INDEXNOW_ENDPOINT = "https://api.indexnow.org/IndexNow";
 const BATCH_SIZE = 10_000; // IndexNow's documented per-request URL limit
 

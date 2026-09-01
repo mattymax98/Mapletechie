@@ -74,7 +74,7 @@ describe("buildPersonJsonLd", () => {
     expect(jsonLd["@type"]).toBe("Person");
     expect(jsonLd.name).toBe("Jane Doe");
     expect(jsonLd.description).toBe("I write about tech.");
-    expect(jsonLd.url).toBe("https://mapletechie.com/author/jane");
+    expect(jsonLd.url).toBe("https://www.mapletechie.com/author/jane");
   });
 
   it("falls back to the username and respects a custom siteUrl", () => {
@@ -144,7 +144,7 @@ describe("buildPersonJsonLd", () => {
       education: ["Lakehead University"],
       knowsAbout: ["Tech", "Safety"],
       organizations: [
-        { name: "Mapletechie", url: "https://mapletechie.com" },
+        { name: "Mapletechie", url: "https://www.mapletechie.com" },
         { name: "NoUrl Org", url: "javascript:x" },
       ],
       memberships: [{ name: "Council", parentOrganization: "Parachute" }],
@@ -164,7 +164,7 @@ describe("buildPersonJsonLd", () => {
     });
     expect(jsonLd.knowsAbout).toEqual(["Tech", "Safety"]);
     expect(jsonLd.worksFor).toEqual([
-      { "@type": "Organization", name: "Mapletechie", url: "https://mapletechie.com" },
+      { "@type": "Organization", name: "Mapletechie", url: "https://www.mapletechie.com" },
       { "@type": "Organization", name: "NoUrl Org" }, // unsafe url dropped
     ]);
     expect(jsonLd.memberOf).toEqual({
@@ -185,7 +185,7 @@ describe("buildPersonJsonLd", () => {
 
   it("URL-encodes unusual usernames in the profile url", () => {
     const jsonLd = buildPersonJsonLd({ username: "j doe", bio: "Hi" })!;
-    expect(jsonLd.url).toBe("https://mapletechie.com/author/j%20doe");
+    expect(jsonLd.url).toBe("https://www.mapletechie.com/author/j%20doe");
   });
 });
 

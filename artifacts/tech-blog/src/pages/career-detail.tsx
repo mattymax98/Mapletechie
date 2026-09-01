@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, MapPin, Clock, Briefcase, CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
 
-const SITE_URL = "https://mapletechie.com";
+const SITE_URL = "https://www.mapletechie.com";
 
 function blockToList(text: string) {
   return text
@@ -86,7 +86,7 @@ export default function CareerDetail() {
     hiringOrganization: {
       "@type": "Organization",
       name: "Mapletechie",
-      sameAs: "https://mapletechie.com",
+      sameAs: "https://www.mapletechie.com",
     },
     jobLocation: {
       "@type": "Place",

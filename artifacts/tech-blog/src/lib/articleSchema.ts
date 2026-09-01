@@ -7,7 +7,7 @@
  * HTML. Both sides read the same `/api/posts/slug/:slug` record.
  */
 
-export const DEFAULT_SITE_URL = "https://mapletechie.com";
+export const DEFAULT_SITE_URL = "https://www.mapletechie.com";
 export const DEFAULT_DESCRIPTION =
   "Mapletechie — Your go-to source for tech news, gadget reviews, software deep dives, and the latest in AI, EVs, and cybersecurity.";
 

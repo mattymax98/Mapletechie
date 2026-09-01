@@ -175,11 +175,11 @@ describe("SITE_DOMAIN protocol normalisation", () => {
 
     expect(status).toBe(200);
     // Channel link and self-link must use https://, not the bare domain.
-    expect(body).toContain("<link>https://mapletechie.com</link>");
-    expect(body).toContain('href="https://mapletechie.com/api/feed.xml"');
+    expect(body).toContain("<link>https://www.mapletechie.com</link>");
+    expect(body).toContain('href="https://www.mapletechie.com/api/feed.xml"');
     // Post permalink must also use https://.
     expect(body).toContain(
-      '<guid isPermaLink="true">https://mapletechie.com/blog/the-future-of-ai</guid>',
+      '<guid isPermaLink="true">https://www.mapletechie.com/blog/the-future-of-ai</guid>',
     );
     // The bare domain must not appear anywhere in a URL context.
     expect(body).not.toMatch(/<link>mapletechie\.com/);
@@ -187,15 +187,15 @@ describe("SITE_DOMAIN protocol normalisation", () => {
   });
 
   it("produces https:// URLs when SITE_DOMAIN already has the https:// prefix", async () => {
-    process.env.SITE_DOMAIN = "https://mapletechie.com";
+    process.env.SITE_DOMAIN = "https://www.mapletechie.com";
     selectQueue = [[POST_A]];
 
     const { status, body } = await get("/feed.xml");
 
     expect(status).toBe(200);
-    expect(body).toContain("<link>https://mapletechie.com</link>");
+    expect(body).toContain("<link>https://www.mapletechie.com</link>");
     expect(body).toContain(
-      '<guid isPermaLink="true">https://mapletechie.com/blog/the-future-of-ai</guid>',
+      '<guid isPermaLink="true">https://www.mapletechie.com/blog/the-future-of-ai</guid>',
     );
   });
 });

@@ -11,7 +11,7 @@ import {
 describe("isStaleChunkError", () => {
   it("recognises the browser messages produced by a stale lazy chunk", () => {
     const messages = [
-      "Failed to fetch dynamically imported module: https://mapletechie.com/assets/our-team-abc.js",
+      "Failed to fetch dynamically imported module: https://www.mapletechie.com/assets/our-team-abc.js",
       "error loading dynamically imported module",
       "Importing a module script failed.",
       "Failed to load module script: The server responded with a non-JavaScript MIME type",

@@ -92,7 +92,7 @@ export function buildPersonJsonLd(
   opts: { siteUrl?: string } = {},
 ): Record<string, unknown> | null {
   if (!hasRichProfile(author)) return null;
-  const siteUrl = (opts.siteUrl || "https://mapletechie.com").replace(/\/+$/, "");
+  const siteUrl = (opts.siteUrl || "https://www.mapletechie.com").replace(/\/+$/, "");
   const bio = author.bio?.trim();
 
   const address =

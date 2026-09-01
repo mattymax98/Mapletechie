@@ -70,7 +70,7 @@ describe("isExternalImageUrl", () => {
   });
 
   it("returns false for our own domain", () => {
-    expect(isExternalImageUrl("https://mapletechie.com/covers/a.webp")).toBe(false);
+    expect(isExternalImageUrl("https://www.mapletechie.com/covers/a.webp")).toBe(false);
     expect(isExternalImageUrl("https://cdn.mapletechie.com/a.webp")).toBe(false);
   });
 
@@ -281,7 +281,7 @@ describe("persistExternalImagesInHtml", () => {
     vi.stubGlobal("fetch", fetchSpy);
     const html =
       `<img src="/covers/a.webp"><img src="/api/storage/objects/xyz">` +
-      `<img src="https://mapletechie.com/covers/b.webp">`;
+      `<img src="https://www.mapletechie.com/covers/b.webp">`;
     const out = await persistExternalImagesInHtml(html);
     expect(out).toBe(html);
     expect(fetchSpy).not.toHaveBeenCalled();
