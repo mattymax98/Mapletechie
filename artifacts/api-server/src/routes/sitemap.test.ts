@@ -103,6 +103,7 @@ describe("GET /sitemap.xml — SITE_DOMAIN protocol normalisation", () => {
     for (const loc of locs) {
       expect(loc).toMatch(/^https:\/\/www\.mapletechie\.com/);
     }
+    expect(body).not.toContain("<loc>https://www.mapletechie.com/team</loc>");
   });
 
   it("includes a blog post URL with the correct domain when a post exists", async () => {

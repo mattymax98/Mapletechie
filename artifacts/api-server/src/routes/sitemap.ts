@@ -79,7 +79,6 @@ router.get("/sitemap.xml", async (req, res): Promise<void> => {
     { loc: `${domain}/careers`, priority: "0.6", changefreq: "weekly" },
     { loc: `${domain}/privacy`, priority: "0.3", changefreq: "yearly" },
     { loc: `${domain}/terms`, priority: "0.3", changefreq: "yearly" },
-    { loc: `${domain}/team`, priority: "0.5", changefreq: "monthly" },
   ];
 
   const categoryUrls: SitemapEntry[] = categories
