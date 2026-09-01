@@ -286,7 +286,23 @@ pnpm --filter @workspace/scripts run verify-canonical-host
 
 The check uses a published article plus a query string and verifies that each
 alternate variant performs exactly one permanent redirect to the canonical
-`www` URL, with the complete path and query preserved.
+`www` URL, with the complete path and query preserved. It also requires the
+final `200` response to include Railway's request header, so a retired origin
+or an unrelated edge response cannot pass as the production site.
+
+### Scheduled public-host canary
+
+The repository's `.github/workflows/canonical-host-canary.yml` runs this same
+check once per day at 06:17 UTC and can also be started with **Actions →
+Canonical host canary → Run workflow**. It requires no production credentials:
+the check only makes read-only requests to the public site.
+
+The workflow fails with the specific public variant that regressed, including
+the expected and observed redirect destination when applicable. Configure the
+workflow's `Verify public host redirects` check as a required status check if
+the GitHub branch protection policy should also gate production releases. A
+scheduled failure does not change Cloudflare or Railway routing; fix the
+reported DNS, redirect rule, or deployment issue and rerun the workflow.
 
 The initial cutover retained the old Replit Autoscale deployment (served by
 Google Frontend) and DNS rollback record through the defined observation
