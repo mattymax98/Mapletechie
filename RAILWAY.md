@@ -220,7 +220,7 @@ DNS changes typically take 5–30 minutes to propagate.
 
 ---
 
-## Phase 7 — Verify the canonical host, then redirect the apex
+## Phase 7 — Configure and verify the canonical host
 
 The first cutover is deliberately reversible. The existing Railway origin,
 database, R2 bucket, Resend configuration, and apex behavior must remain
@@ -247,10 +247,49 @@ Expected results:
 - `www` returns the current API-backed content, `/api/healthz`, media, feeds,
   robots, and sitemap rather than the old Google Frontend response.
 
-Only after those checks pass should Cloudflare route the apex and both HTTP
-variants to the canonical Railway-backed site. Keep the old Google hosting
-account and DNS rollback record during the defined observation period; do not
-delete it as part of the initial deployment.
+### Cloudflare redirect rule
+
+Cloudflare is the single owner of public hostname and HTTP-to-HTTPS redirects.
+Create one **Redirect Rule** in the `mapletechie.com` zone:
+
+1. Open **Rules → Redirect Rules → Create rule** and name it
+   `Mapletechie canonical host`.
+2. Use this incoming-request expression:
+
+   ```
+   (http.host eq "mapletechie.com") or
+   (http.host eq "www.mapletechie.com" and http.request.scheme eq "http")
+   ```
+
+3. Set the target to the dynamic URL expression:
+
+   ```
+   concat("https://www.mapletechie.com", http.request.uri.path)
+   ```
+
+4. Choose a **301 permanent redirect**, enable **Preserve query string**, and
+   deploy the rule. The dynamic target preserves the full path; the query-string
+   option preserves tracking parameters and other request queries.
+5. Keep both the apex and `www` DNS records proxied through Cloudflare. Do not
+   add a second hostname redirect in the Railway application.
+
+This single rule covers HTTPS apex, HTTP apex, and HTTP `www`; HTTPS `www`
+passes through directly. If the dashboard presents separate path/query
+controls instead of the expression editor, select **Preserve path** and
+**Preserve query string** with the same `https://www.mapletechie.com` target.
+
+Run the repeatable deploy check after DNS and the rule are active:
+
+```bash
+pnpm --filter @workspace/scripts run verify-canonical-host
+```
+
+The check uses a published article plus a query string and verifies that each
+alternate variant performs exactly one permanent redirect to the canonical
+`www` URL, with the complete path and query preserved.
+
+Keep the old Google hosting account and DNS rollback record during the defined
+observation period; do not delete it as part of the initial deployment.
 
 ## Phase 8 — Verify & go live
 
