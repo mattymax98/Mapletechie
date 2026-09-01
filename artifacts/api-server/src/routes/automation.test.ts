@@ -423,6 +423,7 @@ describe("POST /automation/posts/backfill — live image updates", () => {
       authorId: 12,
       status: "published",
       coverImage: "/api/storage/objects/cover",
+      coverImageAlt: null,
     };
     selectQueue = [[BOT_USER], [existing]];
     updateReturn = [{ ...existing, content: "<p>Updated.</p>" }];
@@ -448,6 +449,156 @@ describe("POST /automation/posts/backfill — live image updates", () => {
     expect(update.content).toContain('src="/api/storage/objects/inline"');
     expect(update.content).toContain('alt="A laptop connected to an AI testing rig"');
     expect(auditCalls.some((c) => c.input.action === "automation.post.backfill")).toBe(true);
+  });
+
+  it("replaces cover and social-share images on a published post", async () => {
+    const existing = {
+      id: 45,
+      title: "Published image story",
+      slug: "published-image-story",
+      authorId: 12,
+      status: "published",
+      publishedAt: new Date("2026-01-01T00:00:00.000Z"),
+      coverImage: "/api/storage/objects/old-cover",
+      coverImageAlt: "The existing cover description",
+      ogImage: "/api/storage/objects/old-og",
+      content: "<p>Original content.</p>",
+    };
+    selectQueue = [[BOT_USER], [existing]];
+    updateReturn = [{
+      ...existing,
+      coverImage: "/api/storage/objects/new-cover",
+      ogImage: "/api/storage/objects/new-og",
+    }];
+    persistExternalImageMock
+      .mockResolvedValueOnce("/api/storage/objects/new-cover")
+      .mockResolvedValueOnce("/api/storage/objects/new-og");
+
+    const res = await backfill({
+      post_id: 45,
+      cover_image: "https://images.example.com/new-cover.jpg",
+      cover_image_alt: "A new laptop cover image",
+      og_image: "https://images.example.com/new-og.jpg",
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.json).toMatchObject({
+      id: 45,
+      slug: "published-image-story",
+      status: "published",
+      updated_fields: ["coverImageAlt", "coverImage", "ogImage"],
+    });
+    expect(captured.updateValues).toContainEqual({
+      coverImage: "/api/storage/objects/new-cover",
+      coverImageAlt: "A new laptop cover image",
+      ogImage: "/api/storage/objects/new-og",
+    });
+    expect(persistExternalImageMock).toHaveBeenNthCalledWith(
+      1,
+      "https://images.example.com/new-cover.jpg",
+      expect.objectContaining({ alt: "A new laptop cover image", uploaderId: 77 }),
+    );
+    expect(persistExternalImageMock).toHaveBeenNthCalledWith(
+      2,
+      "https://images.example.com/new-og.jpg",
+      expect.objectContaining({ uploaderId: 77 }),
+    );
+  });
+
+  it("preserves an existing meaningful cover alt when replacing only the cover", async () => {
+    const existing = {
+      id: 46,
+      title: "Existing alt story",
+      slug: "existing-alt-story",
+      authorId: 12,
+      status: "published",
+      coverImage: "/api/storage/objects/old-cover",
+      coverImageAlt: "Existing meaningful cover description",
+      ogImage: null,
+    };
+    selectQueue = [[BOT_USER], [existing]];
+    updateReturn = [{ ...existing, coverImage: "/covers/news.webp" }];
+
+    const res = await backfill({
+      slug: "existing-alt-story",
+      cover_image: "/covers/news.webp",
+    });
+
+    expect(res.status).toBe(200);
+    expect(captured.updateValues).toContainEqual({ coverImage: "/covers/news.webp" });
+    expect(persistExternalImageMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a cover replacement when neither supplied nor existing alt text is meaningful", async () => {
+    const existing = {
+      id: 47,
+      title: "Missing alt story",
+      slug: "missing-alt-story",
+      authorId: 12,
+      status: "published",
+      coverImage: "/api/storage/objects/old-cover",
+      coverImageAlt: "   ",
+      ogImage: null,
+    };
+    selectQueue = [[BOT_USER], [existing]];
+
+    const res = await backfill({
+      post_id: 47,
+      cover_image: "https://images.example.com/new-cover.jpg",
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.json.error).toMatch(/cover_image_alt is required/i);
+    expect(captured.updateValues).toHaveLength(0);
+    expect(persistExternalImageMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unsupported replacement before updating or persisting", async () => {
+    const existing = {
+      id: 48,
+      title: "Invalid image story",
+      slug: "invalid-image-story",
+      authorId: 12,
+      status: "published",
+      coverImage: "/api/storage/objects/old-cover",
+      coverImageAlt: "Existing cover description",
+      ogImage: null,
+    };
+    selectQueue = [[BOT_USER], [existing]];
+
+    const res = await backfill({
+      post_id: 48,
+      cover_image: "javascript:alert(1)",
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.json.error).toMatch(/cover_image must use/i);
+    expect(captured.updateValues).toHaveLength(0);
+    expect(persistExternalImageMock).not.toHaveBeenCalled();
+  });
+
+  it("does not update when replacement persistence throws", async () => {
+    const existing = {
+      id: 49,
+      title: "Persistence failure story",
+      slug: "persistence-failure-story",
+      authorId: 12,
+      status: "published",
+      coverImage: "/api/storage/objects/old-cover",
+      coverImageAlt: "Existing cover description",
+      ogImage: null,
+    };
+    selectQueue = [[BOT_USER], [existing]];
+    persistExternalImageMock.mockRejectedValueOnce(new Error("storage unavailable"));
+
+    const res = await backfill({
+      post_id: 49,
+      cover_image: "https://images.example.com/new-cover.jpg",
+    });
+
+    expect(res.status).toBe(502);
+    expect(res.json.error).toMatch(/no changes were saved/i);
+    expect(captured.updateValues).toHaveLength(0);
   });
 
   it("can target a post by slug and rejects a missing alt-only target cover", async () => {

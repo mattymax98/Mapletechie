@@ -148,6 +148,7 @@ vi.mock("../middlewares/adminAuth", () => ({
 
 const mcpRouter = (await import("./mcp")).default;
 const imagePersistence = await import("../lib/persistExternalImage");
+const persistExternalImageMock = vi.mocked(imagePersistence.persistExternalImage);
 const persistImageBufferMock = vi.mocked(imagePersistence.persistImageBuffer);
 
 const KEY = "test-mcp-connector-key-1234567890";
@@ -438,6 +439,47 @@ describe("POST /mcp — tools", () => {
       coverImageAlt: "A circuit board under inspection",
     });
     expect(auditCalls.some((c) => c.input.action === "automation.post.backfill")).toBe(true);
+  });
+
+  it("backfill_mapletechie_images replaces cover and social-share images on a published post", async () => {
+    const existing = {
+      id: 53,
+      title: "Published replacement story",
+      slug: "published-replacement-story",
+      authorId: 12,
+      status: "published",
+      coverImage: "/api/storage/objects/old-cover",
+      coverImageAlt: "Existing cover description",
+      ogImage: "/api/storage/objects/old-og",
+    };
+    selectQueue = [[BOT_USER], [existing]];
+    updateReturn = [{
+      ...existing,
+      coverImage: "/api/storage/objects/new-cover",
+      ogImage: "/api/storage/objects/new-og",
+    }];
+    persistExternalImageMock
+      .mockResolvedValueOnce("/api/storage/objects/new-cover")
+      .mockResolvedValueOnce("/api/storage/objects/new-og");
+
+    const res = await authed(callTool("backfill_mapletechie_images", {
+      slug: "published-replacement-story",
+      cover_image: "https://images.example.com/new-cover.jpg",
+      og_image: "https://images.example.com/new-og.jpg",
+    }));
+
+    expect(res.status).toBe(200);
+    expect(res.body.result.isError).toBeFalsy();
+    const payload = JSON.parse(res.body.result.content[0].text);
+    expect(payload).toMatchObject({
+      id: 53,
+      status: "published",
+      updated_fields: ["coverImage", "ogImage"],
+    });
+    expect(captured.updateValues).toContainEqual({
+      coverImage: "/api/storage/objects/new-cover",
+      ogImage: "/api/storage/objects/new-og",
+    });
   });
 
   it("backfill_mapletechie_images rejects unsupported fields instead of stripping them", async () => {

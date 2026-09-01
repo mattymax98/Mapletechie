@@ -237,10 +237,16 @@ function buildMcpServer(req: Request): McpServer {
     {
       title: "Backfill images on a Mapletechie post",
       description:
-        "Update image-related fields on an existing post immediately, including published posts. Target exactly one post by post_id or slug. Send cover_image_alt to fill cover alt text, and/or send the complete updated TipTap-compatible content HTML to add or repair inline images. The current author, byline, status, slug and publish time are preserved. Every img in supplied content must have meaningful alt text.",
+        "Update image-related fields on an existing post immediately, including published posts. Target exactly one post by post_id or slug. Send cover_image to replace the cover, og_image to replace the social-share image, cover_image_alt to set cover alt text, and/or the complete updated TipTap-compatible content HTML to add or repair inline images. External replacements are copied to Mapletechie storage when possible. The current author, byline, status, slug and publish time are preserved. Every img in supplied content must have meaningful alt text.",
       inputSchema: z.object({
         post_id: z.number().int().positive().optional().describe("Existing post ID; provide this OR slug"),
         slug: z.string().min(1).optional().describe("Existing post slug; provide this OR post_id"),
+        cover_image: z
+          .string()
+          .trim()
+          .min(1)
+          .optional()
+          .describe("Replacement cover image URL or supported local image path; external URLs are re-hosted when possible"),
         content: z
           .string()
           .min(1)
@@ -252,6 +258,12 @@ function buildMcpServer(req: Request): McpServer {
           .min(1)
           .optional()
           .describe("Meaningful alt text for the post's existing cover image"),
+        og_image: z
+          .string()
+          .trim()
+          .min(1)
+          .optional()
+          .describe("Replacement social-share image URL or supported local image path; external URLs are re-hosted when possible"),
       }).strict(),
     },
     async (args) => {
