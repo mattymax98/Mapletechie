@@ -357,7 +357,15 @@ app.set("trust proxy", 1);
 // DNS is being cut over. Query strings are preserved by Express's redirect
 // helper, including for legacy URLs that still need their path handlers.
 const CANONICAL_HOST = "www.mapletechie.com";
+const CANONICAL_REDIRECT_ENABLED =
+  /^(?:1|true|yes|on)$/i.test(
+    String(process.env.CANONICAL_REDIRECT_ENABLED || "").trim(),
+  );
 app.use((req, res, next) => {
+  if (!CANONICAL_REDIRECT_ENABLED) {
+    next();
+    return;
+  }
   const host = (req.hostname || "").toLowerCase();
   const forwardedProto = String(req.headers["x-forwarded-proto"] || "")
     .split(",")[0]
