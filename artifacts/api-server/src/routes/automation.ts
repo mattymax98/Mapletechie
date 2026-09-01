@@ -4,7 +4,12 @@ import { db, postsTable, usersTable, automationRequestsTable, seriesTable } from
 import { eq } from "drizzle-orm";
 import { writeAuditLogForUser } from "../lib/audit";
 import { validateCoverImage } from "../lib/coverImageValidation";
-import { isExternalImageUrl, persistExternalImage, persistExternalImagesInHtml } from "../lib/persistExternalImage";
+import {
+  collectExternalImageUrls,
+  isExternalImageUrl,
+  persistExternalImage,
+  persistExternalImagesInHtml,
+} from "../lib/persistExternalImage";
 import { cleanHtml, cleanText } from "./posts";
 import {
   resolveCategoriesForWrite,
@@ -359,6 +364,9 @@ export async function backfillAutomationPostImages(
       return fail(400, "content must be a non-empty HTML string");
     }
     sanitizedContent = cleanHtml(body.content);
+    if (!sanitizedContent.trim()) {
+      return fail(400, "content must contain non-empty sanitized TipTap-compatible HTML");
+    }
     const inlineImageError = validateAutomationImages(sanitizedContent);
     if (inlineImageError) {
       return fail(400, inlineImageError);
@@ -562,6 +570,9 @@ export async function createAutomationDraft(
   }
 
   const sanitizedContent = cleanHtml(body.content);
+  if (!sanitizedContent.trim()) {
+    return fail(400, "content must contain non-empty sanitized TipTap-compatible HTML");
+  }
   const inlineImageError = validateAutomationImages(sanitizedContent);
   if (inlineImageError) {
     return fail(400, inlineImageError);
@@ -571,19 +582,43 @@ export async function createAutomationDraft(
   const persistCtx = { uploaderId: botUser.id, uploaderName: botUser.displayName };
   let coverImage = typeof body.coverImage === "string" ? body.coverImage : null;
   let ogImage = typeof body.ogImage === "string" ? body.ogImage : null;
-  if (isExternalImageUrl(coverImage)) {
-    coverImage = await persistExternalImage(coverImage, { ...persistCtx, alt: coverImageAlt });
+  try {
+    if (isExternalImageUrl(coverImage)) {
+      coverImage = await persistExternalImage(coverImage, { ...persistCtx, alt: coverImageAlt });
+      if (isExternalImageUrl(coverImage)) {
+        return fail(502, "Could not persist the draft cover image; no draft was created");
+      }
+    }
+    if (isExternalImageUrl(ogImage)) {
+      ogImage = await persistExternalImage(ogImage, persistCtx);
+      if (isExternalImageUrl(ogImage)) {
+        return fail(502, "Could not persist the draft social-share image; no draft was created");
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, "automation: draft image persistence failed");
+    return fail(502, "Could not persist one or more draft images; no draft was created");
   }
-  if (isExternalImageUrl(ogImage)) ogImage = await persistExternalImage(ogImage, persistCtx);
 
   const toStringArray = (v: unknown): string[] =>
     Array.isArray(v) ? v.map((x) => cleanText(x)).filter((x): x is string => !!x) : [];
+
+  let content: string;
+  try {
+    content = await persistExternalImagesInHtml(sanitizedContent, persistCtx);
+  } catch (err) {
+    logger.warn({ err }, "automation: inline draft image persistence failed");
+    return fail(502, "Could not persist one or more inline draft images; no draft was created");
+  }
+  if (collectExternalImageUrls(content).length > 0) {
+    return fail(502, "Could not persist one or more inline draft images; no draft was created");
+  }
 
   const values = {
     title: String(body.title).trim().slice(0, 300),
     slug,
     excerpt: typeof body.excerpt === "string" ? body.excerpt.trim() : "",
-    content: await persistExternalImagesInHtml(sanitizedContent, persistCtx),
+    content,
     coverImage,
     coverImageAlt,
     categoryId: resolvedCategory.id,

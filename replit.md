@@ -52,6 +52,11 @@ pnpm workspace monorepo using TypeScript. Contains "Mapletechie" (mapletechie.co
 - Routes: `GET/POST /api/admin/media` (any authed editor) and `DELETE /api/admin/media/:id` (admin or original uploader).
 - UI: `/admin/media` (`AdminMedia.tsx`) — upload via `ImageUploadField`, browse the library grid, copy URL, delete.
 
+### Daily editorial automation
+
+- The canonical daily automation contract, including its `0 7 * * *` schedule in `America/Thunder_Bay`, fresh-article floor, editorial workflow, review-only authority, image/SEO/QA rules, failure semantics, and report formats is maintained in `EDITORIAL_AUTOMATION.md` and `artifacts/api-server/src/lib/editorialAutomationContract.ts`.
+- The MCP read-only tool `get_mapletechie_editorial_contract` exposes that same source of truth to the connected automation. Normal editor routes and permissions are intentionally unchanged.
+
 ## Database Schema
 
 Tables: `posts`, `categories`, `products`, `contact_submissions`, `jobs`, `job_applications`, `reviews`, `ad_inquiries`.

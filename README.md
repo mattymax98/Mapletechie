@@ -37,6 +37,14 @@ Each artifact has its own `dev` script (`pnpm --filter @workspace/tech-blog run 
 
 ## ChatGPT draft image contract
 
+The complete daily operating contract—including the seven-day schedule,
+editorial mix, Canadian focus, research/SEO/prose rules, rights-safe imagery,
+QA, failure handling, and report format—lives in
+[EDITORIAL_AUTOMATION.md](./EDITORIAL_AUTOMATION.md). The connected MCP client
+can retrieve the canonical instructions with
+`get_mapletechie_editorial_contract`; do not maintain a separate copy of the
+long-form prompt.
+
 The private `POST /api/automation/posts/drafts` endpoint accepts
 TipTap-compatible HTML in `content`. Article images belong directly in that
 HTML at the position where they should appear:

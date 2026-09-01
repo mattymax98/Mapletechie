@@ -116,6 +116,10 @@ vi.mock("../lib/audit", () => ({
 
 vi.mock("../lib/persistExternalImage", () => ({
   isExternalImageUrl: (v: unknown) => typeof v === "string" && /^https?:\/\//.test(v) && !v.includes("mapletechie.com"),
+  collectExternalImageUrls: (html: unknown) =>
+    typeof html === "string"
+      ? [...html.matchAll(/<img\b[^>]*\bsrc="(https?:\/\/[^"]+)"/gi)].map((match) => match[1])
+      : [],
   persistExternalImage: vi.fn(async () => "/api/storage/objects/persisted-cover"),
   persistExternalImagesInHtml: vi.fn(async (html: string) => html),
   persistImageBuffer: vi.fn(async (buf: Buffer) => {
@@ -275,9 +279,27 @@ describe("POST /mcp — tools", () => {
     const res = await authed({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} });
     expect(res.status).toBe(200);
     const names = res.body.result.tools.map((t: any) => t.name);
+    expect(names).toContain("get_mapletechie_editorial_contract");
     expect(names).toContain("list_mapletechie_categories");
     expect(names).toContain("list_mapletechie_posts");
     expect(names).toContain("create_mapletechie_draft");
+  });
+
+  it("returns the canonical schedule and editorial instructions", async () => {
+    const res = await authed(callTool("get_mapletechie_editorial_contract", {}));
+    expect(res.status).toBe(200);
+    expect(res.body.result.isError).toBeFalsy();
+    const payload = JSON.parse(res.body.result.content[0].text);
+    expect(payload.schedule).toMatchObject({
+      cadence: "daily",
+      cron: "0 7 * * *",
+      timezone: "America/Thunder_Bay",
+    });
+    expect(payload.schedule.days).toHaveLength(7);
+    expect(payload.instructions).toMatch(/at least five fresh/i);
+    expect(payload.instructions).toMatch(/never.*publish/i);
+    expect(payload.instructions).toMatch(/cannibalization/i);
+    expect(payload.reportFormat.blocked).toMatch(/exact blocker/i);
   });
 
   it("list_mapletechie_categories returns the category list", async () => {
@@ -357,6 +379,16 @@ describe("POST /mcp — tools", () => {
     const payload = JSON.parse(res.body.result.content[0].text);
     expect(payload.error).toMatch(/Forbidden field/);
     expect(auditCalls.some((c) => c.input.action === "automation.draft.rejected")).toBe(true);
+    expect(captured.insertValues!.filter((v) => v.title).length).toBe(0);
+  });
+
+  it("create_mapletechie_draft exposes author_avatar as forbidden", async () => {
+    selectQueue = [[BOT_USER]];
+    const res = await authed(callTool("create_mapletechie_draft", { ...draftArgs(), author_avatar: "/avatar.png" }));
+    expect(res.status).toBe(200);
+    expect(res.body.result.isError).toBe(true);
+    const payload = JSON.parse(res.body.result.content[0].text);
+    expect(payload.error).toMatch(/Forbidden field.*authorAvatar/i);
     expect(captured.insertValues!.filter((v) => v.title).length).toBe(0);
   });
 
