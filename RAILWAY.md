@@ -213,8 +213,8 @@ and run this for you.
 🧑 Find **DNS settings** for the domain.
 🧑 Add or update the record Railway showed you.
 🧑 Keep the existing apex record in place during verification. Add the
-canonical `www` record first; do not delete the old Google-hosted `www`
-record until the host-by-host checks below pass.
+canonical `www` record first. During the initial cutover, do not delete the
+old Google-hosted `www` record until the host-by-host checks below pass.
 
 DNS changes typically take 5–30 minutes to propagate.
 
@@ -288,8 +288,10 @@ The check uses a published article plus a query string and verifies that each
 alternate variant performs exactly one permanent redirect to the canonical
 `www` URL, with the complete path and query preserved.
 
-Keep the old Google hosting account and DNS rollback record during the defined
-observation period; do not delete it as part of the initial deployment.
+The initial cutover retained the old Replit Autoscale deployment (served by
+Google Frontend) and DNS rollback record through the defined observation
+period. That period is complete as of 2026-09-01; the old deployment is now
+unpublished and must not be reattached to a public Mapletechie hostname.
 
 ## Phase 8 — Verify & go live
 
@@ -311,6 +313,41 @@ Run the regression gate before retiring the old origin:
 - first-party analytics for ordinary visitors and GA4 pageviews only when
   `VITE_GA4_MEASUREMENT_ID` is configured. Admin/private paths must not be
   sent to GA4.
+
+### Old Google origin retirement record — 2026-09-01
+
+The former Replit Autoscale deployment, served by Google Frontend at
+`content-commerce-hub.replit.app`, was retired after the canonical `www` site
+and Cloudflare redirects completed the observation period. Its
+`mapletechie.com` and `www.mapletechie.com` custom-domain attachments were
+removed before the deployment was unpublished. Public traffic now has one
+authority:
+
+- `https://www.mapletechie.com` serves the Railway Tech Blog service.
+- HTTPS apex, HTTP apex, and HTTP `www` are handled by the existing proxied
+  Cloudflare canonical-host rule and redirect once to the HTTPS `www` URL.
+- The old Replit/Google Frontend target is no longer a public DNS destination.
+- The Cloudflare apex/`www` records needed for redirects, plus email records,
+  remain in place. Production database and R2 data were not removed.
+
+Verification at 2026-09-01 02:01 UTC recorded:
+
+- Replit deployment status: `isDeployed: false`, with no primary or additional
+  deployment URLs.
+- `https://content-commerce-hub.replit.app` returned `404` on three consecutive
+  requests and no longer served Mapletechie HTML.
+- Both public hostnames resolved to Cloudflare, canonical `www` returned a
+  Railway response, and `pnpm --filter @workspace/scripts run
+  verify-canonical-host` passed all four host/scheme variants.
+
+**Final recovery path:** if the Railway site must be recovered, keep the
+Cloudflare records and canonical-host rule in place, restore the Railway Tech
+Blog custom-domain attachment for `www.mapletechie.com`, and deploy the last
+known-good Railway build from GitHub. Restore the API service alongside it if
+needed; Railway Postgres and Cloudflare R2 remain the data sources. Validate
+with the canonical-host check and the Phase 8 regression gate. Do not restore
+or republish the retired Replit/Google Frontend origin, and do not point public
+DNS back to it.
 
 ### Secret and source-control boundary
 
