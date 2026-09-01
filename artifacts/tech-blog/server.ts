@@ -359,37 +359,6 @@ const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
 
-// The public site has one canonical host. Keep this redirect at the
-// application boundary as a reversible safety net while Cloudflare/Railway
-// DNS is being cut over. Query strings are preserved by Express's redirect
-// helper, including for legacy URLs that still need their path handlers.
-const CANONICAL_HOST = "www.mapletechie.com";
-const CANONICAL_REDIRECT_ENABLED =
-  /^(?:1|true|yes|on)$/i.test(
-    String(process.env.CANONICAL_REDIRECT_ENABLED || "").trim(),
-  );
-app.use((req, res, next) => {
-  if (!CANONICAL_REDIRECT_ENABLED) {
-    next();
-    return;
-  }
-  const host = (req.hostname || "").toLowerCase();
-  const forwardedProto = String(req.headers["x-forwarded-proto"] || "")
-    .split(",")[0]
-    .trim()
-    .toLowerCase();
-  const protocol = forwardedProto || req.protocol;
-  if (
-    host === "mapletechie.com" ||
-    (host === CANONICAL_HOST && protocol !== "https")
-  ) {
-    const location = `https://${CANONICAL_HOST}${req.originalUrl}`;
-    res.redirect(308, location);
-    return;
-  }
-  next();
-});
-
 // Tiny request log so prod issues are debuggable.
 app.use((req, _res, next) => {
   if (process.env.NODE_ENV !== "production" || req.path.startsWith("/blog/")) {

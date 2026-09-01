@@ -178,11 +178,6 @@ NODE_ENV   = production
 BASE_PATH  = /
 SITE_URL   = https://www.mapletechie.com
 API_BASE   = https://<api-server-railway-domain>   ← the domain from step 3.4
-# Leave false until www.mapletechie.com resolves to the current Railway
-# Tech Blog service and its full regression gate passes. Set true only as
-# the final cutover step; this makes apex/HTTP redirects one-hop at the app
-# boundary without sending readers to the old Google origin first.
-CANONICAL_REDIRECT_ENABLED = false
 # Optional GA4 web measurement ID; no private API key is required.
 VITE_GA4_MEASUREMENT_ID = G-XXXXXXXXXX
 ```
@@ -311,7 +306,6 @@ Run the regression gate before retiring the old origin:
 | `PRIVATE_OBJECT_DIR` | Set manually | `/mapletechie/private` |
 | `PUBLIC_OBJECT_SEARCH_PATHS` | Set manually | `/mapletechie/covers,/mapletechie/public` |
 | `SITE_URL` | Set manually | `https://www.mapletechie.com` (frontend only) |
-| `CANONICAL_REDIRECT_ENABLED` | Set manually | `false` during the reversible www attachment; set `true` only after www serves Railway |
 | `API_BASE` | Set manually | Railway URL of the API service (frontend only) |
 | `VITE_GA4_MEASUREMENT_ID` | Google Analytics | Optional public GA4 web measurement ID; loaded only in production, no private API key required |
 | `RESEND_API_KEY` | Resend (mapletechie.com workspace) | Must be from the workspace with `mapletechie.com` in Domains — see Phase 4 note |

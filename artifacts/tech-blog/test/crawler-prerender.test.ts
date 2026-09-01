@@ -402,6 +402,32 @@ afterAll(async () => {
 });
 
 describe("crawler prerendering — content for bots, shell for browsers", () => {
+  describe("hostname redirect ownership", () => {
+    it("does not redirect alternate hosts in the application layer", async () => {
+      const instance = await startPrerenderServer(
+        `http://127.0.0.1:${mockApi!.port}`,
+        { CANONICAL_REDIRECT_ENABLED: "true" },
+      );
+      try {
+        const response = await fetch(
+          `${instance.baseUrl}/blog/${ARTICLE.slug}`,
+          {
+            redirect: "manual",
+            headers: {
+              host: "mapletechie.com",
+              "x-forwarded-proto": "http",
+              "user-agent": BROWSER_UA,
+            },
+          },
+        );
+        expect(response.status).toBe(200);
+        expect(response.headers.get("location")).toBeNull();
+      } finally {
+        instance.close();
+      }
+    });
+  });
+
   describe("homepage /", () => {
     it("serves a prerendered body with real content to Googlebot", async () => {
       const { status, body } = await get("/", GOOGLEBOT_UA);
