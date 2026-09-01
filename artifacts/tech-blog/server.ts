@@ -296,6 +296,13 @@ async function fetchJson<T>(url: string, timeoutMs = 4000): Promise<T | null> {
   }
 }
 
+function sendSpaShell(res: express.Response, status = 200): void {
+  res.status(status);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.send(indexHtml);
+}
+
 /** Minimal shape we read off /api/posts/featured for the homepage hero. */
 interface FeaturedPost {
   coverImage?: string | null;
@@ -792,13 +799,20 @@ interface PostRecord {
 }
 
 app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
-  if (!isCrawler(req)) return next();
   const slug = req.params[0];
   if (!slug) return next();
 
   const post = await fetchJson<PostRecord>(
     `${API_BASE}/api/posts/slug/${encodeURIComponent(slug)}`,
   );
+  // A real article must not answer with a false 404 just because the first
+  // document is the client-rendered React shell. Keep unknown slugs as 404s,
+  // but let valid article routes return the correct successful status.
+  if (!isCrawler(req)) {
+    if (!post) return next();
+    sendSpaShell(res);
+    return;
+  }
   if (!post) {
     return send404(res, "Article Not Found");
   }
@@ -1640,12 +1654,11 @@ app.all(/.*/, (req, res, next) => {
 // Vary: User-Agent because /blog/* and /category/* above branch on UA, so any shared
 // cache MUST key by UA to avoid serving a crawler-rendered HTML to a real browser (or vice versa).
 app.get(/^(?!\/api\/).*/, (req, res) => {
-  res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.setHeader("Vary", "User-Agent");
   if (!isKnownSpaRoute(req.path)) {
-    res.status(404);
+    sendSpaShell(res, 404);
+    return;
   }
-  res.send(indexHtml);
+  sendSpaShell(res);
 });
 
 app.listen(PORT, "0.0.0.0", () => {

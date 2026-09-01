@@ -619,17 +619,20 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(crumbs!.itemListElement[3].item).toBe(`${SITE_URL}/blog/${ARTICLE.slug}`);
     });
 
-    it("serves the SPA shell (not the prerendered article) to a normal browser", async () => {
-      // Note: /blog/:slug isn't in KNOWN_SPA_ROUTES (its validity depends on a
-      // DB lookup), so the catch-all returns a soft 404 + the SPA shell for
-      // human visitors — React Router then mounts and renders the real article
-      // client-side. The point here is that the browser gets the shell, NOT the
-      // crawler-prerendered article body.
+    it("serves the SPA shell with 200 (not the prerendered article) to a normal browser", async () => {
+      // The server verifies that the article exists before returning the
+      // client shell, so a real article does not carry a false 404 status.
       const { status, body } = await get(`/blog/${ARTICLE.slug}`, BROWSER_UA);
-      expect(status).toBe(404);
+      expect(status).toBe(200);
       expect(body).toContain('<div id="root">');
       expect(body).not.toContain('"@type":"NewsArticle"');
       expect(body).not.toContain("Large language models are reshaping");
+    });
+
+    it("keeps an unknown article URL as a 404 for a normal browser", async () => {
+      const { status, body } = await get("/blog/this-does-not-exist", BROWSER_UA);
+      expect(status).toBe(404);
+      expect(body).toContain('<div id="root">');
     });
 
     it("does not emit VideoObject JSON-LD for embedded videos on text-first article pages", async () => {
