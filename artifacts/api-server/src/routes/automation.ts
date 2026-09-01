@@ -104,10 +104,19 @@ function normalizeBody(raw: Record<string, unknown>): Record<string, unknown> {
 }
 
 const AUTOMATION_INTERNAL_IMAGE_RE = /^\/(?:api\/storage\/objects|covers)\/[^\s"'<>]+$/i;
-const BACKFILL_ALLOWED_FIELDS = new Set(["postId", "slug", "content", "coverImageAlt"]);
+const BACKFILL_ALLOWED_FIELDS = new Set([
+  "postId",
+  "slug",
+  "content",
+  "coverImage",
+  "coverImageAlt",
+  "ogImage",
+]);
 const BACKFILL_SNAKE_TO_CAMEL: Record<string, string> = {
   post_id: "postId",
+  cover_image: "coverImage",
   cover_image_alt: "coverImageAlt",
+  og_image: "ogImage",
 };
 
 function isSupportedAutomationImageSource(src: string): boolean {
@@ -251,6 +260,12 @@ export async function backfillAutomationPostImages(
   if (hasOwn("cover_image_alt") && hasOwn("coverImageAlt")) {
     return fail(400, "Provide only one spelling of the cover alt field: cover_image_alt or coverImageAlt");
   }
+  if (hasOwn("cover_image") && hasOwn("coverImage")) {
+    return fail(400, "Provide only one spelling of the cover image field: cover_image or coverImage");
+  }
+  if (hasOwn("og_image") && hasOwn("ogImage")) {
+    return fail(400, "Provide only one spelling of the social-share image field: og_image or ogImage");
+  }
   const unknown = Object.keys(body).filter((key) => !BACKFILL_ALLOWED_FIELDS.has(key));
   if (unknown.length > 0) {
     return fail(422, `Unknown field(s): ${unknown.join(", ")}`);
@@ -282,22 +297,61 @@ export async function backfillAutomationPostImages(
   }
 
   const hasContent = Object.prototype.hasOwnProperty.call(body, "content");
+  const hasCoverImage = Object.prototype.hasOwnProperty.call(body, "coverImage");
   const hasCoverAlt = Object.prototype.hasOwnProperty.call(body, "coverImageAlt");
-  if (!hasContent && !hasCoverAlt) {
-    return fail(400, "Provide content and/or cover_image_alt to backfill");
+  const hasOgImage = Object.prototype.hasOwnProperty.call(body, "ogImage");
+  if (!hasContent && !hasCoverImage && !hasCoverAlt && !hasOgImage) {
+    return fail(400, "Provide content, cover_image, og_image, and/or cover_image_alt to backfill");
   }
 
-  const values: { content?: string; coverImageAlt?: string } = {};
+  const values: {
+    content?: string;
+    coverImage?: string;
+    coverImageAlt?: string;
+    ogImage?: string;
+  } = {};
+
+  let coverImage = target.coverImage;
+  if (hasCoverImage) {
+    if (typeof body.coverImage !== "string" || !body.coverImage.trim()) {
+      return fail(400, "cover_image must be a non-empty supported image URL or local path");
+    }
+    coverImage = body.coverImage.trim();
+    if (!isSupportedAutomationImageSource(coverImage)) {
+      return fail(400, "cover_image must use an http(s) URL, /api/storage/objects/... path, or /covers/... path");
+    }
+    const coverError = validateCoverImage(coverImage);
+    if (coverError) return fail(400, coverError);
+  }
+
+  let ogImage = target.ogImage;
+  if (hasOgImage) {
+    if (typeof body.ogImage !== "string" || !body.ogImage.trim()) {
+      return fail(400, "og_image must be a non-empty supported image URL or local path");
+    }
+    ogImage = body.ogImage.trim();
+    if (!isSupportedAutomationImageSource(ogImage)) {
+      return fail(400, "og_image must use an http(s) URL, /api/storage/objects/... path, or /covers/... path");
+    }
+    const ogError = validateCoverImage(ogImage);
+    if (ogError) return fail(400, ogError.replace(/^Cover image/, "Social-share image"));
+  }
+
+  const existingCoverAlt = cleanText(target.coverImageAlt);
+  let coverImageAlt = existingCoverAlt;
   if (hasCoverAlt) {
-    const coverImageAlt = cleanText(body.coverImageAlt);
+    coverImageAlt = cleanText(body.coverImageAlt);
     if (!coverImageAlt) {
       return fail(400, "cover_image_alt must be meaningful and non-empty");
     }
-    if (!target.coverImage) {
+    if (!coverImage) {
       return fail(400, "cover_image_alt cannot be set because this post has no cover image");
     }
-    values.coverImageAlt = coverImageAlt;
   }
+  if (hasCoverImage && !coverImageAlt) {
+    return fail(400, "cover_image_alt is required when replacing a cover image unless the existing cover alt text is meaningful");
+  }
+  if (hasCoverAlt) values.coverImageAlt = coverImageAlt!;
 
   let sanitizedContent = "";
   if (hasContent) {
@@ -313,6 +367,31 @@ export async function backfillAutomationPostImages(
       uploaderId: botUser.id,
       uploaderName: botUser.displayName,
     });
+  }
+
+  const persistCtx = { uploaderId: botUser.id, uploaderName: botUser.displayName };
+  try {
+    if (hasCoverImage) {
+      const replacementCoverImage = coverImage;
+      if (!replacementCoverImage) {
+        return fail(400, "cover_image must be a non-empty supported image URL or local path");
+      }
+      values.coverImage = isExternalImageUrl(replacementCoverImage)
+        ? await persistExternalImage(replacementCoverImage, { ...persistCtx, alt: coverImageAlt })
+        : replacementCoverImage;
+    }
+    if (hasOgImage) {
+      const replacementOgImage = ogImage;
+      if (!replacementOgImage) {
+        return fail(400, "og_image must be a non-empty supported image URL or local path");
+      }
+      values.ogImage = isExternalImageUrl(replacementOgImage)
+        ? await persistExternalImage(replacementOgImage, persistCtx)
+        : replacementOgImage;
+    }
+  } catch (err) {
+    logger.warn({ err }, "automation: image backfill persistence failed");
+    return fail(502, "Could not persist the replacement image; no changes were saved");
   }
 
   const [updated] = await db

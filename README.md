@@ -71,11 +71,17 @@ Image rules:
 The private `POST /api/automation/posts/backfill` endpoint and the
 `backfill_mapletechie_images` MCP tool can update image fields on an existing
 post, including a published post. Target exactly one post with `post_id` or
-`slug`. Send `cover_image_alt` to fill the existing cover's alt text and/or
-send the complete updated `content` HTML to add or repair inline images. When
-`content` is supplied, every `<img>` must have meaningful alt text. The
-operation preserves the post's current author, byline, status, slug, and
-publish time, so it also works after an editor changes the author to themselves.
+`slug`. Send `cover_image` to replace the cover, `og_image` to replace the
+social-share image, `cover_image_alt` to set cover alt text, and/or send the
+complete updated `content` HTML to add or repair inline images. When `content`
+is supplied, every `<img>` must have meaningful alt text. External replacement
+images are copied to Mapletechie's storage through the existing
+SSRF-protected pipeline when possible; `/api/storage/objects/...` and
+`/covers/...` paths can be used directly. A cover replacement uses the
+supplied `cover_image_alt`, or preserves an existing meaningful cover alt; it
+is rejected if neither is available. The operation preserves the post's
+current author, byline, status, slug, and publish time, so it also works after
+an editor changes the author to themselves.
 
 The `list_mapletechie_posts` MCP tool is the read-only discovery step for
 backfills. It can filter by `status` and limit the result count, and returns
