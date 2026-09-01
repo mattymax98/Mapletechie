@@ -9,6 +9,11 @@ import { writeAuditLogForUser } from "../lib/audit";
 import { persistImageBuffer } from "../lib/persistExternalImage";
 import { logger } from "../lib/logger";
 import { backfillAutomationPostImages, createAutomationDraft } from "./automation";
+import {
+  DAILY_EDITORIAL_AUTOMATION_CONTRACT,
+  DAILY_EDITORIAL_AUTOMATION_INSTRUCTIONS,
+  DAILY_EDITORIAL_AUTOMATION_SCHEDULE,
+} from "../lib/editorialAutomationContract";
 
 /**
  * MCP connector for ChatGPT — exposes the automation draft pipeline as a
@@ -107,6 +112,7 @@ const DRAFT_INPUT_SHAPE = {
   status: z.unknown().optional().describe("FORBIDDEN — the server always creates drafts"),
   author: z.unknown().optional().describe("FORBIDDEN — server-controlled"),
   author_id: z.unknown().optional().describe("FORBIDDEN — server-controlled"),
+  author_avatar: z.unknown().optional().describe("FORBIDDEN — server-controlled"),
   published_at: z.unknown().optional().describe("FORBIDDEN — server-controlled"),
   scheduled_for: z.unknown().optional().describe("FORBIDDEN — server-controlled"),
   is_featured: z.unknown().optional().describe("FORBIDDEN — server-controlled"),
@@ -118,11 +124,29 @@ function buildMcpServer(req: Request): McpServer {
   const server = new McpServer({ name: "mapletechie-drafts", version: "1.0.0" });
 
   server.registerTool(
+    "get_mapletechie_editorial_contract",
+    {
+      title: "Get Mapletechie editorial automation contract",
+      description:
+        "Read-only source of truth for the daily Mapletechie editorial run: schedule, review-only authority, discovery workflow, minimum five fresh drafts, editorial mix, Canadian relevance, research, SEO, image rights, QA, failure handling, and completion reporting.",
+      inputSchema: {},
+    },
+    async () => ({
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(DAILY_EDITORIAL_AUTOMATION_CONTRACT, null, 2),
+        },
+      ],
+    }),
+  );
+
+  server.registerTool(
     "list_mapletechie_categories",
     {
       title: "List Mapletechie categories",
       description:
-        "Read-only connectivity test. Returns the blog's live category list (id, name, slug) for use with create_mapletechie_draft.",
+        "Read-only first step of the canonical daily editorial workflow. Returns the blog's live category list (id, name, slug) for use with create_mapletechie_draft.",
       inputSchema: {},
     },
     async () => {
@@ -139,7 +163,7 @@ function buildMcpServer(req: Request): McpServer {
     {
       title: "List Mapletechie posts",
       description:
-        "Read-only list of recent Mapletechie posts. Optionally filter by status (draft, scheduled, or published). Returns id, title, slug, status, cover_image, and cover_image_alt, newest first.",
+        "Read-only second step of the canonical daily editorial workflow. Returns recent Mapletechie posts for search-intent, duplicate, and cannibalization checks. Optionally filter by status (draft, scheduled, or published). Returns id, title, slug, status, cover_image, and cover_image_alt, newest first.",
       inputSchema: z
         .object({
           status: z
@@ -284,7 +308,7 @@ function buildMcpServer(req: Request): McpServer {
     {
       title: "Create Mapletechie draft",
       description:
-        "Submit a blog post DRAFT for human review. The server forces draft status and the 'Mapletechie AI' byline; it can never publish. Do not send status, author or publish dates. For article images, first call upload_mapletechie_image, then place each returned URL in content as <img src=\"URL\" alt=\"meaningful description\">. cover_image requires cover_image_alt. A draft can belong to MULTIPLE categories: pass `categories` (first entry = primary unless primary_category is set), or legacy single `category_id`. Returns id, status, slug and edit_url.",
+        `Submit one completed item from the canonical daily editorial workflow as a blog post DRAFT for human review. The run is daily at ${DAILY_EDITORIAL_AUTOMATION_SCHEDULE.executionWindow}; aim for at least five fresh, non-cannibalizing items, with a flexible maximum and Canadian relevance where supported by evidence. The server forces draft status and the 'Mapletechie AI' byline; it can never publish. Do not send status, author, author_id, author_avatar, published_at, scheduled_for, or is_featured. For every cover or inline image, use a rights-safe source and meaningful alt text; upload images first when possible. A draft can belong to MULTIPLE categories: pass categories (first entry = primary unless primary_category is set), or legacy single category_id. Returns id, status, slug and edit_url.`,
       inputSchema: DRAFT_INPUT_SHAPE,
     },
     async (args) => {

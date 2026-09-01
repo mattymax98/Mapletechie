@@ -120,6 +120,10 @@ vi.mock("../lib/audit", () => ({
 
 vi.mock("../lib/persistExternalImage", () => ({
   isExternalImageUrl: (v: unknown) => typeof v === "string" && /^https?:\/\//.test(v) && !v.includes("mapletechie.com"),
+  collectExternalImageUrls: (html: unknown) =>
+    typeof html === "string"
+      ? [...html.matchAll(/<img\b[^>]*\bsrc="(https?:\/\/[^"]+)"/gi)].map((match) => match[1])
+      : [],
   persistExternalImage: vi.fn(async () => "/api/storage/objects/persisted-cover"),
   persistExternalImagesInHtml: vi.fn(async (html: string) => html),
 }));
@@ -291,6 +295,65 @@ describe("POST /automation/posts/drafts — contract", () => {
     expect(res.status).toBe(400);
   });
 
+  it("400 when sanitization removes the entire content body", async () => {
+    selectQueue = [[BOT_USER], [CATEGORY]];
+    const res = await post({ ...validBody(), content: "<script>alert('unsafe')</script>" });
+    expect(res.status).toBe(400);
+    expect(res.json.error).toMatch(/non-empty sanitized TipTap/i);
+    expect(captured.insertValues!.filter((v) => v.title).length).toBe(0);
+    expect(auditCalls.some((c) => c.input.action === "automation.draft.rejected")).toBe(true);
+  });
+
+  it("502 and creates no draft when cover image persistence fails", async () => {
+    selectQueue = [[BOT_USER], [CATEGORY], []];
+    persistExternalImageMock.mockRejectedValueOnce(new Error("storage unavailable"));
+    const res = await post({
+      ...validBody(),
+      cover_image: "https://images.example.com/cover.jpg",
+      cover_image_alt: "A server rack in a data centre",
+    });
+    expect(res.status).toBe(502);
+    expect(res.json.error).toMatch(/no draft was created/i);
+    expect(captured.insertValues!.filter((v) => v.title).length).toBe(0);
+    expect(auditCalls.some((c) => c.input.action === "automation.draft.rejected")).toBe(true);
+  });
+
+  it("502 when cover persistence falls back to the original external URL", async () => {
+    selectQueue = [[BOT_USER], [CATEGORY], []];
+    persistExternalImageMock.mockResolvedValueOnce("https://images.example.com/cover.jpg");
+    const res = await post({
+      ...validBody(),
+      cover_image: "https://images.example.com/cover.jpg",
+      cover_image_alt: "A server rack in a data centre",
+    });
+    expect(res.status).toBe(502);
+    expect(res.json.error).toMatch(/cover image/i);
+    expect(captured.insertValues!.filter((v) => v.title).length).toBe(0);
+  });
+
+  it("502 and creates no draft when inline image persistence fails", async () => {
+    selectQueue = [[BOT_USER], [CATEGORY], []];
+    persistExternalImagesInHtmlMock.mockRejectedValueOnce(new Error("storage unavailable"));
+    const res = await post({
+      ...validBody(),
+      content: '<p>Text</p><img src="https://example.com/photo.jpg" alt="A server rack in a data centre">',
+    });
+    expect(res.status).toBe(502);
+    expect(res.json.error).toMatch(/inline draft images/i);
+    expect(captured.insertValues!.filter((v) => v.title).length).toBe(0);
+    expect(auditCalls.some((c) => c.input.action === "automation.draft.rejected")).toBe(true);
+  });
+
+  it("502 when inline persistence leaves an external URL in the draft", async () => {
+    selectQueue = [[BOT_USER], [CATEGORY], []];
+    const res = await post({
+      ...validBody(),
+      content: '<p>Text</p><img src="https://example.com/photo.jpg" alt="A server rack in a data centre">',
+    });
+    expect(res.status).toBe(502);
+    expect(res.json.error).toMatch(/inline draft images/i);
+    expect(captured.insertValues!.filter((v) => v.title).length).toBe(0);
+  });
   it("400 on an unknown category", async () => {
     // bot user lookup, then resolveCategory lookups return nothing
     selectQueue = [[BOT_USER], [], []];
@@ -635,6 +698,26 @@ describe("POST /automation/posts/backfill — live image updates", () => {
 
     expect(res.status).toBe(400);
     expect(res.json.error).toMatch(/missing meaningful alt text/i);
+    expect(captured.updateValues).toHaveLength(0);
+  });
+
+  it("rejects backfill content when sanitization removes the entire body", async () => {
+    selectQueue = [[BOT_USER], [{
+      id: 50,
+      title: "Existing story",
+      slug: "existing-story",
+      authorId: 12,
+      status: "published",
+      coverImage: "/covers/news.webp",
+    }]];
+
+    const res = await backfill({
+      post_id: 50,
+      content: "<script>alert('unsafe')</script>",
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.json.error).toMatch(/non-empty sanitized TipTap/i);
     expect(captured.updateValues).toHaveLength(0);
   });
 
