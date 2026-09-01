@@ -663,6 +663,15 @@ app.use((req, res, next) => {
   return serveStatic(req, res, next);
 });
 
+// Preserve the original public URL after the annual laptop guide was updated
+// from 2025 to 2026. External links and old search results should transfer to
+// the current article instead of landing on a 404.
+app.get("/blog/best-laptops-2025-definitive-rankings", (req, res) => {
+  const queryStart = req.originalUrl.indexOf("?");
+  const query = queryStart >= 0 ? req.originalUrl.slice(queryStart) : "";
+  res.redirect(301, `/blog/best-laptops-2026-definitive-rankings${query}`);
+});
+
 // --- Permanently retired URLs ---------------------------------------------
 // These URLs are no longer part of the publication. Return a real 410 to
 // every client, including crawlers, so search engines stop treating them as

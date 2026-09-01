@@ -857,6 +857,20 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
   });
 
   describe("reported legacy Search Console paths", () => {
+    it("redirects the old 2025 laptop guide URL to the current 2026 article", async () => {
+      const r = await fetch(
+        `${baseUrl}/blog/best-laptops-2025-definitive-rankings?utm_source=legacy`,
+        {
+          headers: { "user-agent": GOOGLEBOT_UA },
+          redirect: "manual",
+        },
+      );
+      expect(r.status).toBe(301);
+      expect(r.headers.get("location")).toBe(
+        "/blog/best-laptops-2026-definitive-rankings?utm_source=legacy",
+      );
+    });
+
     it("returns 410 for the retired homepage alias", async () => {
       const { status, body } = await get("/home/", GOOGLEBOT_UA);
       expect(status).toBe(410);
