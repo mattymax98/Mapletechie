@@ -36,7 +36,7 @@ import { splitSocialEmbeds, SocialEmbedView } from "@/components/SocialEmbeds";
 import { AdSlot, adPlacementEnabled, splitHtmlForInArticleAds } from "@/components/AdSlot";
 import { trackEvent } from "@/lib/tracker";
 
-const SITE_URL = "https://mapletechie.com";
+const SITE_URL = "https://www.mapletechie.com";
 
 // "Jul 25, 2026 at 3:00 AM EDT" in the reader's local timezone.
 function formatDateTimeWithZone(iso: string): string {

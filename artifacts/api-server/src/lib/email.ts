@@ -1,4 +1,5 @@
 import { logger } from "./logger";
+import { canonicalSiteUrl } from "./siteUrl";
 
 const RESEND_API = "https://api.resend.com/emails";
 
@@ -9,7 +10,7 @@ export const CAREERS_FROM =
 export const CAREERS_REPLY_TO =
   process.env["CAREERS_REPLY_TO"] || "matthew@mapletechie.com";
 export const SITE_URL =
-  process.env["SITE_URL"] || "https://mapletechie.com";
+  canonicalSiteUrl(process.env["SITE_URL"]);
 
 export interface SendEmailInput {
   to: string | string[];

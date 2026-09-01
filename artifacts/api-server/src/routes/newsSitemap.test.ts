@@ -84,7 +84,7 @@ describe("GET /news-sitemap.xml — SITE_DOMAIN protocol normalisation", () => {
       expect(loc, `expected https:// but got: ${loc}`).toMatch(/^https:\/\//);
     }
     expect(body).not.toMatch(/<loc>mapletechie\.com/); // no bare domain
-    expect(body).toContain("<loc>https://mapletechie.com/blog/canada-tech-news</loc>");
+    expect(body).toContain("<loc>https://www.mapletechie.com/blog/canada-tech-news</loc>");
   });
 
   it("produces https:// URLs when SITE_DOMAIN already has the https:// prefix", async () => {
@@ -95,7 +95,7 @@ describe("GET /news-sitemap.xml — SITE_DOMAIN protocol normalisation", () => {
     expect(status).toBe(200);
     const locs = [...body.matchAll(/<loc>(.*?)<\/loc>/g)].map((m) => m[1]);
     for (const loc of locs) {
-      expect(loc).toMatch(/^https:\/\/mapletechie\.com/);
+      expect(loc).toMatch(/^https:\/\/www\.mapletechie\.com/);
     }
   });
 

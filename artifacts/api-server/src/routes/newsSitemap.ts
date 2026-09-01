@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { db, postsTable, categoriesTable, postCategoriesTable } from "@workspace/db";
+import { getSiteUrl } from "../lib/siteUrl";
 import { and, desc, eq, gte } from "drizzle-orm";
 
 const router = Router();
@@ -15,8 +16,7 @@ function xmlEscape(str: string): string {
 }
 
 router.get("/news-sitemap.xml", async (req, res): Promise<void> => {
-  const _siteDomain = process.env.SITE_DOMAIN || "https://mapletechie.com";
-  const domain = _siteDomain.startsWith("http") ? _siteDomain : `https://${_siteDomain}`;
+  const domain = getSiteUrl();
 
   // Two days ago (48-hour rolling window Google News requires).
   const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);

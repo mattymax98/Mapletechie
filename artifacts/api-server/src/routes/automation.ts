@@ -14,6 +14,7 @@ import {
 import { hashPassword } from "../lib/auth";
 import { logger } from "../lib/logger";
 import { notifyEditorsOfAutomationDraft } from "../lib/automationDraftNotification";
+import { getSiteUrl } from "../lib/siteUrl";
 
 /**
  * Private automation draft API — lets an external AI client (run and
@@ -209,7 +210,7 @@ async function getBotUser() {
 }
 
 function editUrl(postId: number): string {
-  const domain = process.env.SITE_DOMAIN || "https://mapletechie.com";
+  const domain = getSiteUrl();
   return `${domain.replace(/\/$/, "")}/admin/posts/${postId}/edit`;
 }
 

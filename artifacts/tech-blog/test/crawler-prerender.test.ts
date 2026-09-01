@@ -140,7 +140,7 @@ const AUTHOR = {
   education: ["Abia State University", "Lakehead University"],
   knowsAbout: ["Technology Journalism", "Road Safety"],
   organizations: [
-    { name: "Mapletechie", url: "https://mapletechie.com" },
+    { name: "Mapletechie", url: "https://www.mapletechie.com" },
     { name: "TownZest", url: "https://townzest.ca" },
   ],
   memberships: [

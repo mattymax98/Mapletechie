@@ -34,8 +34,8 @@ args = ["node", "--enable-source-maps", "artifacts/tech-blog/dist/server.mjs"]
 PORT = "26015"
 BASE_PATH = "/"
 NODE_ENV = "production"
-SITE_URL = "https://mapletechie.com"
-API_BASE = "https://mapletechie.com"
+SITE_URL = "https://www.mapletechie.com"
+API_BASE = "https://www.mapletechie.com"
 
 [services.env]
 PORT = "26015"

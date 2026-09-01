@@ -93,7 +93,7 @@ describe("GET /sitemap.xml — SITE_DOMAIN protocol normalisation", () => {
   });
 
   it("produces https:// URLs when SITE_DOMAIN already has the https:// prefix", async () => {
-    process.env.SITE_DOMAIN = "https://mapletechie.com";
+    process.env.SITE_DOMAIN = "https://www.mapletechie.com";
 
     const { status, body } = await get("/sitemap.xml");
 
@@ -101,7 +101,7 @@ describe("GET /sitemap.xml — SITE_DOMAIN protocol normalisation", () => {
     const locs = [...body.matchAll(/<loc>(.*?)<\/loc>/g)].map((m) => m[1]);
     expect(locs.length).toBeGreaterThan(0);
     for (const loc of locs) {
-      expect(loc).toMatch(/^https:\/\/mapletechie\.com/);
+      expect(loc).toMatch(/^https:\/\/www\.mapletechie\.com/);
     }
   });
 
@@ -120,11 +120,11 @@ describe("GET /sitemap.xml — SITE_DOMAIN protocol normalisation", () => {
 
     const { body } = await get("/sitemap.xml");
 
-    expect(body).toContain("<loc>https://mapletechie.com/blog/test-post</loc>");
+    expect(body).toContain("<loc>https://www.mapletechie.com/blog/test-post</loc>");
   });
 
   it("does not emit malformed legacy route segments", async () => {
-    process.env.SITE_DOMAIN = "https://mapletechie.com";
+    process.env.SITE_DOMAIN = "https://www.mapletechie.com";
     let callCount = 0;
     db.select.mockImplementation(() => {
       callCount += 1;

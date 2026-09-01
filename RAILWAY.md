@@ -136,7 +136,7 @@ Go to the API Server service → **Variables** tab. Add each of the following:
 NODE_ENV                    = production
 # ⚠️  Must include the https:// prefix — the feed and sitemap generators use
 #     this value verbatim when building absolute URLs.
-SITE_DOMAIN                 = https://mapletechie.com
+SITE_DOMAIN                 = https://www.mapletechie.com
 
 # Copy these from your development secret store:
 SESSION_SECRET              = <from development secret store>
@@ -176,7 +176,7 @@ Go to the Tech Blog service → **Variables** tab. Add:
 ```
 NODE_ENV   = production
 BASE_PATH  = /
-SITE_URL   = https://mapletechie.com
+SITE_URL   = https://www.mapletechie.com
 API_BASE   = https://<api-server-railway-domain>   ← the domain from step 3.4
 # Optional GA4 web measurement ID; no private API key is required.
 VITE_GA4_MEASUREMENT_ID = G-XXXXXXXXXX
@@ -206,24 +206,85 @@ and run this for you.
 ## Phase 6 — Point your domain to Railway
 
 🧑 In Railway, go to the Tech Blog service → **Settings** → **Networking**.
-🧑 Click **+ Custom Domain**, enter `mapletechie.com`.
+🧑 Click **+ Custom Domain**, enter `www.mapletechie.com`.
 🧑 Railway shows you a CNAME or ALIAS record to add.
 
 🧑 Log in to wherever you registered `mapletechie.com` (GoDaddy, Namecheap, etc.).
 🧑 Find **DNS settings** for the domain.
 🧑 Add or update the record Railway showed you.
-🧑 Do the same for `www.mapletechie.com` if needed.
+🧑 Keep the existing apex record in place during verification. Add the
+canonical `www` record first; do not delete the old Google-hosted `www`
+record until the host-by-host checks below pass.
 
 DNS changes typically take 5–30 minutes to propagate.
 
 ---
 
-## Phase 7 — Verify & go live
+## Phase 7 — Verify the canonical host, then redirect the apex
 
-🧑 Visit https://mapletechie.com — confirm the site loads.
+The first cutover is deliberately reversible. The existing Railway origin,
+database, R2 bucket, Resend configuration, and apex behavior must remain
+available until the observation period is complete.
+
+Before changing the apex record, check all four variants:
+
+```bash
+for url in \
+  https://www.mapletechie.com/ \
+  https://mapletechie.com/ \
+  http://www.mapletechie.com/ \
+  http://mapletechie.com/; do
+  curl -sSIL --max-redirs 0 "$url"
+done
+```
+
+Expected results:
+
+- `https://www.mapletechie.com` serves the current Railway build.
+- `https://mapletechie.com`, `http://mapletechie.com`, and
+  `http://www.mapletechie.com` return one permanent redirect to the matching
+  `https://www.mapletechie.com` path, preserving the query string.
+- `www` returns the current API-backed content, `/api/healthz`, media, feeds,
+  robots, and sitemap rather than the old Google Frontend response.
+
+Only after those checks pass should Cloudflare route the apex and both HTTP
+variants to the canonical Railway-backed site. Keep the old Google hosting
+account and DNS rollback record during the defined observation period; do not
+delete it as part of the initial deployment.
+
+## Phase 8 — Verify & go live
+
+🧑 Visit https://www.mapletechie.com — confirm the site loads.
 🧑 Log in to the admin panel and check a few posts.
 🧑 Turn off maintenance mode.
 🤖 The agent will verify the API health endpoint and confirm images load.
+
+Run the regression gate before retiring the old origin:
+
+- public homepage, article, category, author, contact, careers, and unknown
+  paths;
+- retired paths still return their existing `410` responses and useful path
+  redirects remain intact;
+- admin login/session persistence, post save/publish/schedule, media
+  upload/read/delete permissions, contact/newsletter/career email paths;
+- `/api/healthz`, feeds, `robots.txt`, sitemap, canonical/OG/JSON-LD tags, and
+  favicons;
+- first-party analytics for ordinary visitors and GA4 pageviews only when
+  `VITE_GA4_MEASUREMENT_ID` is configured. Admin/private paths must not be
+  sent to GA4.
+
+### Secret and source-control boundary
+
+- Production credentials (`DATABASE_URL`, session/auth secrets, R2,
+  Resend, and optional AI credentials) live only in Railway Variables.
+- Development credentials and Replit sidecar storage remain in the
+  development environment; they are not copied into the production build.
+- AI generation remains admin-only, on-demand, and disabled when its Railway
+  credentials are absent. Normal reads, publishing, analytics, storage, and
+  email do not call Anthropic or OpenAI.
+- GitHub remains the source repository and Railway remains the deployment
+  path. Git remotes must use GitHub/Replit authorization or a credential-free
+  URL; never commit or embed a personal access token in a remote URL.
 
 ---
 
@@ -244,11 +305,11 @@ DNS changes typically take 5–30 minutes to propagate.
 | `R2_SECRET_ACCESS_KEY` | Cloudflare | From Phase 1 |
 | `PRIVATE_OBJECT_DIR` | Set manually | `/mapletechie/private` |
 | `PUBLIC_OBJECT_SEARCH_PATHS` | Set manually | `/mapletechie/covers,/mapletechie/public` |
-| `SITE_URL` | Set manually | `https://mapletechie.com` (frontend only) |
+| `SITE_URL` | Set manually | `https://www.mapletechie.com` (frontend only) |
 | `API_BASE` | Set manually | Railway URL of the API service (frontend only) |
 | `VITE_GA4_MEASUREMENT_ID` | Google Analytics | Optional public GA4 web measurement ID; loaded only in production, no private API key required |
 | `RESEND_API_KEY` | Resend (mapletechie.com workspace) | Must be from the workspace with `mapletechie.com` in Domains — see Phase 4 note |
-| `SITE_DOMAIN` | Set manually | `https://mapletechie.com` — **must include the https:// prefix** (API only) |
+| `SITE_DOMAIN` | Set manually | `https://www.mapletechie.com` — **must include the https:// prefix** (API only) |
 | `BASE_PATH` | Set manually | `/` (frontend only) |
 
 ## Schema repair after pg_restore (August 2026)

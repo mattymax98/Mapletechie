@@ -1,3 +1,5 @@
+import { getSiteUrl } from "../lib/siteUrl";
+
 /**
  * IndexNow admin routes.
  *
@@ -17,7 +19,7 @@ import { submitToIndexNow, isIndexNowConfigured } from "../lib/indexNow";
 
 const router = Router();
 
-const SITE_DOMAIN = (process.env.SITE_DOMAIN || "https://mapletechie.com").replace(/\/+$/, "");
+const SITE_DOMAIN = getSiteUrl();
 
 router.post(
   "/admin/indexnow/backfill",

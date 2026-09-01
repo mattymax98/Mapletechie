@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { db, postsTable, categoriesTable } from "@workspace/db";
 import { and, desc, eq, getTableColumns } from "drizzle-orm";
 import { attachCategories, postInCategory } from "../lib/postCategoryHelpers";
+import { getSiteUrl } from "../lib/siteUrl";
 
 const router = Router();
 
@@ -31,8 +32,7 @@ interface CategoryInfo {
  * the per-category feed URL; otherwise it is the unchanged site-wide feed.
  */
 async function sendFeed(res: Response, category?: CategoryInfo): Promise<void> {
-  const _siteDomain = process.env.SITE_DOMAIN || "https://mapletechie.com";
-  const domain = _siteDomain.startsWith("http") ? _siteDomain : `https://${_siteDomain}`;
+  const domain = getSiteUrl();
 
   // A post appears in a category feed when it belongs to that category —
   // primary OR secondary membership (post_categories join table).

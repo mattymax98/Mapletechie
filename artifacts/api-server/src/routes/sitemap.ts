@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, postsTable, categoriesTable, usersTable, seriesTable, jobsTable } from "@workspace/db";
 import { desc, eq, sql } from "drizzle-orm";
+import { getSiteUrl } from "../lib/siteUrl";
 
 const router = Router();
 const SLUG_SEGMENT_RE = /^[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?$/;
@@ -27,8 +28,7 @@ router.get("/sitemap/xml", (_req, res) => {
 });
 
 router.get("/sitemap.xml", async (req, res): Promise<void> => {
-  const _siteDomain = process.env.SITE_DOMAIN || "https://mapletechie.com";
-  const domain = _siteDomain.startsWith("http") ? _siteDomain : `https://${_siteDomain}`;
+  const domain = getSiteUrl();
 
   const [posts, categories, authors, allSeries, jobs, tagRows] = await Promise.all([
     db

@@ -129,12 +129,12 @@ describe("BlogPost NewsArticle JSON-LD", () => {
     // Sanity: the fields Google actually reads carry the SEO-precedence values.
     expect(emitted.headline).toBe("The Future of AI — What Comes Next");
     expect(emitted.description).toBe("A deep dive into where machine learning is headed.");
-    expect(emitted.image).toEqual(["https://mapletechie.com/covers/ai-future-og.jpg"]);
+    expect(emitted.image).toEqual(["https://www.mapletechie.com/covers/ai-future-og.jpg"]);
     expect(emitted.author).toEqual({ "@type": "Person", name: "Jane Doe" });
     expect(emitted.datePublished).toBe(post.publishedAt);
     expect(emitted.keywords).toBe("ai, machine-learning");
     expect(emitted.mainEntityOfPage["@id"]).toBe(
-      "https://mapletechie.com/blog/the-future-of-ai",
+      "https://www.mapletechie.com/blog/the-future-of-ai",
     );
   });
 
@@ -150,7 +150,7 @@ describe("BlogPost NewsArticle JSON-LD", () => {
     );
     expect(emitted.headline).toBe("Bare Bones");
     expect(emitted.description).toBe(post.excerpt);
-    expect(emitted.image).toEqual(["https://mapletechie.com/opengraph-v2.jpg"]);
+    expect(emitted.image).toEqual(["https://www.mapletechie.com/opengraph-v2.jpg"]);
     // Optional fields must be absent, not null/empty — Google flags those.
     expect(emitted).not.toHaveProperty("keywords");
   });

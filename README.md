@@ -1,6 +1,6 @@
 # Mapletechies
 
-Independent tech publication — mapletechie.com.
+Independent tech publication — www.mapletechie.com.
 
 A bold editorial site covering AI, electric vehicles, cybersecurity, and consumer
 gadgets, with a multi-user admin panel, weekly newsletter, reader reviews,

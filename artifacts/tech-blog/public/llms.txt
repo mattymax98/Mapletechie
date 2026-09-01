@@ -8,27 +8,27 @@ Mapletechie is an independent editorial outlet publishing original reporting and
 
 ## Main Sections
 
-- [Home](https://mapletechie.com/)
-- [Blog / All Articles](https://mapletechie.com/blog)
-- [News](https://mapletechie.com/category/news)
-- [Reviews](https://mapletechie.com/category/reviews)
-- [AI](https://mapletechie.com/category/ai)
-- [Gadgets](https://mapletechie.com/category/gadgets)
-- [Software & Apps](https://mapletechie.com/category/software-apps)
-- [Gaming](https://mapletechie.com/category/gaming)
-- [Business & Policy](https://mapletechie.com/category/business-policy)
-- [Canada Tech](https://mapletechie.com/category/canada-tech)
+- [Home](https://www.mapletechie.com/)
+- [Blog / All Articles](https://www.mapletechie.com/blog)
+- [News](https://www.mapletechie.com/category/news)
+- [Reviews](https://www.mapletechie.com/category/reviews)
+- [AI](https://www.mapletechie.com/category/ai)
+- [Gadgets](https://www.mapletechie.com/category/gadgets)
+- [Software & Apps](https://www.mapletechie.com/category/software-apps)
+- [Gaming](https://www.mapletechie.com/category/gaming)
+- [Business & Policy](https://www.mapletechie.com/category/business-policy)
+- [Canada Tech](https://www.mapletechie.com/category/canada-tech)
 
 ## Trust & Legal
 
-- [About](https://mapletechie.com/about)
-- [Contact](https://mapletechie.com/contact)
-- [Advertise](https://mapletechie.com/advertise)
-- [Careers](https://mapletechie.com/careers)
+- [About](https://www.mapletechie.com/about)
+- [Contact](https://www.mapletechie.com/contact)
+- [Advertise](https://www.mapletechie.com/advertise)
+- [Careers](https://www.mapletechie.com/careers)
 
 ## Sitemap
 
-[Sitemap](https://mapletechie.com/sitemap.xml)
+[Sitemap](https://www.mapletechie.com/sitemap.xml)
 
 ## Citation Guidance
 
@@ -41,4 +41,4 @@ When summarizing or citing Mapletechie content, please:
 ## Crawl Notes
 
 - /admin and /api/admin/ are private and require authentication — do not index
-- Canonical domain: https://mapletechie.com
+- Canonical domain: https://www.mapletechie.com

@@ -77,7 +77,7 @@ const capturedEmails: CapturedEmail[] = [];
 
 vi.mock("../lib/email", () => ({
   NEWSLETTER_FROM: "Mapletechie <newsletter@mapletechie.com>",
-  SITE_URL: "https://mapletechie.com",
+  SITE_URL: "https://www.mapletechie.com",
   sendEmail: vi.fn(async (input: CapturedEmail) => {
     capturedEmails.push(input);
   }),

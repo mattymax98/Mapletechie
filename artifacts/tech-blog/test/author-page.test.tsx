@@ -37,7 +37,7 @@ const richAuthor: ApiAuthor = {
   locationCountry: "CA",
   education: ["Lakehead University"],
   knowsAbout: ["Tech", "Safety"],
-  organizations: [{ name: "Mapletechie", url: "https://mapletechie.com" }],
+  organizations: [{ name: "Mapletechie", url: "https://www.mapletechie.com" }],
   memberships: [{ name: "Council", parentOrganization: "Parachute" }],
   profileLinks: [
     { label: "Council post", url: "https://linkedin.com/posts/123" },
