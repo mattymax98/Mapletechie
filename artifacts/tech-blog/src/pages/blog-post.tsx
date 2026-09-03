@@ -547,7 +547,7 @@ export default function BlogPost() {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground lg:ml-auto">
             <span data-testid="text-publish-datetime">{formatDateTimeWithZone(post.publishedAt)}</span>
             <a
               href="#comments"
@@ -563,7 +563,7 @@ export default function BlogPost() {
             </a>
           </div>
 
-          <div className="ml-auto shrink-0">
+          <div className="shrink-0">
             <ShareButtons title={post.title} url={canonicalUrl} />
           </div>
         </div>
