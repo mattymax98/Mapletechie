@@ -538,7 +538,15 @@ export default function BlogPost() {
           {post.excerpt}
         </p>
 
-        <div className="flex flex-wrap items-center justify-between gap-4 py-6 border-y border-border">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-4 py-6 border-y border-border">
+          <div className="shrink-0">
+            <AuthorBio
+              authorId={(post as any).authorId ?? null}
+              fallbackName={post.author}
+              fallbackAvatar={post.authorAvatar}
+            />
+          </div>
+
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
             <span data-testid="text-publish-datetime">{formatDateTimeWithZone(post.publishedAt)}</span>
             <a
@@ -555,7 +563,9 @@ export default function BlogPost() {
             </a>
           </div>
 
-          <ShareButtons title={post.title} url={canonicalUrl} />
+          <div className="ml-auto shrink-0">
+            <ShareButtons title={post.title} url={canonicalUrl} />
+          </div>
         </div>
       </header>
 
@@ -579,14 +589,6 @@ export default function BlogPost() {
             {...responsiveCoverProps(post.coverImage || "/images/hero-post.webp", COVER_SIZES.full)}
             alt={(post as any).coverImageAlt ?? ""}
             className="w-full h-auto"
-          />
-        </div>
-        {/* Compact Verge-style byline right under the cover image */}
-        <div className="mt-4">
-          <AuthorBio
-            authorId={(post as any).authorId ?? null}
-            fallbackName={post.author}
-            fallbackAvatar={post.authorAvatar}
           />
         </div>
       </div>
