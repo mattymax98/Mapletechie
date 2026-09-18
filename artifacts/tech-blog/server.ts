@@ -1189,7 +1189,7 @@ app.get(/^\/privacy\/?$/, (req, res, next) => {
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>Privacy Policy</h1>
   <p>${htmlEscape(description)}</p>
-  <p>Mapletechie collects minimal data to operate the site: first-party analytics (page views, referrers, and engagement), and — when configured for production — Google Analytics 4 for aggregate public page-view reporting. We also process contact form submissions and newsletter subscriptions. We use Google AdSense for advertising. We do not send article-author or user-provided personal information to Google Analytics, and we do not sell personal data. You may request deletion of your data by contacting <a href="mailto:tips@mapletechie.com">tips@mapletechie.com</a>.</p>
+   <p>Mapletechie collects information you submit through article comments, the general contact form, the Partner with us advertising and partnership form, newsletter signup, reader reviews, and job applications. New comments do not collect email addresses; approved comments may be displayed publicly after moderation. We also collect technical data for security and aggregate analytics, and use Google AdSense for advertising. We do not send user-provided personal information to Google Analytics, and we do not sell personal data. You may request access, correction, or deletion by contacting <a href="mailto:hello@mapletechie.com">hello@mapletechie.com</a>.</p>
   <p>Full policy at <a href="${htmlEscape(`${SITE_URL}/privacy`)}">mapletechie.com/privacy</a>.</p>
 </main>`;
   res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -1213,7 +1213,7 @@ app.get(/^\/terms\/?$/, (req, res, next) => {
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>Terms of Service</h1>
   <p>${htmlEscape(description)}</p>
-  <p>By using mapletechie.com you agree to these terms. All content on this site is owned by Mapletechie unless otherwise attributed. Some links may be affiliate links — we disclose this where applicable. Reproduction of articles requires written permission.</p>
+   <p>By using mapletechie.com you agree to these terms. Article comments are reviewed before publication and may be rejected, edited, or removed; approved comments may be displayed publicly with the submitted name or “Anonymous.” The Site also accepts private contact, job, newsletter, advertising, and partnership submissions for their stated purposes. All content on this site is owned by Mapletechie unless otherwise attributed. Some links may be affiliate links — we disclose this where applicable. Reproduction of articles requires written permission.</p>
   <p>Full terms at <a href="${htmlEscape(`${SITE_URL}/terms`)}">mapletechie.com/terms</a>.</p>
 </main>`;
   res.setHeader("Content-Type", "text/html; charset=utf-8");

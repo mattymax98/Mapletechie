@@ -1,7 +1,7 @@
 import { SEO } from "@/components/SEO";
 
 export default function Terms() {
-  const updated = "April 20, 2026";
+  const updated = "September 18, 2026";
   return (
     <>
       <SEO
@@ -35,15 +35,50 @@ export default function Terms() {
             <li>Use the Site to send spam, malware, or automated bulk traffic.</li>
           </ul>
 
-          <h2>3. Reader-submitted content</h2>
+          <h2>3. Reader submissions and comments</h2>
           <p>
-            When you submit a reader review, comment, contact message, job application, or newsletter signup, you confirm that:
+            The Site accepts article comments, reader reviews, general contact messages, job applications,
+            newsletter signups, and advertising or partnership inquiries. When you submit information or
+            content, you confirm that it is yours to share, accurate to the best of your knowledge, and
+            not misleading or unlawful.
           </p>
+          <h3>Article comments</h3>
           <ul>
-            <li>The content is yours to share, accurate to the best of your knowledge, and not misleading.</li>
-            <li>You grant Mapletechie a non-exclusive, worldwide, royalty-free license to display, edit for clarity, and republish that content in connection with the Site (for example, featuring a reader review on a product page).</li>
-            <li>We may decline, edit, or remove submissions at our discretion — particularly anything that violates these Terms or our editorial standards.</li>
+            <li>
+              You may provide a display name, but it is optional. The new-comment form does not collect an
+              email address.
+            </li>
+            <li>
+              Comments are held for editorial review before publication. We do not promise to publish any
+              comment, and we may approve, reject, edit for clarity or formatting, or remove a comment at
+              any time.
+            </li>
+            <li>
+              If approved, a comment may be displayed publicly with the name you provided or “Anonymous,”
+              together with the comment text and posting date.
+            </li>
+            <li>
+              You grant Mapletechie a non-exclusive, worldwide, royalty-free license to store, reproduce,
+              format, edit for clarity, and display your approved comment in connection with the Site.
+              This permission does not require us to publish the comment.
+            </li>
           </ul>
+          <h3>Other submissions</h3>
+          <p>
+            Contact messages, advertising or partnership inquiries, newsletter signups, job applications,
+            and reader reviews are handled for the purposes described in our{" "}
+            <a href="/privacy">Privacy Policy</a>. We may decline, edit, or remove a reader review or other
+            submission at our discretion, particularly if it violates these Terms or our editorial
+            standards. You should not submit confidential information unless the relevant form asks for it
+            and you are authorized to share it.
+          </p>
+          <p>
+            For a reader review or other content you intentionally submit for publication, you grant
+            Mapletechie the same non-exclusive, worldwide, royalty-free permission to store, reproduce,
+            format, edit for clarity, and display that content in connection with the Site. This permission
+            does not give us permission to publish private contact messages, job applications, newsletter
+            signup details, or advertising and partnership inquiries.
+          </p>
 
           <h2>4. Editorial independence and affiliate disclosure</h2>
           <p>

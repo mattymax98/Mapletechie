@@ -1,7 +1,7 @@
 import { SEO } from "@/components/SEO";
 
 export default function Privacy() {
-  const updated = "August 31, 2026";
+  const updated = "September 18, 2026";
   return (
     <>
       <SEO
@@ -24,7 +24,51 @@ export default function Privacy() {
           <h2>1. Information we collect</h2>
           <p>We collect only what we need to run the Site:</p>
           <ul>
-            <li><strong>Information you give us.</strong> When you contact us, sign up for the newsletter, leave a reader review, apply to a job, or write to advertise with us, we receive the email address, name, and any details you choose to include in your message.</li>
+            <li>
+              <strong>Article comments.</strong> When you submit a comment, we receive the article
+              association, comment text, optional name, moderation status, and submission timestamp. New
+              comments do not collect an email address. Comments remain pending until an editor reviews
+              them. Approved comments are displayed publicly with the name you provided or “Anonymous,”
+              the comment text, and the posting date. Pending and rejected comments are available only to
+              authorized editors through the moderation area, unless we are required to disclose them by
+              law.
+            </li>
+            <li>
+              <strong>General contact form.</strong> The contact form collects your name, email address,
+              subject, and message. We store the submission for follow-up, make it available to authorized
+              editors, and send a notification to our configured contact address. The notification uses
+              your email address as the reply-to so the editor can respond to you.
+            </li>
+            <li>
+              <strong>Advertising and partnership inquiries.</strong> The “Partner with us” form collects
+              company name, contact name, email address, partnership type, and campaign message. Website
+              and budget are optional fields. We store the inquiry for review and use it to respond about
+              potential sponsored posts, newsletter sponsorships, product reviews, brand partnerships, or
+              other advertising opportunities.
+            </li>
+            <li>
+              <strong>Newsletter subscriptions.</strong> When you subscribe to our email service, we
+              collect your email address and the signup source. We also maintain the subscription status
+              and timestamps for signup, confirmation, unsubscribe, and newsletter delivery. We send a
+              confirmation email before activating the subscription, include an unsubscribe link in
+              newsletters, and use the subscription record to manage delivery.
+            </li>
+            <li>
+              <strong>Reader reviews.</strong> A review may include your name, email address, rating,
+              optional title, review text, the associated article, moderation status, and submission
+              timestamp. We use this information to review and, where approved, publish the review.
+            </li>
+            <li>
+              <strong>Job applications.</strong> A job application may include your name, email address,
+              optional phone number, resume link, portfolio link, cover letter, the job applied for,
+              application status, and submission timestamp. We use it to evaluate and respond to your
+              application.
+            </li>
+            <li>
+              <strong>Other editorial messages.</strong> If you send us tips, story ideas, or other
+              messages through a form or email address, we receive the contact details and content you
+              choose to provide.
+            </li>
             <li><strong>Information collected automatically.</strong> Like most websites, our servers log basic technical data such as IP address, browser type, pages viewed, and the time of your visit. We use this to keep the Site secure, fix bugs, and understand which articles readers find useful.</li>
             <li><strong>First-party cookies.</strong> We use a small number of cookies that we set ourselves to remember your dark/light theme choice and to keep editors logged into the admin area.</li>
             <li><strong>Advertising cookies.</strong> We display ads on the Site through Google AdSense (see Section 4). Google and its partners use cookies and similar technologies to serve ads, measure performance, and — where permitted — personalize what you see. If you visit the Site from the European Economic Area, the United Kingdom, or Switzerland, you'll see a consent banner the first time you visit, and Google's ad partners will only use personalization cookies if you accept them.</li>
@@ -33,16 +77,19 @@ export default function Privacy() {
 
           <h2>2. How we use your information</h2>
           <ul>
-            <li>To respond to messages you send us.</li>
-            <li>To deliver the newsletter (when you sign up) and let you unsubscribe at any time.</li>
-            <li>To publish reader reviews you choose to submit.</li>
+            <li>To respond to contact messages, editorial tips, advertising or partnership inquiries, and job applications.</li>
+            <li>To review and, where approved, publish reader comments and reviews.</li>
+            <li>To confirm newsletter subscriptions, deliver the newsletter, track delivery status, and let you unsubscribe at any time.</li>
             <li>To keep the Site online, secure, and free of abuse.</li>
             <li>To understand, in aggregate, what content readers value so we can write more of it.</li>
             <li>To serve advertising that helps fund our journalism (see Section 4).</li>
           </ul>
           <p>
             We do not sell your personal information. We do not hand over the
-            email addresses, names, or messages you give us to advertisers.
+            email addresses, names, resumes, or messages you give us through
+            these forms to advertisers or sponsors. Advertising and partnership
+            inquiries are used to evaluate and respond to the inquiry, not to
+            automatically enroll you in marketing.
             However, our ad partner (Google) does receive standard browser
             information (IP address, user agent, page URL, and ad-related
             cookies) when ads are loaded on the Site — this is described in
@@ -51,7 +98,13 @@ export default function Privacy() {
 
           <h2>3. How we store and protect your information</h2>
           <p>
-            Submissions, newsletter signups, and account data are stored in our database with industry-standard access controls. Only authorized editors can view contact-form submissions. We keep this information for as long as it's useful for the purpose it was collected, or until you ask us to delete it.
+            Submissions, newsletter records, comments, reviews, applications, and account data are stored
+            in our database with access controls. Authorized editors can view the records needed for their
+            editorial or administrative work. Approved comments and approved reviews are public; the
+            underlying moderation and contact records are not. We keep information for as long as it is
+            useful for the purpose it was collected, to maintain the Site and its records, or as required
+            by law. You can ask us to delete information as described below, although we may need to keep
+            some information for legal, security, or operational reasons.
           </p>
 
           <h2>4. Third-party services</h2>
@@ -118,6 +171,13 @@ export default function Privacy() {
               Google's Privacy Policy
             </a>.
           </p>
+          <h3>Email delivery</h3>
+          <p>
+            We use an email-routing provider to send contact notifications, newsletter confirmation
+            messages, welcome messages, and newsletters. That provider receives the email address and the
+            message or subscription information needed to deliver the email. It processes that information
+            under its own privacy policy.
+          </p>
           <h3>Other links</h3>
           <p>
             Articles on the Site may include links to external websites (including affiliate links — see our Terms of Service). We are not responsible for the privacy practices of those sites.
@@ -125,8 +185,9 @@ export default function Privacy() {
 
           <h2>5. Your choices and rights</h2>
           <ul>
-            <li><strong>Newsletter:</strong> every newsletter email includes an unsubscribe link, and you can also email us to be removed at any time.</li>
-            <li><strong>Access, correction, deletion:</strong> email <a href="mailto:hello@mapletechie.com">hello@mapletechie.com</a> with the email address you used and we'll handle requests to view, correct, or delete your data within a reasonable timeframe.</li>
+            <li><strong>Newsletter:</strong> every newsletter email includes an unsubscribe link, and you can also email us to be removed at any time. Unsubscribing stops future newsletter delivery but may leave a record of the request and prior delivery activity.</li>
+            <li><strong>Comments and reviews:</strong> because comments and approved reviews can be publicly displayed, email us if you want to ask about correcting or removing a submission. We may need to verify the request and may retain a record of moderation activity.</li>
+            <li><strong>Access, correction, deletion:</strong> email <a href="mailto:hello@mapletechie.com">hello@mapletechie.com</a> with enough information for us to identify your submission, such as the email address used or the relevant article or inquiry. We'll review requests to view, correct, or delete your data within a reasonable timeframe, subject to legal and operational limits.</li>
             <li><strong>Cookies:</strong> you can clear or block cookies in your browser; the Site will still work, you'll just need to re-pick your theme each visit.</li>
             <li><strong>Personalized ads:</strong> use the Google Ads Settings link in Section 4 to turn off personalization. You'll still see ads on the Site, but they won't be tailored to your browsing history.</li>
             <li><strong>Google Analytics:</strong> you can block cookies or use browser privacy controls and extensions to limit analytics collection.</li>
