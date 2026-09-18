@@ -808,6 +808,7 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       const { status, body } = await get("/privacy", GOOGLEBOT_UA);
       expect(status).toBe(200);
       expect(body).toContain("<h1>Privacy Policy</h1>");
+      expect(body).toContain("other third-party advertising providers");
       expect(body).not.toContain('<div id="root"></div>');
     });
 

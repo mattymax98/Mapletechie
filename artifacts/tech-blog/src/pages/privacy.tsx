@@ -71,7 +71,7 @@ export default function Privacy() {
             </li>
             <li><strong>Information collected automatically.</strong> Like most websites, our servers log basic technical data such as IP address, browser type, pages viewed, and the time of your visit. We use this to keep the Site secure, fix bugs, and understand which articles readers find useful.</li>
             <li><strong>First-party cookies.</strong> We use a small number of cookies that we set ourselves to remember your dark/light theme choice and to keep editors logged into the admin area.</li>
-            <li><strong>Advertising cookies.</strong> We display ads on the Site through Google AdSense (see Section 4). Google and its partners use cookies and similar technologies to serve ads, measure performance, and — where permitted — personalize what you see. If you visit the Site from the European Economic Area, the United Kingdom, or Switzerland, you'll see a consent banner the first time you visit, and Google's ad partners will only use personalization cookies if you accept them.</li>
+            <li><strong>Advertising cookies.</strong> We display ads on the Site through Google AdSense and may also use other third-party advertising providers at our discretion (see Section 4). These providers and their partners may use cookies and similar technologies to serve ads, measure performance, and — where permitted — personalize what you see. Where required by applicable law, we will request consent before allowing advertising providers to use cookies for personalized advertising.</li>
             <li><strong>Google Analytics.</strong> When a Google Analytics 4 measurement ID is configured for the production Site, Google Analytics collects pseudonymous information about public page views and navigation, such as the page path, device, browser, and approximate location. We do not send article-author details, account information, or other user-provided personal information to Google Analytics.</li>
           </ul>
 
@@ -90,10 +90,10 @@ export default function Privacy() {
             these forms to advertisers or sponsors. Advertising and partnership
             inquiries are used to evaluate and respond to the inquiry, not to
             automatically enroll you in marketing.
-            However, our ad partner (Google) does receive standard browser
-            information (IP address, user agent, page URL, and ad-related
-            cookies) when ads are loaded on the Site — this is described in
-            Section 4.
+            However, our advertising providers, including Google, may receive
+            standard browser information (such as your IP address, user agent,
+            page URL, device information, and ad-related cookies) when ads are
+            loaded on the Site — this is described in Section 4.
           </p>
 
           <h2>3. How we store and protect your information</h2>
@@ -110,6 +110,19 @@ export default function Privacy() {
           <h2>4. Third-party services</h2>
           <p>
             We rely on a small set of trusted services to run the Site, including our hosting provider, our email-routing provider, and analytics for understanding traffic patterns. These providers process limited data on our behalf under their own privacy policies.
+          </p>
+          <h3>Advertising providers</h3>
+          <p>
+            We currently use Google AdSense and may, at our discretion, display
+            ads supplied by other third-party advertising providers. These
+            providers may collect or receive standard browser and device
+            information, the page you are viewing, IP address, and cookies or
+            similar identifiers to deliver ads, prevent fraud, measure
+            performance, and, where permitted, personalize advertising. Each
+            provider processes information under its own privacy policy and
+            offers its own privacy controls or opt-out methods. We do not give
+            advertising providers the names, email addresses, resumes, or
+            messages you submit through our forms.
           </p>
           <h3>Google AdSense</h3>
           <p>
@@ -189,7 +202,7 @@ export default function Privacy() {
             <li><strong>Comments and reviews:</strong> because comments and approved reviews can be publicly displayed, email us if you want to ask about correcting or removing a submission. We may need to verify the request and may retain a record of moderation activity.</li>
             <li><strong>Access, correction, deletion:</strong> email <a href="mailto:hello@mapletechie.com">hello@mapletechie.com</a> with enough information for us to identify your submission, such as the email address used or the relevant article or inquiry. We'll review requests to view, correct, or delete your data within a reasonable timeframe, subject to legal and operational limits.</li>
             <li><strong>Cookies:</strong> you can clear or block cookies in your browser; the Site will still work, you'll just need to re-pick your theme each visit.</li>
-            <li><strong>Personalized ads:</strong> use the Google Ads Settings link in Section 4 to turn off personalization. You'll still see ads on the Site, but they won't be tailored to your browsing history.</li>
+            <li><strong>Personalized ads:</strong> use the Google Ads Settings link and any privacy controls offered by our other advertising providers, as described in Section 4, to limit personalized advertising. You may still see non-personalized ads on the Site.</li>
             <li><strong>Google Analytics:</strong> you can block cookies or use browser privacy controls and extensions to limit analytics collection.</li>
             <li><strong>EEA / UK / Switzerland readers:</strong> you have additional rights under the GDPR and UK GDPR — including the right to access, rectify, erase, restrict, or port your personal data, and to object to processing. To exercise any of these, email us at the address in Section 8.</li>
           </ul>
