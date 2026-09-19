@@ -60,21 +60,17 @@ PUBLIC_OBJECT_SEARCH_PATHS = /mapletechie/public
 
 ---
 
-## Phase 2 — Migrate your images to R2
+## Phase 2 — Verify R2 access
 
-🧑 Add the three R2 secrets to your development secret store:
-   - `R2_ACCOUNT_ID`
-   - `R2_ACCESS_KEY_ID`
-   - `R2_SECRET_ACCESS_KEY`
+Add the three R2 credentials to your local `.env` file:
 
-🤖 The agent will run the migration script from the workspace shell:
+- `R2_ACCOUNT_ID`
+- `R2_ACCESS_KEY_ID`
+- `R2_SECRET_ACCESS_KEY`
 
-```bash
-node scripts/migrate-storage-to-r2.mjs
-```
-
-The script copies every cover image and uploaded file from the legacy GCS storage
-into R2. It skips files already copied, so it's safe to run multiple times.
+Start the API and verify an existing public image plus an authenticated media
+upload. Development and production both use R2, so storage behavior is
+consistent across environments.
 
 ---
 
@@ -151,9 +147,8 @@ MCP_CONNECTOR_TOKEN         = <from development secret store>
 # sender addresses and Resend will return a 403 domain-not-verified error.
 RESEND_API_KEY              = re_...
 
-# AI integrations — development proxy values (localhost:1106) don't work in
-# Railway.  Supply real API keys from platform.openai.com / console.anthropic.com
-# OR leave these unset to disable AI-draft generation on Railway.
+# AI integrations — supply provider API credentials, or leave these unset to
+# disable AI-draft generation on Railway.
 AI_INTEGRATIONS_OPENAI_API_KEY      = sk-...
 AI_INTEGRATIONS_OPENAI_BASE_URL     = https://api.openai.com/v1
 AI_INTEGRATIONS_ANTHROPIC_API_KEY   = sk-ant-...
@@ -304,11 +299,6 @@ the GitHub branch protection policy should also gate production releases. A
 scheduled failure does not change Cloudflare or Railway routing; fix the
 reported DNS, redirect rule, or deployment issue and rerun the workflow.
 
-The initial cutover retained the old removed-platform Autoscale deployment (served by
-Google Frontend) and DNS rollback record through the defined observation
-period. That period is complete as of 2026-09-01; the old deployment is now
-unpublished and must not be reattached to a public Mapletechie hostname.
-
 ## Phase 8 — Verify & go live
 
 🧑 Visit https://www.mapletechie.com — confirm the site loads.
@@ -330,28 +320,25 @@ Run the regression gate before retiring the old origin:
   `VITE_GA4_MEASUREMENT_ID` is configured. Admin/private paths must not be
   sent to GA4.
 
-### Old Google origin retirement record — 2026-09-01
+### Legacy origin retirement record — 2026-09-01
 
-The former removed-platform Autoscale deployment, served by Google Frontend at
-`content-commerce-hub.removed-platform.app`, was retired after the canonical `www` site
-and Cloudflare redirects completed the observation period. Its
-`mapletechie.com` and `www.mapletechie.com` custom-domain attachments were
-removed before the deployment was unpublished. Public traffic now has one
-authority:
+The former origin was retired after the canonical `www` site and Cloudflare
+redirects completed the observation period. Its `mapletechie.com` and
+`www.mapletechie.com` custom-domain attachments were removed before shutdown.
+Public traffic now has one authority:
 
 - `https://www.mapletechie.com` serves the Railway Tech Blog service.
 - HTTPS apex, HTTP apex, and HTTP `www` are handled by the existing proxied
   Cloudflare canonical-host rule and redirect once to the HTTPS `www` URL.
-- The old removed-platform/Google Frontend target is no longer a public DNS destination.
+- The retired origin is no longer a public DNS destination.
 - The Cloudflare apex/`www` records needed for redirects, plus email records,
   remain in place. Production database and R2 data were not removed.
 
 Verification at 2026-09-01 02:01 UTC recorded:
 
-- removed-platform deployment status: `isDeployed: false`, with no primary or additional
-  deployment URLs.
-- `https://content-commerce-hub.removed-platform.app` returned `404` on three consecutive
-  requests and no longer served Mapletechie HTML.
+- The retired deployment had no primary or additional deployment URLs.
+- The retired origin returned `404` on three consecutive requests and no
+  longer served Mapletechie HTML.
 - Both public hostnames resolved to Cloudflare, canonical `www` returned a
   Railway response, and `pnpm --filter @workspace/scripts run
   verify-canonical-host` passed all four host/scheme variants.
@@ -362,21 +349,21 @@ Blog custom-domain attachment for `www.mapletechie.com`, and deploy the last
 known-good Railway build from GitHub. Restore the API service alongside it if
 needed; Railway Postgres and Cloudflare R2 remain the data sources. Validate
 with the canonical-host check and the Phase 8 regression gate. Do not restore
-or republish the retired removed-platform/Google Frontend origin, and do not point public
-DNS back to it.
+the retired origin or point public DNS back to it.
 
 ### Secret and source-control boundary
 
 - Production credentials (`DATABASE_URL`, session/auth secrets, R2,
   Resend, and optional AI credentials) live only in Railway Variables.
-- Development credentials and removed-platform sidecar storage remain in the
-  development environment; they are not copied into the production build.
+- Development credentials stay in the local environment, and development uses
+  the same Cloudflare R2 backend as production. Credentials are never copied
+  into the production build.
 - AI generation remains admin-only, on-demand, and disabled when its Railway
   credentials are absent. Normal reads, publishing, analytics, storage, and
   email do not call Anthropic or OpenAI.
 - GitHub remains the source repository and Railway remains the deployment
-  path. Git remotes must use GitHub/removed-platform authorization or a credential-free
-  URL; never commit or embed a personal access token in a remote URL.
+  path. Git remotes must use GitHub authorization or a credential-free URL;
+  never commit or embed a personal access token in a remote URL.
 
 ---
 

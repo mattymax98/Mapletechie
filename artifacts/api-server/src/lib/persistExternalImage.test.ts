@@ -28,7 +28,7 @@ vi.mock("node:dns/promises", () => ({
   lookup: (...args: unknown[]) => lookupMock(...args),
 }));
 
-// Mock object storage so no real network/sidecar calls happen. Tests that need
+// Mock object storage so no real network calls happen. Tests that need
 // a different behaviour reassign these implementations.
 const getObjectEntityUploadURL = vi.fn(
   async () => "https://storage.googleapis.com/bucket/.private/uploads/abc-123",

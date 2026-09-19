@@ -11,9 +11,7 @@ node_modules
 **/dist
 **/.cache
 
-# Workspace metadata
-.removed-platform
-removed-platform.nix
+# Local workspace metadata
 .upm
 .config
 

@@ -28,12 +28,18 @@ scripts/          # Helper scripts
 ## Local commands
 
 ```bash
-pnpm install            # install dependencies
-pnpm -r run typecheck   # type-check everything
-pnpm run build          # build all artifacts
+pnpm install             # install dependencies
+pnpm run dev:api         # API at http://localhost:8080
+pnpm run dev:web         # website at http://localhost:26015
+pnpm run dev:mockups     # component previews at http://localhost:8081
+pnpm run typecheck       # type-check everything
+pnpm run test            # run the test suites
+pnpm run build           # build all artifacts
 ```
 
-Each artifact has its own `dev` script (`pnpm --filter @workspace/tech-blog run dev`, etc.).
+Start the API before the website. The website's development server proxies
+`/api` requests to `http://127.0.0.1:8080` by default. Set
+`API_PROXY_TARGET` to use a different local API address.
 
 ## ChatGPT draft image contract
 
@@ -106,7 +112,8 @@ Set these as secrets in your hosting environment (never commit them):
 - `SESSION_SECRET` — random string for session signing
 - `ADMIN_PASSWORD` — admin panel password
 - `RESEND_API_KEY` — Resend API key for the newsletter
-- `DEFAULT_OBJECT_STORAGE_BUCKET_ID`, `PUBLIC_OBJECT_SEARCH_PATHS`, `PRIVATE_OBJECT_DIR` — object storage config
+- `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` — Cloudflare R2 credentials
+- `PUBLIC_OBJECT_SEARCH_PATHS`, `PRIVATE_OBJECT_DIR` — R2 bucket and prefix paths
 
 ## License
 
