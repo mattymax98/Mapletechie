@@ -301,3 +301,21 @@ describe("API proxy (/api/*)", () => {
     }
   }, 60_000);
 });
+
+describe("signed preview document", () => {
+  it("keeps previews private while allowing origin-only cross-origin referrers", async () => {
+    const res = await fetch(`${baseUrl}/preview/posts/412`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toMatch(/private/);
+    expect(res.headers.get("cache-control")).toMatch(/no-store/);
+    expect(res.headers.get("x-robots-tag")).toBe("noindex, nofollow, noarchive");
+    expect(res.headers.get("referrer-policy")).toBe("strict-origin-when-cross-origin");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    const body = await res.text();
+    expect(body.match(/<meta name="robots"/g)).toHaveLength(1);
+    expect(body).toContain('<meta name="robots" content="noindex, nofollow, noarchive" />');
+    expect(body).not.toContain('content="index, follow, max-image-preview:large"');
+    expect(body.match(/<meta name="referrer"/g)).toHaveLength(1);
+    expect(body).toContain('<meta name="referrer" content="strict-origin-when-cross-origin" />');
+  });
+});

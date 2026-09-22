@@ -331,6 +331,14 @@ function sendSpaShell(
   res.send(seoBlock ? renderHtml(seoBlock) : indexHtml);
 }
 
+function renderSignedPreviewShell(): string {
+  return indexHtml
+    .replace(
+      '<meta name="robots" content="index, follow, max-image-preview:large" />',
+      '<meta name="robots" content="noindex, nofollow, noarchive" />\n    <meta name="referrer" content="strict-origin-when-cross-origin" />',
+    );
+}
+
 function sendTemporaryFailure(res: express.Response, url: string): void {
   const seo = buildSeoBlock({
     title: buildSeoTitle("Temporarily Unavailable"),
@@ -1772,9 +1780,15 @@ function isKnownSpaRoute(pathname: string): boolean {
 app.get(/^\/preview\/posts\/\d+\/?$/, (_req, res) => {
   res.setHeader("Cache-Control", "private, no-store");
   res.setHeader("X-Robots-Tag", "noindex, nofollow, noarchive");
-  res.setHeader("Referrer-Policy", "no-referrer");
+  // YouTube requires an origin-level referrer to accept embedded playback.
+  // The fragment credential has already been removed before embeds mount, and
+  // this policy reveals neither the preview path nor its former fragment.
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("X-Content-Type-Options", "nosniff");
-  sendSpaShell(res);
+  res.status(200);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.send(renderSignedPreviewShell());
 });
 
 // Legacy WordPress paths from the pre-migration site (wp-content, wp-admin,

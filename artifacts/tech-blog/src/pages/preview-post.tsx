@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "wouter";
-import { Helmet } from "react-helmet-async";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PostContent } from "@/components/PostContent";
 
@@ -82,10 +81,6 @@ export default function PreviewPost() {
 
   return (
     <>
-      <Helmet>
-        <meta name="robots" content="noindex, nofollow, noarchive" />
-        <meta name="referrer" content="no-referrer" />
-      </Helmet>
       {error ? (
         <main className="container mx-auto px-4 py-20 text-center" data-testid="preview-error">
           <h1 className="text-3xl font-black mb-3">Preview unavailable</h1>

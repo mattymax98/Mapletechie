@@ -5,7 +5,6 @@ import {
   Instagram,
   Music2,
   ExternalLink,
-  Play,
   Cloud,
   AtSign,
   MessageCircle,
@@ -40,6 +39,45 @@ function loadScript(src: string): Promise<void> {
   });
   scriptPromises.set(src, p);
   return p;
+}
+
+type YouTubePlayer = { destroy: () => void };
+type YouTubePlayerEvent = { target: YouTubePlayer };
+type YouTubePlayerErrorEvent = YouTubePlayerEvent & { data: number };
+
+declare global {
+  interface Window {
+    YT?: {
+      Player: new (
+        element: HTMLIFrameElement,
+        options: {
+          events: {
+            onReady: (event: YouTubePlayerEvent) => void;
+            onError: (event: YouTubePlayerErrorEvent) => void;
+          };
+        },
+      ) => YouTubePlayer;
+    };
+    onYouTubeIframeAPIReady?: () => void;
+  }
+}
+
+let youtubeApiPromise: Promise<void> | undefined;
+function loadYouTubeApi(): Promise<void> {
+  if (window.YT?.Player) return Promise.resolve();
+  if (youtubeApiPromise) return youtubeApiPromise;
+  youtubeApiPromise = new Promise<void>((resolve, reject) => {
+    const previousReady = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      previousReady?.();
+      resolve();
+    };
+    loadScript("https://www.youtube.com/iframe_api").catch((error) => {
+      youtubeApiPromise = undefined;
+      reject(error);
+    });
+  });
+  return youtubeApiPromise;
 }
 
 function isDarkMode(): boolean {
@@ -159,50 +197,82 @@ function LinkCard({ embed }: { embed: ParsedSocialEmbed }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* YouTube — click-to-load: thumbnail first, iframe only on click      */
+/* YouTube — use the player API so readiness reflects the real player  */
 /* ------------------------------------------------------------------ */
 export type EmbedTerminalStatus = "rendered" | "fallback" | "failed";
 type EmbedStatusCallback = (status: EmbedTerminalStatus) => void;
 
 function YouTubeEmbed({ embed, onStatus }: { embed: ParsedSocialEmbed; onStatus?: EmbedStatusCallback }) {
-  const [playing, setPlaying] = useState(false);
-  if (playing) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let player: YouTubePlayer | undefined;
+    let settlementTimer: number | undefined;
+    loadYouTubeApi()
+      .then(() => {
+        if (cancelled || !iframeRef.current || !window.YT?.Player) return;
+        player = new window.YT.Player(iframeRef.current, {
+          events: {
+            onReady: () => {
+              // Give immediate post-ready errors a bounded chance to win.
+              settlementTimer = window.setTimeout(() => {
+                if (!cancelled) onStatus?.("rendered");
+              }, 250);
+            },
+            onError: () => {
+              if (settlementTimer !== undefined) window.clearTimeout(settlementTimer);
+              if (!cancelled) {
+                // A player error is a failed iframe, not a fallback. Keep the
+                // player visible so accounting reflects the actual terminal UI.
+                onStatus?.("failed");
+              }
+            },
+          },
+        });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFailed(true);
+          onStatus?.("fallback");
+        }
+      });
+    return () => {
+      cancelled = true;
+      if (settlementTimer !== undefined) window.clearTimeout(settlementTimer);
+      player?.destroy();
+    };
+  }, [embed.id, onStatus]);
+
+  if (failed) {
     return (
-      <div className="not-prose my-6 aspect-video w-full overflow-hidden rounded border border-border">
-        <iframe
-          src={`https://www.youtube-nocookie.com/embed/${embed.id}?autoplay=1`}
-          title="YouTube video"
-          className="h-full w-full"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          onLoad={() => onStatus?.("rendered")}
-          onError={() => onStatus?.("fallback")}
-          allowFullScreen
-        />
-      </div>
+      <a
+        href={embed.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-testid="embed-youtube-fallback"
+        className="not-prose my-6 flex aspect-video w-full items-center justify-center rounded border border-border bg-muted/40 text-lg font-semibold text-primary"
+      >
+        Watch on YouTube
+      </a>
     );
   }
+
+  const origin = window.location.origin;
   return (
-    <button
-      type="button"
-      data-testid="embed-youtube-thumb"
-      onClick={() => setPlaying(true)}
-      className="not-prose group relative my-6 block aspect-video w-full overflow-hidden rounded border border-border bg-black"
-      aria-label="Play YouTube video"
-    >
-      <img
-        src={`https://i.ytimg.com/vi/${embed.id}/hqdefault.jpg`}
-        alt="YouTube video thumbnail"
-        loading="lazy"
-        onLoad={() => onStatus?.("rendered")}
-        onError={() => onStatus?.("fallback")}
-        className="h-full w-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+    <div className="not-prose my-6 aspect-video w-full overflow-hidden rounded border border-border">
+      <iframe
+        ref={iframeRef}
+        src={`https://www.youtube-nocookie.com/embed/${embed.id}?enablejsapi=1&origin=${encodeURIComponent(origin)}`}
+        title="YouTube video"
+        data-testid="embed-youtube-player"
+        className="h-full w-full"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        referrerPolicy="strict-origin-when-cross-origin"
+        allowFullScreen
       />
-      <span className="absolute inset-0 flex items-center justify-center">
-        <span className="flex h-14 w-20 items-center justify-center rounded bg-black/70 group-hover:bg-primary transition-colors">
-          <Play className="h-7 w-7 fill-white text-white" />
-        </span>
-      </span>
-    </button>
+    </div>
   );
 }
 

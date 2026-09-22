@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { cleanup, render, waitFor } from "@testing-library/react";
 import { HelmetProvider } from "react-helmet-async";
 import { Router, Route } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
@@ -44,12 +44,13 @@ afterEach(() => {
 
 describe("signed post preview", () => {
   it("fetches the automation preview with no credentials and no referrer", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ post: { id: 42, title: "Preview title", content: "<p>Stored preview body.</p>" } }), {
+    const fetchMock = vi.fn().mockImplementation(() => {
+      expect(window.location.hash).toBe("");
+      return Promise.resolve(new Response(JSON.stringify({ post: { id: 42, title: "Preview title", content: "<p>Stored preview body.</p>" } }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
-      }),
-    );
+      }));
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     renderPreview();
@@ -67,7 +68,7 @@ describe("signed post preview", () => {
     expect(window.location.hash).toBe("");
   });
 
-  it("renders stored HTML and shared YouTube/X embed paths without provider network calls", async () => {
+  it("renders stored HTML and shared YouTube/X embed paths with visible provider fallbacks", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
@@ -85,20 +86,18 @@ describe("signed post preview", () => {
     renderPreview();
     await waitFor(() => {
       expect(document.body.textContent).toContain("Stored preview body.");
-      expect(document.querySelector('[data-testid="embed-youtube-thumb"]')).not.toBeNull();
+      expect(document.querySelector('[data-testid="embed-youtube-fallback"]')?.textContent).toContain("Watch on YouTube");
       expect(
         document.querySelector('[data-testid="embed-tweet"]') ??
         document.querySelector('[data-testid="embed-link-card"][href*="x.com"]'),
       ).not.toBeNull();
     });
-    expect(document.querySelector("[data-preview-ready]")?.getAttribute("data-preview-ready")).toBe("false");
-    fireEvent.load(document.querySelector('[data-testid="embed-youtube-thumb"] img')!);
     await waitFor(() => expect(document.querySelector("[data-preview-ready]")?.getAttribute("data-preview-ready")).toBe("true"));
     const article = document.querySelector("[data-preview-ready]");
     expect(article?.getAttribute("data-preview-total")).toBe("2");
     expect(article?.getAttribute("data-preview-loading")).toBe("0");
-    expect(article?.getAttribute("data-preview-rendered")).toBe("1");
-    expect(article?.getAttribute("data-preview-fallback")).toBe("1");
+    expect(article?.getAttribute("data-preview-rendered")).toBe("0");
+    expect(article?.getAttribute("data-preview-fallback")).toBe("2");
     expect(article?.getAttribute("data-preview-failed")).toBe("0");
     expect(article?.getAttribute("data-preview-requested")).toBe("3");
     expect(article?.getAttribute("data-preview-preserved")).toBe("2");
@@ -106,14 +105,20 @@ describe("signed post preview", () => {
     expect(document.querySelectorAll("script[src*='twitter.com']")).toHaveLength(1);
   });
 
-  it("adds noindex and no-referrer metadata", async () => {
+  it("keeps noindex while allowing only an origin-level cross-origin referrer", async () => {
+    document.head.innerHTML = [
+      '<meta name="robots" content="noindex, nofollow, noarchive" />',
+      '<meta name="referrer" content="strict-origin-when-cross-origin" />',
+    ].join("");
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ post: { id: 42, title: "Metadata preview", content: "<p>Body</p>" } }), { status: 200 }),
     ));
     renderPreview();
     await waitFor(() => expect(document.querySelector("h1")?.textContent).toBe("Metadata preview"));
+    expect(document.head.querySelectorAll('meta[name="robots"]')).toHaveLength(1);
     expect(document.head.querySelector('meta[name="robots"]')?.getAttribute("content")).toBe("noindex, nofollow, noarchive");
-    expect(document.head.querySelector('meta[name="referrer"]')?.getAttribute("content")).toBe("no-referrer");
+    expect(document.head.querySelectorAll('meta[name="referrer"]')).toHaveLength(1);
+    expect(document.head.querySelector('meta[name="referrer"]')?.getAttribute("content")).toBe("strict-origin-when-cross-origin");
   });
 
   it("shows an explicit error for an expired or rejected preview", async () => {
