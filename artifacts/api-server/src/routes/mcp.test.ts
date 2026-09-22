@@ -283,6 +283,52 @@ describe("POST /mcp — tools", () => {
     expect(names).toContain("list_mapletechie_categories");
     expect(names).toContain("list_mapletechie_posts");
     expect(names).toContain("create_mapletechie_draft");
+    expect(names).toContain("get_mapletechie_post");
+    expect(names).toContain("preview_mapletechie_post");
+  });
+
+  it("requires exactly one post_id or slug for get_mapletechie_post", async () => {
+    for (const arguments_ of [{}, { post_id: 42, slug: "story" }]) {
+      const res = await authed(callTool("get_mapletechie_post", arguments_));
+      expect(res.status).toBe(200);
+      expect(res.body.result.isError).toBe(true);
+    }
+  });
+
+  it("returns the complete canonical post, including ordered category identity", async () => {
+    selectQueue = [[{
+      id: 42, title: "Current story", slug: "current-story", excerpt: "Summary",
+      content: "<p>Stored</p>", categoryId: 10, tags: ["ai"], author: "Mapletechie AI",
+      authorId: 77, status: "draft", createdAt: new Date("2026-01-01T00:00:00Z"),
+      updatedAt: new Date("2026-01-02T00:00:00Z"), seoKeywords: [],
+    }], [
+      { id: 10, name: "AI", slug: "ai", isPrimary: true },
+      { id: 11, name: "News", slug: "news", isPrimary: false },
+    ]];
+    const res = await authed(callTool("get_mapletechie_post", { post_id: 42 }));
+    const payload = JSON.parse(res.body.result.content[0].text);
+    expect(payload).toMatchObject({
+      id: 42, slug: "current-story", content: "<p>Stored</p>",
+      categories: [
+        { id: 10, slug: "ai", is_primary: true },
+        { id: 11, slug: "news", is_primary: false },
+      ],
+      created_at: "2026-01-01T00:00:00.000Z",
+      updated_at: "2026-01-02T00:00:00.000Z",
+    });
+  });
+
+  it("returns a signed HTTPS preview URL with identity and viewport", async () => {
+    process.env.SITE_DOMAIN = "http://preview.example.test";
+    selectQueue = [[{ id: 42, title: "Preview story", slug: "preview-story", status: "draft" }], []];
+    const res = await authed(callTool("preview_mapletechie_post", { post_id: 42, width: 1200, height: 800 }));
+    const payload = JSON.parse(res.body.result.content[0].text);
+    expect(payload.url).toMatch(/^https:\/\/preview\.example\.test\/preview\/posts\/42#token=/);
+    expect(payload).toMatchObject({
+      expires_at: expect.any(String),
+      post: { id: 42, slug: "preview-story" },
+      viewport: { width: 1200, height: 800 },
+    });
   });
 
   it("returns the canonical schedule and editorial instructions", async () => {

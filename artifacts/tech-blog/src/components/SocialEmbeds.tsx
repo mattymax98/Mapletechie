@@ -161,7 +161,7 @@ function LinkCard({ embed }: { embed: ParsedSocialEmbed }) {
 /* ------------------------------------------------------------------ */
 /* YouTube — click-to-load: thumbnail first, iframe only on click      */
 /* ------------------------------------------------------------------ */
-function YouTubeEmbed({ embed }: { embed: ParsedSocialEmbed }) {
+function YouTubeEmbed({ embed, onReady }: { embed: ParsedSocialEmbed; onReady?: () => void }) {
   const [playing, setPlaying] = useState(false);
   if (playing) {
     return (
@@ -171,6 +171,8 @@ function YouTubeEmbed({ embed }: { embed: ParsedSocialEmbed }) {
           title="YouTube video"
           className="h-full w-full"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          onLoad={onReady}
+          onError={onReady}
           allowFullScreen
         />
       </div>
@@ -188,6 +190,8 @@ function YouTubeEmbed({ embed }: { embed: ParsedSocialEmbed }) {
         src={`https://i.ytimg.com/vi/${embed.id}/hqdefault.jpg`}
         alt="YouTube video thumbnail"
         loading="lazy"
+        onLoad={onReady}
+        onError={onReady}
         className="h-full w-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
       />
       <span className="absolute inset-0 flex items-center justify-center">
@@ -209,7 +213,7 @@ declare global {
   }
 }
 
-function TweetEmbed({ embed }: { embed: ParsedSocialEmbed }) {
+function TweetEmbed({ embed, onReady }: { embed: ParsedSocialEmbed; onReady?: () => void }) {
   const holderRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<"loading" | "done" | "failed">("loading");
 
@@ -239,6 +243,9 @@ function TweetEmbed({ embed }: { embed: ParsedSocialEmbed }) {
       clearTimeout(timeout);
     };
   }, [embed.id]);
+  useEffect(() => {
+    if (state !== "loading") onReady?.();
+  }, [state, onReady]);
 
   if (state === "failed") return <LinkCard embed={embed} />;
   return (
@@ -259,7 +266,7 @@ function TweetEmbed({ embed }: { embed: ParsedSocialEmbed }) {
 /* ------------------------------------------------------------------ */
 /* Instagram / TikTok — official blockquote + provider script          */
 /* ------------------------------------------------------------------ */
-function InstagramEmbed({ embed }: { embed: ParsedSocialEmbed }) {
+function InstagramEmbed({ embed, onReady }: { embed: ParsedSocialEmbed; onReady?: () => void }) {
   const [failed, setFailed] = useState(false);
   const { ref, rendered } = useWidgetRendered();
   useEffect(() => {
@@ -275,6 +282,9 @@ function InstagramEmbed({ embed }: { embed: ParsedSocialEmbed }) {
       cancelled = true;
     };
   }, [embed.url]);
+  useEffect(() => {
+    if (failed || rendered) onReady?.();
+  }, [failed, rendered, onReady]);
 
   if (failed) return <LinkCard embed={embed} />;
   return (
@@ -299,7 +309,7 @@ function InstagramEmbed({ embed }: { embed: ParsedSocialEmbed }) {
   );
 }
 
-function TikTokEmbed({ embed }: { embed: ParsedSocialEmbed }) {
+function TikTokEmbed({ embed, onReady }: { embed: ParsedSocialEmbed; onReady?: () => void }) {
   const [failed, setFailed] = useState(false);
   const { ref, rendered } = useWidgetRendered();
   useEffect(() => {
@@ -311,6 +321,9 @@ function TikTokEmbed({ embed }: { embed: ParsedSocialEmbed }) {
       cancelled = true;
     };
   }, [embed.url]);
+  useEffect(() => {
+    if (failed || rendered) onReady?.();
+  }, [failed, rendered, onReady]);
 
   if (failed) return <LinkCard embed={embed} />;
   return (
@@ -338,7 +351,7 @@ function TikTokEmbed({ embed }: { embed: ParsedSocialEmbed }) {
 /* ------------------------------------------------------------------ */
 /* Bluesky — official blockquote + embed.bsky.app script               */
 /* ------------------------------------------------------------------ */
-function BlueskyEmbed({ embed }: { embed: ParsedSocialEmbed }) {
+function BlueskyEmbed({ embed, onReady }: { embed: ParsedSocialEmbed; onReady?: () => void }) {
   const [failed, setFailed] = useState(false);
   const atUri = blueskyAtUri(embed.url);
   const { ref, rendered } = useWidgetRendered();
@@ -351,6 +364,9 @@ function BlueskyEmbed({ embed }: { embed: ParsedSocialEmbed }) {
       cancelled = true;
     };
   }, [embed.url]);
+  useEffect(() => {
+    if (failed || !atUri || rendered) onReady?.();
+  }, [failed, atUri, rendered, onReady]);
 
   if (failed || !atUri) return <LinkCard embed={embed} />;
   return (
@@ -379,7 +395,7 @@ function BlueskyEmbed({ embed }: { embed: ParsedSocialEmbed }) {
 /* no per-instance script needed). Sandboxed since the host is only    */
 /* pattern-validated, not from a fixed whitelist.                      */
 /* ------------------------------------------------------------------ */
-function MastodonEmbed({ embed }: { embed: ParsedSocialEmbed }) {
+function MastodonEmbed({ embed, onReady }: { embed: ParsedSocialEmbed; onReady?: () => void }) {
   const [failed, setFailed] = useState(false);
   if (failed) return <LinkCard embed={embed} />;
   return (
@@ -391,7 +407,11 @@ function MastodonEmbed({ embed }: { embed: ParsedSocialEmbed }) {
         style={{ minHeight: 300 }}
         sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
         loading="lazy"
-        onError={() => setFailed(true)}
+        onLoad={onReady}
+        onError={() => {
+          setFailed(true);
+          onReady?.();
+        }}
         allowFullScreen
       />
     </div>
@@ -401,7 +421,7 @@ function MastodonEmbed({ embed }: { embed: ParsedSocialEmbed }) {
 /* ------------------------------------------------------------------ */
 /* Reddit — official blockquote + widgets script                       */
 /* ------------------------------------------------------------------ */
-function RedditEmbed({ embed }: { embed: ParsedSocialEmbed }) {
+function RedditEmbed({ embed, onReady }: { embed: ParsedSocialEmbed; onReady?: () => void }) {
   const [failed, setFailed] = useState(false);
   const { ref, rendered } = useWidgetRendered();
   useEffect(() => {
@@ -413,6 +433,9 @@ function RedditEmbed({ embed }: { embed: ParsedSocialEmbed }) {
       cancelled = true;
     };
   }, [embed.url]);
+  useEffect(() => {
+    if (failed || rendered) onReady?.();
+  }, [failed, rendered, onReady]);
 
   if (failed) return <LinkCard embed={embed} />;
   return (
@@ -437,22 +460,22 @@ function RedditEmbed({ embed }: { embed: ParsedSocialEmbed }) {
   );
 }
 
-export function SocialEmbedView({ embed }: { embed: ParsedSocialEmbed }) {
+export function SocialEmbedView({ embed, onReady }: { embed: ParsedSocialEmbed; onReady?: () => void }) {
   switch (embed.provider) {
     case "youtube":
-      return <YouTubeEmbed embed={embed} />;
+      return <YouTubeEmbed embed={embed} onReady={onReady} />;
     case "twitter":
-      return <TweetEmbed embed={embed} />;
+      return <TweetEmbed embed={embed} onReady={onReady} />;
     case "instagram":
-      return <InstagramEmbed embed={embed} />;
+      return <InstagramEmbed embed={embed} onReady={onReady} />;
     case "tiktok":
-      return <TikTokEmbed embed={embed} />;
+      return <TikTokEmbed embed={embed} onReady={onReady} />;
     case "bluesky":
-      return <BlueskyEmbed embed={embed} />;
+      return <BlueskyEmbed embed={embed} onReady={onReady} />;
     case "mastodon":
-      return <MastodonEmbed embed={embed} />;
+      return <MastodonEmbed embed={embed} onReady={onReady} />;
     case "reddit":
-      return <RedditEmbed embed={embed} />;
+      return <RedditEmbed embed={embed} onReady={onReady} />;
     default:
       return <LinkCard embed={embed} />;
   }

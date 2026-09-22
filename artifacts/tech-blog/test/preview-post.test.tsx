@@ -1,0 +1,108 @@
+// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { HelmetProvider } from "react-helmet-async";
+import { Router, Route } from "wouter";
+import { memoryLocation } from "wouter/memory-location";
+import PreviewPost from "../src/pages/preview-post";
+
+const content = [
+  "<p>Stored preview body.</p>",
+  '<div data-social-embed data-url="https://www.youtube.com/watch?v=abc123"></div>',
+  '<div data-social-embed data-url="https://x.com/mapletechie/status/123456789"></div>',
+].join("");
+
+function renderPreview(path = "/preview/posts/42") {
+  const { hook } = memoryLocation({ path });
+  return render(
+    <HelmetProvider>
+      <Router hook={hook}>
+        <Route path="/preview/posts/:id" component={PreviewPost} />
+      </Router>
+    </HelmetProvider>,
+  );
+}
+
+beforeEach(() => {
+  document.head.innerHTML = "";
+  window.history.replaceState({}, "", "/preview/posts/42#token=signed-token");
+  // Provider script loading is deliberately simulated as blocked. The preview
+  // must render its stored content and fallback cards without live X/YouTube.
+  const appendChild = document.head.appendChild.bind(document.head);
+  vi.spyOn(document.head, "appendChild").mockImplementation((node) => {
+    const result = appendChild(node);
+    if (node instanceof HTMLScriptElement) queueMicrotask(() => node.onerror?.(new Event("error")));
+    return result;
+  });
+});
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
+describe("signed post preview", () => {
+  it("fetches the automation preview with no credentials and no referrer", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ post: { id: 42, title: "Preview title", content: "<p>Stored preview body.</p>" } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderPreview();
+    await waitFor(() => expect(document.querySelector("h1")?.textContent).toBe("Preview title"));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/automation/posts/42/preview",
+      expect.objectContaining({
+        credentials: "omit",
+        referrerPolicy: "no-referrer",
+        signal: expect.any(AbortSignal),
+        headers: { "X-Preview-Token": "signed-token" },
+      }),
+    );
+    expect(window.location.hash).toBe("");
+  });
+
+  it("renders stored HTML and shared YouTube/X embed paths without provider network calls", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ post: { id: 42, title: "Embed preview", content } }), { status: 200 }),
+      ),
+    );
+
+    renderPreview();
+    await waitFor(() => {
+      expect(document.body.textContent).toContain("Stored preview body.");
+      expect(document.querySelector('[data-testid="embed-youtube-thumb"]')).not.toBeNull();
+      expect(
+        document.querySelector('[data-testid="embed-tweet"]') ??
+        document.querySelector('[data-testid="embed-link-card"][href*="x.com"]'),
+      ).not.toBeNull();
+    });
+    expect(document.querySelector("[data-preview-ready]")?.getAttribute("data-preview-ready")).toBe("false");
+    fireEvent.load(document.querySelector('[data-testid="embed-youtube-thumb"] img')!);
+    await waitFor(() => expect(document.querySelector("[data-preview-ready]")?.getAttribute("data-preview-ready")).toBe("true"));
+    expect(document.querySelectorAll("script[src*='twitter.com']")).toHaveLength(1);
+  });
+
+  it("adds noindex and no-referrer metadata", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ post: { id: 42, title: "Metadata preview", content: "<p>Body</p>" } }), { status: 200 }),
+    ));
+    renderPreview();
+    await waitFor(() => expect(document.querySelector("h1")?.textContent).toBe("Metadata preview"));
+    expect(document.head.querySelector('meta[name="robots"]')?.getAttribute("content")).toBe("noindex, nofollow, noarchive");
+    expect(document.head.querySelector('meta[name="referrer"]')?.getAttribute("content")).toBe("no-referrer");
+  });
+
+  it("shows an explicit error for an expired or rejected preview", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("expired", { status: 410 })));
+    renderPreview();
+    await waitFor(() => expect(document.querySelector('[data-testid="preview-error"]')?.textContent).toContain("Preview unavailable or expired."));
+  });
+});

@@ -1767,6 +1767,16 @@ function isKnownSpaRoute(pathname: string): boolean {
   return KNOWN_SPA_ROUTES.some((re) => re.test(pathname));
 }
 
+// Signed post previews need document-level protections before React hydrates.
+// The credential is carried in the URL fragment, which is never sent here.
+app.get(/^\/preview\/posts\/\d+\/?$/, (_req, res) => {
+  res.setHeader("Cache-Control", "private, no-store");
+  res.setHeader("X-Robots-Tag", "noindex, nofollow, noarchive");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  sendSpaShell(res);
+});
+
 // Legacy WordPress paths from the pre-migration site (wp-content, wp-admin,
 // xmlrpc.php, PHP files, feeds). These will never exist again — return
 // 410 Gone (with noindex) to every client so search engines drop them from

@@ -34,6 +34,7 @@ const TagPage = lazy(() => import("@/pages/tag"));
 const SeriesPage = lazy(() => import("@/pages/series"));
 const Privacy = lazy(() => import("@/pages/privacy"));
 const Terms = lazy(() => import("@/pages/terms"));
+const PreviewPost = lazy(() => import("@/pages/preview-post"));
 
 // Admin pages — never loaded for public visitors, so they ship as lazy chunks.
 const AdminLogin = lazy(() => import("@/pages/admin/AdminLogin"));
@@ -83,6 +84,8 @@ function Router() {
   return (
     <Suspense fallback={<RouteFallback />}>
     <Switch>
+      {/* Signed-token previews are isolated from the public shell and analytics. */}
+      <Route path="/preview/posts/:id" component={PreviewPost} />
       {/* Admin routes — no Layout wrapper */}
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin/generate">

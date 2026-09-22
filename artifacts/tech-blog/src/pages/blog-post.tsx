@@ -35,6 +35,7 @@ import { buildArticleJsonLd, buildBreadcrumbJsonLd } from "@/lib/articleSchema";
 import { splitSocialEmbeds, SocialEmbedView } from "@/components/SocialEmbeds";
 import { AdSlot, adPlacementEnabled, splitHtmlForInArticleAds } from "@/components/AdSlot";
 import { trackEvent } from "@/lib/tracker";
+import { PostContent as SharedPostContent } from "@/components/PostContent";
 
 const SITE_URL = "https://www.mapletechie.com";
 
@@ -47,7 +48,7 @@ function formatDateTimeWithZone(iso: string): string {
   return `${date} at ${time}`;
 }
 
-function PostContent({
+function LegacyPostContent({
   html,
   onHeadingsExtracted,
 }: {
@@ -602,7 +603,7 @@ export default function BlogPost() {
           cons={(post as any).cons}
           verdict={(post as any).verdict}
         />
-        <PostContent html={post.content} onHeadingsExtracted={setHeadings} />
+        <SharedPostContent html={post.content} onHeadingsExtracted={setHeadings} />
 
         {/* Designed ad slot below the article body — collapses to nothing
             when no ad is served or ads aren't configured. */}

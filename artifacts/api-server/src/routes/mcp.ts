@@ -8,7 +8,13 @@ import { asc, desc, eq } from "drizzle-orm";
 import { writeAuditLogForUser } from "../lib/audit";
 import { persistImageBuffer } from "../lib/persistExternalImage";
 import { logger } from "../lib/logger";
-import { backfillAutomationPostImages, createAutomationDraft } from "./automation";
+import {
+  backfillAutomationPostImages,
+  createAutomationDraft,
+  getMapletechiePost,
+  issuePostPreviewToken,
+  previewSiteUrl,
+} from "./automation";
 import {
   DAILY_EDITORIAL_AUTOMATION_CONTRACT,
   DAILY_EDITORIAL_AUTOMATION_INSTRUCTIONS,
@@ -203,6 +209,60 @@ function buildMcpServer(req: Request): McpServer {
   );
 
   server.registerTool(
+    "get_mapletechie_post",
+    {
+      title: "Get a complete Mapletechie post",
+      description: "Return the canonical current state of exactly one post. The payload includes id, title, slug, excerpt, final stored HTML, status, all categories with is_primary, tags, cover image and alt text, OG image, SEO title/description/keywords, read time, authorship, review fields, and created/updated timestamps. Use exactly one of post_id or slug.",
+      inputSchema: z.object({
+        post_id: z.number().int().positive().optional(),
+        slug: z.string().min(1).optional(),
+      }).strict().refine((v) => (v.post_id != null) !== (v.slug != null), "Provide exactly one of post_id or slug"),
+    },
+    async (args: { post_id?: number; slug?: string }) => {
+      const input = args as { post_id?: number; slug?: string };
+      const post = await getMapletechiePost({ postId: input.post_id, slug: input.slug });
+      return post
+        ? { content: [{ type: "text", text: JSON.stringify(post, null, 2) }] }
+        : { content: [{ type: "text", text: JSON.stringify({ error: "Post not found" }) }], isError: true };
+    },
+  );
+
+  server.registerTool(
+    "preview_mapletechie_post",
+    {
+      title: "Preview a Mapletechie post",
+      description: "Create a signed, post-scoped, short-lived HTTPS preview URL and return its expiry, post identity, and viewport dimensions. The token is never logged or audited.",
+      inputSchema: z.object({
+        post_id: z.number().int().positive(),
+        width: z.number().int().min(320).max(3000).default(1440),
+        height: z.number().int().min(240).max(3000).default(900),
+      }).strict(),
+    },
+    async (args) => {
+      const { post_id, width, height } = args as { post_id: number; width: number; height: number };
+      const post = await getMapletechiePost({ postId: post_id });
+      if (!post) return { content: [{ type: "text", text: JSON.stringify({ error: "Post not found" }) }], isError: true };
+      const issued = issuePostPreviewToken(post_id, width, height);
+      if (!issued) return { content: [{ type: "text", text: JSON.stringify({ error: "Preview service is not configured" }) }], isError: true };
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            url: previewSiteUrl(`/preview/posts/${post_id}#token=${encodeURIComponent(issued.token)}`),
+            expires_at: issued.expiresAt.toISOString(),
+            post: { id: post.id, slug: post.slug, title: post.title },
+            viewport: { width, height },
+            recommended_viewports: {
+              desktop: { width: 1440, height: 900 },
+              mobile: { width: 390, height: 844 },
+            },
+          }, null, 2),
+        }],
+      };
+    },
+  );
+
+  server.registerTool(
     "upload_mapletechie_image",
     {
       title: "Upload Mapletechie image",
@@ -308,7 +368,7 @@ function buildMcpServer(req: Request): McpServer {
     {
       title: "Create Mapletechie draft",
       description:
-        `Submit one completed item from the canonical daily editorial workflow as a blog post DRAFT for human review. The run is daily at ${DAILY_EDITORIAL_AUTOMATION_SCHEDULE.executionWindow}; aim for at least five fresh, non-cannibalizing items, with a flexible maximum and Canadian relevance where supported by evidence. The server forces draft status and the 'Mapletechie AI' byline; it can never publish. Do not send status, author, author_id, author_avatar, published_at, scheduled_for, or is_featured. For every cover or inline image, use a rights-safe source and meaningful alt text; upload images first when possible. A draft can belong to MULTIPLE categories: pass categories (first entry = primary unless primary_category is set), or legacy single category_id. Returns id, status, slug and edit_url.`,
+        `Submit one completed item from the canonical daily editorial workflow as a blog post DRAFT for human review. The run is daily at ${DAILY_EDITORIAL_AUTOMATION_SCHEDULE.executionWindow}; aim for at least five fresh, non-cannibalizing items, with a flexible maximum and Canadian relevance where supported by evidence. The server forces draft status and the 'Mapletechie AI' byline; it can never publish. Do not send status, author, author_id, author_avatar, published_at, scheduled_for, or is_featured. For every cover or inline image, use a rights-safe source and meaningful alt text; upload images first when possible. A draft can belong to MULTIPLE categories: pass categories (first entry = primary unless primary_category is set), or legacy single category_id. Returns the complete canonical stored post. Next inspect it with get_mapletechie_post, then call preview_mapletechie_post and capture both recommended desktop and mobile views after data-preview-ready is true.`,
       inputSchema: DRAFT_INPUT_SHAPE,
     },
     async (args) => {

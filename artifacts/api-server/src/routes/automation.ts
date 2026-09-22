@@ -1,7 +1,15 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
-import { timingSafeEqual, randomBytes } from "node:crypto";
-import { db, postsTable, usersTable, automationRequestsTable, seriesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { timingSafeEqual, randomBytes, createHmac } from "node:crypto";
+import {
+  db,
+  postsTable,
+  usersTable,
+  categoriesTable,
+  postCategoriesTable,
+  automationRequestsTable,
+  seriesTable,
+} from "@workspace/db";
+import { asc, desc, eq } from "drizzle-orm";
 import { writeAuditLogForUser } from "../lib/audit";
 import { validateCoverImage } from "../lib/coverImageValidation";
 import {
@@ -231,6 +239,76 @@ function editUrl(postId: number): string {
 export interface DraftCreationResult {
   status: number;
   body: Record<string, unknown>;
+}
+
+/** Stable, public connector representation of a post.  Never expose the
+ * database row directly: this keeps camelCase/schema changes out of the MCP
+ * contract and makes replay responses indistinguishable from fresh creates. */
+export function canonicalMapletechiePost(post: Record<string, any>): Record<string, unknown> {
+  const value = (v: unknown) => v instanceof Date ? v.toISOString() : v ?? null;
+  const categories = Array.isArray(post.categories)
+    ? post.categories.map((category: Record<string, unknown>) => ({
+        id: category.id,
+        name: category.name,
+        slug: category.slug,
+        is_primary: category.is_primary === true || category.isPrimary === true || category.id === post.categoryId,
+      }))
+    : [];
+  return {
+    id: post.id, title: post.title, slug: post.slug, excerpt: post.excerpt ?? "",
+    content: post.content ?? "", cover_image: value(post.coverImage),
+    cover_image_alt: value(post.coverImageAlt), categories,
+    tags: post.tags ?? [], author: post.author, author_avatar: value(post.authorAvatar),
+    author_id: value(post.authorId), status: post.status,
+    scheduled_for: value(post.scheduledFor), seo_title: value(post.seoTitle),
+    seo_description: value(post.seoDescription), seo_keywords: post.seoKeywords ?? [],
+    og_image: value(post.ogImage), read_time: post.readTime, view_count: post.viewCount,
+    is_featured: post.isFeatured, series_id: value(post.seriesId),
+    series_position: value(post.seriesPosition), rating: value(post.rating),
+    pros: post.pros ?? [], cons: post.cons ?? [], verdict: value(post.verdict),
+    published_at: value(post.publishedAt), created_at: value(post.createdAt),
+    updated_at: value(post.updatedAt),
+  };
+}
+
+export function previewSiteUrl(path: string): string {
+  const base = getSiteUrl().replace(/^http:/i, "https:").replace(/\/+$/, "");
+  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+const PREVIEW_TTL_SECONDS = 10 * 60;
+function previewSecret(): string | null {
+  const secret = process.env.PREVIEW_TOKEN_SECRET || process.env.AUTOMATION_DRAFT_TOKEN;
+  return secret && secret.length >= 20 ? secret : null;
+}
+function signPreviewPayload(payload: string, secret: string): string {
+  return createHmac("sha256", secret).update(payload).digest("base64url");
+}
+export function issuePostPreviewToken(postId: number, width: number, height: number): { token: string; expiresAt: Date } | null {
+  const secret = previewSecret();
+  if (!secret) return null;
+  const expiresAt = new Date(Date.now() + PREVIEW_TTL_SECONDS * 1000);
+  const payload = `${postId}.${Math.floor(expiresAt.getTime() / 1000)}.${width}.${height}`;
+  return { token: `${Buffer.from(payload).toString("base64url")}.${signPreviewPayload(payload, secret)}`, expiresAt };
+}
+export function verifyPostPreviewToken(token: string, postId: number): { width: number; height: number; expiresAt: Date } | null {
+  const secret = previewSecret();
+  if (!secret) return null;
+  const tokenParts = token.split(".");
+  if (tokenParts.length !== 2) return null;
+  const [encoded, signature] = tokenParts;
+  if (!encoded || !signature) return null;
+  let payload: string;
+  try { payload = Buffer.from(encoded, "base64url").toString("utf8"); } catch { return null; }
+  const payloadParts = payload.split(".");
+  if (payloadParts.length !== 4) return null;
+  const expected = signPreviewPayload(payload, secret);
+  const a = Buffer.from(signature), b = Buffer.from(expected);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  const [id, exp, w, h] = payloadParts.map(Number);
+  if (id !== postId || !Number.isInteger(exp) || exp <= Math.floor(Date.now() / 1000) ||
+      !Number.isInteger(w) || !Number.isInteger(h) || w < 320 || w > 3000 || h < 240 || h > 3000) return null;
+  return { width: w, height: h, expiresAt: new Date(exp * 1000) };
 }
 
 /**
@@ -489,9 +567,9 @@ export async function createAutomationDraft(
       .from(automationRequestsTable)
       .where(eq(automationRequestsTable.idempotencyKey, idempotencyKey));
     if (prior) {
-      const [post] = await db.select().from(postsTable).where(eq(postsTable.id, prior.postId));
-      if (post) {
-        return { status: 200, body: { id: post.id, status: post.status, slug: post.slug, edit_url: editUrl(post.id), replayed: true } };
+      const current = await getMapletechiePost({ postId: prior.postId });
+      if (current) {
+        return { status: 200, body: { ...current, edit_url: editUrl(Number(current.id)), replayed: true } };
       }
       // Draft was deleted since — treat the key as spent.
       return fail(409, "This Idempotency-Key was already used, but the draft it created no longer exists.");
@@ -678,9 +756,9 @@ export async function createAutomationDraft(
         .from(automationRequestsTable)
         .where(eq(automationRequestsTable.idempotencyKey, idempotencyKey));
       if (prior) {
-        const [post] = await db.select().from(postsTable).where(eq(postsTable.id, prior.postId));
-        if (post) {
-          return { status: 200, body: { id: post.id, status: post.status, slug: post.slug, edit_url: editUrl(post.id), replayed: true } };
+        const current = await getMapletechiePost({ postId: prior.postId });
+        if (current) {
+          return { status: 200, body: { ...current, edit_url: editUrl(Number(current.id)), replayed: true } };
         }
       }
       return fail(409, "A concurrent request with the same Idempotency-Key won the race; retry to fetch it");
@@ -708,12 +786,40 @@ export async function createAutomationDraft(
   return {
     status: 201,
     body: {
-      id: inserted.id,
-      status: inserted.status,
-      slug: inserted.slug,
+      ...canonicalMapletechiePost({
+        ...inserted,
+        categories: resolvedCats.all.map((category) => ({
+          id: category.id,
+          name: category.name,
+          slug: category.slug,
+          isPrimary: category.id === resolvedCats.primary.id,
+        })),
+      }),
       edit_url: editUrl(inserted.id),
+      replayed: false,
     },
   };
+}
+
+/** Read the complete current state, used by connectors and preview clients. */
+export async function getMapletechiePost(postIdOrSlug: { postId?: number; slug?: string }) {
+  const rows = postIdOrSlug.postId
+    ? await db.select().from(postsTable).where(eq(postsTable.id, postIdOrSlug.postId))
+    : await db.select().from(postsTable).where(eq(postsTable.slug, String(postIdOrSlug.slug).trim().toLowerCase()));
+  const post = rows[0] as Record<string, any> | undefined;
+  if (!post) return null;
+  const categories = await db
+    .select({
+      id: categoriesTable.id,
+      name: categoriesTable.name,
+      slug: categoriesTable.slug,
+      isPrimary: postCategoriesTable.isPrimary,
+    })
+    .from(postCategoriesTable)
+    .innerJoin(categoriesTable, eq(postCategoriesTable.categoryId, categoriesTable.id))
+    .where(eq(postCategoriesTable.postId, post.id))
+    .orderBy(desc(postCategoriesTable.isPrimary), asc(categoriesTable.name));
+  return canonicalMapletechiePost({ ...post, categories });
 }
 
 router.post("/automation/posts/drafts", automationAuth, async (req, res): Promise<void> => {
@@ -725,6 +831,24 @@ router.post("/automation/posts/drafts", automationAuth, async (req, res): Promis
       : null;
   const result = await createAutomationDraft(req, rawBody, idempotencyKey);
   res.status(result.status).json(result.body);
+});
+
+// Complete-state read is connector-authenticated; it intentionally supports
+// drafts because the connector is the editorial system of record.
+router.get("/automation/posts/:id/preview", async (req, res): Promise<void> => {
+  const postId = Number(req.params.id);
+  const previewToken = typeof req.headers["x-preview-token"] === "string"
+    ? req.headers["x-preview-token"]
+    : "";
+  const verified = Number.isInteger(postId) ? verifyPostPreviewToken(previewToken, postId) : null;
+  res.setHeader("X-Robots-Tag", "noindex, nofollow, noarchive");
+  res.setHeader("Cache-Control", "private, no-store");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  if (!verified) { res.status(401).json({ error: "Invalid or expired preview token" }); return; }
+  const post = await getMapletechiePost({ postId });
+  if (!post) { res.status(404).json({ error: "Post not found" }); return; }
+  res.json({ post, viewport: { width: verified.width, height: verified.height }, expires_at: verified.expiresAt.toISOString() });
 });
 
 router.post("/automation/posts/backfill", automationAuth, async (req, res): Promise<void> => {

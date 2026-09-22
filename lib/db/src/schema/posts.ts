@@ -46,6 +46,7 @@ export const postsTable = pgTable("posts", {
   verdict: text("verdict"),
   publishedAt: timestamp("published_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const insertPostSchema = createInsertSchema(postsTable).omit({ id: true, createdAt: true });

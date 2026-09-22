@@ -147,6 +147,7 @@ vi.mock("../middlewares/adminAuth", () => ({
 }));
 
 const automationRouter = (await import("./automation")).default;
+const { issuePostPreviewToken } = await import("./automation");
 const imagePersistence = await import("../lib/persistExternalImage");
 const persistExternalImageMock = vi.mocked(imagePersistence.persistExternalImage);
 const persistExternalImagesInHtmlMock = vi.mocked(imagePersistence.persistExternalImagesInHtml);
@@ -186,6 +187,22 @@ async function httpPost(
   }
 }
 
+async function httpGet(
+  path: string,
+  headers: Record<string, string> = {},
+): Promise<{ status: number; json: any; headers: Headers }> {
+  const server = createServer(makeApp());
+  await new Promise<void>((r) => server.listen(0, r));
+  const addr = server.address();
+  const port = typeof addr === "object" && addr ? addr.port : 0;
+  try {
+    const resp = await fetch(`http://127.0.0.1:${port}${path}`, { headers });
+    return { status: resp.status, json: await resp.json().catch(() => null), headers: resp.headers };
+  } finally {
+    server.close();
+  }
+}
+
 const AUTH = { Authorization: `Bearer test-automation-token-1234567890` };
 
 function validBody() {
@@ -205,6 +222,7 @@ function validBody() {
 
 beforeEach(() => {
   process.env.AUTOMATION_DRAFT_TOKEN = TOKEN;
+  process.env.PREVIEW_TOKEN_SECRET = TOKEN;
   selectQueue = [];
   insertReturn = [];
   updateReturn = [];
@@ -214,6 +232,45 @@ beforeEach(() => {
   vi.clearAllMocks();
   persistExternalImageMock.mockResolvedValue("/api/storage/objects/persisted-cover");
   persistExternalImagesInHtmlMock.mockImplementation(async (html: string) => html);
+});
+
+describe("preview tokens and current-state preview endpoint", () => {
+  it("accepts a valid token and protects the JSON preview response", async () => {
+    const issued = issuePostPreviewToken(42, 1100, 700)!;
+    selectQueue = [[{
+      id: 42, title: "Preview", slug: "preview", status: "draft",
+      content: "<p>Preview body</p>", createdAt: new Date("2026-01-01T00:00:00Z"),
+      updatedAt: new Date("2026-01-02T00:00:00Z"),
+    }], []];
+    const result = await httpGet("/automation/posts/42/preview", { "X-Preview-Token": issued.token });
+    expect(result.status).toBe(200);
+    expect(result.json).toMatchObject({
+      post: { id: 42, slug: "preview", content: "<p>Preview body</p>" },
+      viewport: { width: 1100, height: 700 },
+    });
+    expect(result.headers.get("x-robots-tag")).toMatch(/noindex/i);
+    expect(result.headers.get("cache-control")).toMatch(/no-store/i);
+    expect(result.headers.get("referrer-policy")).toBe("no-referrer");
+  });
+
+  it("rejects tampering, expiry, and using a token for another post", async () => {
+    const issued = issuePostPreviewToken(42, 800, 600)!;
+    const tampered = `${issued.token.slice(0, -1)}${issued.token.endsWith("a") ? "b" : "a"}`;
+    expect((await httpGet("/automation/posts/42/preview", { "X-Preview-Token": tampered })).status).toBe(401);
+    expect((await httpGet("/automation/posts/43/preview", { "X-Preview-Token": issued.token })).status).toBe(401);
+    expect((await httpGet("/automation/posts/42/preview", { "X-Preview-Token": `${issued.token}.extra` })).status).toBe(401);
+
+    // A token whose signed expiry is in the past is indistinguishable from any
+    // other invalid token to the endpoint.
+    const expired = issuePostPreviewToken(42, 800, 600)!;
+    vi.useFakeTimers();
+    vi.setSystemTime(expired.expiresAt.getTime() + 1000);
+    try {
+      expect((await httpGet("/automation/posts/42/preview", { "X-Preview-Token": expired.token })).status).toBe(401);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("POST /automation/posts/drafts — auth", () => {
@@ -280,6 +337,35 @@ describe("POST /automation/posts/drafts — contract", () => {
     expect(values.seriesId).toBe(7);
     expect(values.seriesPosition).toBe(2);
     expect(values.status).toBe("draft");
+  });
+
+  it("returns the sanitized stored canonical post on fresh creation", async () => {
+    selectQueue = [[BOT_USER], [CATEGORY], []];
+    insertReturn = [{
+      id: 88,
+      title: "Sanitized story",
+      slug: "sanitized-story",
+      excerpt: "Summary",
+      content: "<p>Safe</p>",
+      categoryId: 10,
+      tags: [],
+      author: "Mapletechie AI",
+      authorId: 77,
+      status: "draft",
+      createdAt: new Date("2026-01-03T00:00:00Z"),
+      updatedAt: new Date("2026-01-03T00:00:01Z"),
+      seoKeywords: [],
+    }];
+    const res = await post({ ...validBody(), title: "Sanitized story", slug: "sanitized-story", content: "<p>Safe</p><script>alert(1)</script>" });
+    expect(res.status).toBe(201);
+    expect(res.json).toMatchObject({
+      id: 88, status: "draft", slug: "sanitized-story",
+      content: "<p>Safe</p>",
+      created_at: "2026-01-03T00:00:00.000Z",
+      updated_at: "2026-01-03T00:00:01.000Z",
+      replayed: false,
+    });
+    expect(res.json.content).not.toContain("<script");
   });
 
   it("422 on unknown fields", async () => {
@@ -464,6 +550,22 @@ describe("POST /automation/posts/drafts — contract", () => {
     expect(res.json).toMatchObject({ id: 42, status: "draft", replayed: true });
     // nothing inserted
     expect(captured.insertValues!.filter((v) => v.title).length).toBe(0);
+  });
+
+  it("replay returns the current complete post state, not the stale request snapshot", async () => {
+    selectQueue = [
+      [BOT_USER],
+      [{ id: 1, idempotencyKey: "current-1", postId: 42 }],
+      [{ id: 42, title: "Edited after submit", slug: "test-story", content: "<p>Edited</p>", categoryId: 10, status: "draft", updatedAt: new Date("2026-01-04T00:00:00Z") }],
+      [{ id: 10, name: "News", slug: "news", isPrimary: true }],
+    ];
+    const res = await post(validBody(), { "Idempotency-Key": "current-1" });
+    expect(res.status).toBe(200);
+    expect(res.json).toMatchObject({
+      id: 42, replayed: true, content: "<p>Edited</p>",
+      categories: [{ id: 10, is_primary: true }],
+      updated_at: "2026-01-04T00:00:00.000Z",
+    });
   });
 
   it("rejects an invalid slug format", async () => {
