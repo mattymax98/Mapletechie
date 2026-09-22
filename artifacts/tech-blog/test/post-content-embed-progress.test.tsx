@@ -59,6 +59,33 @@ describe("PostContent embed progress", () => {
     expect(iframe?.getAttribute("referrerpolicy")).toBe("strict-origin-when-cross-origin");
     expect(iframe?.src).toContain("enablejsapi=1");
     expect(iframe?.src).toContain(encodeURIComponent(window.location.origin));
+    const postMessage = vi.spyOn(iframe!.contentWindow!, "postMessage");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    expect(postMessage.mock.calls.some(([payload]) => JSON.parse(String(payload)).event === "listening")).toBe(true);
+
+    act(() => window.dispatchEvent(new MessageEvent("message", {
+      data: JSON.stringify({ event: "initialDelivery", info: {} }),
+      origin: "https://www.youtube-nocookie.com",
+      source: iframe?.contentWindow,
+    })));
+    const commands = postMessage.mock.calls
+      .map(([payload]) => JSON.parse(String(payload)))
+      .filter((payload) => payload.event === "command");
+    expect(commands).toEqual(expect.arrayContaining([
+      expect.objectContaining({ func: "addEventListener", args: ["onReady"] }),
+      expect.objectContaining({ func: "addEventListener", args: ["onError"] }),
+    ]));
+    const listeningCallsAfterInitialization = postMessage.mock.calls
+      .map(([payload]) => JSON.parse(String(payload)))
+      .filter((payload) => payload.event === "listening").length;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(postMessage.mock.calls
+      .map(([payload]) => JSON.parse(String(payload)))
+      .filter((payload) => payload.event === "listening")).toHaveLength(listeningCallsAfterInitialization);
 
     act(() => window.dispatchEvent(new MessageEvent("message", {
       data: JSON.stringify({ event: "onReady" }),
@@ -116,6 +143,11 @@ describe("PostContent embed progress", () => {
     expect(youtubeFrames).toHaveLength(2);
     act(() => {
       for (const iframe of youtubeFrames) {
+        window.dispatchEvent(new MessageEvent("message", {
+          data: JSON.stringify({ event: "initialDelivery", info: {} }),
+          origin: "https://www.youtube-nocookie.com",
+          source: iframe.contentWindow,
+        }));
         window.dispatchEvent(new MessageEvent("message", {
           data: JSON.stringify({ event: "onReady" }),
           origin: "https://www.youtube-nocookie.com",

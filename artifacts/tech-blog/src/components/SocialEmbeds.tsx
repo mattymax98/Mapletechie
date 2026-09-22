@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode, type Ref } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode, type Ref } from "react";
 import {
   Youtube,
   Twitter,
@@ -165,12 +165,28 @@ type EmbedStatusCallback = (status: EmbedTerminalStatus) => void;
 
 function YouTubeEmbed({ embed, onStatus }: { embed: ParsedSocialEmbed; onStatus?: EmbedStatusCallback }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const playerId = useId();
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let settlementTimer: number | undefined;
+    let listeningTimer: number | undefined;
+    let initialized = false;
     const iframe = iframeRef.current;
     if (!iframe) return;
+    const send = (payload: Record<string, unknown>) => {
+      iframe.contentWindow?.postMessage(
+        JSON.stringify({ id: playerId, channel: playerId, ...payload }),
+        "https://www.youtube-nocookie.com",
+      );
+    };
+    const subscribe = () => {
+      if (initialized) return;
+      initialized = true;
+      if (listeningTimer !== undefined) window.clearInterval(listeningTimer);
+      send({ event: "command", func: "addEventListener", args: ["onReady"] });
+      send({ event: "command", func: "addEventListener", args: ["onError"] });
+    };
     const receivePlayerEvent = (event: MessageEvent) => {
       if (event.source !== iframe.contentWindow ||
           (event.origin !== "https://www.youtube-nocookie.com" && event.origin !== "https://www.youtube.com")) return;
@@ -180,6 +196,8 @@ function YouTubeEmbed({ embed, onStatus }: { embed: ParsedSocialEmbed; onStatus?
       }
       if (!payload || typeof payload !== "object") return;
       const playerEvent = payload as { event?: string };
+      // Any valid response proves the listening channel is established.
+      subscribe();
       if (playerEvent.event === "onReady") {
         settlementTimer = window.setTimeout(() => onStatus?.("rendered"), 250);
       } else if (playerEvent.event === "onError") {
@@ -188,15 +206,15 @@ function YouTubeEmbed({ embed, onStatus }: { embed: ParsedSocialEmbed; onStatus?
       }
     };
     window.addEventListener("message", receivePlayerEvent);
-    const listeningTimer = window.setInterval(() => {
-      iframe.contentWindow?.postMessage(JSON.stringify({ event: "listening" }), "https://www.youtube-nocookie.com");
-    }, 100);
+    const listen = () => send({ event: "listening" });
+    listen();
+    listeningTimer = window.setInterval(listen, 100);
     return () => {
       if (settlementTimer !== undefined) window.clearTimeout(settlementTimer);
-      window.clearInterval(listeningTimer);
+      if (listeningTimer !== undefined) window.clearInterval(listeningTimer);
       window.removeEventListener("message", receivePlayerEvent);
     };
-  }, [embed.id, onStatus]);
+  }, [embed.id, onStatus, playerId]);
 
   if (failed) {
     return (
@@ -216,6 +234,7 @@ function YouTubeEmbed({ embed, onStatus }: { embed: ParsedSocialEmbed; onStatus?
   return (
     <div className="not-prose my-6 aspect-video w-full overflow-hidden rounded border border-border">
       <iframe
+        id={playerId}
         ref={iframeRef}
         src={`https://www.youtube-nocookie.com/embed/${embed.id}?enablejsapi=1&origin=${encodeURIComponent(origin)}`}
         title="YouTube video"
