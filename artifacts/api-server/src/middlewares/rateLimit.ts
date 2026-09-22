@@ -8,7 +8,7 @@ import type { Request } from "express";
  *
  * Numbers are deliberately generous for human use but tight enough to
  * defeat trivial scripted abuse (form spam, comment spam, newsletter
- * sign-up bombing, AI generation abuse).
+ * sign-up bombing).
  */
 
 const json429 = (label: string) => ({
@@ -68,33 +68,6 @@ export const loginLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   message: json429("login"),
-});
-
-/** AI generation: 30 / hour per IP (admin-only routes get extra protection). */
-export const aiGenerateLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  limit: 30,
-  standardHeaders: "draft-7",
-  legacyHeaders: false,
-  message: json429("AI generation"),
-});
-
-/**
- * Per-editor AI image generation: 20 images / hour, keyed on the
- * authenticated user id (IP fallback). Image generation bills real credits,
- * so the limit must follow the account, not the network address.
- */
-export const aiImageLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  limit: 20,
-  standardHeaders: "draft-7",
-  legacyHeaders: false,
-  keyGenerator: (req: Request, res) => {
-    const id = req.user?.id;
-    if (id) return `user:${id}`;
-    return `ip:${ipKeyGenerator(req.ip ?? "")}`;
-  },
-  message: json429("AI image generation"),
 });
 
 /**

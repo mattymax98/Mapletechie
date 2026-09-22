@@ -62,6 +62,39 @@ pnpm run test
 pnpm run build
 ```
 
+## Validated direct-to-main development
+
+`main` is the production branch and Railway deploys it automatically. Routine
+work follows this delivery sequence:
+
+1. Fetch the latest `origin/main` and confirm the working copy is based on it.
+2. Implement the requested change.
+3. Run the validation commands above.
+4. Commit with `mattymax98 <197423417+mattymax98@users.noreply.github.com>` as
+   both author and committer, with no additional attribution trailers.
+5. Fetch `origin/main` again and confirm the commit can be pushed as a normal
+   fast-forward.
+6. Push directly to `main`.
+7. Confirm Railway deploys that exact commit and verify the affected production
+   behavior.
+
+Do not force-push, reset, or delete `main` during routine work. If GitHub branch
+protection prevents a normal authenticated fast-forward push, report the
+owner-side setting instead of bypassing it. Feature branches, pull requests, and
+Railway pull-request environments are optional tools for exceptional work, not
+requirements for normal delivery.
+
+The scheduled canonical-host canary is independent of this delivery flow and
+must remain enabled.
+
+## External editorial automation
+
+AI-assisted research, drafting, and image preparation happen outside the CMS
+through the authenticated MCP/automation workflow. That workflow may inspect
+content, upload media, preview posts, and create drafts, but it cannot publish,
+schedule, feature, or set server-controlled authorship. Keep
+`AUTOMATION_DRAFT_TOKEN` and `MCP_CONNECTOR_TOKEN` server-side.
+
 ## Deployment
 
 Production is hosted on Railway. The API uses Railway PostgreSQL and

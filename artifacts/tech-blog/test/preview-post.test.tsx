@@ -108,7 +108,10 @@ describe("signed post preview", () => {
     expect(article?.getAttribute("data-preview-requested")).toBe("3");
     expect(article?.getAttribute("data-preview-preserved")).toBe("2");
     expect(article?.getAttribute("data-preview-removed")).toBe("1");
-    expect(document.querySelectorAll("script[src*='twitter.com']")).toHaveLength(1);
+    expect(document.querySelectorAll("script[src*='twitter.com']")).toHaveLength(0);
+    expect(
+      document.querySelector('[data-testid="embed-link-card"][href="https://x.com/mapletechie/status/123456789"]'),
+    ).not.toBeNull();
   });
 
   it("keeps noindex while allowing only an origin-level cross-origin referrer", async () => {

@@ -12,11 +12,13 @@
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "test": "pnpm -r --if-present --stream run test",
+    "test:preview-smoke": "pnpm --filter @workspace/tech-blog run test:preview-smoke",
     "validate:development-storage": "sh -c 'set -a; [ ! -f .env ] || . ./.env; set +a; exec pnpm --filter @workspace/api-server run validate:development-storage'"
   },
   "private": true,
   "devDependencies": {
-    "typescript": "~5.9.2",
-    "prettier": "^3.8.1"
+    "playwright-core": "^1.63.0",
+    "prettier": "^3.8.1",
+    "typescript": "~5.9.2"
   }
 }

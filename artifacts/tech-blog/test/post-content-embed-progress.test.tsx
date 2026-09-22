@@ -111,6 +111,69 @@ describe("PostContent embed progress", () => {
     expect(document.querySelector('[data-testid="embed-youtube-player"]')).not.toBeNull();
   });
 
+  it("ignores delayed YouTube events from replaced article content", async () => {
+    vi.useFakeTimers();
+    const onEmbedProgress = vi.fn();
+    const { rerender } = render(
+      <PostContent
+        html={'<div data-social-embed data-url="https://www.youtube.com/watch?v=vcID0OafOts"></div>'}
+        enableAds={false}
+        onHeadingsExtracted={() => undefined}
+        onEmbedProgress={onEmbedProgress}
+      />,
+    );
+
+    const oldIframe = document.querySelector<HTMLIFrameElement>('[data-testid="embed-youtube-player"]');
+    const oldPlayerWindow = oldIframe?.contentWindow;
+
+    rerender(
+      <PostContent
+        html={[
+          '<div data-social-embed data-url="https://www.youtube.com/watch?v=dQw4w9WgXcQ"></div>',
+          '<div data-social-embed data-url="https://www.youtube.com/watch?v=jNQXAC9IVRw"></div>',
+        ].join("")}
+        enableAds={false}
+        onHeadingsExtracted={() => undefined}
+        onEmbedProgress={onEmbedProgress}
+      />,
+    );
+
+    expect(onEmbedProgress).toHaveBeenLastCalledWith({
+      total: 2, loading: 2, rendered: 0, fallback: 0, failed: 0,
+    });
+
+    act(() => window.dispatchEvent(new MessageEvent("message", {
+      data: JSON.stringify({ event: "onError", info: 153 }),
+      origin: "https://www.youtube-nocookie.com",
+      source: oldPlayerWindow,
+    })));
+    expect(onEmbedProgress).toHaveBeenLastCalledWith({
+      total: 2, loading: 2, rendered: 0, fallback: 0, failed: 0,
+    });
+
+    const [readyIframe] = Array.from(
+      document.querySelectorAll<HTMLIFrameElement>('[data-testid="embed-youtube-player"]'),
+    );
+    act(() => window.dispatchEvent(new MessageEvent("message", {
+      data: JSON.stringify({ event: "onReady" }),
+      origin: "https://www.youtube-nocookie.com",
+      source: readyIframe.contentWindow,
+    })));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250);
+    });
+    expect(onEmbedProgress).toHaveBeenLastCalledWith({
+      total: 2, loading: 1, rendered: 1, fallback: 0, failed: 0,
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(11_750);
+    });
+    expect(onEmbedProgress).toHaveBeenLastCalledWith({
+      total: 2, loading: 0, rendered: 1, fallback: 0, failed: 1,
+    });
+  });
+
   it("tracks two YouTube failures independently alongside a rendered X embed", async () => {
     vi.useFakeTimers();
     const onEmbedProgress = vi.fn();

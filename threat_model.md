@@ -13,7 +13,6 @@ Mapletechie (mapletechie.com) is a production tech-blog platform built on a pnpm
 - **Reader PII** — Email addresses in the newsletter subscriber list, contact form submissions, and job applications. Exfiltration harms subscribers and may trigger GDPR obligations.
 - **Published content** — Blog posts, categories, and editorial configuration. Unauthorized modification damages brand reputation.
 - **Automation / MCP tokens** — `AUTOMATION_DRAFT_TOKEN` and `MCP_CONNECTOR_TOKEN` allow external AI agents to submit draft posts. Exposure allows spamming the draft queue.
-- **AI generation API keys** — Used by `/admin/generate-post`; billed per call. Abuse incurs real cost.
 
 ## Trust Boundaries
 

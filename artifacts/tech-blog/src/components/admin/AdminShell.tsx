@@ -10,7 +10,6 @@ import {
   Settings,
   Users,
   ClipboardList,
-  Sparkles,
   Briefcase,
   Inbox,
   Send,
@@ -99,12 +98,6 @@ const NAV: NavSection[] = [
   {
     title: "Tools",
     items: [
-      {
-        href: "/admin/generate",
-        label: "AI Generate",
-        icon: Sparkles,
-        permission: (u) => u?.role === "admin",
-      },
       {
         href: "/admin/jobs",
         label: "Jobs",

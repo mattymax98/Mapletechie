@@ -264,9 +264,13 @@ declare global {
 
 function TweetEmbed({ embed, onStatus }: { embed: ParsedSocialEmbed; onStatus?: EmbedStatusCallback }) {
   const holderRef = useRef<HTMLDivElement>(null);
-  const [state, setState] = useState<"loading" | "done" | "failed">("loading");
+  const useFallback = /^\/preview\/posts\/\d+\/?$/.test(window.location.pathname);
+  const [state, setState] = useState<"loading" | "done" | "failed">(
+    useFallback ? "failed" : "loading",
+  );
 
   useEffect(() => {
+    if (useFallback) return;
     let cancelled = false;
     const timeout = setTimeout(() => {
       if (!cancelled) setState((s) => (s === "loading" ? "failed" : s));
@@ -291,7 +295,7 @@ function TweetEmbed({ embed, onStatus }: { embed: ParsedSocialEmbed; onStatus?: 
       cancelled = true;
       clearTimeout(timeout);
     };
-  }, [embed.id]);
+  }, [embed.id, useFallback]);
   useEffect(() => {
     if (state === "done") onStatus?.("rendered");
     else if (state === "failed") onStatus?.("fallback");

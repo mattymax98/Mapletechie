@@ -10,6 +10,7 @@
     "build:server": "node ./build.server.mjs",
     "start": "node --enable-source-maps ./dist/server.mjs",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
+    "test:preview-smoke": "pnpm run build && node ./test/live-preview-smoke.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"

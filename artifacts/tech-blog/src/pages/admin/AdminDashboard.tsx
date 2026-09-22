@@ -24,7 +24,6 @@ import {
   Pencil,
   Trash2,
   Eye,
-  Sparkles,
   CheckCircle2,
   Clock,
   FolderInput,
@@ -271,18 +270,6 @@ export default function AdminDashboard() {
 
   const shellActions = (
     <div className="flex items-center gap-2">
-      {isAdmin && (
-        <Link href="/admin/generate">
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10 hover:text-orange-300 gap-1.5"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline text-xs">Generate</span>
-          </Button>
-        </Link>
-      )}
       <Link href="/admin/posts/new">
         <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5">
           <PlusCircle className="w-3.5 h-3.5" />

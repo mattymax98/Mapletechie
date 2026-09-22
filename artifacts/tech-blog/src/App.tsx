@@ -41,7 +41,6 @@ const AdminLogin = lazy(() => import("@/pages/admin/AdminLogin"));
 const AdminDashboard = lazy(() => import("@/pages/admin/AdminDashboard"));
 const AdminNewPost = lazy(() => import("@/pages/admin/AdminNewPost"));
 const AdminEditPost = lazy(() => import("@/pages/admin/AdminEditPost"));
-const AdminGenerate = lazy(() => import("@/pages/admin/AdminGenerate"));
 const AdminUsers = lazy(() => import("@/pages/admin/AdminUsers"));
 const AdminProfile = lazy(() => import("@/pages/admin/AdminProfile"));
 const AdminInbox = lazy(() => import("@/pages/admin/AdminInbox"));
@@ -88,9 +87,6 @@ function Router() {
       <Route path="/preview/posts/:id" component={PreviewPost} />
       {/* Admin routes — no Layout wrapper */}
       <Route path="/admin/login" component={AdminLogin} />
-      <Route path="/admin/generate">
-        <AdminGuard adminOnly><AdminGenerate /></AdminGuard>
-      </Route>
       <Route path="/admin/users">
         <AdminGuard><AdminUsers /></AdminGuard>
       </Route>

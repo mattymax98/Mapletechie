@@ -30,8 +30,6 @@ import {
   Search,
   ChevronDown,
   ChevronUp,
-  Sparkles,
-  Loader2,
   X,
 } from "lucide-react";
 import { Link } from "wouter";
@@ -198,39 +196,6 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
 
   const [error, setError] = useState("");
 
-  const generateCoverWithAI = async () => {
-    const prompt = aiPrompt.trim() || form.title.trim();
-    if (!prompt) {
-      setAiError("Give the post a title or describe the image first.");
-      return;
-    }
-    setAiError("");
-    setAiGenerating(true);
-    try {
-      const r = await fetch("/api/admin/generate-cover-image", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ prompt }),
-      });
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        setAiError(data.error || `Generation failed (HTTP ${r.status})`);
-        return;
-      }
-      setForm((f) => ({ ...f, coverImage: data.url }));
-    } catch (e: any) {
-      setAiError(e?.message ?? "Generation failed. Try again.");
-    } finally {
-      setAiGenerating(false);
-    }
-  };
-
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [aiGenerating, setAiGenerating] = useState(false);
-  const [aiError, setAiError] = useState("");
   const [autoSlug, setAutoSlug] = useState(!isEditing);
   const [seoOpen, setSeoOpen] = useState(false);
   // ogPreviewSrc is either a direct image URL (when ogImage is set) or a
@@ -452,32 +417,6 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [isDirty]);
-
-  useEffect(() => {
-    if (isEditing) return;
-    const raw = sessionStorage.getItem("ai-draft");
-    if (!raw) return;
-    try {
-      const d = JSON.parse(raw);
-      setForm((f) => ({
-        ...f,
-        title: d.title ?? f.title,
-        slug: d.slug ?? f.slug,
-        excerpt: d.excerpt ?? f.excerpt,
-        content: d.content ?? f.content,
-        categories: d.category ? [d.category] : f.categories,
-        primaryCategory: d.category ?? f.primaryCategory,
-        author: d.author ?? f.author,
-        coverImage: d.coverImage ?? f.coverImage,
-        readTime: typeof d.readTime === "number" ? d.readTime : f.readTime,
-      }));
-      setAutoSlug(false);
-    } catch {
-      // ignore
-    } finally {
-      sessionStorage.removeItem("ai-draft");
-    }
-  }, [isEditing]);
 
   // True when a URL points at an image hosted outside Mapletechie (not a
   // relative path, not our own domain, not our object storage).
@@ -928,38 +867,6 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                 </div>
               )}
 
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 space-y-2">
-                <div className="flex items-center gap-2 text-orange-400 text-xs font-medium uppercase tracking-wide">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Generate with AI
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Input
-                    value={aiPrompt}
-                    onChange={(e) => setAiPrompt(e.target.value)}
-                    placeholder={form.title ? `e.g. ${form.title}` : "Describe the cover image you want…"}
-                    className="bg-zinc-900 border-zinc-700 text-white focus:border-orange-500 flex-1"
-                    disabled={aiGenerating}
-                  />
-                  <Button
-                    type="button"
-                    onClick={generateCoverWithAI}
-                    disabled={aiGenerating || !(aiPrompt.trim() || form.title.trim())}
-                    className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shrink-0"
-                  >
-                    {aiGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                    {aiGenerating ? "Generating…" : "Generate"}
-                  </Button>
-                </div>
-                <p className="text-xs text-zinc-500">
-                  Leave blank to use the post title. Takes ~30 seconds; the image is saved to your Media library.
-                </p>
-                {aiError && (
-                  <p className="text-xs text-red-400 flex items-center gap-1">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {aiError}
-                  </p>
-                )}
-              </div>
             </div>
 
             <div className="md:col-span-2 space-y-2">

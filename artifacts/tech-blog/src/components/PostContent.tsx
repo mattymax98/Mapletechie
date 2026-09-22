@@ -121,7 +121,8 @@ export function PostContent({
   }, [embedCount, expectedEmbedKeys, markEmbedsReady, onEmbedProgress]);
   const embedStatus = useCallback((key: string, status: EmbedTerminalStatus) => {
     if (generation !== lifecycleGeneration.current) return;
-    if (statusByKey.current.has(key)) return;
+    // Provider state is authoritative and may regress after initially becoming
+    // ready (for example, YouTube can report an error after onReady).
     statusByKey.current.set(key, status);
     const values = Array.from(statusByKey.current.values());
     onEmbedProgress?.({

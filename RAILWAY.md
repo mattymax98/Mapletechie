@@ -5,6 +5,30 @@ everything marked 🤖 is handled automatically or by the agent.
 
 ---
 
+## Direct-to-main deployment and production safety
+
+Railway production remains connected to GitHub `main`. The normal deployment
+flow is:
+
+```text
+latest main → implement → validate → canonical commit → fast-forward push
+→ Railway production deployment → production verification
+```
+
+Before every push, run the repository typecheck, tests, and production build.
+Confirm the commit uses the canonical `mattymax98` identity, fetch `main` again,
+and push only when the update remains a normal fast-forward. Never force-push or
+delete `main` during routine delivery.
+
+Railway pull-request environments are not required. The project has no isolated
+preview database or preview-scoped R2 credentials, so do not enable a preview
+environment that inherits access to the production PostgreSQL database,
+production `mapletechie` R2 bucket, or any other production mutable resource.
+Use the existing development environment and `mapletechie-development`
+bucket-scoped credentials for pre-production checks.
+
+---
+
 ## Phase 1 — Set up Cloudflare R2 (image storage)
 
 Railway doesn't include file storage, so we use Cloudflare R2 — it's free
@@ -155,12 +179,8 @@ MCP_CONNECTOR_TOKEN         = <from development secret store>
 # sender addresses and Resend will return a 403 domain-not-verified error.
 RESEND_API_KEY              = re_...
 
-# AI integrations — supply provider API credentials, or leave these unset to
-# disable AI-draft generation on Railway.
-AI_INTEGRATIONS_OPENAI_API_KEY      = sk-...
-AI_INTEGRATIONS_OPENAI_BASE_URL     = https://api.openai.com/v1
-AI_INTEGRATIONS_ANTHROPIC_API_KEY   = sk-ant-...
-AI_INTEGRATIONS_ANTHROPIC_BASE_URL  = https://api.anthropic.com
+# External editorial automation is draft-only. These tokens authenticate the
+# existing MCP/automation workflow; they never grant publishing authority.
 
 # R2 storage (from Phase 1):
 R2_ACCOUNT_ID               = <your Cloudflare Account ID>
@@ -302,10 +322,10 @@ the check only makes read-only requests to the public site.
 
 The workflow fails with the specific public variant that regressed, including
 the expected and observed redirect destination when applicable. Configure the
-workflow's `Verify public host redirects` check as a required status check if
-the GitHub branch protection policy should also gate production releases. A
-scheduled failure does not change Cloudflare or Railway routing; fix the
-reported DNS, redirect rule, or deployment issue and rerun the workflow.
+    workflow's `Verify public host redirects` check reports regressions
+    independently of normal direct-to-main delivery. A scheduled failure does
+    not change Cloudflare or Railway routing; fix the reported DNS, redirect
+    rule, or deployment issue and rerun the workflow.
 
 ## Phase 8 — Verify & go live
 
@@ -361,14 +381,14 @@ the retired origin or point public DNS back to it.
 
 ### Secret and source-control boundary
 
-- Production credentials (`DATABASE_URL`, session/auth secrets, R2,
-  Resend, and optional AI credentials) live only in Railway Variables.
+- Production credentials (`DATABASE_URL`, session/auth secrets, R2, and
+  Resend) live only in Railway Variables.
 - Development credentials stay in the local environment and are scoped only
   to the separate `mapletechie-development` R2 bucket. Production uses the
   `mapletechie` bucket. Credentials are never copied into the production build.
-- AI generation remains admin-only, on-demand, and disabled when its Railway
-  credentials are absent. Normal reads, publishing, analytics, storage, and
-  email do not call Anthropic or OpenAI.
+- External AI clients use only the authenticated MCP/automation boundary.
+  They may inspect content, upload media, preview posts, and create drafts, but
+  cannot publish, schedule, feature, or set server-controlled authorship.
 - GitHub remains the source repository and Railway remains the deployment
   path. Git remotes must use GitHub authorization or a credential-free URL;
   never commit or embed a personal access token in a remote URL.

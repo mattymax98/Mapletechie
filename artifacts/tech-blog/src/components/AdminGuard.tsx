@@ -11,7 +11,7 @@ import { useAdmin } from "@/context/AdminContext";
 /**
  * `adminOnly` requires the *admin* role specifically (founding admin), not
  * just any signed-in editor. Use it for pages that bypass per-editor
- * permission checks like /admin/generate.
+ * permission checks.
  */
 export function AdminGuard({ children, adminOnly = false }: { children: ReactNode; adminOnly?: boolean }) {
   const { isAdmin, user } = useAdmin();
