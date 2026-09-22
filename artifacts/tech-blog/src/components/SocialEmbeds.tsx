@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import {
   Youtube,
   Twitter,
@@ -39,45 +39,6 @@ function loadScript(src: string): Promise<void> {
   });
   scriptPromises.set(src, p);
   return p;
-}
-
-type YouTubePlayer = { destroy: () => void };
-type YouTubePlayerEvent = { target: YouTubePlayer };
-type YouTubePlayerErrorEvent = YouTubePlayerEvent & { data: number };
-
-declare global {
-  interface Window {
-    YT?: {
-      Player: new (
-        element: HTMLIFrameElement,
-        options: {
-          events: {
-            onReady: (event: YouTubePlayerEvent) => void;
-            onError: (event: YouTubePlayerErrorEvent) => void;
-          };
-        },
-      ) => YouTubePlayer;
-    };
-    onYouTubeIframeAPIReady?: () => void;
-  }
-}
-
-let youtubeApiPromise: Promise<void> | undefined;
-function loadYouTubeApi(): Promise<void> {
-  if (window.YT?.Player) return Promise.resolve();
-  if (youtubeApiPromise) return youtubeApiPromise;
-  youtubeApiPromise = new Promise<void>((resolve, reject) => {
-    const previousReady = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => {
-      previousReady?.();
-      resolve();
-    };
-    loadScript("https://www.youtube.com/iframe_api").catch((error) => {
-      youtubeApiPromise = undefined;
-      reject(error);
-    });
-  });
-  return youtubeApiPromise;
 }
 
 function isDarkMode(): boolean {
@@ -197,7 +158,7 @@ function LinkCard({ embed }: { embed: ParsedSocialEmbed }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* YouTube — use the player API so readiness reflects the real player  */
+/* YouTube — consume the iframe's API events without replacing the iframe */
 /* ------------------------------------------------------------------ */
 export type EmbedTerminalStatus = "rendered" | "fallback" | "failed";
 type EmbedStatusCallback = (status: EmbedTerminalStatus) => void;
@@ -207,41 +168,33 @@ function YouTubeEmbed({ embed, onStatus }: { embed: ParsedSocialEmbed; onStatus?
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    let player: YouTubePlayer | undefined;
     let settlementTimer: number | undefined;
-    loadYouTubeApi()
-      .then(() => {
-        if (cancelled || !iframeRef.current || !window.YT?.Player) return;
-        player = new window.YT.Player(iframeRef.current, {
-          events: {
-            onReady: () => {
-              // Give immediate post-ready errors a bounded chance to win.
-              settlementTimer = window.setTimeout(() => {
-                if (!cancelled) onStatus?.("rendered");
-              }, 250);
-            },
-            onError: () => {
-              if (settlementTimer !== undefined) window.clearTimeout(settlementTimer);
-              if (!cancelled) {
-                // A player error is a failed iframe, not a fallback. Keep the
-                // player visible so accounting reflects the actual terminal UI.
-                onStatus?.("failed");
-              }
-            },
-          },
-        });
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setFailed(true);
-          onStatus?.("fallback");
-        }
-      });
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    const receivePlayerEvent = (event: MessageEvent) => {
+      if (event.source !== iframe.contentWindow ||
+          (event.origin !== "https://www.youtube-nocookie.com" && event.origin !== "https://www.youtube.com")) return;
+      let payload: unknown = event.data;
+      if (typeof payload === "string") {
+        try { payload = JSON.parse(payload); } catch { return; }
+      }
+      if (!payload || typeof payload !== "object") return;
+      const playerEvent = payload as { event?: string };
+      if (playerEvent.event === "onReady") {
+        settlementTimer = window.setTimeout(() => onStatus?.("rendered"), 250);
+      } else if (playerEvent.event === "onError") {
+        if (settlementTimer !== undefined) window.clearTimeout(settlementTimer);
+        onStatus?.("failed");
+      }
+    };
+    window.addEventListener("message", receivePlayerEvent);
+    const listeningTimer = window.setInterval(() => {
+      iframe.contentWindow?.postMessage(JSON.stringify({ event: "listening" }), "https://www.youtube-nocookie.com");
+    }, 100);
     return () => {
-      cancelled = true;
       if (settlementTimer !== undefined) window.clearTimeout(settlementTimer);
-      player?.destroy();
+      window.clearInterval(listeningTimer);
+      window.removeEventListener("message", receivePlayerEvent);
     };
   }, [embed.id, onStatus]);
 
@@ -270,6 +223,10 @@ function YouTubeEmbed({ embed, onStatus }: { embed: ParsedSocialEmbed; onStatus?
         className="h-full w-full"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         referrerPolicy="strict-origin-when-cross-origin"
+        onError={() => {
+          setFailed(true);
+          onStatus?.("fallback");
+        }}
         allowFullScreen
       />
     </div>
@@ -547,7 +504,10 @@ export function SocialEmbedView({
   embedKey?: string;
   onStatus?: (key: string, status: EmbedTerminalStatus) => void;
 }) {
-  const report = (status: EmbedTerminalStatus) => onStatus?.(embedKey ?? embed.id, status);
+  const report = useCallback(
+    (status: EmbedTerminalStatus) => onStatus?.(embedKey ?? embed.id, status),
+    [embed.id, embedKey, onStatus],
+  );
   switch (embed.provider) {
     case "youtube":
       return <YouTubeEmbed embed={embed} onStatus={report} />;

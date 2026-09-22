@@ -68,7 +68,7 @@ describe("signed post preview", () => {
     expect(window.location.hash).toBe("");
   });
 
-  it("renders stored HTML and shared YouTube/X embed paths with visible provider fallbacks", async () => {
+  it("renders stored HTML with a ready YouTube player and visible X fallback", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
@@ -86,18 +86,24 @@ describe("signed post preview", () => {
     renderPreview();
     await waitFor(() => {
       expect(document.body.textContent).toContain("Stored preview body.");
-      expect(document.querySelector('[data-testid="embed-youtube-fallback"]')?.textContent).toContain("Watch on YouTube");
       expect(
         document.querySelector('[data-testid="embed-tweet"]') ??
         document.querySelector('[data-testid="embed-link-card"][href*="x.com"]'),
       ).not.toBeNull();
     });
+    const youtube = document.querySelector<HTMLIFrameElement>('[data-testid="embed-youtube-player"]');
+    expect(youtube).not.toBeNull();
+    window.dispatchEvent(new MessageEvent("message", {
+      data: JSON.stringify({ event: "onReady" }),
+      origin: "https://www.youtube-nocookie.com",
+      source: youtube?.contentWindow,
+    }));
     await waitFor(() => expect(document.querySelector("[data-preview-ready]")?.getAttribute("data-preview-ready")).toBe("true"));
     const article = document.querySelector("[data-preview-ready]");
     expect(article?.getAttribute("data-preview-total")).toBe("2");
     expect(article?.getAttribute("data-preview-loading")).toBe("0");
-    expect(article?.getAttribute("data-preview-rendered")).toBe("0");
-    expect(article?.getAttribute("data-preview-fallback")).toBe("2");
+    expect(article?.getAttribute("data-preview-rendered")).toBe("1");
+    expect(article?.getAttribute("data-preview-fallback")).toBe("1");
     expect(article?.getAttribute("data-preview-failed")).toBe("0");
     expect(article?.getAttribute("data-preview-requested")).toBe("3");
     expect(article?.getAttribute("data-preview-preserved")).toBe("2");
