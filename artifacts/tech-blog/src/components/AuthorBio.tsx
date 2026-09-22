@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,6 +33,9 @@ export function AuthorBio({ authorId, fallbackName, fallbackAvatar }: AuthorBioP
   const avatarUrl = author?.avatarUrl || fallbackAvatar || `${import.meta.env.BASE_URL}author-matthew.webp`;
   const jobTitle = author?.jobTitle?.trim() || "Editor, Mapletechie";
   const bio = author?.bio?.trim() || "Editor at Mapletechie — covering AI, electric vehicles, cybersecurity, and consumer gadgets.";
+  const authorHref = author?.username
+    ? `/author/${encodeURIComponent(author.username)}`
+    : null;
 
   const normalizeUrl = (raw?: string | null): string | null => {
     if (!raw) return null;
@@ -52,21 +56,41 @@ export function AuthorBio({ authorId, fallbackName, fallbackAvatar }: AuthorBioP
 
   return (
     <div className="flex items-center gap-3" data-testid="compact-byline">
-      <img
-        src={avatarUrl}
-        alt={displayName}
-        className="w-9 h-9 rounded-full object-cover border border-border shrink-0"
-      />
+      {authorHref ? (
+        <Link href={authorHref} aria-label={`View ${displayName}'s author profile`}>
+          <img
+            src={avatarUrl}
+            alt={displayName}
+            className="w-9 h-9 rounded-full object-cover border border-border shrink-0"
+          />
+        </Link>
+      ) : (
+        <img
+          src={avatarUrl}
+          alt={displayName}
+          className="w-9 h-9 rounded-full object-cover border border-border shrink-0"
+        />
+      )}
       <div className="leading-tight">
+        {authorHref ? (
+          <Link
+            href={authorHref}
+            className="text-sm font-bold uppercase tracking-wider hover:text-primary transition-colors text-left"
+          >
+            {displayName}
+          </Link>
+        ) : (
+          <span className="text-sm font-bold uppercase tracking-wider">{displayName}</span>
+        )}
+        <p className="text-xs text-muted-foreground">{jobTitle}</p>
         <button
           type="button"
           onClick={() => setBioOpen(true)}
-          className="text-sm font-bold uppercase tracking-wider hover:text-primary transition-colors text-left"
+          className="text-xs text-muted-foreground underline hover:text-primary"
           data-testid="button-author-name"
         >
-          {displayName}
+          Bio
         </button>
-        <p className="text-xs text-muted-foreground">{jobTitle}</p>
       </div>
 
       <Dialog open={bioOpen} onOpenChange={setBioOpen}>
@@ -88,6 +112,11 @@ export function AuthorBio({ authorId, fallbackName, fallbackAvatar }: AuthorBioP
           </DialogHeader>
           <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{bio}</p>
           <div className="flex flex-wrap gap-2 items-center pt-2">
+            {authorHref && (
+              <Button asChild variant="outline" size="sm" className="rounded-none uppercase tracking-wider text-xs">
+                <Link href={authorHref}>All articles</Link>
+              </Button>
+            )}
             <Button asChild variant="outline" size="sm" className="rounded-none uppercase tracking-wider text-xs gap-2">
               <a href="mailto:matthew@mapletechie.com">
                 <Mail className="w-3 h-3" /> Contact

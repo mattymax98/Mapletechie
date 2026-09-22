@@ -72,6 +72,7 @@ const ARTICLE = {
   publishedAt: "2026-01-15T12:00:00.000Z",
   updatedAt: "2026-01-16T12:00:00.000Z",
   author: "Matthew Mbaka",
+  authorId: 7,
   seoTitle: null,
   seoDescription: null,
 };
@@ -257,6 +258,10 @@ function startMockApi(
   api.get("/api/authors/:id/posts", (req, res) => {
     if (Number(req.params.id) === AUTHOR.id) return res.json(POST_LIST);
     res.json([]);
+  });
+  api.get("/api/authors/:id", (req, res) => {
+    if (Number(req.params.id) === AUTHOR.id) return res.json(AUTHOR);
+    res.status(404).json({ error: "not found" });
   });
   api.get("/api/tags/:tag/posts", (req, res) => {
     if (opts.resourceFailure) return res.status(503).json({ error: "temporary" });
@@ -1108,6 +1113,40 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       );
     });
 
+    it.each([
+      ["/category/software-apps", "/category/software"],
+      ["/blog/canada-openai-privacy-laws", "/blog/openai-canada-privacy-ruling"],
+      ["/openai-hugging-face-incident-ai-regulation-gaps", "/blog/openai-agent-hugging-face-security-test"],
+      ["/blog/canada-ai-strategy-adoption-before-rules", "/blog/canada-ai-strategy-rules-come-later"],
+      ["/blog/buy-used-phone-canada-checklist", "/blog/used-phone-buyer-checklist-canada"],
+      ["/blog/move-whatsapp-chats-iphone-android-safely", "/blog/move-whatsapp-iphone-android"],
+      ["/blog/imported-phone-canada-checklist", "/blog/check-imported-phone-canada"],
+      ["/blog/browser-password-manager-security", "/blog/browser-vs-password-manager"],
+    ])("301-redirects exact legacy replacement %s to %s", async (from, to) => {
+      const r = await fetch(`${baseUrl}${from}?utm_source=ahrefs`, {
+        headers: { "user-agent": GOOGLEBOT_UA },
+        redirect: "manual",
+      });
+      expect(r.status).toBe(301);
+      expect(r.headers.get("location")).toBe(`${to}?utm_source=ahrefs`);
+    });
+
+    it.each([
+      "/account-recovery-kit-lost-phone",
+      "/fix-phone-hotspot-device-cannot-connect",
+      "/iran-war-changing-us-military-technology",
+      "/blog/internet-router-device-outage-check",
+      "/canada-europe-digital-trade-details",
+      "/uae-5gw-ai-campus-concentration-resilience",
+      "/south-korea-espionage-law-chip-secrets",
+      "/anthropic-ai-slowdown-plan-verifiable-gates",
+      "/canada-eu-associate-membership-internet-rules",
+    ])("keeps the never-published URL %s as a noindex 404", async (pathname) => {
+      const { status, body } = await get(pathname, GOOGLEBOT_UA);
+      expect(status).toBe(404);
+      expect(body).toContain("noindex");
+    });
+
     it("returns 410 for the retired homepage alias", async () => {
       const { status, body } = await get("/home/", GOOGLEBOT_UA);
       expect(status).toBe(410);
@@ -1156,6 +1195,14 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).toContain("Founding editor of Mapletechie");
       expect(body).toContain(`${SITE_URL}/blog/${FEATURED_POST.slug}`);
       expect(body).not.toContain('<div id="root"></div>');
+    });
+
+    it("links article bylines to the public author archive for crawlers", async () => {
+      const { status, body } = await get(`/blog/${ARTICLE.slug}`, GOOGLEBOT_UA);
+      expect(status).toBe(200);
+      expect(body).toContain(
+        `<a href="${SITE_URL}/author/${AUTHOR.username}">${AUTHOR.displayName}</a>`,
+      );
     });
 
     it("serves the SPA shell (not the prerendered page) to a normal browser", async () => {
@@ -1249,6 +1296,16 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).toContain(`<h1>#${TAG}</h1>`);
       expect(body).toContain(`${SITE_URL}/blog/${FEATURED_POST.slug}`);
       expect(body).not.toContain('<div id="root"></div>');
+    });
+
+    it("serves a populated encoded buying-guide-style tag", async () => {
+      const { status, body } = await get(
+        `/tag/${encodeURIComponent(ENCODED_TAG)}`,
+        GOOGLEBOT_UA,
+      );
+      expect(status).toBe(200);
+      expect(body).toContain(`<h1>#${ENCODED_TAG}</h1>`);
+      expect(body).toContain(`${SITE_URL}/blog/${FEATURED_POST.slug}`);
     });
 
     it("emits the BreadcrumbList JSON-LD (Home > Blog > #tag) in the prerendered HTML", async () => {

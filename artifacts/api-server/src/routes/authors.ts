@@ -30,6 +30,15 @@ router.get("/authors/by-username/:username", async (req, res): Promise<void> => 
     res.status(404).json({ error: "Author not found" });
     return;
   }
+  const [publishedPost] = await db
+    .select({ id: postsTable.id })
+    .from(postsTable)
+    .where(and(eq(postsTable.authorId, user.id), eq(postsTable.status, "published")))
+    .limit(1);
+  if (!publishedPost) {
+    res.status(404).json({ error: "Author not found" });
+    return;
+  }
   res.json({
     id: user.id,
     username: user.username,

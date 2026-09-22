@@ -699,13 +699,31 @@ app.use((req, res, next) => {
   return serveStatic(req, res, next);
 });
 
-// Preserve the original public URL after the annual laptop guide was updated
-// from 2025 to 2026. External links and old search results should transfer to
-// the current article instead of landing on a 404.
-app.get("/blog/best-laptops-2025-definitive-rankings", (req, res) => {
+// Exact legacy replacements only. These redirects preserve old links when the
+// same article or category now has a different canonical URL. Do not add
+// broad/fuzzy redirects here: URLs that never represented published content
+// must remain genuine 404s.
+const LEGACY_PATH_REDIRECTS = new Map<string, string>([
+  ["/blog/best-laptops-2025-definitive-rankings", "/blog/best-laptops-2026-definitive-rankings"],
+  ["/category/software-apps", "/category/software"],
+  ["/blog/canada-openai-privacy-laws", "/blog/openai-canada-privacy-ruling"],
+  ["/openai-hugging-face-incident-ai-regulation-gaps", "/blog/openai-agent-hugging-face-security-test"],
+  ["/blog/canada-ai-strategy-adoption-before-rules", "/blog/canada-ai-strategy-rules-come-later"],
+  ["/blog/buy-used-phone-canada-checklist", "/blog/used-phone-buyer-checklist-canada"],
+  ["/blog/move-whatsapp-chats-iphone-android-safely", "/blog/move-whatsapp-iphone-android"],
+  ["/blog/imported-phone-canada-checklist", "/blog/check-imported-phone-canada"],
+  ["/blog/browser-password-manager-security", "/blog/browser-vs-password-manager"],
+]);
+
+app.all(/.*/, (req, res, next) => {
+  const replacement = LEGACY_PATH_REDIRECTS.get(normalizedPathname(req.path));
+  if (!replacement) {
+    next();
+    return;
+  }
   const queryStart = req.originalUrl.indexOf("?");
   const query = queryStart >= 0 ? req.originalUrl.slice(queryStart) : "";
-  res.redirect(301, `/blog/best-laptops-2026-definitive-rankings${query}`);
+  res.redirect(301, `${replacement}${query}`);
 });
 
 // --- Permanently retired URLs ---------------------------------------------
@@ -823,6 +841,7 @@ interface PostRecord {
   publishedAt: string | null;
   updatedAt?: string | null;
   author: string | null;
+  authorId?: number | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
 }
@@ -943,6 +962,18 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
       })
     : "";
   const metaParts = [post.author, publishedDate, post.category].filter(Boolean);
+  let authorHtml = post.author ? htmlEscape(post.author) : "";
+  if (post.author && post.authorId) {
+    const authorResult = await fetchJsonResult<AuthorRecord>(
+      `${API_BASE}/api/authors/${post.authorId}`,
+    );
+    if (authorResult.kind === "ok" && authorResult.value.username) {
+      authorHtml = `<a href="${htmlEscape(`${SITE_URL}/author/${encodeURIComponent(authorResult.value.username)}`)}">${htmlEscape(post.author)}</a>`;
+    }
+  }
+  const metaHtml = [authorHtml, publishedDate && htmlEscape(publishedDate), post.category && htmlEscape(post.category)]
+    .filter(Boolean)
+    .join(" · ");
   const tagsHtml =
     post.tags?.length
       ? `<p style="color:#666;font-size:.85em">Tags: ${post.tags.map(htmlEscape).join(", ")}</p>`
@@ -954,7 +985,7 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
   const articleBody = `
 <article style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>${htmlEscape(post.title)}</h1>
-  ${metaParts.length ? `<p style="color:#666;font-size:.9em">${htmlEscape(metaParts.join(" · "))}</p>` : ""}
+  ${metaParts.length ? `<p style="color:#666;font-size:.9em">${metaHtml}</p>` : ""}
   ${coverImgHtml}
   ${safeContent}
   ${tagsHtml}
@@ -1758,7 +1789,11 @@ app.all(/.*/, (req, res, next) => {
 // cache MUST key by UA to avoid serving a crawler-rendered HTML to a real browser (or vice versa).
 app.get(/^(?!\/api\/).*/, (req, res) => {
   if (!isKnownSpaRoute(req.path)) {
-    sendSpaShell(res, 404);
+    if (isCrawler(req)) {
+      send404(res, "Page Not Found");
+    } else {
+      sendSpaShell(res, 404);
+    }
     return;
   }
   sendSpaShell(res);

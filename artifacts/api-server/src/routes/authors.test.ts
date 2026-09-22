@@ -28,7 +28,7 @@ const db = {
 vi.mock("@workspace/db", () => ({
   db,
   usersTable: { id: {}, username: {}, isActive: {} },
-  postsTable: {},
+  postsTable: { id: {}, authorId: {}, status: {} },
   usernameRenamesTable: { oldUsername: {}, userId: {} },
 }));
 
@@ -76,10 +76,16 @@ describe("GET /authors/by-username/:username rename redirects", () => {
   });
 
   it("returns the live author when the username exists", async () => {
-    selectQueue = [[LIVE_USER]];
+    selectQueue = [[LIVE_USER], [{ id: 42 }]];
     const r = await get(makeApp(), "/authors/by-username/newname");
     expect(r.status).toBe(200);
     expect(JSON.parse(r.text).username).toBe("newname");
+  });
+
+  it("404s an active user who has no published posts", async () => {
+    selectQueue = [[LIVE_USER], []];
+    const r = await get(makeApp(), "/authors/by-username/newname");
+    expect(r.status).toBe(404);
   });
 
   it("301-redirects an old username to the current author page", async () => {

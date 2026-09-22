@@ -20,7 +20,7 @@ vi.mock("drizzle-orm", () => ({
 
 const postsTable = { slug: "posts.slug", publishedAt: "posts.publishedAt", status: "posts.status", tags: "posts.tags" };
 const categoriesTable = { slug: "categories.slug" };
-const usersTable = { username: "users.username", isActive: "users.isActive" };
+const usersTable = { id: "users.id", username: "users.username", isActive: "users.isActive" };
 const seriesTable = { slug: "series.slug" };
 const jobsTable = { slug: "jobs.slug", isActive: "jobs.isActive" };
 

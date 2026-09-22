@@ -44,7 +44,9 @@ router.get("/sitemap.xml", async (req, res): Promise<void> => {
     db
       .select({ username: usersTable.username })
       .from(usersTable)
-      .where(eq(usersTable.isActive, true)),
+      .innerJoin(postsTable, eq(postsTable.authorId, usersTable.id))
+      .where(sql`${usersTable.isActive} = true AND ${postsTable.status} = 'published'`)
+      .groupBy(usersTable.username),
 
     db
       .select({ slug: seriesTable.slug })

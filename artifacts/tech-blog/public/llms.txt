@@ -14,7 +14,7 @@ Mapletechie is an independent editorial outlet publishing original reporting and
 - [Reviews](https://www.mapletechie.com/category/reviews)
 - [AI](https://www.mapletechie.com/category/ai)
 - [Gadgets](https://www.mapletechie.com/category/gadgets)
-- [Software & Apps](https://www.mapletechie.com/category/software-apps)
+- [Software & Apps](https://www.mapletechie.com/category/software)
 - [Gaming](https://www.mapletechie.com/category/gaming)
 - [Business & Policy](https://www.mapletechie.com/category/business-policy)
 - [Canada Tech](https://www.mapletechie.com/category/canada-tech)
