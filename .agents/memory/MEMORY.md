@@ -1,0 +1,14 @@
+- [Railway deployment structure](railway-deployment.md) — services, Dockerfiles, env vars, R2 storage layout, DNS, and git-push gotchas for the Railway migration.
+- [Light-mode brand orange contrast floor](mapletechie-orange-contrast.md) — light `--primary` must stay ≤ L37% or small orange text fails WCAG AA on bg-muted; dark mode is independent.
+- [Cover image responsive variants](mapletechie-cover-variants.md) — static `/covers/*` brand covers need committed `-400`/`-800` webp variants; srcset is gated to a hardcoded set; admin uploads use the object-storage resizer instead.
+- [Radix Select with async options](radix-select-async-options.md) — controlled Select fires onValueChange("") while options load; guard empty values or hydrated form fields get wiped.
+- [Automation draft API invariants](automation-draft-api.md) — draft-only, 422 on forbidden fields, transactional idempotency, manual-redirect SSRF guard; don't loosen any of these.
+- [Nested-anchor cards](nested-anchor-cards.md) — never wrap a card in a wouter `<Link>` when it contains other anchors (CategoryChip w/ slug, social links); link avatar/title individually instead.
+- [Prod profile data authority](prod-profile-data-authority.md) — the admin edits his author profile live; prod users row can be newer than dev. Check prod before any dev→prod data sync.
+- [Cloudflare 5xx interception](cloudflare-5xx-interception.md) — Cloudflare replaces 502/503/504 origin responses with its own error page; use 4xx for any error the client must read.
+- [Maintenance mode scheduling](maintenance-mode-scheduling.md) — scheduled windows + banner/full severity; DB migration in scripts/migrations/; must be applied to every new Railway DB.
+- [SSR maintenance gate /api exemption](ssr-maintenance-gate-api-exemption.md) — SSR gate must pass /api/* through; blocking it prevents MaintenanceGate from fetching status → skeletons forever.
+- [Tech-blog shell builds](tech-blog-build-environment.md) — direct production builds need the artifact runtime variables supplied; workflow builds already provide them.
+- [GitHub history rewrite fallback](github-history-rewrite-fallback.md) — when shell Git auth is unavailable, use the added GitHub connector’s Git Data API and verify trees before moving main.
+- [Local artifact registration](local-artifact-registration.md) — untracking artifact manifests unregisters previews; untracked manifests do not restore them, so standard dev scripts are the fallback.
+- [YouTube iframe API under strict CSP](youtube-iframe-api-csp.md) — consume origin-checked iframe events directly; YT.Player replacement is blocked by the live Trusted Types policy.
