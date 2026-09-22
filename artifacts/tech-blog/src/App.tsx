@@ -9,6 +9,9 @@ import { HelmetProvider } from "react-helmet-async";
 import NotFound from "@/pages/not-found";
 
 import { Layout } from "@/components/layout/Layout";
+import { AdminGuard } from "@/components/AdminGuard";
+import { MaintenanceGate } from "@/components/MaintenanceGate";
+import { AdminProvider } from "@/context/AdminContext";
 import Home from "@/pages/home";
 
 // Secondary public pages — split into their own chunks so the homepage doesn't
@@ -50,10 +53,7 @@ const AdminMedia = lazy(() => import("@/pages/admin/AdminMedia"));
 const AdminCategories = lazy(() => import("@/pages/admin/AdminCategories"));
 const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
 
-import { AdminProvider } from "@/context/AdminContext";
-import { AdminGuard } from "@/components/AdminGuard";
-import { MaintenanceGate } from "@/components/MaintenanceGate";
-
+const AdminAbout = lazy(() => import("@/pages/admin/AdminAbout"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -120,6 +120,9 @@ function Router() {
       </Route>
       <Route path="/admin/settings">
         <AdminGuard adminOnly><AdminSettings /></AdminGuard>
+      </Route>
+      <Route path="/admin/about">
+        <AdminGuard adminOnly><AdminAbout /></AdminGuard>
       </Route>
       <Route path="/admin/posts/new">
         <AdminGuard><AdminNewPost /></AdminGuard>

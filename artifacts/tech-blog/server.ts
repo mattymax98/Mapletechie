@@ -91,7 +91,7 @@ const SEO_BLOCK_RE = /<!-- SEO_HEAD_START -->[\s\S]*?<!-- SEO_HEAD_END -->/;
 const ROOT_RE = /<div id="root"><\/div>/;
 
 const CRAWLER_RE =
-  /facebookexternalhit|Facebot|LinkedInBot|Twitterbot|Slackbot|WhatsApp|TelegramBot|Discordbot|Pinterest|redditbot|Applebot|Googlebot|Google-InspectionTool|bingbot|DuckDuckBot|YandexBot|Baiduspider|SkypeUriPreview|vkShare|W3C_Validator|Embedly|Iframely|outbrain|quora link preview|showyoubot|Tumblr|XING-contenttabreceiver|Mediapartners-Google|AhrefsBot|SemrushBot|Sogou|GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-Web|anthropic-ai|PerplexityBot|Perplexity|cohere-ai|YouBot|Meta-ExternalAgent|Meta-ExternalFetcher|Diffbot|Bytespider|ia_archiver|CCBot|DataForSeoBot|PetalBot/i;
+  /facebookexternalhit|Facebot|LinkedInBot|Twitterbot|Slackbot|WhatsApp|TelegramBot|Discordbot|Pinterest|redditbot|Applebot|Googlebot|Google-InspectionTool|bingbot|DuckDuckBot|YandexBot|Baiduspider|SkypeUriPreview|vkShare|W3C_Validator|Embedly|Iframely|outbrain|quora link preview|showyoubot|Tumblr|XING-contenttabreceiver|Mediapartners-Google|AhrefsBot|AhrefsSiteAudit|SemrushBot|Sogou|GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-Web|anthropic-ai|PerplexityBot|Perplexity|cohere-ai|YouBot|Meta-ExternalAgent|Meta-ExternalFetcher|Diffbot|Bytespider|ia_archiver|CCBot|DataForSeoBot|PetalBot/i;
 
 function htmlEscape(s: unknown): string {
   return String(s ?? "").replace(
@@ -282,25 +282,77 @@ function send404(
   res.send(renderHtml(seo, body));
 }
 
-async function fetchJson<T>(url: string, timeoutMs = 4000): Promise<T | null> {
+type FetchJsonResult<T> =
+  | { kind: "ok"; value: T; finalUrl: string }
+  | { kind: "not-found"; status: 404 | 410 }
+  | { kind: "temporary-failure"; status?: number };
+
+async function fetchJsonResult<T>(
+  url: string,
+  timeoutMs = 4000,
+): Promise<FetchJsonResult<T>> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const r = await fetch(url, { signal: ctrl.signal });
-    if (!r.ok) return null;
-    return (await r.json()) as T;
+    if (r.status === 404 || r.status === 410) {
+      return { kind: "not-found", status: r.status };
+    }
+    if (!r.ok) return { kind: "temporary-failure", status: r.status };
+    try {
+      return {
+        kind: "ok",
+        value: (await r.json()) as T,
+        finalUrl: r.url,
+      };
+    } catch {
+      return { kind: "temporary-failure", status: r.status };
+    }
   } catch {
-    return null;
+    return { kind: "temporary-failure" };
   } finally {
     clearTimeout(timer);
   }
 }
 
-function sendSpaShell(res: express.Response, status = 200): void {
+async function fetchJson<T>(url: string, timeoutMs = 4000): Promise<T | null> {
+  const result = await fetchJsonResult<T>(url, timeoutMs);
+  return result.kind === "ok" ? result.value : null;
+}
+
+function sendSpaShell(
+  res: express.Response,
+  status = 200,
+  seoBlock?: string,
+): void {
   res.status(status);
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Vary", "User-Agent");
-  res.send(indexHtml);
+  res.send(seoBlock ? renderHtml(seoBlock) : indexHtml);
+}
+
+function sendTemporaryFailure(res: express.Response, url: string): void {
+  const seo = buildSeoBlock({
+    title: buildSeoTitle("Temporarily Unavailable"),
+    description: "This page is temporarily unavailable. Please try again shortly.",
+    image: DEFAULT_OG_IMAGE,
+    url,
+    type: "website",
+  }).replace(
+    "<!-- SEO_HEAD_END -->",
+    `    <meta name="robots" content="noindex, follow" />\n    <!-- SEO_HEAD_END -->`,
+  );
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>Temporarily Unavailable</h1>
+  <p>This page could not be loaded right now. Please try again shortly.</p>
+</main>`;
+  res.status(503);
+  res.setHeader("Retry-After", "60");
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "no-store");
+  res.send(renderHtml(seo, body));
 }
 
 /** Minimal shape we read off /api/posts/featured for the homepage hero. */
@@ -601,15 +653,23 @@ app.get(/^\/?$/, async (req, res, next) => {
   if (maint.maintenance) return next();
   const featured = await getFeaturedPosts();
   const heroPost = featured?.[0];
-  // No featured post -> the homepage renders no hero image, so emit no hint
-  // (avoids preloading the fallback cover that nothing on the page will use).
-  if (!heroPost) return next();
-  const preload = buildHeroPreloadLink(heroPost.coverImage);
-  if (!preload) return next();
+  const description =
+    "Mapletechie — Your go-to source for tech news, gadget reviews, software deep dives, and the latest in AI, EVs, and cybersecurity.";
+  let seo = buildSeoBlock({
+    title: "Mapletechie — Tech News & Reviews",
+    description,
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/`,
+    type: "website",
+  });
+  const preload = heroPost ? buildHeroPreloadLink(heroPost.coverImage) : "";
+  if (preload) {
+    seo = seo.replace("<!-- SEO_HEAD_END -->", `${preload}    <!-- SEO_HEAD_END -->`);
+  }
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Vary", "User-Agent");
   res.setHeader("Cache-Control", "public, max-age=60, s-maxage=60");
-  res.send(indexHtml.replace("<!-- SEO_HEAD_END -->", `${preload}    <!-- SEO_HEAD_END -->`));
+  res.send(renderHtml(seo));
 });
 
 const serveStatic = sirv(distDir, {
@@ -771,20 +831,16 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
   const slug = req.params[0];
   if (!slug) return next();
 
-  const post = await fetchJson<PostRecord>(
+  const postResult = await fetchJsonResult<PostRecord>(
     `${API_BASE}/api/posts/slug/${encodeURIComponent(slug)}`,
   );
-  // A real article must not answer with a false 404 just because the first
-  // document is the client-rendered React shell. Keep unknown slugs as 404s,
-  // but let valid article routes return the correct successful status.
-  if (!isCrawler(req)) {
-    if (!post) return next();
-    sendSpaShell(res);
-    return;
+  if (postResult.kind === "temporary-failure") {
+    return sendTemporaryFailure(res, `${SITE_URL}/blog/${encodeURIComponent(slug)}`);
   }
-  if (!post) {
+  if (postResult.kind === "not-found") {
     return send404(res, "Article Not Found");
   }
+  const post = postResult.value;
 
   const url = `${SITE_URL}/blog/${post.slug}`;
   const title = post.seoTitle?.trim() || post.title;
@@ -805,6 +861,10 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
     section: post.category,
     tags: post.tags,
   });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
 
   // schema.org JSON-LD for Google rich results. react-helmet-async ALSO emits
   // this client-side for human visitors, but Googlebot does not always render
@@ -915,15 +975,16 @@ interface CategoryRecord {
 }
 
 app.get(/^\/category\/([^\/]+)\/?$/, async (req, res, next) => {
-  if (!isCrawler(req)) return next();
   const slug = req.params[0];
   if (!slug) return next();
 
-  const [categories, posts] = await Promise.all([
-    fetchJson<CategoryRecord[]>(`${API_BASE}/api/categories`),
-    fetchJson<PostSummary[]>(`${API_BASE}/api/posts?category=${encodeURIComponent(slug)}&limit=20`),
-  ]);
-  const cat = categories?.find((c) => c.slug === slug);
+  const categoriesResult = await fetchJsonResult<CategoryRecord[]>(
+    `${API_BASE}/api/categories`,
+  );
+  if (categoriesResult.kind !== "ok") {
+    return sendTemporaryFailure(res, `${SITE_URL}/category/${encodeURIComponent(slug)}`);
+  }
+  const cat = categoriesResult.value.find((c) => c.slug === slug);
   if (!cat) return send404(res, "Category Not Found");
 
   const title = buildSeoTitle(`${cat.name} — News & Reviews`);
@@ -938,6 +999,17 @@ app.get(/^\/category\/([^\/]+)\/?$/, async (req, res, next) => {
     url: `${SITE_URL}/category/${cat.slug}`,
     type: "website",
   });
+  const postsResult = await fetchJsonResult<PostSummary[]>(
+    `${API_BASE}/api/posts?category=${encodeURIComponent(slug)}&limit=20`,
+  );
+  if (postsResult.kind !== "ok") {
+    return sendTemporaryFailure(res, `${SITE_URL}/category/${cat.slug}`);
+  }
+  const posts = postsResult.value;
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
 
   // BreadcrumbList (Home > Blog > Category) — emitted server-side so Google
   // gets the trail without rendering JS; the SPA emits the same schema.
@@ -956,7 +1028,7 @@ app.get(/^\/category\/([^\/]+)\/?$/, async (req, res, next) => {
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>${htmlEscape(cat.name)} — News &amp; Reviews</h1>
   <p>${htmlEscape(description)}</p>
-  ${renderPostList(posts ?? [], SITE_URL)}
+  ${renderPostList(posts, SITE_URL)}
 </main>`;
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -1071,7 +1143,6 @@ app.get(/^\/blog\/?$/, (req, res, next) => {
 });
 
 app.get(/^\/blog\/?$/, async (req, res, next) => {
-  if (!isCrawler(req)) return next();
   const description =
     "The latest tech news, gadget reviews, AI coverage, and software deep dives from the Mapletechie team.";
   const seo = buildSeoBlock({
@@ -1081,6 +1152,10 @@ app.get(/^\/blog\/?$/, async (req, res, next) => {
     url: `${SITE_URL}/blog`,
     type: "website",
   });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
   const posts = await fetchJson<PostSummary[]>(`${API_BASE}/api/posts?limit=20`);
   const body = `
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
@@ -1095,7 +1170,6 @@ app.get(/^\/blog\/?$/, async (req, res, next) => {
 });
 
 app.get(/^\/about\/?$/, (req, res, next) => {
-  if (!isCrawler(req)) return next();
   const description =
     "Mapletechie is an independent tech publication founded by Matthew Mbaka — covering AI, EVs, cybersecurity, and gadgets without the press-release filter.";
   const seo = buildSeoBlock({
@@ -1105,6 +1179,10 @@ app.get(/^\/about\/?$/, (req, res, next) => {
     url: `${SITE_URL}/about`,
     type: "website",
   });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
   const body = `
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>About Mapletechie</h1>
@@ -1120,7 +1198,6 @@ app.get(/^\/about\/?$/, (req, res, next) => {
 });
 
 app.get(/^\/contact\/?$/, (req, res, next) => {
-  if (!isCrawler(req)) return next();
   const description =
     "Get in touch with the Mapletechie team. Send us your tips, stories, or advertising inquiries.";
   const seo = buildSeoBlock({
@@ -1130,6 +1207,10 @@ app.get(/^\/contact\/?$/, (req, res, next) => {
     url: `${SITE_URL}/contact`,
     type: "website",
   });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
   const body = `
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>Contact Mapletechie</h1>
@@ -1147,7 +1228,6 @@ app.get(/^\/contact\/?$/, (req, res, next) => {
 });
 
 app.get(/^\/advertise\/?$/, (req, res, next) => {
-  if (!isCrawler(req)) return next();
   const description =
     "Sponsored posts and newsletter sponsorships on Mapletechie. Reach engaged tech readers through clearly labeled editorial partnerships.";
   const seo = buildSeoBlock({
@@ -1157,6 +1237,10 @@ app.get(/^\/advertise\/?$/, (req, res, next) => {
     url: `${SITE_URL}/advertise`,
     type: "website",
   });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
   const body = `
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>Partner with Mapletechie</h1>
@@ -1175,7 +1259,6 @@ app.get(/^\/advertise\/?$/, (req, res, next) => {
 });
 
 app.get(/^\/privacy\/?$/, (req, res, next) => {
-  if (!isCrawler(req)) return next();
   const description =
     "How Mapletechie collects, uses, and protects your information. Our privacy policy covers data, cookies, and your rights.";
   const seo = buildSeoBlock({
@@ -1185,6 +1268,10 @@ app.get(/^\/privacy\/?$/, (req, res, next) => {
     url: `${SITE_URL}/privacy`,
     type: "website",
   });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
   const body = `
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>Privacy Policy</h1>
@@ -1199,7 +1286,6 @@ app.get(/^\/privacy\/?$/, (req, res, next) => {
 });
 
 app.get(/^\/terms\/?$/, (req, res, next) => {
-  if (!isCrawler(req)) return next();
   const description =
     "The rules for using mapletechie.com — including intellectual property rights, affiliate link disclosures, and usage terms.";
   const seo = buildSeoBlock({
@@ -1209,6 +1295,10 @@ app.get(/^\/terms\/?$/, (req, res, next) => {
     url: `${SITE_URL}/terms`,
     type: "website",
   });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
   const body = `
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>Terms of Service</h1>
@@ -1223,7 +1313,6 @@ app.get(/^\/terms\/?$/, (req, res, next) => {
 });
 
 app.get(/^\/careers\/?$/, async (req, res, next) => {
-  if (!isCrawler(req)) return next();
   const description =
     "Join Mapletechie. Help us build a tech publication readers actually trust. See our open roles and apply today.";
   const seo = buildSeoBlock({
@@ -1233,6 +1322,10 @@ app.get(/^\/careers\/?$/, async (req, res, next) => {
     url: `${SITE_URL}/careers`,
     type: "website",
   });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
   const jobs = await fetchJson<JobRecord[]>(`${API_BASE}/api/jobs`);
   const jobsHtml = jobs?.length
     ? `<ul>${jobs.map((j) => {
@@ -1268,12 +1361,17 @@ interface JobRecord {
 }
 
 app.get(/^\/careers\/([^/]+)\/?$/, async (req, res, next) => {
-  if (!isCrawler(req)) return next();
   const slug = req.params[0];
   if (!slug) return next();
 
-  const job = await fetchJson<JobRecord>(`${API_BASE}/api/jobs/${encodeURIComponent(slug)}`);
-  if (!job) return send404(res, "Job Not Found");
+  const jobResult = await fetchJsonResult<JobRecord>(
+    `${API_BASE}/api/jobs/${encodeURIComponent(slug)}`,
+  );
+  if (jobResult.kind === "temporary-failure") {
+    return sendTemporaryFailure(res, `${SITE_URL}/careers/${encodeURIComponent(slug)}`);
+  }
+  if (jobResult.kind === "not-found") return send404(res, "Job Not Found");
+  const job = jobResult.value;
 
   const locationStr = job.location ? ` · ${job.location}` : "";
   const description =
@@ -1293,6 +1391,10 @@ app.get(/^\/careers\/([^/]+)\/?$/, async (req, res, next) => {
     url: `${SITE_URL}/careers/${job.slug}`,
     type: "website",
   });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
 
   const jobPostingLd: Record<string, unknown> = {
     "@context": "https://schema.org",
@@ -1358,14 +1460,17 @@ interface AuthorRecord extends AuthorRichProfile {
 }
 
 app.get(/^\/author\/([^/]+)\/?$/, async (req, res, next) => {
-  if (!isCrawler(req)) return next();
   const username = req.params[0];
   if (!username) return next();
 
-  const author = await fetchJson<AuthorRecord>(
+  const authorResult = await fetchJsonResult<AuthorRecord>(
     `${API_BASE}/api/authors/by-username/${encodeURIComponent(username)}`,
   );
-  if (!author) return send404(res, "Author Not Found");
+  if (authorResult.kind === "temporary-failure") {
+    return sendTemporaryFailure(res, `${SITE_URL}/author/${encodeURIComponent(username)}`);
+  }
+  if (authorResult.kind === "not-found") return send404(res, "Author Not Found");
+  const author = authorResult.value;
 
   // Renamed username: the API 301s old usernames to the current record (fetch
   // follows the redirect), so the returned username differing from the
@@ -1382,16 +1487,24 @@ app.get(/^\/author\/([^/]+)\/?$/, async (req, res, next) => {
     `Articles by ${displayName} on Mapletechie — tech news, reviews, and analysis.`;
   const ogImage = `${SITE_URL}/api/og/author/${encodeURIComponent(author.username)}.png`;
 
-  const [seo, posts] = await Promise.all([
-    Promise.resolve(buildSeoBlock({
-      title: buildSeoTitle(`${displayName} — Author`),
-      description,
-      image: ogImage,
-      url: `${SITE_URL}/author/${author.username}`,
-      type: "website",
-    })),
-    fetchJson<PostSummary[]>(`${API_BASE}/api/authors/${author.id}/posts`),
-  ]);
+  const seo = buildSeoBlock({
+    title: buildSeoTitle(`${displayName} — Author`),
+    description,
+    image: ogImage,
+    url: `${SITE_URL}/author/${author.username}`,
+    type: "website",
+  });
+  const postsResult = await fetchJsonResult<PostSummary[]>(
+    `${API_BASE}/api/authors/${author.id}/posts`,
+  );
+  if (postsResult.kind !== "ok") {
+    return sendTemporaryFailure(res, `${SITE_URL}/author/${author.username}`);
+  }
+  const posts = postsResult.value;
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
 
   // Person structured data + visible reference links, generated from the
   // structured profile fields the editor filled in (if any).
@@ -1436,7 +1549,7 @@ app.get(/^\/author\/([^/]+)\/?$/, async (req, res, next) => {
   ${author.bio ? `<p>${htmlEscape(author.bio)}</p>` : ""}
   ${profileLinksHtml}
   <h2>Articles by ${htmlEscape(displayName)}</h2>
-  ${renderPostList(posts ?? [], SITE_URL)}
+  ${renderPostList(posts, SITE_URL)}
 </main>`;
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Vary", "User-Agent");
@@ -1445,7 +1558,6 @@ app.get(/^\/author\/([^/]+)\/?$/, async (req, res, next) => {
 });
 
 app.get(/^\/tag\/([^/]+)\/?$/, async (req, res, next) => {
-  if (!isCrawler(req)) return next();
   const rawTag = req.params[0];
   if (!rawTag) return next();
 
@@ -1456,12 +1568,18 @@ app.get(/^\/tag\/([^/]+)\/?$/, async (req, res, next) => {
     tag = rawTag;
   }
 
-  const posts = await fetchJson<PostSummary[]>(
+  const postsResult = await fetchJsonResult<PostSummary[]>(
     `${API_BASE}/api/tags/${encodeURIComponent(tag)}/posts`,
   );
+  if (postsResult.kind === "temporary-failure") {
+    return sendTemporaryFailure(res, `${SITE_URL}/tag/${encodeURIComponent(tag)}`);
+  }
   // A tag with no posts is effectively non-existent — return 404 so crawlers
   // don't index empty or misspelled tag archives.
-  if (!posts?.length) return send404(res, "Tag Not Found");
+  if (postsResult.kind === "not-found" || postsResult.value.length === 0) {
+    return send404(res, "Tag Not Found");
+  }
+  const posts = postsResult.value;
 
   const ogImage = `${SITE_URL}/api/og/tag/${encodeURIComponent(tag)}.png`;
   const description = `Every Mapletechie story tagged "${tag}" — tech news, reviews, and analysis.`;
@@ -1473,6 +1591,10 @@ app.get(/^\/tag\/([^/]+)\/?$/, async (req, res, next) => {
     url: `${SITE_URL}/tag/${encodeURIComponent(tag)}`,
     type: "website",
   });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
 
   // BreadcrumbList (Home > Blog > #tag) — emitted server-side so Google
   // gets the trail without rendering JS; the SPA emits the same schema.
@@ -1507,14 +1629,22 @@ interface SeriesRecord {
 }
 
 app.get(/^\/series\/([^/]+)\/?$/, async (req, res, next) => {
-  if (!isCrawler(req)) return next();
   const slug = req.params[0];
   if (!slug) return next();
 
-  const data = await fetchJson<{ series: SeriesRecord; posts: PostSummary[] }>(
+  const seriesResult = await fetchJsonResult<{
+    series: SeriesRecord;
+    posts: PostSummary[];
+  }>(
     `${API_BASE}/api/series/${encodeURIComponent(slug)}`,
   );
-  if (!data?.series) return send404(res, "Series Not Found");
+  if (seriesResult.kind === "temporary-failure") {
+    return sendTemporaryFailure(res, `${SITE_URL}/series/${encodeURIComponent(slug)}`);
+  }
+  if (seriesResult.kind === "not-found" || !seriesResult.value.series) {
+    return send404(res, "Series Not Found");
+  }
+  const data = seriesResult.value;
 
   const s = data.series;
   const description =
@@ -1531,6 +1661,10 @@ app.get(/^\/series\/([^/]+)\/?$/, async (req, res, next) => {
     url: `${SITE_URL}/series/${s.slug}`,
     type: "website",
   });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
 
   // BreadcrumbList (Home > Blog > Series) — emitted server-side so Google
   // gets the trail without rendering JS; the SPA emits the same schema.

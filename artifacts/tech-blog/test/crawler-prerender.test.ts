@@ -28,6 +28,12 @@ const RENAMED_OLD_USERNAME = "old-matt";
 
 const GOOGLEBOT_UA =
   "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
+const AHREFSBOT_UA =
+  "Mozilla/5.0 (compatible; AhrefsBot/7.0; +http://ahrefs.com/robot/)";
+const AHREFS_SITE_AUDIT_UA =
+  "Mozilla/5.0 (compatible; AhrefsSiteAudit/6.1; +http://ahrefs.com/robot/site-audit)";
+const UNKNOWN_CRAWLER_UA =
+  "Mozilla/5.0 (compatible; ExampleAuditCrawler/1.0; +https://example.com/bot)";
 const BROWSER_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36";
 const SITE_URL = "https://test.mapletechie.example";
@@ -170,6 +176,7 @@ const BIO_ONLY_AUTHOR = {
 };
 
 const TAG = "ai";
+const ENCODED_TAG = "120 hz";
 
 const SERIES = {
   slug: "ai-revolution",
@@ -193,7 +200,7 @@ const JOB = {
 
 /** Build a tiny stand-in for the API server the prerenderer fetches from. */
 function startMockApi(
-  opts: { maintenance?: boolean } = {},
+  opts: { maintenance?: boolean; resourceFailure?: boolean } = {},
 ): Promise<{
   server: ReturnType<typeof express>;
   close: () => Promise<void>;
@@ -218,6 +225,7 @@ function startMockApi(
     res.json([FEATURED_POST]);
   });
   api.get("/api/posts/slug/:slug", (req, res) => {
+    if (opts.resourceFailure) return res.status(503).json({ error: "temporary" });
     if (req.params.slug === ARTICLE.slug) return res.json(ARTICLE);
     if (req.params.slug === EMBED_ARTICLE.slug) return res.json(EMBED_ARTICLE);
     if (req.params.slug === LONG_TITLE_ARTICLE.slug) return res.json(LONG_TITLE_ARTICLE);
@@ -225,12 +233,14 @@ function startMockApi(
     res.status(404).json({ error: "not found" });
   });
   api.get("/api/categories", (_req, res) => {
+    if (opts.resourceFailure) return res.status(503).json({ error: "temporary" });
     res.json([CATEGORY]);
   });
   api.get("/api/posts", (_req, res) => {
     res.json(POST_LIST);
   });
   api.get("/api/authors/by-username/:username", (req, res) => {
+    if (opts.resourceFailure) return res.status(503).json({ error: "temporary" });
     if (req.params.username === AUTHOR.username) return res.json(AUTHOR);
     if (req.params.username === PLAIN_AUTHOR.username) return res.json(PLAIN_AUTHOR);
     if (req.params.username === BIO_ONLY_AUTHOR.username) return res.json(BIO_ONLY_AUTHOR);
@@ -249,10 +259,14 @@ function startMockApi(
     res.json([]);
   });
   api.get("/api/tags/:tag/posts", (req, res) => {
-    if (req.params.tag === TAG) return res.json(POST_LIST);
+    if (opts.resourceFailure) return res.status(503).json({ error: "temporary" });
+    if (req.params.tag === TAG || req.params.tag === ENCODED_TAG) {
+      return res.json(POST_LIST);
+    }
     res.json([]);
   });
   api.get("/api/series/:slug", (req, res) => {
+    if (opts.resourceFailure) return res.status(503).json({ error: "temporary" });
     if (req.params.slug === SERIES.slug) {
       return res.json({ series: SERIES, posts: POST_LIST });
     }
@@ -262,6 +276,7 @@ function startMockApi(
     res.json([JOB]);
   });
   api.get("/api/jobs/:slug", (req, res) => {
+    if (opts.resourceFailure) return res.status(503).json({ error: "temporary" });
     if (req.params.slug === JOB.slug) return res.json(JOB);
     res.status(404).json({ error: "not found" });
   });
@@ -351,6 +366,39 @@ async function get(pathname: string, ua: string): Promise<{ status: number; body
   return { status: r.status, body: await r.text(), headers: r.headers };
 }
 
+const ROUTE_MATRIX_UAS = {
+  browser: BROWSER_UA,
+  googlebot: GOOGLEBOT_UA,
+  ahrefsBot: AHREFSBOT_UA,
+  ahrefsSiteAudit: AHREFS_SITE_AUDIT_UA,
+  unknownCrawler: UNKNOWN_CRAWLER_UA,
+} as const;
+
+function canonicalUrls(body: string): string[] {
+  return [...body.matchAll(/<link rel="canonical" href="([^"]+)" \/>/g)].map(
+    (match) => match[1],
+  );
+}
+
+function ogUrls(body: string): string[] {
+  return [...body.matchAll(/<meta property="og:url" content="([^"]+)" \/>/g)].map(
+    (match) => match[1],
+  );
+}
+
+function expectIndexableHead(
+  body: string,
+  headers: Headers,
+  expectedUrl: string,
+): void {
+  expect(canonicalUrls(body)).toEqual([expectedUrl]);
+  expect(ogUrls(body)).toEqual([expectedUrl]);
+  expect(body).not.toMatch(
+    /<meta[^>]+name="robots"[^>]+content="[^"]*noindex/i,
+  );
+  expect(headers.get("x-robots-tag") ?? "").not.toMatch(/noindex/i);
+}
+
 beforeAll(async () => {
   // 1. Build the production server + client. The build needs PORT/BASE_PATH
   //    (vite.config.ts throws without them). We only build if the artifacts
@@ -426,6 +474,164 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
         instance.close();
       }
     });
+  });
+
+  describe("user-agent-independent route validity and metadata", () => {
+    const validRoutes = [
+      {
+        name: "article",
+        path: `/blog/${ARTICLE.slug}`,
+        canonical: `${SITE_URL}/blog/${ARTICLE.slug}`,
+        crawlerMarker: ARTICLE.title,
+      },
+      {
+        name: "category",
+        path: `/category/${CATEGORY.slug}`,
+        canonical: `${SITE_URL}/category/${CATEGORY.slug}`,
+        crawlerMarker: "Machine Learning",
+      },
+      {
+        name: "encoded tag",
+        path: `/tag/${encodeURIComponent(ENCODED_TAG)}`,
+        canonical: `${SITE_URL}/tag/${encodeURIComponent(ENCODED_TAG)}`,
+        crawlerMarker: `#${ENCODED_TAG}`,
+      },
+      {
+        name: "author",
+        path: `/author/${AUTHOR.username}`,
+        canonical: `${SITE_URL}/author/${AUTHOR.username}`,
+        crawlerMarker: AUTHOR.displayName,
+      },
+      {
+        name: "series",
+        path: `/series/${SERIES.slug}`,
+        canonical: `${SITE_URL}/series/${SERIES.slug}`,
+        crawlerMarker: SERIES.title,
+      },
+      {
+        name: "job",
+        path: `/careers/${JOB.slug}`,
+        canonical: `${SITE_URL}/careers/${JOB.slug}`,
+        crawlerMarker: JOB.title,
+      },
+    ];
+    const invalidRoutes = [
+      "/blog/missing-article",
+      "/category/missing-category",
+      "/tag/missing%20tag",
+      "/author/missing-author",
+      "/series/missing-series",
+      "/careers/missing-job",
+    ];
+
+    for (const route of validRoutes) {
+      it(`serves valid ${route.name} with 200 and a self-canonical to every identity`, async () => {
+        for (const [identity, ua] of Object.entries(ROUTE_MATRIX_UAS)) {
+          const { status, body, headers } = await get(route.path, ua);
+          expect(status, identity).toBe(200);
+          expectIndexableHead(body, headers, route.canonical);
+          expect(headers.get("vary"), identity).toContain("User-Agent");
+          if (identity === "browser" || identity === "unknownCrawler") {
+            expect(body, identity).toContain('<div id="root"></div>');
+            expect(body, identity).not.toContain(`<h1>${route.crawlerMarker}`);
+          } else {
+            expect(body, identity).not.toContain('<div id="root"></div>');
+            expect(body, identity).toContain(route.crawlerMarker);
+          }
+        }
+      });
+    }
+
+    for (const path of invalidRoutes) {
+      it(`serves confirmed missing ${path} as a visible noindex 404 to every identity`, async () => {
+        for (const [identity, ua] of Object.entries(ROUTE_MATRIX_UAS)) {
+          const { status, body, headers } = await get(path, ua);
+          expect(status, identity).toBe(404);
+          expect(canonicalUrls(body), identity).toEqual([SITE_URL]);
+          expect(body, identity).toMatch(
+            /<meta[^>]+name="robots"[^>]+content="noindex, nofollow"/i,
+          );
+          expect(body, identity).toContain("Not Found");
+          expect(body, identity).not.toContain('<div id="root"></div>');
+          expect(headers.get("cache-control"), identity).toBe("no-store");
+        }
+      });
+    }
+
+    it("preserves a renamed author's 301 redirect for every identity", async () => {
+      for (const [identity, ua] of Object.entries(ROUTE_MATRIX_UAS)) {
+        const response = await fetch(
+          `${baseUrl}/author/${RENAMED_OLD_USERNAME}`,
+          { headers: { "user-agent": ua }, redirect: "manual" },
+        );
+        expect(response.status, identity).toBe(301);
+        expect(response.headers.get("location"), identity).toBe(
+          `/author/${AUTHOR.username}`,
+        );
+      }
+    });
+
+    it("returns retryable non-cacheable 503s when resource existence cannot be established", async () => {
+      const failingApi = await startMockApi({ resourceFailure: true });
+      const instance = await startPrerenderServer(
+        `http://127.0.0.1:${failingApi.port}`,
+      );
+      try {
+        for (const route of validRoutes) {
+          for (const [identity, ua] of Object.entries(ROUTE_MATRIX_UAS)) {
+            const { status, body, headers } = await getFrom(
+              instance.baseUrl,
+              route.path,
+              ua,
+            );
+            expect(status, `${route.name}/${identity}`).toBe(503);
+            expect(headers.get("retry-after"), `${route.name}/${identity}`).toBe(
+              "60",
+            );
+            expect(
+              headers.get("cache-control"),
+              `${route.name}/${identity}`,
+            ).toBe("no-store");
+            expect(body, `${route.name}/${identity}`).toContain(
+              "Temporarily Unavailable",
+            );
+            expect(body, `${route.name}/${identity}`).not.toContain("Not Found");
+          }
+        }
+      } finally {
+        instance.close();
+        await failingApi.close();
+      }
+    });
+  });
+
+  describe("initial metadata for static indexable routes", () => {
+    const routes = [
+      { path: "/", canonical: `${SITE_URL}/` },
+      { path: "/blog", canonical: `${SITE_URL}/blog` },
+      { path: "/about", canonical: `${SITE_URL}/about` },
+      { path: "/contact", canonical: `${SITE_URL}/contact` },
+      { path: "/advertise", canonical: `${SITE_URL}/advertise` },
+      { path: "/careers", canonical: `${SITE_URL}/careers` },
+      { path: "/privacy", canonical: `${SITE_URL}/privacy` },
+      { path: "/terms", canonical: `${SITE_URL}/terms` },
+    ];
+
+    for (const route of routes) {
+      it(`gives ${route.path} one canonical, matching og:url, and no noindex`, async () => {
+        for (const ua of [
+          BROWSER_UA,
+          GOOGLEBOT_UA,
+          AHREFS_SITE_AUDIT_UA,
+          UNKNOWN_CRAWLER_UA,
+        ]) {
+          const { status, body, headers } = await get(route.path, ua);
+          expect(status).toBe(200);
+          expectIndexableHead(body, headers, route.canonical);
+          expect(headers.get("vary")).toContain("User-Agent");
+        }
+      });
+    }
   });
 
   describe("homepage /", () => {
@@ -658,7 +864,8 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
     it("keeps an unknown article URL as a 404 for a normal browser", async () => {
       const { status, body } = await get("/blog/this-does-not-exist", BROWSER_UA);
       expect(status).toBe(404);
-      expect(body).toContain('<div id="root">');
+      expect(body).toContain("Article Not Found");
+      expect(body).not.toContain('<div id="root"></div>');
     });
 
     it("does not emit VideoObject JSON-LD for embedded videos on text-first article pages", async () => {
@@ -953,9 +1160,9 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
 
     it("serves the SPA shell (not the prerendered page) to a normal browser", async () => {
       const { status, body } = await get(`/author/${AUTHOR.username}`, BROWSER_UA);
-      expect(status).toBe(404);
+      expect(status).toBe(200);
       expect(body).toContain('<div id="root">');
-      expect(body).not.toContain("Founding editor of Mapletechie");
+      expect(body).not.toContain(`<h1>${AUTHOR.displayName}</h1>`);
     });
 
     it("emits no Person JSON-LD for an author without structured profile fields", async () => {
@@ -1066,7 +1273,7 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
 
     it("serves the SPA shell (not the prerendered archive) to a normal browser", async () => {
       const { status, body } = await get(`/tag/${TAG}`, BROWSER_UA);
-      expect(status).toBe(404);
+      expect(status).toBe(200);
       expect(body).toContain('<div id="root">');
       expect(body).not.toContain(`${SITE_URL}/blog/${FEATURED_POST.slug}`);
     });
@@ -1110,7 +1317,7 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
 
     it("serves the SPA shell (not the prerendered page) to a normal browser", async () => {
       const { status, body } = await get(`/series/${SERIES.slug}`, BROWSER_UA);
-      expect(status).toBe(404);
+      expect(status).toBe(200);
       expect(body).toContain('<div id="root">');
       expect(body).not.toContain("Articles in this series");
     });
@@ -1150,7 +1357,7 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
 
     it("serves the SPA shell (not the prerendered job) to a normal browser", async () => {
       const { status, body } = await get(`/careers/${JOB.slug}`, BROWSER_UA);
-      expect(status).toBe(404);
+      expect(status).toBe(200);
       expect(body).toContain('<div id="root">');
       expect(body).not.toContain('"@type":"JobPosting"');
     });

@@ -47,30 +47,38 @@ R2_ACCOUNT_ID       = <your Cloudflare Account ID>
 R2_ACCESS_KEY_ID    = <Access Key ID from step 1.3>
 R2_SECRET_ACCESS_KEY = <Secret Access Key from step 1.3>
 
-# These tell the app which bucket/prefix to use.
-# Keep the same format as your current development values,
-# but replace the GCS bucket name with "mapletechie".
-PRIVATE_OBJECT_DIR         = /mapletechie/.private
-PUBLIC_OBJECT_SEARCH_PATHS = /mapletechie/public
+# These tell the app which bucket/prefixes to use.
+PRIVATE_OBJECT_DIR         = /mapletechie/private
+PUBLIC_OBJECT_SEARCH_PATHS = /mapletechie/covers,/mapletechie/public
 ```
 
-> **Note:** If your existing PRIVATE_OBJECT_DIR or PUBLIC_OBJECT_SEARCH_PATHS
-> use different prefix names, keep those prefixes and only change the bucket
-> name part (the first component after the leading /).
+These paths are production-only. Development uses the separate
+`mapletechie-development` bucket described below.
 
 ---
 
-## Phase 2 — Verify R2 access
+## Phase 2 — Set up isolated development storage
 
-Add the three R2 credentials to your local `.env` file:
+The `mapletechie-development` bucket keeps local tests completely separate from
+live article media. In the Cloudflare R2 dashboard, create an **Object Read &
+Write** API token scoped only to `mapletechie-development`.
+
+Add that development token to your local `.env` file:
 
 - `R2_ACCOUNT_ID`
 - `R2_ACCESS_KEY_ID`
 - `R2_SECRET_ACCESS_KEY`
 
-Start the API and verify an existing public image plus an authenticated media
-upload. Development and production both use R2, so storage behavior is
-consistent across environments.
+Set the development-only paths:
+
+```text
+PRIVATE_OBJECT_DIR=/mapletechie-development/private
+PUBLIC_OBJECT_SEARCH_PATHS=/mapletechie-development/covers,/mapletechie-development/public
+```
+
+Start the API and verify an authenticated media upload. Development and
+production both use R2, but separate buckets and bucket-scoped tokens prevent
+local actions from changing production files.
 
 ---
 
@@ -158,8 +166,8 @@ AI_INTEGRATIONS_ANTHROPIC_BASE_URL  = https://api.anthropic.com
 R2_ACCOUNT_ID               = <your Cloudflare Account ID>
 R2_ACCESS_KEY_ID            = <from step 1.3>
 R2_SECRET_ACCESS_KEY        = <from step 1.3>
-PRIVATE_OBJECT_DIR          = /mapletechie/.private
-PUBLIC_OBJECT_SEARCH_PATHS  = /mapletechie/public
+PRIVATE_OBJECT_DIR          = /mapletechie/private
+PUBLIC_OBJECT_SEARCH_PATHS  = /mapletechie/covers,/mapletechie/public
 
 # DATABASE_URL is added automatically by Railway's PostgreSQL addon.
 ```
@@ -355,9 +363,9 @@ the retired origin or point public DNS back to it.
 
 - Production credentials (`DATABASE_URL`, session/auth secrets, R2,
   Resend, and optional AI credentials) live only in Railway Variables.
-- Development credentials stay in the local environment, and development uses
-  the same Cloudflare R2 backend as production. Credentials are never copied
-  into the production build.
+- Development credentials stay in the local environment and are scoped only
+  to the separate `mapletechie-development` R2 bucket. Production uses the
+  `mapletechie` bucket. Credentials are never copied into the production build.
 - AI generation remains admin-only, on-demand, and disabled when its Railway
   credentials are absent. Normal reads, publishing, analytics, storage, and
   email do not call Anthropic or OpenAI.

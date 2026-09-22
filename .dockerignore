@@ -11,8 +11,7 @@ node_modules
 **/dist
 **/.cache
 
-# Local workspace metadata
-.upm
+# Local tool metadata
 .config
 
 # Git history (not needed at runtime; slims context)

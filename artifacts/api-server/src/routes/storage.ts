@@ -87,7 +87,7 @@ const ACCEPTED_UPLOAD_TYPES = [
  * POST /storage/uploads
  *
  * Server-side upload: the client sends the raw image bytes in the request body.
- * The API server writes them directly to R2/GCS and returns the serving URL.
+ * The API server writes them directly to R2 and returns the serving URL.
  *
  * This replaces the old presigned-URL flow (/storage/uploads/request-url +
  * browser PUT) for admin panel uploads. The browser-direct-to-R2 approach

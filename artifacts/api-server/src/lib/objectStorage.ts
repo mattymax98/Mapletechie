@@ -11,6 +11,8 @@ import {
   GetObjectCommand,
   CopyObjectCommand,
   PutObjectCommand,
+  DeleteObjectCommand,
+  HeadBucketCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Readable, PassThrough } from "stream";
@@ -46,7 +48,7 @@ function sanitizeMetaKey(key: string): string {
   return key.toLowerCase().replace(/[^a-z0-9._-]/g, "-");
 }
 
-function buildR2Client(): S3Client {
+export function buildR2Client(): S3Client {
   const required = [
     "R2_ACCOUNT_ID",
     "R2_ACCESS_KEY_ID",
@@ -70,6 +72,108 @@ function buildR2Client(): S3Client {
     // Keep URLs as /<bucket>/<key>, matching the configured object paths.
     forcePathStyle: true,
   });
+}
+
+const DEVELOPMENT_BUCKET = "mapletechie-development";
+const PRODUCTION_BUCKET = "mapletechie";
+
+type R2CommandClient = Pick<S3Client, "send">;
+
+function isAccessDenied(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const r2Error = error as Error & {
+    $metadata?: { httpStatusCode?: number };
+    Code?: string;
+  };
+  return (
+    r2Error.$metadata?.httpStatusCode === 403 ||
+    r2Error.name === "AccessDenied" ||
+    r2Error.Code === "AccessDenied"
+  );
+}
+
+async function responseBodyBytes(body: unknown): Promise<Uint8Array> {
+  if (
+    body &&
+    typeof body === "object" &&
+    "transformToByteArray" in body &&
+    typeof body.transformToByteArray === "function"
+  ) {
+    return body.transformToByteArray();
+  }
+  throw new Error("Development storage returned an unreadable response body.");
+}
+
+/**
+ * Verify that development credentials work only with the development bucket.
+ * The production check is read-only and never names or modifies an object.
+ */
+export async function validateDevelopmentStorageAccess(
+  client: R2CommandClient = buildR2Client(),
+): Promise<void> {
+  const key = `.validation/storage-scope-${randomUUID()}`;
+  const payload = Buffer.from(`mapletechie-storage-validation:${randomUUID()}`);
+  let validationError: unknown;
+
+  try {
+    await client.send(
+      new PutObjectCommand({
+        Bucket: DEVELOPMENT_BUCKET,
+        Key: key,
+        Body: payload,
+        ContentType: "text/plain",
+        ContentLength: payload.length,
+      }),
+    );
+    const result = await client.send(
+      new GetObjectCommand({ Bucket: DEVELOPMENT_BUCKET, Key: key }),
+    );
+    const downloaded = await responseBodyBytes(result.Body);
+    if (!Buffer.from(downloaded).equals(payload)) {
+      throw new Error("Development storage read-back did not match the test object.");
+    }
+
+    try {
+      await client.send(new HeadBucketCommand({ Bucket: PRODUCTION_BUCKET }));
+      throw new Error(
+        "Unsafe development storage credentials: production bucket access is allowed.",
+      );
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.startsWith("Unsafe development storage credentials:")
+      ) {
+        throw error;
+      }
+      if (!isAccessDenied(error)) {
+        throw new Error(
+          "Could not prove that production bucket access is denied.",
+          { cause: error },
+        );
+      }
+    }
+  } catch (error) {
+    validationError = error;
+  } finally {
+    try {
+      await client.send(
+        new DeleteObjectCommand({ Bucket: DEVELOPMENT_BUCKET, Key: key }),
+      );
+    } catch (cleanupError) {
+      if (validationError) {
+        throw new AggregateError(
+          [validationError, cleanupError],
+          "Storage validation failed and the disposable development object could not be removed.",
+        );
+      }
+      throw new Error(
+        "Storage validation passed, but the disposable development object could not be removed.",
+        { cause: cleanupError },
+      );
+    }
+  }
+
+  if (validationError) throw validationError;
 }
 
 class R2StorageFile implements StorageFile {
