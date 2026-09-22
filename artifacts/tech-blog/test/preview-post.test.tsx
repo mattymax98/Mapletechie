@@ -71,7 +71,14 @@ describe("signed post preview", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ post: { id: 42, title: "Embed preview", content } }), { status: 200 }),
+        new Response(JSON.stringify({
+          post: {
+            id: 42,
+            title: "Embed preview",
+            content,
+            embed_report: { requested: 3, preserved: 2, removed: 1 },
+          },
+        }), { status: 200 }),
       ),
     );
 
@@ -87,6 +94,15 @@ describe("signed post preview", () => {
     expect(document.querySelector("[data-preview-ready]")?.getAttribute("data-preview-ready")).toBe("false");
     fireEvent.load(document.querySelector('[data-testid="embed-youtube-thumb"] img')!);
     await waitFor(() => expect(document.querySelector("[data-preview-ready]")?.getAttribute("data-preview-ready")).toBe("true"));
+    const article = document.querySelector("[data-preview-ready]");
+    expect(article?.getAttribute("data-preview-total")).toBe("2");
+    expect(article?.getAttribute("data-preview-loading")).toBe("0");
+    expect(article?.getAttribute("data-preview-rendered")).toBe("1");
+    expect(article?.getAttribute("data-preview-fallback")).toBe("1");
+    expect(article?.getAttribute("data-preview-failed")).toBe("0");
+    expect(article?.getAttribute("data-preview-requested")).toBe("3");
+    expect(article?.getAttribute("data-preview-preserved")).toBe("2");
+    expect(article?.getAttribute("data-preview-removed")).toBe("1");
     expect(document.querySelectorAll("script[src*='twitter.com']")).toHaveLength(1);
   });
 

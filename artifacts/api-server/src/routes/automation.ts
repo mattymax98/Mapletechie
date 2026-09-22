@@ -18,7 +18,7 @@ import {
   persistExternalImage,
   persistExternalImagesInHtml,
 } from "../lib/persistExternalImage";
-import { cleanHtml, cleanText } from "./posts";
+import { cleanText, normalizeSocialEmbeds } from "./posts";
 import {
   resolveCategoriesForWrite,
   syncPostCategories,
@@ -266,6 +266,7 @@ export function canonicalMapletechiePost(post: Record<string, any>): Record<stri
     is_featured: post.isFeatured, series_id: value(post.seriesId),
     series_position: value(post.seriesPosition), rating: value(post.rating),
     pros: post.pros ?? [], cons: post.cons ?? [], verdict: value(post.verdict),
+    embed_report: post.embedReport ?? null,
     published_at: value(post.publishedAt), created_at: value(post.createdAt),
     updated_at: value(post.updatedAt),
   };
@@ -389,6 +390,7 @@ export async function backfillAutomationPostImages(
 
   const values: {
     content?: string;
+    embedReport?: unknown;
     coverImage?: string;
     coverImageAlt?: string;
     ogImage?: string;
@@ -441,7 +443,8 @@ export async function backfillAutomationPostImages(
     if (typeof body.content !== "string" || !body.content.trim()) {
       return fail(400, "content must be a non-empty HTML string");
     }
-    sanitizedContent = cleanHtml(body.content);
+    const normalized = normalizeSocialEmbeds(body.content, { automation: true });
+    sanitizedContent = normalized.html;
     if (!sanitizedContent.trim()) {
       return fail(400, "content must contain non-empty sanitized TipTap-compatible HTML");
     }
@@ -453,6 +456,7 @@ export async function backfillAutomationPostImages(
       uploaderId: botUser.id,
       uploaderName: botUser.displayName,
     });
+    values.embedReport = normalized.report;
   }
 
   const persistCtx = { uploaderId: botUser.id, uploaderName: botUser.displayName };
@@ -647,7 +651,8 @@ export async function createAutomationDraft(
     return fail(400, "cover_image_alt requires cover_image");
   }
 
-  const sanitizedContent = cleanHtml(body.content);
+  const normalizedContent = normalizeSocialEmbeds(body.content, { automation: true });
+  const sanitizedContent = normalizedContent.html;
   if (!sanitizedContent.trim()) {
     return fail(400, "content must contain non-empty sanitized TipTap-compatible HTML");
   }
@@ -697,6 +702,7 @@ export async function createAutomationDraft(
     slug,
     excerpt: typeof body.excerpt === "string" ? body.excerpt.trim() : "",
     content,
+    embedReport: normalizedContent.report,
     coverImage,
     coverImageAlt,
     categoryId: resolvedCategory.id,

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { createHash } from "node:crypto";
 import { db, postsTable, usersTable, pageViewsTable, commentsTable, categoriesTable, auditLogsTable } from "@workspace/db";
 import { eq, desc, and, gte, sql, inArray, or, getTableColumns } from "drizzle-orm";
 import {
@@ -58,13 +59,6 @@ function collectImageWarnings(fields: {
   return warnings;
 }
 
-// Social embed provider whitelist — must stay in sync with the tech-blog
-// frontend (src/lib/socialEmbedProviders.ts). Only URLs matching one of these
-// patterns may survive as a `data-url` on a social-embed placeholder; anything
-// else is stripped down to whatever plain content the div contains.
-const SOCIAL_EMBED_URL_RE =
-  /^https?:\/\/(?:(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|shorts\/|live\/)|youtu\.be\/)[A-Za-z0-9_-]{6,20}|(?:www\.|mobile\.)?(?:twitter\.com|x\.com)\/[A-Za-z0-9_]{1,20}\/status(?:es)?\/\d{5,25}|(?:www\.)?instagram\.com\/(?:[A-Za-z0-9_.]+\/)?(?:p|reel|reels|tv)\/[A-Za-z0-9_-]{5,40}|(?:www\.)?tiktok\.com\/@[\w.-]+\/video\/\d{5,25}|bsky\.app\/profile\/[A-Za-z0-9:%._-]+\/post\/[a-z0-9]{5,20}|(?:www\.|old\.|new\.)?reddit\.com\/r\/[A-Za-z0-9_]{2,21}\/comments\/[a-z0-9]{4,10}|[a-z0-9-]+(?:\.[a-z0-9-]+)+\/@[\w.-]+(?:@[\w.-]+)?\/\d{8,25}(?:[/?#]|$))/i;
-
 const SOCIAL_EMBED_PROVIDERS = new Set([
   "youtube",
   "twitter",
@@ -75,66 +69,261 @@ const SOCIAL_EMBED_PROVIDERS = new Set([
   "reddit",
 ]);
 
+export interface SocialEmbedReport {
+  schema_version: 1;
+  revision: string;
+  requested: number;
+  preserved: number;
+  removed: number;
+  by_provider: Record<string, number>;
+  warnings: string[];
+  items: Array<{ provider: string; url: string; action: "preserved" | "removed"; reason?: string }>;
+}
+
+function canonicalEmbed(providerHint: string, rawUrl: string): { provider: string; url: string } | null {
+  let parsed: URL;
+  try { parsed = new URL(rawUrl.trim()); } catch { return null; }
+  if (!/^https?:$/.test(parsed.protocol) || parsed.username || parsed.password) return null;
+  const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+  const normalizedHint = providerHint.toLowerCase() === "x" ? "twitter" : providerHint.toLowerCase();
+  if (normalizedHint && normalizedHint !== "true" && normalizedHint !== "normalized-source" &&
+      !SOCIAL_EMBED_PROVIDERS.has(normalizedHint)) return null;
+  let provider = "";
+  let url = "";
+  if (host === "youtube.com" || host === "youtube-nocookie.com" || host === "m.youtube.com") {
+    let id = "";
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    if (parts[0] === "embed" && parts[1]) id = parts[1];
+    else if (parts[0] === "shorts" || parts[0] === "live") id = parts[1] || "";
+    else if (parts[0] === "watch") id = parsed.searchParams.get("v") || "";
+    if (!id || !/^[A-Za-z0-9_-]{6,20}$/.test(id)) return null;
+    provider = "youtube"; url = `https://www.youtube.com/watch?v=${id}`;
+  } else if (host === "youtu.be") {
+    const id = parsed.pathname.split("/").filter(Boolean)[0] || "";
+    if (!/^[A-Za-z0-9_-]{6,20}$/.test(id)) return null;
+    provider = "youtube"; url = `https://www.youtube.com/watch?v=${id}`;
+  } else if (host === "x.com" || host === "twitter.com" || host === "mobile.twitter.com") {
+    const match = parsed.pathname.match(/^\/([A-Za-z0-9_]{1,20})\/status(?:es)?\/(\d{5,25})\/?$/i);
+    if (!match) return null;
+    provider = "twitter"; url = `https://x.com/${match[1]}/status/${match[2]}`;
+  } else if (host === "instagram.com" &&
+             /^\/(?:[A-Za-z0-9_.]+\/)?(?:p|reel|reels|tv)\/[A-Za-z0-9_-]{5,40}\/?$/i.test(parsed.pathname)) {
+    provider = "instagram"; url = parsed.toString();
+  } else if (host === "tiktok.com" && /^\/@[\w.-]+\/video\/\d{5,25}\/?$/i.test(parsed.pathname)) {
+    provider = "tiktok"; url = parsed.toString();
+  } else if (host === "bsky.app" && /^\/profile\/[A-Za-z0-9:%._-]+\/post\/[a-z0-9]{5,20}\/?$/i.test(parsed.pathname)) {
+    provider = "bluesky"; url = parsed.toString();
+  } else if ((host === "reddit.com" || host === "old.reddit.com" || host === "new.reddit.com") &&
+             /^\/r\/[A-Za-z0-9_]{2,21}\/comments\/[a-z0-9]{4,10}(?:\/|$)/i.test(parsed.pathname)) {
+    provider = "reddit"; url = parsed.toString();
+  } else if (/^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/i.test(host) &&
+             /^\/@[\w.-]+(?:@[\w.-]+)?\/\d{8,25}\/?$/i.test(parsed.pathname)) {
+    provider = "mastodon"; url = parsed.toString();
+  } else {
+    return null;
+  }
+  if (!SOCIAL_EMBED_PROVIDERS.has(provider)) return null;
+  if (normalizedHint && normalizedHint !== "true" && normalizedHint !== "normalized-source" &&
+      normalizedHint !== provider) {
+    return { provider, url };
+  }
+  return { provider, url };
+}
+
+function safeEmbedHtml(provider: string, url: string): string {
+  const escaped = url.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const label = provider === "twitter" ? "View this post on X" : provider === "youtube" ? "Watch this video on YouTube" : `View this post on ${provider}`;
+  return `<div class="social-embed" data-social-embed="" data-provider="${provider}" data-url="${escaped}"><a href="${escaped}" rel="noopener noreferrer nofollow" target="_blank">${label}</a></div>`;
+}
+
+const VOID_HTML_TAGS = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
+
+function tagAttribute(tag: string, name: string): string {
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = tag.match(new RegExp(`\\s${escapedName}="([^"]*)"`, "i"));
+  return (match?.[1] || "").replace(/&amp;/g, "&").replace(/&quot;/g, '"');
+}
+
+/**
+ * Keep only root-level canonical placeholders. sanitize-html has already made
+ * the markup well-formed, so this small scanner only needs to track sanitized
+ * start/end tags; it never parses untrusted source HTML.
+ */
+function finalizeSocialEmbeds(html: string, report: SocialEmbedReport): string {
+  const tagRe = /<\/?([a-z0-9]+)\b[^>]*>/gi;
+  const stack: string[] = [];
+  const seen = new Set<string>();
+  let cursor = 0;
+  let output = "";
+  let match: RegExpExecArray | null;
+
+  while ((match = tagRe.exec(html))) {
+    const whole = match[0];
+    const tagName = match[1].toLowerCase();
+    const closing = whole.startsWith("</");
+    const selfClosing = whole.endsWith("/>") || VOID_HTML_TAGS.has(tagName);
+    const isSocialDiv = !closing && tagName === "div" && /\sdata-social-embed="/i.test(whole);
+
+    output += html.slice(cursor, match.index);
+    if (isSocialDiv) {
+      const provider = tagAttribute(whole, "data-provider");
+      const url = tagAttribute(whole, "data-url");
+      if (stack.length > 0) {
+        report.removed++;
+        report.items.push({ provider: provider || "unknown", url: "", action: "removed", reason: "nested" });
+        report.warnings.push("Removed a nested social embed marker; embeds must be top-level article blocks.");
+        output += `<div${tagAttribute(whole, "class") ? ` class="${tagAttribute(whole, "class")}"` : ""}>`;
+        stack.push(tagName);
+        cursor = tagRe.lastIndex;
+        continue;
+      }
+
+      let divDepth = 1;
+      const innerTagRe = /<\/?([a-z0-9]+)\b[^>]*>/gi;
+      innerTagRe.lastIndex = tagRe.lastIndex;
+      let endIndex = tagRe.lastIndex;
+      let inner: RegExpExecArray | null;
+      while ((inner = innerTagRe.exec(html))) {
+        if (inner[1].toLowerCase() !== "div") continue;
+        if (inner[0].startsWith("</")) divDepth--;
+        else if (!inner[0].endsWith("/>")) divDepth++;
+        if (divDepth === 0) {
+          endIndex = innerTagRe.lastIndex;
+          break;
+        }
+      }
+
+      const nestedMarkers = html.slice(tagRe.lastIndex, endIndex).match(/<div\b[^>]*\sdata-social-embed="[^"]*"[^>]*>/gi) ?? [];
+      for (const nestedTag of nestedMarkers) {
+        report.removed++;
+        report.items.push({
+          provider: tagAttribute(nestedTag, "data-provider") || "unknown",
+          url: "",
+          action: "removed",
+          reason: "nested",
+        });
+        report.warnings.push("Removed a nested social embed marker; embeds must be top-level article blocks.");
+      }
+
+      const normalized = canonicalEmbed(provider, url);
+      const key = normalized ? `${normalized.provider}:${normalized.url}` : "";
+      if (!normalized || seen.has(key)) {
+        report.removed++;
+        report.items.push({
+          provider: normalized?.provider ?? "unknown",
+          url: normalized?.url ?? "",
+          action: "removed",
+          reason: normalized ? "duplicate" : "unsafe",
+        });
+        report.warnings.push("Removed a duplicate or unsafe social embed.");
+      } else {
+        seen.add(key);
+        report.preserved++;
+        report.by_provider[normalized.provider] = (report.by_provider[normalized.provider] || 0) + 1;
+        report.items.push({ provider: normalized.provider, url: normalized.url, action: "preserved" });
+        output += safeEmbedHtml(normalized.provider, normalized.url);
+      }
+      tagRe.lastIndex = endIndex;
+      cursor = endIndex;
+      continue;
+    }
+
+    output += whole;
+    if (closing) stack.pop();
+    else if (!selfClosing) stack.push(tagName);
+    cursor = tagRe.lastIndex;
+  }
+  output += html.slice(cursor);
+  return output;
+}
+
+/** Normalize embeds and return a safe automation report. The report contains no source HTML. */
+export function normalizeSocialEmbeds(
+  input: unknown,
+  options: { automation?: boolean } = {},
+): { html: string; report: SocialEmbedReport } {
+  const source = typeof input === "string" ? input : "";
+  const report: SocialEmbedReport = {
+    schema_version: 1, revision: "", requested: 0, preserved: 0, removed: 0, by_provider: {}, warnings: [], items: [],
+  };
+  // Convert supported iframe and X blockquote forms before the HTML sanitizer removes them.
+  let prepared = source.replace(
+    /\bdata-social-embed(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/gi,
+    (_attribute, doubleQuoted: string | undefined, singleQuoted: string | undefined, unquoted: string | undefined) =>
+      `data-social-embed="${doubleQuoted || singleQuoted || unquoted || "true"}"`,
+  )
+  .replace(/<iframe\b([^>]*)>(?:[\s\S]*?)<\/iframe\s*>/gi, (whole, attrs: string) => {
+    const src = attrs.match(/\bsrc\s*=\s*["']([^"']+)["']/i)?.[1];
+    report.requested++;
+    if (!src) {
+      report.removed++;
+      report.warnings.push("Removed an iframe without a recoverable supported video URL.");
+      return "";
+    }
+    const normalized = canonicalEmbed("youtube", src);
+    if (!normalized || normalized.provider !== "youtube") {
+      report.removed++;
+      report.warnings.push("Removed an unsafe or unsupported iframe URL.");
+      return "";
+    }
+    return safeEmbedHtml(normalized.provider, normalized.url).replace('data-social-embed=""', 'data-social-embed="normalized-source"');
+  }).replace(/<blockquote\b([^>]*)>[\s\S]*?<\/blockquote\s*>/gi, (whole, attrs: string) => {
+    const cite = attrs.match(/\bcite\s*=\s*["']([^"']+)["']/i)?.[1] || whole.match(/https?:\/\/(?:x\.com|twitter\.com)\/[^\s<"']+/i)?.[0];
+    if (!cite) return whole;
+    report.requested++;
+    const normalized = canonicalEmbed("twitter", cite);
+    if (!normalized || normalized.provider !== "twitter") {
+      report.removed++;
+      report.warnings.push("Removed an unsafe or invalid X/Twitter status URL.");
+      return "";
+    }
+    return safeEmbedHtml(normalized.provider, normalized.url).replace('data-social-embed=""', 'data-social-embed="normalized-source"');
+  });
+
+  let html = sanitizeHtml(prepared, {
+    allowedTags: ["p", "br", "hr", "h1", "h2", "h3", "h4", "h5", "h6", "strong", "b", "em", "i", "u", "s", "strike", "sub", "sup", "ul", "ol", "li", "blockquote", "code", "pre", "a", "img", "span", "div", "table", "thead", "tbody", "tr", "th", "td"],
+    allowedAttributes: { a: ["href", "title", "target", "rel"], img: ["src", "alt", "title", "width", "height"], div: ["data-social-embed", "data-provider", "data-url"], "*": ["class"] },
+    allowedSchemes: ["http", "https", "mailto"], allowedSchemesByTag: { img: ["http", "https"] },
+    transformTags: {
+      div: (_tag, attrs) => {
+        const isSocial = "data-social-embed" in attrs || (attrs.class || "").split(/\s+/).includes("social-embed");
+        if (!isSocial) {
+          const { ["data-social-embed"]: _e, ["data-provider"]: _p, ["data-url"]: _u, ...rest } = attrs;
+          return { tagName: "div", attribs: rest };
+        }
+        if (attrs["data-social-embed"] !== "normalized-source") report.requested++;
+        const shorthand = attrs["data-social-embed"] === "x" ? "twitter" : attrs["data-social-embed"];
+        const suppliedProvider = (attrs["data-provider"] || shorthand || "").toLowerCase();
+        const normalized = canonicalEmbed(attrs["data-provider"] || shorthand || "", attrs["data-url"] || "");
+        const automationAllowed = !options.automation || normalized?.provider === "youtube" || normalized?.provider === "twitter";
+        const normalizedHint = suppliedProvider === "x" ? "twitter" : suppliedProvider;
+        const providerMatches =
+          !normalizedHint ||
+          normalizedHint === "true" ||
+          normalizedHint === "normalized-source" ||
+          normalizedHint === normalized?.provider;
+        if (!normalized || !automationAllowed || !providerMatches) {
+          report.removed++; report.warnings.push("Removed an embed with an unsafe URL or provider mismatch.");
+          return { tagName: "div", attribs: { class: attrs.class || "" } };
+        }
+        return { tagName: "div", attribs: { class: "social-embed", "data-social-embed": "true", "data-provider": normalized.provider, "data-url": normalized.url } };
+      },
+      a: (_tag, attrs) => ({ tagName: "a", attribs: { ...attrs, rel: "noopener noreferrer nofollow", target: attrs.target === "_self" ? "_self" : "_blank" } }),
+    },
+  });
+  html = finalizeSocialEmbeds(html, report);
+  html = html.replace(/<(?:div|span|blockquote)(?:\s[^>]*)?>\s*(?:&nbsp;)?\s*<\/(?:div|span|blockquote)>/gi, "");
+  const embedRevision = report.items
+    .filter((item) => item.action === "preserved")
+    .map(({ provider, url }) => ({ provider, url }));
+  report.revision = `sha256:${createHash("sha256").update(JSON.stringify(embedRevision)).digest("hex")}`;
+  return { html, report };
+}
+
 // Sanitize rich text HTML produced by the TipTap editor.
 // Exported for tests.
 export function cleanHtml(input: unknown): string {
-  if (typeof input !== "string") return "";
-  return sanitizeHtml(input, {
-    allowedTags: [
-      "p", "br", "hr",
-      "h1", "h2", "h3", "h4", "h5", "h6",
-      "strong", "b", "em", "i", "u", "s", "strike", "sub", "sup",
-      "ul", "ol", "li",
-      "blockquote",
-      "code", "pre",
-      "a",
-      "img",
-      "span", "div",
-      "table", "thead", "tbody", "tr", "th", "td",
-    ],
-    allowedAttributes: {
-      a: ["href", "title", "target", "rel"],
-      img: ["src", "alt", "title", "width", "height"],
-      div: ["data-social-embed", "data-provider", "data-url"],
-      "*": ["class"],
-    },
-    allowedSchemes: ["http", "https", "mailto"],
-    allowedSchemesByTag: { img: ["http", "https"] },
-    transformTags: {
-      div: (tagName, attribs) => {
-        // Social embed placeholders: keep the data-* attrs only when the URL
-        // matches a whitelisted provider AND the provider tag is known.
-        // Otherwise strip them so the frontend never hydrates an embed for an
-        // arbitrary URL (the inner fallback link is preserved either way).
-        if (!("data-social-embed" in attribs)) {
-          const { "data-social-embed": _e, "data-provider": _p, "data-url": _u, ...rest } = attribs;
-          return { tagName: "div", attribs: rest };
-        }
-        const url = attribs["data-url"] || "";
-        const provider = (attribs["data-provider"] || "").toLowerCase();
-        if (!SOCIAL_EMBED_URL_RE.test(url) || !SOCIAL_EMBED_PROVIDERS.has(provider)) {
-          return { tagName: "div", attribs: { class: attribs.class || "" } };
-        }
-        return {
-          tagName: "div",
-          attribs: {
-            class: attribs.class || "social-embed",
-            "data-social-embed": "",
-            "data-provider": provider,
-            "data-url": url,
-          },
-        };
-      },
-      a: (tagName, attribs) => ({
-        tagName: "a",
-        attribs: {
-          ...attribs,
-          rel: "noopener noreferrer nofollow",
-          target: attribs.target === "_self" ? "_self" : "_blank",
-        },
-      }),
-    },
-  });
+  return normalizeSocialEmbeds(input).html;
 }
 
 // Exported for reuse by the automation draft endpoint (automation.ts).
@@ -283,13 +472,15 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     }
   }
 
+  const normalizedContent = normalizeSocialEmbeds(body.content);
   const values = {
     title: String(body.title).trim(),
     slug: String(body.slug).trim(),
     excerpt: typeof body.excerpt === "string" && body.excerpt.trim() ? body.excerpt.trim() : "",
     // Sanitize first, then pull externally-hosted body images onto our own
     // storage (best-effort — failures keep the original URL, never block).
-    content: await persistExternalImagesInHtml(cleanHtml(body.content), persistCtx),
+    content: await persistExternalImagesInHtml(normalizedContent.html, persistCtx),
+    embedReport: normalizedContent.report,
     coverImage: body.coverImage ?? null,
     coverImageAlt: typeof body.coverImageAlt === "string" ? body.coverImageAlt.trim() || null : null,
     categoryId: resolvedCategory.id,
@@ -517,7 +708,9 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     if (!(k in body)) continue;
     if (k === "content") {
       // Sanitize first, then re-host external body images (best-effort).
-      update[k] = await persistExternalImagesInHtml(cleanHtml(body[k]), persistCtx);
+      const normalized = normalizeSocialEmbeds(body[k]);
+      update[k] = await persistExternalImagesInHtml(normalized.html, persistCtx);
+      update.embedReport = normalized.report;
     } else if (k === "seoTitle" || k === "seoDescription" || k === "verdict" || k === "coverImageAlt") {
       update[k] = cleanText(body[k]);
     } else if (k === "rating") {

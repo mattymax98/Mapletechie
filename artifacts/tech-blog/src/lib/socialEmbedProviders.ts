@@ -24,7 +24,7 @@ export interface ParsedSocialEmbed {
 }
 
 const YOUTUBE_RE =
-  /^https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{6,20})/i;
+  /^https?:\/\/(?:(?:www\.|m\.)?youtube\.com\/(?:watch\?(?:[^#]*&)?v=|shorts\/|live\/|embed\/)|(?:www\.)?youtube-nocookie\.com\/embed\/|youtu\.be\/)([A-Za-z0-9_-]{6,20})(?=[&#/?]|$)/i;
 const TWITTER_RE =
   /^https?:\/\/(?:www\.|mobile\.)?(?:twitter\.com|x\.com)\/([A-Za-z0-9_]{1,20})\/status(?:es)?\/(\d{5,25})/i;
 const INSTAGRAM_RE =

@@ -368,6 +368,39 @@ describe("POST /automation/posts/drafts — contract", () => {
     expect(res.json.content).not.toContain("<script");
   });
 
+  it("persists the normalized embed report while keeping the post a draft", async () => {
+    selectQueue = [[BOT_USER], [CATEGORY], []];
+    insertReturn = [{
+      id: 89,
+      title: "Embed story",
+      slug: "embed-story",
+      content: '<div class="social-embed" data-social-embed="" data-provider="youtube" data-url="https://www.youtube.com/watch?v=vcID0OafOts"></div>',
+      categoryId: 10,
+      author: "Mapletechie AI",
+      authorId: 77,
+      status: "draft",
+      tags: [],
+      seoKeywords: [],
+    }];
+    const res = await post({
+      ...validBody(),
+      title: "Embed story",
+      slug: "embed-story",
+      content: '<iframe src="https://www.youtube-nocookie.com/embed/vcID0OafOts"></iframe>',
+    });
+
+    expect(res.status).toBe(201);
+    const values = captured.insertValues!.find((value) => value.slug === "embed-story")!;
+    expect(values.status).toBe("draft");
+    expect(values.embedReport).toMatchObject({
+      requested: 1,
+      preserved: 1,
+      removed: 0,
+      by_provider: { youtube: 1 },
+    });
+    expect((values.embedReport as { revision: string }).revision).toMatch(/^sha256:[a-f0-9]{64}$/);
+  });
+
   it("422 on unknown fields", async () => {
     selectQueue = [[BOT_USER]];
     const res = await post({ ...validBody(), banana: true });
@@ -556,7 +589,16 @@ describe("POST /automation/posts/drafts — contract", () => {
     selectQueue = [
       [BOT_USER],
       [{ id: 1, idempotencyKey: "current-1", postId: 42 }],
-      [{ id: 42, title: "Edited after submit", slug: "test-story", content: "<p>Edited</p>", categoryId: 10, status: "draft", updatedAt: new Date("2026-01-04T00:00:00Z") }],
+      [{
+        id: 42,
+        title: "Edited after submit",
+        slug: "test-story",
+        content: "<p>Edited</p>",
+        categoryId: 10,
+        status: "draft",
+        embedReport: { revision: "sha256:abc", requested: 3, preserved: 2, removed: 1 },
+        updatedAt: new Date("2026-01-04T00:00:00Z"),
+      }],
       [{ id: 10, name: "News", slug: "news", isPrimary: true }],
     ];
     const res = await post(validBody(), { "Idempotency-Key": "current-1" });
@@ -564,6 +606,7 @@ describe("POST /automation/posts/drafts — contract", () => {
     expect(res.json).toMatchObject({
       id: 42, replayed: true, content: "<p>Edited</p>",
       categories: [{ id: 10, is_primary: true }],
+      embed_report: { revision: "sha256:abc", requested: 3, preserved: 2, removed: 1 },
       updated_at: "2026-01-04T00:00:00.000Z",
     });
   });
@@ -607,7 +650,7 @@ describe("POST /automation/posts/backfill — live image updates", () => {
     expect(res.json).toMatchObject({
       id: 42,
       status: "published",
-      updated_fields: ["coverImageAlt", "content"],
+      updated_fields: ["coverImageAlt", "content", "embedReport"],
     });
     const update = captured.updateValues![0];
     expect(update.coverImageAlt).toBe("A person testing a laptop in a lab");

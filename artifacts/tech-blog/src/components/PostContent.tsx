@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { applyResponsiveImages, makeArticleHtmlResponsive } from "@/lib/responsiveImage";
 import { ensureImgAlt } from "@/lib/ensureImgAlt";
-import { splitSocialEmbeds, SocialEmbedView, type ArticleSegment } from "@/components/SocialEmbeds";
+import { splitSocialEmbeds, SocialEmbedView, type ArticleSegment, type EmbedTerminalStatus } from "@/components/SocialEmbeds";
 import { AdSlot, adPlacementEnabled, splitHtmlForInArticleAds } from "@/components/AdSlot";
 
 export function PostContent({
   html,
   onHeadingsExtracted,
   onEmbedsReady,
+  onEmbedProgress,
   enableAds = true,
 }: {
   html: string;
   onHeadingsExtracted: (headings: { id: string; text: string }[]) => void;
   onEmbedsReady?: () => void;
+  onEmbedProgress?: (progress: { total: number; loading: number; rendered: number; fallback: number; failed: number }) => void;
   /** Preview pages deliberately omit advertising and its side effects. */
   enableAds?: boolean;
 }) {
@@ -36,7 +38,7 @@ export function PostContent({
     let adBudget = enableAds && adPlacementEnabled("inArticle") ? 2 : 0;
     segments.forEach((seg, i) => {
       if (seg.kind === "embed") {
-        out.push({ key: `e-${i}`, node: "embed", seg });
+        out.push({ key: `e-${i}-${seg.embed.provider}-${seg.embed.id}`, node: "embed", seg });
       } else if (adBudget <= 0) {
         out.push({ key: `h-${i}`, node: "html", html: seg.html });
       } else {
@@ -54,7 +56,19 @@ export function PostContent({
   }, [segments, enableAds]);
 
   const embedCount = segments.filter((s) => s.kind === "embed").length;
-  const readyCount = useRef(0);
+  const expectedEmbedKeys = useMemo(
+    () => rendered.filter((item) => item.node === "embed").map((item) => item.key),
+    [rendered],
+  );
+  const statusByKey = useRef(new Map<string, EmbedTerminalStatus>());
+  const lifecycleHtml = useRef(html);
+  const lifecycleGeneration = useRef(0);
+  if (lifecycleHtml.current !== html) {
+    lifecycleHtml.current = html;
+    lifecycleGeneration.current++;
+    statusByKey.current = new Map();
+  }
+  const generation = lifecycleGeneration.current;
   const completed = useRef(false);
   const markEmbedsReady = useCallback(() => {
     if (completed.current) return;
@@ -62,27 +76,69 @@ export function PostContent({
     onEmbedsReady?.();
   }, [onEmbedsReady]);
   useEffect(() => {
-    readyCount.current = 0;
     completed.current = false;
+    const initialStatuses = Array.from(statusByKey.current.values());
+    onEmbedProgress?.({
+      total: embedCount,
+      loading: embedCount - initialStatuses.length,
+      rendered: initialStatuses.filter((s) => s === "rendered").length,
+      fallback: initialStatuses.filter((s) => s === "fallback").length,
+      failed: initialStatuses.filter((s) => s === "failed").length,
+    });
     if (embedCount === 0) {
+      markEmbedsReady();
+      return;
+    }
+    if (initialStatuses.length >= embedCount) {
       markEmbedsReady();
       return;
     }
     // Third-party scripts can be blocked by privacy tools. Never hold a
     // preview indefinitely; rendered/fallback widgets normally win first.
-    const timeout = window.setTimeout(markEmbedsReady, 12000);
+    const timeout = window.setTimeout(() => {
+      const unresolved = embedCount - statusByKey.current.size;
+      if (unresolved > 0) {
+        // Watchdog failures are intentionally terminal and counted separately.
+        let failed = 0;
+        for (const key of expectedEmbedKeys) {
+          if (!statusByKey.current.has(key)) {
+            statusByKey.current.set(key, "failed");
+            failed++;
+          }
+        }
+        const values = Array.from(statusByKey.current.values());
+        onEmbedProgress?.({
+          total: embedCount,
+          loading: 0,
+          rendered: values.filter((s) => s === "rendered").length,
+          fallback: values.filter((s) => s === "fallback").length,
+          failed: values.filter((s) => s === "failed").length,
+        });
+      }
+      markEmbedsReady();
+    }, 12000);
     return () => window.clearTimeout(timeout);
-  }, [embedCount, markEmbedsReady]);
-  const embedReady = useCallback(() => {
-    readyCount.current++;
-    if (readyCount.current >= embedCount) markEmbedsReady();
-  }, [embedCount, markEmbedsReady]);
+  }, [embedCount, expectedEmbedKeys, markEmbedsReady, onEmbedProgress]);
+  const embedStatus = useCallback((key: string, status: EmbedTerminalStatus) => {
+    if (generation !== lifecycleGeneration.current) return;
+    if (statusByKey.current.has(key)) return;
+    statusByKey.current.set(key, status);
+    const values = Array.from(statusByKey.current.values());
+    onEmbedProgress?.({
+      total: embedCount,
+      loading: embedCount - values.length,
+      rendered: values.filter((s) => s === "rendered").length,
+      fallback: values.filter((s) => s === "fallback").length,
+      failed: values.filter((s) => s === "failed").length,
+    });
+    if (values.length >= embedCount) markEmbedsReady();
+  }, [embedCount, generation, markEmbedsReady, onEmbedProgress]);
 
   return (
     <div ref={ref} className="prose prose-lg dark:prose-invert max-w-none prose-headings:font-black prose-headings:tracking-tight prose-a:text-primary hover:prose-a:text-primary/80 prose-img:border prose-img:border-border font-serif leading-relaxed prose-headings:scroll-mt-24">
       {rendered.map((item) =>
         item.node === "embed" && item.seg?.kind === "embed" ? (
-          <SocialEmbedView key={item.key} embed={item.seg.embed} onReady={embedReady} />
+          <SocialEmbedView key={item.key} embed={item.seg.embed} embedKey={item.key} onStatus={embedStatus} />
         ) : item.node === "ad" ? (
           <AdSlot key={item.key} placement="inArticle" className="not-prose my-8" />
         ) : (

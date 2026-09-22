@@ -13,9 +13,20 @@ type PreviewPost = {
   published_at?: string | null;
   cover_image?: string | null;
   cover_image_alt?: string | null;
+  embed_report?: unknown;
 };
 
 type PreviewResponse = { post: PreviewPost };
+
+function persistedEmbedCounts(report: unknown) {
+  if (!report || typeof report !== "object") return { requested: 0, preserved: 0, removed: 0 };
+  const value = report as Record<string, unknown>;
+  const count = (key: string) =>
+    typeof value[key] === "number" && Number.isInteger(value[key]) && value[key] >= 0
+      ? value[key]
+      : 0;
+  return { requested: count("requested"), preserved: count("preserved"), removed: count("removed") };
+}
 
 /**
  * Private, signed-token article preview. This intentionally does not use the
@@ -32,8 +43,19 @@ export default function PreviewPost() {
   });
   const [post, setPost] = useState<PreviewPost | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
-  const markReady = useCallback(() => setReady(true), []);
+  const [embedProgress, setEmbedProgress] = useState({
+    total: 0,
+    loading: 0,
+    rendered: 0,
+    fallback: 0,
+    failed: 0,
+  });
+  const [progressInitialized, setProgressInitialized] = useState(false);
+  const persistedCounts = persistedEmbedCounts(post?.embed_report);
+  const onEmbedProgress = useCallback((progress: typeof embedProgress) => {
+    setEmbedProgress(progress);
+    setProgressInitialized(true);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -77,7 +99,15 @@ export default function PreviewPost() {
       ) : (
         <article
           className="w-full"
-          data-preview-ready={ready ? "true" : "false"}
+          data-preview-ready={progressInitialized && embedProgress.loading === 0 ? "true" : "false"}
+          data-preview-total={embedProgress.total}
+          data-preview-loading={embedProgress.loading}
+          data-preview-rendered={embedProgress.rendered}
+          data-preview-fallback={embedProgress.fallback}
+          data-preview-failed={embedProgress.failed}
+          data-preview-requested={persistedCounts.requested}
+          data-preview-preserved={persistedCounts.preserved}
+          data-preview-removed={persistedCounts.removed}
           data-testid="preview-article"
         >
           <header className="container mx-auto px-4 md:px-6 py-10 max-w-4xl">
@@ -96,7 +126,7 @@ export default function PreviewPost() {
               html={post.content}
               enableAds={false}
               onHeadingsExtracted={() => undefined}
-              onEmbedsReady={markReady}
+              onEmbedProgress={onEmbedProgress}
             />
           </div>
         </article>

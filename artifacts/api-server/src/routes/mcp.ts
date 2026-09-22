@@ -77,7 +77,7 @@ const DRAFT_INPUT_SHAPE = {
   title: z.string().min(1).describe("Post title"),
   slug: z.string().min(1).describe("URL slug: lowercase letters, digits and hyphens only"),
   content: z.string().min(1).describe(
-    'Sanitized TipTap-compatible HTML body. To place an uploaded image inside the article, include its returned URL exactly where it belongs, for example: <img src="/api/storage/objects/..." alt="Specific description of the image">. Every img must have non-empty alt text.',
+    'Sanitized TipTap-compatible HTML body. Social embeds MUST be canonical top-level divs: <div class="social-embed" data-social-embed="" data-provider="youtube|twitter" data-url="SAFE_CANONICAL_URL"><a href="SAFE_CANONICAL_URL">SAFE_CANONICAL_URL</a></div>. You may also submit YouTube embed/watch/shorts/live/youtu.be URLs or X/Twitter status blockquotes; the server normalizes them. Never submit iframes or scripts. Invalid, mismatched, duplicate, or hostile embed URLs are removed and the response embed_report includes warnings. To place an uploaded image inside the article, include its returned URL exactly where it belongs, for example: <img src="/api/storage/objects/..." alt="Specific description of the image">. Every img must have non-empty alt text.',
   ),
   excerpt: z.string().optional().describe("Short summary shown in lists"),
   cover_image: z.string().optional().describe("Cover image URL (external URLs are re-hosted)"),
