@@ -23,6 +23,7 @@ import {
   postInCategory,
 } from "../lib/postCategoryHelpers";
 import { submitToIndexNow, buildPostUrls } from "../lib/indexNow";
+import { canonicalPostAuthor } from "../lib/postAuthor";
 
 // Re-exported for automation.ts (historical import location).
 export { resolveCategory };
@@ -342,6 +343,7 @@ export function cleanText(input: unknown): string | null {
  */
 const postColumnsWithCategory = {
   ...getTableColumns(postsTable),
+  author: canonicalPostAuthor,
   category: categoriesTable.name,
   categorySlug: categoriesTable.slug,
 };

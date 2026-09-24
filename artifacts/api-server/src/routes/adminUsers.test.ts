@@ -3,7 +3,7 @@ import express from "express";
 
 // --- Mocks for everything admin.ts pulls in at import time -----------------
 
-const captured: { updateSet?: Record<string, unknown>; insertValues?: Record<string, unknown> } = {};
+const captured: { updateSet?: Record<string, unknown>; postSet?: Record<string, unknown>; postWhere?: unknown; insertValues?: Record<string, unknown> } = {};
 
 let selectQueue: unknown[][] = [];
 let updateReturn: unknown[] = [];
@@ -29,9 +29,13 @@ const db = {
   select: vi.fn(() => makeSelectChain(selectQueue)),
   update: vi.fn(() => ({
     set: vi.fn((v: Record<string, unknown>) => {
-      captured.updateSet = v;
+      if ("author" in v) captured.postSet = v;
+      else captured.updateSet = v;
       return {
-        where: vi.fn(() => ({ returning: vi.fn(async () => updateReturn) })),
+        where: vi.fn((condition: unknown) => {
+          if ("author" in v) captured.postWhere = condition;
+          return { returning: vi.fn(async () => updateReturn) };
+        }),
       };
     }),
   })),
@@ -56,7 +60,7 @@ vi.mock("@workspace/db", () => ({
 }));
 
 vi.mock("drizzle-orm", () => ({
-  eq: () => ({}),
+  eq: (col: unknown, val: unknown) => ({ col, val }),
   and: () => ({}),
   count: () => ({}),
 }));
@@ -146,6 +150,8 @@ beforeEach(() => {
   updateReturn = [];
   insertReturn = [];
   captured.updateSet = undefined;
+  captured.postSet = undefined;
+  captured.postWhere = undefined;
   captured.insertValues = undefined;
 });
 
@@ -196,6 +202,7 @@ describe("PUT /admin/users/:id — Our Team visibility toggle", () => {
 
     expect(status).toBe(200);
     expect(captured.updateSet?.showOnTeam).toBe(false);
+    expect(captured.postSet).toBeUndefined();
   });
 });
 
@@ -287,6 +294,8 @@ describe("PUT /admin/users/:id — super-admin username rename", () => {
     expect(captured.updateSet).not.toHaveProperty("username");
     expect(captured.updateSet).not.toHaveProperty("email");
     expect(captured.updateSet?.displayName).toBe("Matt");
+    expect(captured.postSet).toEqual({ author: "Matt" });
+    expect(captured.postWhere).toEqual({ col: undefined, val: 1 });
   });
 
   it("tolerates the client echoing back the current derived email", async () => {
@@ -300,5 +309,32 @@ describe("PUT /admin/users/:id — super-admin username rename", () => {
 
     expect(status).toBe(200);
     expect(captured.updateSet).not.toHaveProperty("email");
+  });
+});
+
+describe("profile byline synchronization", () => {
+  it("synchronizes only linked posts when a manager changes an editor name", async () => {
+    selectQueue = [[TARGET_EDITOR]];
+    updateReturn = [{ ...TARGET_EDITOR, displayName: "Jane Smith" }];
+    const { status } = await request(makeApp(), "PUT", "/admin/users/5", { displayName: "Jane Smith" });
+    expect(status).toBe(200);
+    expect(db.transaction).toHaveBeenCalledOnce();
+    expect(captured.postSet).toEqual({ author: "Jane Smith" });
+    expect(captured.postWhere).toEqual({ col: undefined, val: 5 });
+  });
+
+  it("does not touch post bylines for an unchanged name or unrelated profile edit", async () => {
+    selectQueue = [[TARGET_EDITOR]];
+    updateReturn = [{ ...TARGET_EDITOR, bio: "New bio" }];
+    const { status } = await request(makeApp(), "PUT", "/admin/users/5", { bio: "New bio" });
+    expect(status).toBe(200);
+    expect(captured.postSet).toBeUndefined();
+  });
+
+  it("does not touch post bylines for a self-profile edit without a name change", async () => {
+    updateReturn = [{ ...ADMIN_USER, bio: "New bio" }];
+    const { status } = await request(makeApp(), "PUT", "/admin/me", { bio: "New bio" });
+    expect(status).toBe(200);
+    expect(captured.postSet).toBeUndefined();
   });
 });

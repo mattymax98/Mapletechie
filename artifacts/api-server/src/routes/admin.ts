@@ -112,12 +112,22 @@ router.put("/admin/me", adminAuth, async (req, res): Promise<void> => {
     update.passwordHash = await hashPassword(req.body.password);
   }
 
-  const [updated] = await db
-    .update(usersTable)
-    .set(update)
-    .where(eq(usersTable.id, req.user.id))
-    .returning();
+  const updated = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(usersTable)
+      .set(update)
+      .where(eq(usersTable.id, req.user!.id))
+      .returning();
+    if (row && row.displayName !== req.user!.displayName) {
+      await tx.update(postsTable).set({ author: row.displayName }).where(eq(postsTable.authorId, row.id));
+    }
+    return row;
+  });
 
+  if (!updated) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
   res.json(sanitizeUser(updated));
 });
 
@@ -319,6 +329,9 @@ router.put("/admin/users/:id", adminAuth, requirePermission("editors"), async (r
       .set(update)
       .where(eq(usersTable.id, id))
       .returning();
+    if (row && row.displayName !== target.displayName) {
+      await tx.update(postsTable).set({ author: row.displayName }).where(eq(postsTable.authorId, id));
+    }
     if (row && update.username && update.username !== target.username) {
       // Record the previous username so old /author/<username> links can
       // 301-redirect to the current author page.

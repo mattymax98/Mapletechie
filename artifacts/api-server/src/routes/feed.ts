@@ -3,6 +3,7 @@ import { db, postsTable, categoriesTable } from "@workspace/db";
 import { and, desc, eq, getTableColumns } from "drizzle-orm";
 import { attachCategories, postInCategory } from "../lib/postCategoryHelpers";
 import { getSiteUrl } from "../lib/siteUrl";
+import { canonicalPostAuthor } from "../lib/postAuthor";
 
 const router = Router();
 
@@ -41,7 +42,7 @@ async function sendFeed(res: Response, category?: CategoryInfo): Promise<void> {
     : eq(postsTable.status, "published");
 
   const rows = await db
-    .select({ ...getTableColumns(postsTable), category: categoriesTable.name, categorySlug: categoriesTable.slug })
+    .select({ ...getTableColumns(postsTable), author: canonicalPostAuthor, category: categoriesTable.name, categorySlug: categoriesTable.slug })
     .from(postsTable)
     .innerJoin(categoriesTable, eq(postsTable.categoryId, categoriesTable.id))
     .where(where)

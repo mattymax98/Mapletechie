@@ -48,6 +48,7 @@ vi.mock("@workspace/db", () => ({
   db,
   subscribersTable: { status: "status" },
   postsTable: {},
+  usersTable: {},
   categoriesTable: {},
 }));
 
@@ -58,6 +59,7 @@ vi.mock("drizzle-orm", () => ({
   gte: () => ({}),
   inArray: () => ({}),
   getTableColumns: () => ({}),
+  sql: () => ({}),
 }));
 
 // ---------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, postsTable, seriesTable } from "@workspace/db";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, getTableColumns } from "drizzle-orm";
+import { canonicalPostAuthor } from "../lib/postAuthor";
 import { adminAuth } from "../middlewares/adminAuth";
 import { writeAuditLog } from "../lib/audit";
 
@@ -30,7 +31,7 @@ router.get("/series/:slug", async (req, res): Promise<void> => {
     return;
   }
   const posts = await db
-    .select()
+    .select({ ...getTableColumns(postsTable), author: canonicalPostAuthor })
     .from(postsTable)
     .where(and(eq(postsTable.seriesId, s.id), eq(postsTable.status, "published")))
     .orderBy(asc(postsTable.seriesPosition), asc(postsTable.publishedAt));

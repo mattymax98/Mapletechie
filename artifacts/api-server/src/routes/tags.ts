@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, postsTable } from "@workspace/db";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql, getTableColumns } from "drizzle-orm";
+import { canonicalPostAuthor } from "../lib/postAuthor";
 
 const router = Router();
 
@@ -29,7 +30,7 @@ router.get("/tags", async (_req, res): Promise<void> => {
 router.get("/tags/:tag/posts", async (req, res): Promise<void> => {
   const tag = String(req.params.tag).toLowerCase();
   const posts = await db
-    .select()
+    .select({ ...getTableColumns(postsTable), author: canonicalPostAuthor })
     .from(postsTable)
     .where(
       and(

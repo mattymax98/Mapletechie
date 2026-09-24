@@ -14,6 +14,7 @@ import { logger } from "../lib/logger";
 import { newsletterLimiter } from "../middlewares/rateLimit";
 import { runEditorWeeklyDigestNow } from "../lib/editorWeeklyDigest";
 import { getSiteSettings } from "../lib/siteSettings";
+import { canonicalPostAuthor } from "../lib/postAuthor";
 
 const router = Router();
 
@@ -27,7 +28,7 @@ function weekLabel(date: Date = new Date()): string {
 async function fetchPostsByIds(ids: number[]) {
   if (ids.length === 0) return [];
   const rows = await db
-    .select({ ...getTableColumns(postsTable), category: categoriesTable.name })
+    .select({ ...getTableColumns(postsTable), author: canonicalPostAuthor, category: categoriesTable.name })
     .from(postsTable)
     .innerJoin(categoriesTable, eq(postsTable.categoryId, categoriesTable.id))
     .where(inArray(postsTable.id, ids));
@@ -40,7 +41,7 @@ async function fetchPostsByIds(ids: number[]) {
 async function fetchRecentPosts(daysBack = 30) {
   const since = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000);
   return db
-    .select({ ...getTableColumns(postsTable), category: categoriesTable.name })
+    .select({ ...getTableColumns(postsTable), author: canonicalPostAuthor, category: categoriesTable.name })
     .from(postsTable)
     .innerJoin(categoriesTable, eq(postsTable.categoryId, categoriesTable.id))
     .where(and(eq(postsTable.status, "published"), gte(postsTable.publishedAt, since)))

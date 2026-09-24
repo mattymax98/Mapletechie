@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, postsTable, categoriesTable } from "@workspace/db";
 import { and, desc, eq, getTableColumns, ilike, or } from "drizzle-orm";
+import { canonicalPostAuthor } from "../lib/postAuthor";
 
 const router = Router();
 
@@ -23,7 +24,7 @@ router.get("/search", async (req, res): Promise<void> => {
 
   const pattern = `%${q.replace(/[%_]/g, (c) => `\\${c}`)}%`;
   const rows = await db
-    .select({ ...getTableColumns(postsTable), category: categoriesTable.name })
+    .select({ ...getTableColumns(postsTable), author: canonicalPostAuthor, category: categoriesTable.name })
     .from(postsTable)
     .innerJoin(categoriesTable, eq(postsTable.categoryId, categoriesTable.id))
     .where(
@@ -33,7 +34,7 @@ router.get("/search", async (req, res): Promise<void> => {
           ilike(postsTable.title, pattern),
           ilike(postsTable.excerpt, pattern),
           ilike(postsTable.content, pattern),
-          ilike(postsTable.author, pattern),
+          ilike(canonicalPostAuthor, pattern),
           ilike(categoriesTable.name, pattern),
         ),
       ),

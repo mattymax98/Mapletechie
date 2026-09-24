@@ -22,6 +22,8 @@ vi.mock("drizzle-orm", () => ({
 
 // Sentinel column identities so captured eq() calls are assertable.
 const postsTable = {
+  author: "posts.author",
+  authorId: "posts.authorId",
   status: "posts.status",
   categoryId: "posts.categoryId",
   publishedAt: "posts.publishedAt",
@@ -32,6 +34,7 @@ const categoriesTable = {
   name: "categories.name",
   slug: "categories.slug",
 };
+const usersTable = { id: "users.id", displayName: "users.displayName" };
 const postCategoriesTable = {
   postId: "post_categories.postId",
   categoryId: "post_categories.categoryId",
@@ -67,7 +70,7 @@ function makeSelectChain() {
 
 const db = { select: vi.fn(() => makeSelectChain()) };
 
-vi.mock("@workspace/db", () => ({ db, postsTable, categoriesTable, postCategoriesTable }));
+vi.mock("@workspace/db", () => ({ db, postsTable, usersTable, categoriesTable, postCategoriesTable }));
 
 const feedRouter = (await import("./feed")).default;
 
@@ -203,6 +206,12 @@ describe("SITE_DOMAIN protocol normalisation", () => {
 // --- Site-wide feed -----------------------------------------------------------
 
 describe("GET /feed.xml — site-wide feed shape", () => {
+  it("emits the canonical name returned by the linked-author projection", async () => {
+    selectQueue = [[{ ...POST_A, authorId: 1, author: "Matthew Leo" }]];
+    const { body } = await get("/feed.xml");
+    expect(body).toContain("<author>noreply@mapletechie.com (Matthew Leo)</author>");
+    expect(body).not.toContain("Matthew Mbaka");
+  });
   it("renders the unchanged site-wide channel with all published posts", async () => {
     selectQueue = [[POST_A, POST_B]];
 

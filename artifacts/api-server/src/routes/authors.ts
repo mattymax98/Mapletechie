@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, usersTable, postsTable, usernameRenamesTable } from "@workspace/db";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, getTableColumns } from "drizzle-orm";
+import { canonicalPostAuthor } from "../lib/postAuthor";
 
 const router = Router();
 
@@ -75,7 +76,7 @@ router.get("/authors/:id/posts", async (req, res): Promise<void> => {
     return;
   }
   const posts = await db
-    .select()
+    .select({ ...getTableColumns(postsTable), author: canonicalPostAuthor })
     .from(postsTable)
     .where(and(eq(postsTable.authorId, id), eq(postsTable.status, "published")))
     .orderBy(desc(postsTable.publishedAt));

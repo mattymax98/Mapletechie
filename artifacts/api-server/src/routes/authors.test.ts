@@ -27,8 +27,8 @@ const db = {
 
 vi.mock("@workspace/db", () => ({
   db,
-  usersTable: { id: {}, username: {}, isActive: {} },
-  postsTable: { id: {}, authorId: {}, status: {} },
+  usersTable: { id: {}, username: {}, displayName: {}, isActive: {} },
+  postsTable: { id: {}, author: {}, authorId: {}, status: {} },
   usernameRenamesTable: { oldUsername: {}, userId: {} },
 }));
 
@@ -36,6 +36,8 @@ vi.mock("drizzle-orm", () => ({
   eq: () => ({}),
   and: () => ({}),
   desc: () => ({}),
+  sql: () => ({}),
+  getTableColumns: () => ({}),
 }));
 
 const authorsRouter = (await import("./authors")).default;
@@ -106,5 +108,21 @@ describe("GET /authors/by-username/:username rename redirects", () => {
     selectQueue = [[], [{ username: "same" }]];
     const r = await get(makeApp(), "/authors/by-username/same");
     expect(r.status).toBe(404);
+  });
+});
+
+describe("GET /authors/:id/posts", () => {
+  it("returns the linked account's projected byline, including for an inactive account", async () => {
+    selectQueue = [[{ id: 42, authorId: 7, author: "New Name", status: "published" }]];
+    const r = await get(makeApp(), "/authors/7/posts");
+    expect(r.status).toBe(200);
+    expect(JSON.parse(r.text)).toEqual([{ id: 42, authorId: 7, author: "New Name", status: "published" }]);
+  });
+
+  it("returns an empty archive when no published posts are linked", async () => {
+    selectQueue = [[]];
+    const r = await get(makeApp(), "/authors/7/posts");
+    expect(r.status).toBe(200);
+    expect(JSON.parse(r.text)).toEqual([]);
   });
 });

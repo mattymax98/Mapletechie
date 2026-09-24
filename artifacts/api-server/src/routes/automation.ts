@@ -9,7 +9,7 @@ import {
   automationRequestsTable,
   seriesTable,
 } from "@workspace/db";
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, getTableColumns } from "drizzle-orm";
 import { writeAuditLogForUser } from "../lib/audit";
 import { validateCoverImage } from "../lib/coverImageValidation";
 import {
@@ -28,6 +28,7 @@ import { hashPassword } from "../lib/auth";
 import { logger } from "../lib/logger";
 import { notifyEditorsOfAutomationDraft } from "../lib/automationDraftNotification";
 import { getSiteUrl } from "../lib/siteUrl";
+import { canonicalPostAuthor } from "../lib/postAuthor";
 
 /**
  * Private automation draft API — lets an external AI client (run and
@@ -810,8 +811,8 @@ export async function createAutomationDraft(
 /** Read the complete current state, used by connectors and preview clients. */
 export async function getMapletechiePost(postIdOrSlug: { postId?: number; slug?: string }) {
   const rows = postIdOrSlug.postId
-    ? await db.select().from(postsTable).where(eq(postsTable.id, postIdOrSlug.postId))
-    : await db.select().from(postsTable).where(eq(postsTable.slug, String(postIdOrSlug.slug).trim().toLowerCase()));
+    ? await db.select({ ...getTableColumns(postsTable), author: canonicalPostAuthor }).from(postsTable).where(eq(postsTable.id, postIdOrSlug.postId))
+    : await db.select({ ...getTableColumns(postsTable), author: canonicalPostAuthor }).from(postsTable).where(eq(postsTable.slug, String(postIdOrSlug.slug).trim().toLowerCase()));
   const post = rows[0] as Record<string, any> | undefined;
   if (!post) return null;
   const categories = await db
