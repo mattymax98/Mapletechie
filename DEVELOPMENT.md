@@ -57,6 +57,7 @@ production object.
 Run these checks before committing:
 
 ```bash
+pnpm install --frozen-lockfile
 pnpm run typecheck
 pnpm run test
 pnpm run build
@@ -64,9 +65,9 @@ pnpm run build
 
 ### Production database migrations
 
-The published site uses Railway PostgreSQL. `PROD_DATABASE_URL` points at the
-retired Neon database; `DATABASE_URL` is for local development. Neither is a
-production migration target. Use the guarded command from the workspace root:
+The published site uses Railway PostgreSQL. `DATABASE_URL` is for local
+development, and `RAILWAY_DATABASE_URL` is the only production migration
+target. Use the guarded command from the workspace root:
 
 ```bash
 pnpm --filter @workspace/scripts run migrate:railway --check
@@ -83,12 +84,11 @@ new live service before changing the pinned identity. The runner uses a
 transaction with a 5-second lock timeout and a 120-second statement timeout.
 Before applying, it prints only the filename and that the pinned identity
 matched; it never prints a database URL. Drizzle's development `push` also
-rejects connections equivalent to either configured production URL at the
+rejects connections equivalent to the configured Railway URL at the
 same host, port and database, even when credentials or URL options differ.
 This is **defense-in-depth only**: hostname aliases can still refer to the same
 cluster. The guarded runner is the authoritative production migration path.
-Do not use raw `psql "$PROD_DATABASE_URL"` or an unguarded Drizzle `push` for
-production.
+Do not use raw `psql` or an unguarded Drizzle `push` for production.
 The historical `copy-posts-dev-to-prod` utility is not a routine migration:
 it now requires `RAILWAY_DATABASE_URL`, verifies that database's identity, and
 refuses to run without an explicit confirmation flag. Its row set must be
@@ -104,13 +104,18 @@ work follows this delivery sequence:
 3. Run the validation commands above.
 4. Commit with `mattymax98 <197423417+mattymax98@users.noreply.github.com>` as
    both author and committer, with no additional attribution trailers.
-5. Fetch `origin/main` again and confirm the commit can be pushed as a normal
-   fast-forward.
-6. Push directly to `main`.
+5. Fetch `origin/main` again, confirm the commit is a normal fast-forward, and
+   run a targeted HTTPS dry-run push.
+6. Push directly to GitHub `main` over HTTPS using the configured GitHub CLI
+   credential helper.
 7. Confirm Railway deploys that exact commit and verify the affected production
    behavior.
 
-Do not force-push, reset, or delete `main` during routine work. If GitHub branch
+These are normal task-completion steps, not separate prompts for approval.
+The repository-local GitHub HTTPS credential helper uses
+`gh auth git-credential`; do not fall back to a broken askpass credential,
+embed tokens, or add SSH deploy keys. If authentication fails, stop and report
+it. Do not force-push, reset, or delete `main` during routine work. If GitHub branch
 protection prevents a normal authenticated fast-forward push, report the
 owner-side setting instead of bypassing it. Feature branches, pull requests, and
 Railway pull-request environments are optional tools for exceptional work, not

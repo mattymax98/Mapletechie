@@ -15,7 +15,7 @@ if (!DEV_URL) {
   process.exit(1);
 }
 if (!PROD_URL) {
-  console.error("Missing RAILWAY_DATABASE_URL (live Railway target). PROD_DATABASE_URL is retired.");
+  console.error("Missing RAILWAY_DATABASE_URL (live Railway target).");
   process.exit(1);
 }
 if (DEV_URL === PROD_URL) {

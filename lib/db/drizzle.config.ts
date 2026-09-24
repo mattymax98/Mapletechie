@@ -22,10 +22,10 @@ function databaseEndpoint(connectionString: string): string | null {
 const pushTarget = databaseEndpoint(process.env.DATABASE_URL);
 if (!pushTarget) throw new Error("DATABASE_URL is not a valid PostgreSQL URL.");
 if (
-  [process.env.PROD_DATABASE_URL, process.env.RAILWAY_DATABASE_URL]
-    .some((value) => value && databaseEndpoint(value) === pushTarget)
+  process.env.RAILWAY_DATABASE_URL &&
+  databaseEndpoint(process.env.RAILWAY_DATABASE_URL) === pushTarget
 ) {
-  throw new Error("Refusing an unguarded schema push to a retired or live production database. Use migrate:railway.");
+  throw new Error("Refusing an unguarded schema push to the live production database. Use migrate:railway.");
 }
 
 export default defineConfig({

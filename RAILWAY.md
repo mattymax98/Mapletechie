@@ -211,9 +211,8 @@ VITE_GA4_MEASUREMENT_ID = G-XXXXXXXXXX
 The export/restore commands below document the original one-time move from
 Replit to Railway, **not** the routine migration procedure. For current
 production migrations, use the guarded `migrate:railway` command in
-`DEVELOPMENT.md`. `PROD_DATABASE_URL` now targets the retired Neon database.
-The guard checks the live Railway cluster identity before running SQL and
-stops if the database has been replaced.
+`DEVELOPMENT.md`. The guard checks the live Railway cluster identity before
+running SQL and stops if the database has been replaced.
 
 🤖 The agent will run these commands to export your legacy Postgres data and
 import it into Railway's Postgres.

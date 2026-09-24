@@ -56,8 +56,8 @@ test("default is read-only, and apply requires both the filename and confirmatio
   }
 });
 
-test("target URL never falls back to the retired or development URL", () => {
-  const env = { PROD_DATABASE_URL: "retired", DATABASE_URL: "development" };
+test("target URL never falls back to the development URL", () => {
+  const env = { DATABASE_URL: "development" };
   assert.throws(() => requireRailwayUrl(env), /RAILWAY_DATABASE_URL is required/);
   assert.throws(() => requireRailwayUrl({ ...env, RAILWAY_DATABASE_URL: "" }), /RAILWAY_DATABASE_URL is required/);
   assert.equal(requireRailwayUrl({ ...env, RAILWAY_DATABASE_URL: "live" }), "live");
@@ -139,23 +139,19 @@ test("an approved apply checks identity then reports filename before SQL and com
 test("reformatted database URLs cannot evade the Drizzle development guard", () => {
   const source = "postgres://example.invalid:5432/railway?sslmode=require";
   const equivalent = "postgresql://EXAMPLE.INVALID/railway?application_name=example";
-  for (const targetVariable of ["PROD_DATABASE_URL", "RAILWAY_DATABASE_URL"]) {
-    const result = spawnSync(process.execPath, [
-      "--import", "tsx", "-e",
-      "import('../lib/db/drizzle.config.ts').catch(error => { console.error(error.message); process.exitCode = 1 })",
-    ], {
-      cwd: resolve(import.meta.dirname, ".."),
-      env: {
-        ...process.env,
-        DATABASE_URL: equivalent,
-        PROD_DATABASE_URL: "postgres://other.invalid/other",
-        RAILWAY_DATABASE_URL: "postgres://other.invalid/other",
-        [targetVariable]: source,
-      },
-      encoding: "utf8",
-    });
-    assert.equal(result.status, 1, result.stderr);
-    assert.match(result.stderr, /Refusing an unguarded schema push/);
-    assert.ok(!result.stderr.includes(source));
-  }
+  const result = spawnSync(process.execPath, [
+    "--import", "tsx", "-e",
+    "import('../lib/db/drizzle.config.ts').catch(error => { console.error(error.message); process.exitCode = 1 })",
+  ], {
+    cwd: resolve(import.meta.dirname, ".."),
+    env: {
+      ...process.env,
+      DATABASE_URL: equivalent,
+      RAILWAY_DATABASE_URL: source,
+    },
+    encoding: "utf8",
+  });
+  assert.equal(result.status, 1, result.stderr);
+  assert.match(result.stderr, /Refusing an unguarded schema push/);
+  assert.ok(!result.stderr.includes(source));
 });

@@ -14,8 +14,7 @@ const { Client } = pg;
 async function main(): Promise<void> {
   const command = parseMigrationCommand(process.argv.slice(2));
 
-  // Deliberately never fall back to DATABASE_URL or PROD_DATABASE_URL: those
-  // point at development and the retired Neon production database here.
+  // Deliberately never fall back to DATABASE_URL: it points at development.
   const connectionString = requireRailwayUrl(process.env);
 
   const sql = command.mode === "apply"
