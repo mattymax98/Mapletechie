@@ -79,6 +79,10 @@ router.put("/admin/me", adminAuth, async (req, res): Promise<void> => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
+  if ("displayName" in req.body && (typeof req.body.displayName !== "string" || !req.body.displayName.trim())) {
+    res.status(400).json({ error: "Display name is required." });
+    return;
+  }
 
   // Same rule as PUT /admin/users/:id — email is derived from username and
   // cannot be edited from the profile page.
@@ -97,6 +101,7 @@ router.put("/admin/me", adminAuth, async (req, res): Promise<void> => {
   for (const k of allowed) {
     if (k in req.body) (update as Record<string, unknown>)[k] = req.body[k];
   }
+  if ("displayName" in update) update.displayName = (update.displayName as string).trim();
 
   try {
     Object.assign(update, sanitizeRichProfile(req.body));
@@ -241,6 +246,10 @@ router.put("/admin/users/:id", adminAuth, requirePermission("editors"), async (r
     res.status(403).json({ error: "Only the founding admin can modify the admin account." });
     return;
   }
+  if ("displayName" in req.body && (typeof req.body.displayName !== "string" || !req.body.displayName.trim())) {
+    res.status(400).json({ error: "Display name is required." });
+    return;
+  }
 
   // NOTE: `email` deliberately omitted — emails are always derived from the
   // username and never directly editable. Only the founding admin may change
@@ -304,6 +313,7 @@ router.put("/admin/users/:id", adminAuth, requirePermission("editors"), async (r
   for (const k of baseAllowed) {
     if (k in req.body) (update as Record<string, unknown>)[k] = req.body[k];
   }
+  if ("displayName" in update) update.displayName = (update.displayName as string).trim();
   try {
     Object.assign(update, sanitizeRichProfile(req.body));
   } catch (err) {

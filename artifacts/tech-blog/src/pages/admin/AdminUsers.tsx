@@ -153,10 +153,10 @@ export default function AdminUsers() {
 
   const submit = () => {
     setError("");
+    if (!form.displayName.trim()) return setError("Display name is required.");
     if (creating) {
       if (form.username.trim().length < 2) return setError("Username must be at least 2 characters.");
       if (form.password.length < 6) return setError("Password must be at least 6 characters.");
-      if (!form.displayName.trim()) return setError("Display name is required.");
       const { username, password, displayName, email: _email, ...rest } = form;
       createMut.mutate({ data: { username: username.trim().toLowerCase(), password, displayName: displayName.trim(), ...rest } as any });
     } else if (editing) {
@@ -164,7 +164,7 @@ export default function AdminUsers() {
       // Only the founding admin may rename an editor — include the username
       // only when it actually changed.
       const { username, password, email: _e, ...rest } = form;
-      const payload: any = { ...rest, ...richProfileToPayload(rich) };
+      const payload: any = { ...rest, displayName: form.displayName.trim(), ...richProfileToPayload(rich) };
       if (password.length >= 6) payload.password = password;
       const cleanUsername = username.trim().toLowerCase();
       if (me?.role === "admin" && cleanUsername && cleanUsername !== editing.username) {

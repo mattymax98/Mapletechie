@@ -66,8 +66,12 @@ export default function AdminProfile() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setMsg(null);
+    if (!form.displayName.trim()) {
+      setMsg({ kind: "err", text: "Display name is required." });
+      return;
+    }
     const { password, ...rest } = form;
-    const payload: any = { ...rest, ...richProfileToPayload(rich) };
+    const payload: any = { ...rest, displayName: form.displayName.trim(), ...richProfileToPayload(rich) };
     if (password.length >= 6) payload.password = password;
     else if (password.length > 0) {
       setMsg({ kind: "err", text: "Password must be at least 6 characters (or leave blank to keep current)." });
@@ -101,7 +105,7 @@ export default function AdminProfile() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2 md:col-span-2">
               <Label>Display Name</Label>
-              <Input value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} className="bg-zinc-900 border-zinc-700" />
+              <Input required value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} className="bg-zinc-900 border-zinc-700" />
             </div>
             <div className="space-y-2 md:col-span-2">
               <Label>Profile Picture</Label>

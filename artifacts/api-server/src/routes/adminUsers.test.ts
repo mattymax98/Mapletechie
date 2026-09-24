@@ -313,6 +313,34 @@ describe("PUT /admin/users/:id — super-admin username rename", () => {
 });
 
 describe("profile byline synchronization", () => {
+  it.each(["", "   ", null, 42])("rejects invalid self-profile names (%s) without changing users or posts", async (displayName) => {
+    const { status, json } = await request(makeApp(), "PUT", "/admin/me", { displayName });
+    expect(status).toBe(400);
+    expect(json.error).toMatch(/display name is required/i);
+    expect(db.transaction).not.toHaveBeenCalled();
+    expect(db.update).not.toHaveBeenCalled();
+    expect(captured.postSet).toBeUndefined();
+  });
+
+  it.each(["", "   ", null, 42])("rejects invalid manager-edited names (%s) without changing users or posts", async (displayName) => {
+    selectQueue = [[TARGET_EDITOR]];
+    const { status, json } = await request(makeApp(), "PUT", "/admin/users/5", { displayName });
+    expect(status).toBe(400);
+    expect(json.error).toMatch(/display name is required/i);
+    expect(db.transaction).not.toHaveBeenCalled();
+    expect(db.update).not.toHaveBeenCalled();
+    expect(captured.postSet).toBeUndefined();
+  });
+
+  it("trims a self-profile rename and synchronizes the linked post bylines", async () => {
+    updateReturn = [{ ...ADMIN_USER, displayName: "Matthew Leo" }];
+    const { status } = await request(makeApp(), "PUT", "/admin/me", { displayName: "  Matthew Leo  " });
+    expect(status).toBe(200);
+    expect(captured.updateSet?.displayName).toBe("Matthew Leo");
+    expect(captured.postSet).toEqual({ author: "Matthew Leo" });
+    expect(captured.postWhere).toEqual({ col: undefined, val: 1 });
+  });
+
   it("synchronizes only linked posts when a manager changes an editor name", async () => {
     selectQueue = [[TARGET_EDITOR]];
     updateReturn = [{ ...TARGET_EDITOR, displayName: "Jane Smith" }];
