@@ -9,7 +9,7 @@
     "fix-laptops-cover": "tsx ./src/fix-laptops-cover.ts",
     "verify-canonical-host": "tsx ./src/verify-canonical-host.ts",
     "migrate:railway": "tsx ./src/migrate-railway.ts",
-    "test": "tsx --test ./src/railwayMigrationGuard.test.ts",
+    "test": "tsx --test ./src/railwayMigrationGuard.test.ts ./no-direct-ai-generation.test.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
