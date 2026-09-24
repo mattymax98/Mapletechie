@@ -1,20 +1,25 @@
 import pg from "pg";
+import { assertRailwayTarget, MigrationGuardError } from "./railwayMigrationGuard";
 
-const { Pool } = pg;
+const { Client, Pool } = pg;
 
 const DEV_URL = process.env.DATABASE_URL;
-const PROD_URL = process.env.PROD_DATABASE_URL;
+const PROD_URL = process.env.RAILWAY_DATABASE_URL;
 
+if (process.argv.length !== 3 || process.argv[2] !== "--confirm-copy-to-railway") {
+  console.error("This data copy is not a routine migration. Pass --confirm-copy-to-railway only after separately approving its exact row set.");
+  process.exit(1);
+}
 if (!DEV_URL) {
   console.error("Missing DATABASE_URL (dev source).");
   process.exit(1);
 }
 if (!PROD_URL) {
-  console.error("Missing PROD_DATABASE_URL (prod target).");
+  console.error("Missing RAILWAY_DATABASE_URL (live Railway target). PROD_DATABASE_URL is retired.");
   process.exit(1);
 }
 if (DEV_URL === PROD_URL) {
-  console.error("DATABASE_URL and PROD_DATABASE_URL are identical. Refusing to run.");
+  console.error("DATABASE_URL and RAILWAY_DATABASE_URL are identical. Refusing to run.");
   process.exit(1);
 }
 
@@ -64,9 +69,16 @@ type DevPostRow = {
 
 async function main() {
   const dev = new Pool({ connectionString: DEV_URL });
-  const prod = new Pool({ connectionString: PROD_URL });
+  const prod = new Client({ connectionString: PROD_URL });
 
   try {
+    await prod.connect();
+    const { rows: identity } = await prod.query<{ database_name: string; system_identifier: string }>(
+      "SELECT current_database() AS database_name, system_identifier::text AS system_identifier FROM pg_catalog.pg_control_system()",
+    );
+    if (identity.length !== 1) throw new MigrationGuardError("Could not verify Railway database identity.");
+    assertRailwayTarget(identity[0]);
+
     const { rows: prodCats } = await prod.query<{ id: number; slug: string }>(
       `SELECT id, slug FROM categories WHERE slug = ANY($1::text[])`,
       [CURATED_SLUGS as unknown as string[]],
@@ -197,7 +209,7 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
+main().catch((err: unknown) => {
+  console.error(err instanceof MigrationGuardError ? err.message : "Data copy failed. Review the target and row set; credential details are not logged.");
+  process.exitCode = 1;
 });

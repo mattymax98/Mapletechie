@@ -62,6 +62,38 @@ pnpm run test
 pnpm run build
 ```
 
+### Production database migrations
+
+The published site uses Railway PostgreSQL. `PROD_DATABASE_URL` points at the
+retired Neon database; `DATABASE_URL` is for local development. Neither is a
+production migration target. Use the guarded command from the workspace root:
+
+```bash
+pnpm --filter @workspace/scripts run migrate:railway --check
+pnpm --filter @workspace/scripts run migrate:railway --apply 0006_author_only_updates_preserve_updated_at.sql --confirm-railway-production
+```
+
+Running the command without arguments is also read-only. The second command
+requires both an explicit apply flag and a confirmation flag, plus a reviewed SQL
+filename from `scripts/migrations/` (or `repair-railway-schema.sql`). Both use
+only `RAILWAY_DATABASE_URL` and verify the live Railway database name and
+PostgreSQL cluster identity **on the same connection** before any SQL runs.
+They fail closed if Railway's database is replaced; independently confirm the
+new live service before changing the pinned identity. The runner uses a
+transaction with a 5-second lock timeout and a 120-second statement timeout.
+Before applying, it prints only the filename and that the pinned identity
+matched; it never prints a database URL. Drizzle's development `push` also
+rejects connections equivalent to either configured production URL at the
+same host, port and database, even when credentials or URL options differ.
+This is **defense-in-depth only**: hostname aliases can still refer to the same
+cluster. The guarded runner is the authoritative production migration path.
+Do not use raw `psql "$PROD_DATABASE_URL"` or an unguarded Drizzle `push` for
+production.
+The historical `copy-posts-dev-to-prod` utility is not a routine migration:
+it now requires `RAILWAY_DATABASE_URL`, verifies that database's identity, and
+refuses to run without an explicit confirmation flag. Its row set must be
+separately reviewed and approved before anyone invokes it.
+
 ## Validated direct-to-main development
 
 `main` is the production branch and Railway deploys it automatically. Routine

@@ -8,6 +8,8 @@
     "copy-posts-dev-to-prod": "tsx ./src/copy-posts-dev-to-prod.ts",
     "fix-laptops-cover": "tsx ./src/fix-laptops-cover.ts",
     "verify-canonical-host": "tsx ./src/verify-canonical-host.ts",
+    "migrate:railway": "tsx ./src/migrate-railway.ts",
+    "test": "tsx --test ./src/railwayMigrationGuard.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

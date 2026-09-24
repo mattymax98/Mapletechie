@@ -208,6 +208,12 @@ VITE_GA4_MEASUREMENT_ID = G-XXXXXXXXXX
 ---
 
 ## Phase 5 — Migrate the database
+The export/restore commands below document the original one-time move from
+Replit to Railway, **not** the routine migration procedure. For current
+production migrations, use the guarded `migrate:railway` command in
+`DEVELOPMENT.md`. `PROD_DATABASE_URL` now targets the retired Neon database.
+The guard checks the live Railway cluster identity before running SQL and
+stops if the database has been replaced.
 
 🤖 The agent will run these commands to export your legacy Postgres data and
 import it into Railway's Postgres.
@@ -434,26 +440,28 @@ Fixed by running the SQL below directly against the Railway DB:
 - Added FKs: `post_categories → posts`, `post_categories → categories`,
   `job_applications → jobs`
 
-**If you ever run pg_restore again:** always run
-`pnpm --filter @workspace/db run push` (with `DATABASE_URL` pointing at Railway)
-immediately after to restore these constraints. Or apply the repair SQL in
-`scripts/repair-railway-schema.sql`.
+**If you restore into a replacement Railway cluster:** it will have a
+different identity, so the guarded migration command must stop. Independently
+verify the new Railway database before updating its pinned identity. Then
+restore these constraints with the reviewed repair SQL through
+`pnpm --filter @workspace/scripts run migrate:railway --apply repair-railway-schema.sql --confirm-railway-production`.
+Do not point an unguarded Drizzle `push` at production.
 
 ### Engagement signals migration (2026-08-17)
 
-Three new columns on `page_views` and two new tables (`search_queries`, `link_clicks`) added by the engagement tracking feature. Apply to any fresh Railway DB with:
+Three new columns on `page_views` and two new tables (`search_queries`, `link_clicks`) added by the engagement tracking feature. After verifying a fresh Railway cluster and updating the pinned identity, apply with:
 
-```sql
-psql "$RAILWAY_DATABASE_URL" -f scripts/migrations/0002_engagement_signals.sql
+```bash
+pnpm --filter @workspace/scripts run migrate:railway --apply 0002_engagement_signals.sql --confirm-railway-production
 ```
 
 ### Maintenance scheduling migration (2026-08-17)
 
 Three columns were added to `site_settings` for scheduled maintenance windows and
-banner-vs-lockout severity. Apply to any fresh Railway DB with:
+banner-vs-lockout severity. Apply to a verified Railway DB with:
 
-```sql
-psql "$RAILWAY_DATABASE_URL" -f scripts/migrations/0001_maintenance_schedule_and_severity.sql
+```bash
+pnpm --filter @workspace/scripts run migrate:railway --apply 0001_maintenance_schedule_and_severity.sql --confirm-railway-production
 ```
 
 The file is idempotent (`ADD COLUMN IF NOT EXISTS`) and safe to re-run.
