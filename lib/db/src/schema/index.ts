@@ -17,3 +17,4 @@ export * from "./series";
 export * from "./media";
 export * from "./siteSettings";
 export * from "./automationRequests";
+export * from "./topicClusters";

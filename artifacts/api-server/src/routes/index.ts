@@ -29,6 +29,7 @@ import automationRouter from "./automation";
 import mcpRouter from "./mcp";
 import indexNowRouter from "./indexnow";
 import techStackRouter from "./techStack";
+import topicsRouter from "./topics";
 
 const router: IRouter = Router();
 
@@ -62,5 +63,6 @@ router.use(automationRouter);
 router.use(mcpRouter);
 router.use(indexNowRouter);
 router.use(techStackRouter);
+router.use(topicsRouter);
 
 export default router;

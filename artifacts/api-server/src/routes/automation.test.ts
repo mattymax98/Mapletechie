@@ -6,6 +6,7 @@ import express from "express";
 const captured: {
   insertValues?: Record<string, unknown>[];
   updateValues?: Record<string, unknown>[];
+  updateWhere?: unknown[];
 } = { insertValues: [], updateValues: [] };
 
 function makeSelectChain(queue: unknown[][]) {
@@ -49,9 +50,12 @@ const db = {
     set: vi.fn((values: Record<string, unknown>) => {
       captured.updateValues!.push(values);
       return {
-        where: vi.fn(() => ({
-          returning: vi.fn(async () => updateReturn),
-        })),
+        where: vi.fn((condition: unknown) => {
+          captured.updateWhere!.push(condition);
+          return {
+            returning: vi.fn(async () => updateReturn),
+          };
+        }),
       };
     }),
   })),
@@ -86,16 +90,17 @@ vi.mock("@workspace/db", () => ({
   postCategoriesTable: {},
   automationRequestsTable: {},
   seriesTable: { id: {} },
+  topicsTable: { id: {} },
   auditLogsTable: {},
   pageViewsTable: {},
   commentsTable: {},
 }));
 
 vi.mock("drizzle-orm", () => ({
-  eq: () => ({}),
+  eq: (column: unknown, value: unknown) => ({ op: "eq", column, value }),
   desc: () => ({}),
   asc: () => ({}),
-  and: () => ({}),
+  and: (...conditions: unknown[]) => ({ op: "and", conditions }),
   gte: () => ({}),
   sql: Object.assign(() => ({}), {}),
   inArray: () => ({}),
@@ -228,6 +233,7 @@ beforeEach(() => {
   updateReturn = [];
   captured.insertValues = [];
   captured.updateValues = [];
+  captured.updateWhere = [];
   auditCalls.length = 0;
   vi.clearAllMocks();
   persistExternalImageMock.mockResolvedValue("/api/storage/objects/persisted-cover");
@@ -337,6 +343,40 @@ describe("POST /automation/posts/drafts — contract", () => {
     expect(values.seriesId).toBe(7);
     expect(values.seriesPosition).toBe(2);
     expect(values.status).toBe("draft");
+  });
+
+  it("accepts a validated topic-cluster assignment on a draft", async () => {
+    selectQueue = [[BOT_USER], [CATEGORY], [], [{ id: 6 }]];
+    insertReturn = [{ id: 44, title: "Test story", slug: "test-story", status: "draft" }];
+    const res = await post({ ...validBody(), cluster_id: 6, cluster_role: "pillar" });
+    expect(res.status).toBe(201);
+    const values = captured.insertValues!.find((v) => v.title === "Test story")!;
+    expect(values).toMatchObject({ clusterId: 6, clusterRole: "pillar", status: "draft" });
+  });
+
+  it("rejects invalid or incomplete topic-cluster assignments", async () => {
+    selectQueue = [[BOT_USER], [CATEGORY], []];
+    const incomplete = await post({ ...validBody(), cluster_id: 6 });
+    expect(incomplete.status).toBe(400);
+    expect(incomplete.json.error).toMatch(/cluster_role/);
+
+    selectQueue = [[BOT_USER], [CATEGORY], []];
+    const invalid = await post({ ...validBody(), cluster_id: 6, cluster_role: "unrelated" });
+    expect(invalid.status).toBe(400);
+    expect(invalid.json.error).toMatch(/Invalid cluster_role/);
+
+    selectQueue = [[BOT_USER], [CATEGORY], [], []];
+    const unknown = await post({ ...validBody(), cluster_id: 999, cluster_role: "supporting" });
+    expect(unknown.status).toBe(400);
+    expect(unknown.json.error).toMatch(/Unknown cluster_id/);
+  });
+
+  it("rejects a second pillar regardless of its existing status", async () => {
+    selectQueue = [[BOT_USER], [CATEGORY], [], [{ id: 6 }], [{ id: 15, status: "published" }]];
+    const res = await post({ ...validBody(), cluster_id: 6, cluster_role: "pillar" });
+    expect(res.status).toBe(409);
+    expect(res.json.error).toMatch(/already has a pillar post \(published\)/);
+    expect(captured.insertValues!.filter((value) => value.title).length).toBe(0);
   });
 
   it("returns the sanitized stored canonical post on fresh creation", async () => {
@@ -619,17 +659,17 @@ describe("POST /automation/posts/drafts — contract", () => {
   });
 });
 
-describe("POST /automation/posts/backfill — live image updates", () => {
+describe("POST /automation/posts/backfill — draft-only image updates", () => {
   const backfill = (body: unknown) =>
     httpPost("/automation/posts/backfill", body, AUTH);
 
-  it("updates a published post by id without changing its author or status", async () => {
+  it("updates a draft post by id without changing its author or status", async () => {
     const existing = {
       id: 42,
-      title: "Published story",
-      slug: "published-story",
+      title: "Draft story",
+      slug: "draft-story",
       authorId: 12,
-      status: "published",
+      status: "draft",
       coverImage: "/api/storage/objects/cover",
       coverImageAlt: null,
     };
@@ -649,7 +689,7 @@ describe("POST /automation/posts/backfill — live image updates", () => {
     expect(res.status).toBe(200);
     expect(res.json).toMatchObject({
       id: 42,
-      status: "published",
+      status: "draft",
       updated_fields: ["coverImageAlt", "content", "embedReport"],
     });
     const update = captured.updateValues![0];
@@ -657,15 +697,22 @@ describe("POST /automation/posts/backfill — live image updates", () => {
     expect(update.content).toContain('src="/api/storage/objects/inline"');
     expect(update.content).toContain('alt="A laptop connected to an AI testing rig"');
     expect(auditCalls.some((c) => c.input.action === "automation.post.backfill")).toBe(true);
+    expect(captured.updateWhere![0]).toMatchObject({
+      op: "and",
+      conditions: [
+        { op: "eq", value: 42 },
+        { op: "eq", value: "draft" },
+      ],
+    });
   });
 
-  it("replaces cover and social-share images on a published post", async () => {
+  it("replaces cover and social-share images on a draft post", async () => {
     const existing = {
       id: 45,
-      title: "Published image story",
-      slug: "published-image-story",
+      title: "Draft image story",
+      slug: "draft-image-story",
       authorId: 12,
-      status: "published",
+      status: "draft",
       publishedAt: new Date("2026-01-01T00:00:00.000Z"),
       coverImage: "/api/storage/objects/old-cover",
       coverImageAlt: "The existing cover description",
@@ -692,8 +739,8 @@ describe("POST /automation/posts/backfill — live image updates", () => {
     expect(res.status).toBe(200);
     expect(res.json).toMatchObject({
       id: 45,
-      slug: "published-image-story",
-      status: "published",
+      slug: "draft-image-story",
+      status: "draft",
       updated_fields: ["coverImageAlt", "coverImage", "ogImage"],
     });
     expect(captured.updateValues).toContainEqual({
@@ -713,13 +760,53 @@ describe("POST /automation/posts/backfill — live image updates", () => {
     );
   });
 
+  it.each(["published", "scheduled"])("rejects %s posts without updating them", async (status) => {
+    selectQueue = [[BOT_USER], [{
+      id: 46,
+      title: "Non-draft story",
+      slug: "non-draft-story",
+      authorId: 12,
+      status,
+      coverImage: "/api/storage/objects/cover",
+      coverImageAlt: "Cover description",
+    }]];
+
+    const res = await backfill({ post_id: 46, cover_image_alt: "New cover description" });
+
+    expect(res.status).toBe(409);
+    expect(res.json.error).toMatch(/only for drafts/);
+    expect(captured.updateValues).toHaveLength(0);
+  });
+
+  it("refuses the write if the draft status changes during image persistence", async () => {
+    selectQueue = [[BOT_USER], [{
+      id: 47,
+      title: "Status race story",
+      slug: "status-race-story",
+      authorId: 12,
+      status: "draft",
+      coverImage: "/api/storage/objects/cover",
+      coverImageAlt: "Existing cover",
+    }]];
+    updateReturn = [];
+
+    const res = await backfill({ post_id: 47, cover_image_alt: "Replacement cover" });
+
+    expect(res.status).toBe(409);
+    expect(res.json.error).toMatch(/no longer a draft/);
+    expect(captured.updateWhere![0]).toMatchObject({
+      op: "and",
+      conditions: [{ op: "eq", value: 47 }, { op: "eq", value: "draft" }],
+    });
+  });
+
   it("preserves an existing meaningful cover alt when replacing only the cover", async () => {
     const existing = {
       id: 46,
       title: "Existing alt story",
       slug: "existing-alt-story",
       authorId: 12,
-      status: "published",
+      status: "draft",
       coverImage: "/api/storage/objects/old-cover",
       coverImageAlt: "Existing meaningful cover description",
       ogImage: null,
@@ -743,7 +830,7 @@ describe("POST /automation/posts/backfill — live image updates", () => {
       title: "Missing alt story",
       slug: "missing-alt-story",
       authorId: 12,
-      status: "published",
+      status: "draft",
       coverImage: "/api/storage/objects/old-cover",
       coverImageAlt: "   ",
       ogImage: null,
@@ -767,7 +854,7 @@ describe("POST /automation/posts/backfill — live image updates", () => {
       title: "Invalid image story",
       slug: "invalid-image-story",
       authorId: 12,
-      status: "published",
+      status: "draft",
       coverImage: "/api/storage/objects/old-cover",
       coverImageAlt: "Existing cover description",
       ogImage: null,
@@ -791,7 +878,7 @@ describe("POST /automation/posts/backfill — live image updates", () => {
       title: "Persistence failure story",
       slug: "persistence-failure-story",
       authorId: 12,
-      status: "published",
+      status: "draft",
       coverImage: "/api/storage/objects/old-cover",
       coverImageAlt: "Existing cover description",
       ogImage: null,
@@ -815,7 +902,7 @@ describe("POST /automation/posts/backfill — live image updates", () => {
       title: "No cover",
       slug: "no-cover",
       authorId: 12,
-      status: "published",
+      status: "draft",
       coverImage: null,
     }]];
 
@@ -832,7 +919,7 @@ describe("POST /automation/posts/backfill — live image updates", () => {
       title: "Existing story",
       slug: "existing-story",
       authorId: 12,
-      status: "published",
+      status: "draft",
       coverImage: "/covers/news.webp",
     }]];
 
@@ -852,7 +939,7 @@ describe("POST /automation/posts/backfill — live image updates", () => {
       title: "Existing story",
       slug: "existing-story",
       authorId: 12,
-      status: "published",
+      status: "draft",
       coverImage: "/covers/news.webp",
     }]];
 

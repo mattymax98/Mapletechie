@@ -8,8 +8,9 @@ import {
   postCategoriesTable,
   automationRequestsTable,
   seriesTable,
+  topicsTable,
 } from "@workspace/db";
-import { asc, desc, eq, getTableColumns } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns } from "drizzle-orm";
 import { writeAuditLogForUser } from "../lib/audit";
 import { validateCoverImage } from "../lib/coverImageValidation";
 import {
@@ -75,6 +76,8 @@ const ALLOWED_FIELDS = new Set([
   "verdict",
   "seriesId",
   "seriesPosition",
+  "clusterId",
+  "clusterRole",
 ]);
 
 // Fields that are server-controlled or out of scope for v1. Submitting any of
@@ -107,6 +110,8 @@ const SNAKE_TO_CAMEL: Record<string, string> = {
   is_featured: "isFeatured",
   series_id: "seriesId",
   series_position: "seriesPosition",
+  cluster_id: "clusterId",
+  cluster_role: "clusterRole",
 };
 
 function normalizeBody(raw: Record<string, unknown>): Record<string, unknown> {
@@ -265,7 +270,9 @@ export function canonicalMapletechiePost(post: Record<string, any>): Record<stri
     seo_description: value(post.seoDescription), seo_keywords: post.seoKeywords ?? [],
     og_image: value(post.ogImage), read_time: post.readTime, view_count: post.viewCount,
     is_featured: post.isFeatured, series_id: value(post.seriesId),
-    series_position: value(post.seriesPosition), rating: value(post.rating),
+    series_position: value(post.seriesPosition),
+    cluster_id: value(post.clusterId), cluster_role: value(post.clusterRole),
+    rating: value(post.rating),
     pros: post.pros ?? [], cons: post.cons ?? [], verdict: value(post.verdict),
     embed_report: post.embedReport ?? null,
     published_at: value(post.publishedAt), created_at: value(post.createdAt),
@@ -314,9 +321,9 @@ export function verifyPostPreviewToken(token: string, postId: number): { width: 
 }
 
 /**
- * Update only image-related fields on an existing post. This deliberately
- * avoids the general post update surface: the automation may backfill a live
- * article, but it can never change its author, status, slug, or publish time.
+ * Update only image-related fields on an existing draft. The status predicate
+ * on the update is intentional: a post that is published/scheduled while image
+ * processing is in flight must never be mutated by this automation path.
  */
 export async function backfillAutomationPostImages(
   req: Request,
@@ -379,6 +386,9 @@ export async function backfillAutomationPostImages(
   }
   if (!target) {
     return fail(404, "Post not found");
+  }
+  if (target.status !== "draft") {
+    return fail(409, "Image backfill is allowed only for drafts");
   }
 
   const hasContent = Object.prototype.hasOwnProperty.call(body, "content");
@@ -488,10 +498,10 @@ export async function backfillAutomationPostImages(
   const [updated] = await db
     .update(postsTable)
     .set(values)
-    .where(eq(postsTable.id, target.id))
+    .where(and(eq(postsTable.id, target.id), eq(postsTable.status, "draft")))
     .returning();
   if (!updated) {
-    return fail(404, "Post no longer exists");
+    return fail(409, "Post is no longer a draft; no changes were saved");
   }
 
   await writeAuditLogForUser(req, bot, {
@@ -636,6 +646,38 @@ export async function createAutomationDraft(
     return fail(400, "series_position requires series_id");
   }
 
+  let clusterId: number | null = null;
+  let clusterRole: string | null = null;
+  if (body.clusterId != null || body.clusterRole != null) {
+    if (typeof body.clusterId !== "number" || !Number.isInteger(body.clusterId) || body.clusterId <= 0) {
+      return fail(400, "Invalid cluster_id: must be a positive integer");
+    }
+    if (typeof body.clusterRole !== "string" || !["pillar", "supporting"].includes(body.clusterRole)) {
+      return fail(400, "Invalid cluster_role: must be pillar or supporting");
+    }
+    const [cluster] = await db
+      .select({ id: topicsTable.id })
+      .from(topicsTable)
+      .where(eq(topicsTable.id, body.clusterId));
+    if (!cluster) {
+      return fail(400, `Unknown cluster_id: ${body.clusterId}`);
+    }
+    if (body.clusterRole === "pillar") {
+      const [existingPillar] = await db
+        .select({ id: postsTable.id, status: postsTable.status })
+        .from(postsTable)
+        .where(and(
+          eq(postsTable.clusterId, body.clusterId),
+          eq(postsTable.clusterRole, "pillar"),
+        ));
+      if (existingPillar) {
+        return fail(409, `Topic cluster ${body.clusterId} already has a pillar post (${existingPillar.status})`);
+      }
+    }
+    clusterId = body.clusterId;
+    clusterRole = body.clusterRole;
+  }
+
   const coverError = validateCoverImage(body.coverImage);
   if (coverError) {
     return fail(400, coverError);
@@ -717,6 +759,8 @@ export async function createAutomationDraft(
     isFeatured: false,
     seriesId,
     seriesPosition,
+    clusterId,
+    clusterRole,
     status: "draft" as const, // always draft; this endpoint cannot publish
     rating:
       typeof body.rating === "number" && !Number.isNaN(body.rating)

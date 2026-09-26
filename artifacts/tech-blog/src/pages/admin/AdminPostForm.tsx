@@ -155,6 +155,8 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     ogImage: "",
     seriesId: 0,
     seriesPosition: 1,
+    clusterId: 0,
+    clusterRole: "supporting",
     rating: "",
     pros: "",
     cons: "",
@@ -166,6 +168,18 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     id: number; slug: string; title: string;
     occupiedPositions: Array<{ postId: number; position: number }>;
   }>>([]);
+  const [topicList, setTopicList] = useState<Array<{
+    id: number; name: string; isPublic: boolean;
+    posts: Array<{ id: number; clusterRole: string }>;
+  }>>([]);
+  const [topicsError, setTopicsError] = useState("");
+  useEffect(() => {
+    if (!token || user?.role !== "admin") return;
+    fetch("/api/admin/topics", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => { if (!r.ok) throw new Error("Could not load topic clusters"); return r.json(); })
+      .then((rows) => setTopicList(rows))
+      .catch((err) => setTopicsError(err.message));
+  }, [token, user?.role]);
   useEffect(() => {
     if (!token) return;
     fetch("/api/admin/series", { headers: { Authorization: `Bearer ${token}` } })
@@ -257,6 +271,8 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
         ogImage: ep.ogImage ?? "",
         seriesId: ep.seriesId ?? 0,
         seriesPosition: ep.seriesPosition ?? 1,
+        clusterId: ep.clusterId ?? 0,
+        clusterRole: ep.clusterRole ?? "supporting",
         rating: ep.rating != null ? String(ep.rating) : "",
         pros: Array.isArray(ep.pros) ? ep.pros.join("\n") : "",
         cons: Array.isArray(ep.cons) ? ep.cons.join("\n") : "",
@@ -567,6 +583,12 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
         return fail(`Part ${form.seriesPosition} is already in this series. Choose another number.`, "field-series");
       }
     }
+    if (user?.role === "admin" && form.clusterId > 0 && form.clusterRole === "pillar" &&
+        topicList.find((topic) => topic.id === form.clusterId)?.posts.some(
+          (post) => post.clusterRole === "pillar" && post.id !== postId,
+        )) {
+      return fail("This topic already has a pillar post. Choose supporting or change the current pillar first.", "field-topic");
+    }
 
     const status = statusOverride ?? form.status;
 
@@ -614,6 +636,12 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
       cons: form.cons.split("\n").map((s) => s.trim()).filter(Boolean),
       verdict: form.verdict.trim() || null,
     };
+    // Membership is independent of Series and publication status. Non-admin
+    // editors must never send cluster fields, including nulls.
+    if (user?.role === "admin") {
+      payload.clusterId = form.clusterId || null;
+      payload.clusterRole = form.clusterId ? form.clusterRole : null;
+    }
     if (form.excerpt.trim()) payload.excerpt = form.excerpt.trim();
     if (form.coverImage.trim()) payload.coverImage = form.coverImage.trim();
     payload.coverImageAlt = form.coverImageAlt.trim() || null;
@@ -1133,6 +1161,34 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                 </p>
               )}
             </div>
+
+            {user?.role === "admin" && (
+              <div id="field-topic" className="md:col-span-2 p-4 bg-zinc-900 rounded-lg border border-zinc-800 space-y-3">
+                <div>
+                  <p className="text-sm font-medium text-white">Topic cluster (optional)</p>
+                  <p className="text-xs text-zinc-400">Curated coverage, not a numbered series. Assigning a topic does not publish this post.</p>
+                  <Link href="/admin/topics" className="text-xs text-orange-400 hover:underline">Manage topic clusters</Link>
+                </div>
+                {topicsError && <p role="alert" className="text-red-400 text-sm">{topicsError}</p>}
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <label className="text-xs text-zinc-400">Topic
+                    <select value={form.clusterId} onChange={(e) => setForm((f) => ({ ...f, clusterId: Number(e.target.value) }))}
+                      className="block w-full mt-1 bg-zinc-950 border border-zinc-700 rounded px-3 py-2 text-white">
+                      <option value={0}>No topic cluster</option>
+                      {topicList.map((topic) => <option key={topic.id} value={topic.id}>{topic.name}{topic.isPublic ? "" : " (private)"}</option>)}
+                    </select>
+                  </label>
+                  <label className="text-xs text-zinc-400">Role
+                    <select value={form.clusterRole} disabled={!form.clusterId}
+                      onChange={(e) => setForm((f) => ({ ...f, clusterRole: e.target.value }))}
+                      className="block w-full mt-1 bg-zinc-950 border border-zinc-700 rounded px-3 py-2 text-white disabled:opacity-50">
+                      <option value="supporting">Supporting article</option>
+                      <option value="pillar">Pillar article</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            )}
 
             <div className="md:col-span-2 border border-zinc-800 rounded-lg p-4 bg-zinc-950 space-y-4">
               <div>

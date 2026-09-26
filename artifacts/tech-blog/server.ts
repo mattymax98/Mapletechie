@@ -216,6 +216,7 @@ interface PostSummary {
   publishedAt?: string | null;
   author?: string | null;
   category?: string | null;
+  clusterRole?: "pillar" | "supporting" | string | null;
 }
 
 /** Build a <ul> post list for crawler-facing listing pages. */
@@ -243,6 +244,33 @@ function renderPostList(posts: PostSummary[], siteUrl: string): string {
     })
     .join("\n");
   return `<ul style="list-style:none;padding:0">${items}</ul>`;
+}
+
+/** Crawler-visible topic layout: the optional cornerstone first, then newest supporting stories. */
+function renderTopicArticles(posts: PostSummary[], siteUrl: string): string {
+  const pillar = posts.find((post) => post.clusterRole === "pillar");
+  const supporting = posts
+    .filter((post) => post.clusterRole !== "pillar")
+    .sort((a, b) => Date.parse(b.publishedAt ?? "") - Date.parse(a.publishedAt ?? ""))
+    .slice(0, 20);
+  const renderItem = (post: PostSummary, label?: string, prominent = false) => {
+    const date = post.publishedAt
+      ? new Date(post.publishedAt).toLocaleDateString("en-CA", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
+      : "";
+    const meta = [post.author, date, post.category].filter(Boolean).map(htmlEscape).join(" · ");
+    return `<li style="margin-bottom:1.5em">${label ? `<strong>${label}</strong><br>` : ""}<a href="${htmlEscape(`${siteUrl}/blog/${post.slug}`)}" style="font-size:${prominent ? "1.4em" : "1.1em"};font-weight:700">${htmlEscape(post.title)}</a>${meta ? `<br><small>${meta}</small>` : ""}${post.excerpt ? `<p>${htmlEscape(stripHtml(post.excerpt, 160))}</p>` : ""}</li>`;
+  };
+
+  return [
+    pillar
+      ? `<section aria-labelledby="topic-pillar" style="border:2px solid #777;padding:1.25em;margin-bottom:2em"><h3 id="topic-pillar">Pillar article</h3><ul style="list-style:none;padding:0">${renderItem(pillar, "Start with this guide", true)}</ul></section>`
+      : "",
+    `<section aria-labelledby="topic-supporting"><h3 id="topic-supporting">Recent supporting coverage</h3>${supporting.length ? `<ol style="padding-left:1.5em">${supporting.map((post) => renderItem(post)).join("\n")}</ol>` : "<p>No supporting articles yet.</p>"}</section>`,
+  ].filter(Boolean).join("\n");
 }
 
 function isCrawler(req: express.Request): boolean {
@@ -852,6 +880,11 @@ interface PostRecord {
   authorId?: number | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
+  topicCluster?: {
+    slug: string;
+    name: string;
+    introduction?: string | null;
+  } | null;
 }
 
 app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
@@ -990,10 +1023,14 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
   const coverImgHtml = post.coverImage
     ? `<img src="${htmlEscape(post.coverImage)}" alt="${htmlEscape(post.coverImageAlt ?? "")}" style="width:100%;height:auto;display:block;margin-bottom:1em;" />`
     : "";
+  const topicContextHtml = post.topicCluster?.slug
+    ? `<aside style="border:1px solid #888;padding:1em;margin:1em 0"><small>Part of a topic guide</small><br><a href="${htmlEscape(`${SITE_URL}/topics/${encodeURIComponent(post.topicCluster.slug)}`)}">${htmlEscape(post.topicCluster.name)}</a></aside>`
+    : "";
   const articleBody = `
 <article style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>${htmlEscape(post.title)}</h1>
   ${metaParts.length ? `<p style="color:#666;font-size:.9em">${metaHtml}</p>` : ""}
+  ${topicContextHtml}
   ${coverImgHtml}
   ${safeContent}
   ${tagsHtml}
@@ -1667,6 +1704,122 @@ interface SeriesRecord {
   coverImage: string | null;
 }
 
+interface TopicRecord {
+  slug: string;
+  title?: string | null;
+  name?: string | null;
+  description?: string | null;
+  introduction?: string | null;
+  coverImage?: string | null;
+}
+
+app.get(/^\/topics\/?$/, async (req, res) => {
+  const topicsResult = await fetchJsonResult<TopicRecord[]>(`${API_BASE}/api/topics`);
+  if (topicsResult.kind === "temporary-failure") {
+    return sendTemporaryFailure(res, `${SITE_URL}/topics`);
+  }
+  if (topicsResult.kind === "not-found" || !topicsResult.value.length) {
+    return send404(res, "Topics Not Found");
+  }
+
+  const topics = topicsResult.value;
+  const seo = buildSeoBlock({
+    title: buildSeoTitle("Explore Topics"),
+    description: "Explore Mapletechie topic guides and follow connected articles across technology, gadgets, AI, software, and more.",
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/topics`,
+    type: "website",
+  });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
+
+  const breadcrumbLd = buildTrailBreadcrumbJsonLd([
+    { name: "Home", item: SITE_URL },
+    { name: "Topics", item: `${SITE_URL}/topics` },
+  ]);
+  const breadcrumbSafe = JSON.stringify(breadcrumbLd).replace(/</g, "\\u003c");
+  const seoWithJsonLd = seo.replace(
+    "<!-- SEO_HEAD_END -->",
+    `    <script type="application/ld+json">${breadcrumbSafe}</script>\n    <!-- SEO_HEAD_END -->`,
+  );
+  const topicLinks = topics.map((topic) => {
+    const title = topic.title?.trim() || topic.name?.trim() || topic.slug.replace(/-/g, " ");
+    const href = `${SITE_URL}/topics/${encodeURIComponent(topic.slug)}`;
+    const description = topic.description?.trim() || topic.introduction?.trim();
+    return `<li style="margin-bottom:1.5em"><a href="${htmlEscape(href)}" style="font-size:1.1em;font-weight:600">${htmlEscape(title)}</a>${description ? `<p>${htmlEscape(description)}</p>` : ""}</li>`;
+  }).join("\n");
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <nav aria-label="Breadcrumb"><a href="${SITE_URL}/">Home</a> › Topics</nav>
+  <h1>Topics</h1>
+  <p>Follow a subject across Mapletechie guides, analysis, and reporting.</p>
+  <ul style="list-style:none;padding:0">${topicLinks}</ul>
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=600, s-maxage=600");
+  res.send(renderHtml(seoWithJsonLd, body));
+});
+
+app.get(/^\/topics\/([^/]+)\/?$/, async (req, res, next) => {
+  const slug = req.params[0];
+  if (!slug) return next();
+
+  const topicResult = await fetchJsonResult<{
+    cluster: TopicRecord;
+    posts: PostSummary[];
+  }>(`${API_BASE}/api/topics/${encodeURIComponent(slug)}`);
+  if (topicResult.kind === "temporary-failure") {
+    return sendTemporaryFailure(res, `${SITE_URL}/topics/${encodeURIComponent(slug)}`);
+  }
+  if (topicResult.kind === "not-found" || !topicResult.value.cluster) {
+    return send404(res, "Topic Not Found");
+  }
+
+  const { cluster, posts = [] } = topicResult.value;
+  const title = cluster.title?.trim() || cluster.name?.trim() || cluster.slug.replace(/-/g, " ");
+  const description =
+    cluster.description?.trim() || cluster.introduction?.trim() ||
+    `Explore Mapletechie articles about ${title}.`;
+  const url = `${SITE_URL}/topics/${cluster.slug}`;
+  const seo = buildSeoBlock({
+    title: buildSeoTitle(`${title} — Topic Guide`),
+    description,
+    image: absUrl(cluster.coverImage, DEFAULT_OG_IMAGE),
+    url,
+    type: "website",
+  });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
+
+  const breadcrumbLd = buildTrailBreadcrumbJsonLd([
+    { name: "Home", item: SITE_URL },
+    { name: "Topics", item: `${SITE_URL}/topics` },
+    { name: title, item: url },
+  ]);
+  const breadcrumbSafe = JSON.stringify(breadcrumbLd).replace(/</g, "\\u003c");
+  const seoWithJsonLd = seo.replace(
+    "<!-- SEO_HEAD_END -->",
+    `    <script type="application/ld+json">${breadcrumbSafe}</script>\n    <!-- SEO_HEAD_END -->`,
+  );
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <nav aria-label="Breadcrumb"><a href="${SITE_URL}/">Home</a> › <a href="${SITE_URL}/topics">Topics</a> › ${htmlEscape(title)}</nav>
+  <h1>${htmlEscape(title)}</h1>
+  ${cluster.description || cluster.introduction ? `<p>${htmlEscape(cluster.description || cluster.introduction)}</p>` : ""}
+  <h2>Articles in this topic</h2>
+  ${renderTopicArticles(posts ?? [], SITE_URL)}
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=600, s-maxage=600");
+  res.send(renderHtml(seoWithJsonLd, body));
+});
+
 app.get(/^\/series\/([^/]+)\/?$/, async (req, res, next) => {
   const slug = req.params[0];
   if (!slug) return next();
@@ -1758,6 +1911,7 @@ app.get(/^\/search\/?$/, (req, res, next) => {
 // Routes the SPA actually handles that are valid WITHOUT a database existence
 // check. Paths whose validity depends on a slug being present in the database
 // (/blog/:slug, /category/:slug, /author/:slug, /tag/:tag, /series/:slug,
+// /topics/:slug,
 // /careers/:slug) are intentionally excluded. Requests to those patterns that
 // fall through from the crawler handlers above (non-crawler UAs, unrecognised
 // bots) reach the catch-all and receive HTTP 404 + SPA shell so the React app
@@ -1766,6 +1920,7 @@ app.get(/^\/search\/?$/, (req, res, next) => {
 const KNOWN_SPA_ROUTES: RegExp[] = [
   /^\/$/,
   /^\/blog\/?$/,
+  /^\/topics\/?$/,
   /^\/careers\/?$/,
   /^\/(about|contact|advertise|search|privacy|terms)\/?$/,
   /^\/admin(\/.*)?$/,

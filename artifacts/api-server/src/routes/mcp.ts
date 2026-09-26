@@ -3,8 +3,8 @@ import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { db, categoriesTable, postsTable } from "@workspace/db";
-import { asc, desc, eq } from "drizzle-orm";
+import { db, categoriesTable, postsTable, topicsTable } from "@workspace/db";
+import { and, asc, desc, eq, getTableColumns } from "drizzle-orm";
 import { writeAuditLogForUser } from "../lib/audit";
 import { persistImageBuffer } from "../lib/persistExternalImage";
 import { logger } from "../lib/logger";
@@ -20,6 +20,7 @@ import {
   DAILY_EDITORIAL_AUTOMATION_INSTRUCTIONS,
   DAILY_EDITORIAL_AUTOMATION_SCHEDULE,
 } from "../lib/editorialAutomationContract";
+import { parseArchiveSearchParams, searchArchivePosts } from "../lib/archiveSearch";
 
 /**
  * MCP connector for ChatGPT — exposes the automation draft pipeline as a
@@ -124,10 +125,108 @@ const DRAFT_INPUT_SHAPE = {
   is_featured: z.unknown().optional().describe("FORBIDDEN — server-controlled"),
   series_id: z.number().optional().describe("Optional: id of an existing series to place the draft in"),
   series_position: z.number().optional().describe("Optional: position within the series (requires series_id)"),
+  cluster_id: z.number().int().positive().optional().describe("Optional existing topic-cluster ID"),
+  cluster_role: z.enum(["pillar", "supporting"]).optional().describe("Optional role of this draft in its topic cluster; requires cluster_id"),
 } as const;
 
 function buildMcpServer(req: Request): McpServer {
   const server = new McpServer({ name: "mapletechie-drafts", version: "1.0.0" });
+
+  server.registerTool(
+    "search_mapletechie_archive",
+    {
+      title: "Search the Mapletechie article archive",
+      description:
+        "Read-only search across all existing posts, including drafts, scheduled posts, and published posts. Supports full-text q plus title, slug, body, tag, category, cluster, author, status, and inclusive UTC created-date filters. Results use the editor archive-search contract: {items, page, limit, total}.",
+      inputSchema: z.object({
+        q: z.string().trim().max(200).optional().describe("Search title, slug, excerpt, body, author, tag, category, or cluster"),
+        title: z.string().trim().max(200).optional(),
+        slug: z.string().trim().max(200).optional(),
+        body: z.string().trim().max(200).optional(),
+        tag: z.string().trim().max(200).optional(),
+        category: z.string().trim().max(200).optional(),
+        cluster: z.string().trim().max(200).optional(),
+        status: z.enum(["draft", "scheduled", "published"]).optional(),
+        dateFrom: z.string().trim().max(200).optional().describe("Inclusive UTC creation date, YYYY-MM-DD"),
+        dateTo: z.string().trim().max(200).optional().describe("Inclusive UTC creation date, YYYY-MM-DD"),
+        author: z.string().trim().max(200).optional(),
+        page: z.number().int().min(1).max(100000).default(1),
+        limit: z.number().int().min(1).max(100).default(20),
+      }).strict(),
+    },
+    async (args) => {
+      const parsed = parseArchiveSearchParams(args);
+      if (!parsed.success) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: parsed.error }) }],
+          isError: true,
+        };
+      }
+      const results = await searchArchivePosts(parsed.data, { all: true });
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify(results, null, 2),
+        }],
+      };
+    },
+  );
+
+  server.registerTool(
+    "list_mapletechie_topic_clusters",
+    {
+      title: "List Mapletechie topic clusters",
+      description: "Read-only list of all configured topic clusters. Use a returned id with get_mapletechie_topic_cluster for its full details and assigned posts.",
+      inputSchema: {},
+    },
+    async () => {
+      const clusters = await db.select({ ...getTableColumns(topicsTable) })
+        .from(topicsTable)
+        .orderBy(asc(topicsTable.name));
+      return {
+        content: [{ type: "text", text: JSON.stringify(clusters, null, 2) }],
+      };
+    },
+  );
+
+  server.registerTool(
+    "get_mapletechie_topic_cluster",
+    {
+      title: "Get a Mapletechie topic cluster",
+      description: "Read-only details for one topic cluster, including its currently assigned posts and each post's cluster role.",
+      inputSchema: z.object({ cluster_id: z.number().int().positive() }).strict(),
+    },
+    async (args) => {
+      const { cluster_id } = args as { cluster_id: number };
+      const [cluster] = await db
+        .select({ ...getTableColumns(topicsTable) })
+        .from(topicsTable)
+        .where(eq(topicsTable.id, cluster_id));
+      if (!cluster) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: "Topic cluster not found" }) }],
+          isError: true,
+        };
+      }
+      const posts = await db
+        .select({
+          id: postsTable.id,
+          title: postsTable.title,
+          slug: postsTable.slug,
+          excerpt: postsTable.excerpt,
+          status: postsTable.status,
+          cluster_role: postsTable.clusterRole,
+          created_at: postsTable.createdAt,
+          published_at: postsTable.publishedAt,
+        })
+        .from(postsTable)
+        .where(eq(postsTable.clusterId, cluster_id))
+        .orderBy(desc(postsTable.createdAt));
+      return {
+        content: [{ type: "text", text: JSON.stringify({ ...cluster, posts }, null, 2) }],
+      };
+    },
+  );
 
   server.registerTool(
     "get_mapletechie_editorial_contract",
@@ -321,7 +420,7 @@ function buildMcpServer(req: Request): McpServer {
     {
       title: "Backfill images on a Mapletechie post",
       description:
-        "Update image-related fields on an existing post immediately, including published posts. Target exactly one post by post_id or slug. Send cover_image to replace the cover, og_image to replace the social-share image, cover_image_alt to set cover alt text, and/or the complete updated TipTap-compatible content HTML to add or repair inline images. External replacements are copied to Mapletechie storage when possible. The current author, byline, status, slug and publish time are preserved. Every img in supplied content must have meaningful alt text.",
+        "Update image-related fields on an existing draft only. Published and scheduled posts are never modified, including if status changes while a request is in flight. Target exactly one draft by post_id or slug. Send cover_image to replace the cover, og_image to replace the social-share image, cover_image_alt to set cover alt text, and/or the complete updated TipTap-compatible content HTML to add or repair inline images. External replacements are copied to Mapletechie storage when possible. Every img in supplied content must have meaningful alt text.",
       inputSchema: z.object({
         post_id: z.number().int().positive().optional().describe("Existing post ID; provide this OR slug"),
         slug: z.string().min(1).optional().describe("Existing post slug; provide this OR post_id"),
@@ -368,7 +467,7 @@ function buildMcpServer(req: Request): McpServer {
     {
       title: "Create Mapletechie draft",
       description:
-        `Submit one completed item from the canonical daily editorial workflow as a blog post DRAFT for human review. The run is daily at ${DAILY_EDITORIAL_AUTOMATION_SCHEDULE.executionWindow}; aim for at least five fresh, non-cannibalizing items, with a flexible maximum and Canadian relevance where supported by evidence. The server forces draft status and the 'Mapletechie AI' byline; it can never publish. Do not send status, author, author_id, author_avatar, published_at, scheduled_for, or is_featured. For every cover or inline image, use a rights-safe source and meaningful alt text; upload images first when possible. A draft can belong to MULTIPLE categories: pass categories (first entry = primary unless primary_category is set), or legacy single category_id. Returns the complete canonical stored post. Next inspect it with get_mapletechie_post, then call preview_mapletechie_post and capture both recommended desktop and mobile views after data-preview-ready is true.`,
+        `Submit one completed item from the canonical daily editorial workflow as a blog post DRAFT for human review. The run is daily at ${DAILY_EDITORIAL_AUTOMATION_SCHEDULE.executionWindow}; aim for at least five fresh, non-cannibalizing items, with a flexible maximum and Canadian relevance where supported by evidence. The server forces draft status and the 'Mapletechie AI' byline; it can never publish. Do not send status, author, author_id, author_avatar, published_at, scheduled_for, or is_featured. For every cover or inline image, use a rights-safe source and meaningful alt text; upload images first when possible. A draft can belong to MULTIPLE categories: pass categories (first entry = primary unless primary_category is set), or legacy single category_id. Optionally provide cluster_id and cluster_role together to assign it to an existing topic cluster (role: pillar or supporting). Returns the complete canonical stored post. Next inspect it with get_mapletechie_post, then call preview_mapletechie_post and capture both recommended desktop and mobile views after data-preview-ready is true.`,
       inputSchema: DRAFT_INPUT_SHAPE,
     },
     async (args) => {

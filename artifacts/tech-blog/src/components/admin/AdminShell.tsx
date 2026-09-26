@@ -20,6 +20,8 @@ import {
   Menu,
   User as UserIcon,
   Info,
+  Layers,
+  Search,
 } from "lucide-react";
 
 interface NavItem {
@@ -52,6 +54,8 @@ const NAV: NavSection[] = [
         permission: (u) => u?.role === "admin" || u?.canManageCategories,
       },
       { href: "/admin/media", label: "Media", icon: ImageIcon },
+      { href: "/admin/archive-search", label: "Archive search", icon: Search },
+      { href: "/admin/topics", label: "Topic clusters", icon: Layers, permission: (u) => u?.role === "admin" },
     ],
   },
   {

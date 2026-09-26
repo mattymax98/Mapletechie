@@ -3,6 +3,16 @@ import express from "express";
 
 // --- Mocks (same conventions as automation.test.ts) ----------------------
 
+const archiveSearchMocks = vi.hoisted(() => ({
+  parseArchiveSearchParams: vi.fn((input: unknown): { success: boolean; data?: unknown; error?: string } => ({
+    success: true,
+    data: input,
+  })),
+  searchArchivePosts: vi.fn(async () => ({} as any)),
+}));
+
+vi.mock("../lib/archiveSearch", () => archiveSearchMocks);
+
 const captured: {
   insertValues?: Record<string, unknown>[];
   updateValues?: Record<string, unknown>[];
@@ -80,6 +90,7 @@ vi.mock("@workspace/db", () => ({
   postsTable: {},
   usersTable: {},
   categoriesTable: { id: {}, name: {}, slug: {} },
+  topicsTable: { id: {} },
   postCategoriesTable: {},
   automationRequestsTable: {},
   auditLogsTable: {},
@@ -89,6 +100,7 @@ vi.mock("@workspace/db", () => ({
 
 vi.mock("drizzle-orm", () => ({
   eq: () => ({}),
+  ilike: () => ({}),
   asc: () => ({}),
   desc: () => ({}),
   and: () => ({}),
@@ -231,6 +243,10 @@ beforeEach(() => {
   captured.updateValues = [];
   auditCalls.length = 0;
   vi.clearAllMocks();
+  archiveSearchMocks.parseArchiveSearchParams.mockImplementation(
+    (input: unknown) => ({ success: true, data: input }),
+  );
+  archiveSearchMocks.searchArchivePosts.mockResolvedValue({ items: [], page: 1, limit: 20, total: 0 });
 });
 
 describe("POST /mcp — auth", () => {
@@ -282,6 +298,9 @@ describe("POST /mcp — tools", () => {
     expect(names).toContain("get_mapletechie_editorial_contract");
     expect(names).toContain("list_mapletechie_categories");
     expect(names).toContain("list_mapletechie_posts");
+    expect(names).toContain("search_mapletechie_archive");
+    expect(names).toContain("list_mapletechie_topic_clusters");
+    expect(names).toContain("get_mapletechie_topic_cluster");
     expect(names).toContain("create_mapletechie_draft");
     expect(names).toContain("get_mapletechie_post");
     expect(names).toContain("preview_mapletechie_post");
@@ -401,6 +420,72 @@ describe("POST /mcp — tools", () => {
     ]);
   });
 
+  it("searches all posts through the shared archive query with rich filters and pagination", async () => {
+    const args = {
+      q: "maple",
+      title: "processor",
+      slug: "guide",
+      body: "benchmark",
+      tag: "AI",
+      category: "Reviews",
+      cluster: "hardware",
+      status: "draft",
+      dateFrom: "2026-01-01",
+      dateTo: "2026-02-01",
+      author: "Editor",
+      page: 3,
+      limit: 17,
+    };
+    const archiveResponse = {
+      items: [{
+        id: 901, title: "Archive match", slug: "archive-match", status: "draft",
+        categories: [{ id: 1, name: "Reviews", slug: "reviews", isPrimary: true }],
+      }],
+      page: 3,
+      limit: 17,
+      total: 57,
+    };
+    archiveSearchMocks.searchArchivePosts.mockResolvedValueOnce(archiveResponse);
+
+    const res = await authed(callTool("search_mapletechie_archive", {
+      ...args,
+    }));
+    expect(res.status).toBe(200);
+    expect(archiveSearchMocks.parseArchiveSearchParams).toHaveBeenCalledWith(args);
+    expect(archiveSearchMocks.searchArchivePosts).toHaveBeenCalledWith(args, { all: true });
+    expect(JSON.parse(res.body.result.content[0].text)).toEqual(archiveResponse);
+  });
+
+  it("returns archive-helper validation errors without running a search", async () => {
+    archiveSearchMocks.parseArchiveSearchParams.mockReturnValueOnce({
+      success: false,
+      error: "dateFrom and dateTo must be valid dates in YYYY-MM-DD format.",
+    });
+    const res = await authed(callTool("search_mapletechie_archive", { dateFrom: "2026-02-30" }));
+    expect(res.body.result.isError).toBe(true);
+    expect(JSON.parse(res.body.result.content[0].text).error).toMatch(/valid dates/);
+    expect(archiveSearchMocks.searchArchivePosts).not.toHaveBeenCalled();
+  });
+
+  it("lists topic clusters and retrieves cluster detail with assigned posts", async () => {
+    selectQueue = [[{ id: 6, name: "AI", slug: "ai" }]];
+    const listed = await authed(callTool("list_mapletechie_topic_clusters", {}));
+    expect(JSON.parse(listed.body.result.content[0].text)).toEqual([
+      { id: 6, name: "AI", slug: "ai" },
+    ]);
+
+    selectQueue = [
+      [{ id: 6, name: "AI", slug: "ai", description: "AI coverage" }],
+      [{ id: 42, title: "AI story", slug: "ai-story", status: "draft", cluster_role: "pillar" }],
+    ];
+    const detail = await authed(callTool("get_mapletechie_topic_cluster", { cluster_id: 6 }));
+    expect(JSON.parse(detail.body.result.content[0].text)).toMatchObject({
+      id: 6,
+      name: "AI",
+      posts: [{ id: 42, cluster_role: "pillar" }],
+    });
+  });
+
   it("create_mapletechie_draft creates a draft with bot authorship", async () => {
     selectQueue = [[BOT_USER], [CATEGORY], []]; // bot, category, slug-clash
     insertReturn = [{ id: 42, title: "Test story", slug: "test-story", status: "draft" }];
@@ -415,6 +500,18 @@ describe("POST /mcp — tools", () => {
     expect(values.status).toBe("draft");
     expect(values.authorId).toBe(77);
     expect(auditCalls.some((c) => c.input.action === "automation.draft.create")).toBe(true);
+  });
+
+  it("create_mapletechie_draft accepts validated cluster assignments", async () => {
+    selectQueue = [[BOT_USER], [CATEGORY], [], [{ id: 6 }]];
+    insertReturn = [{ id: 43, title: "Test story", slug: "test-story", status: "draft" }];
+    const res = await authed(callTool("create_mapletechie_draft", {
+      ...draftArgs(), cluster_id: 6, cluster_role: "supporting",
+    }));
+    expect(res.body.result.isError).toBeFalsy();
+    expect(captured.insertValues!.find((v) => v.title === "Test story")).toMatchObject({
+      clusterId: 6, clusterRole: "supporting", status: "draft",
+    });
   });
 
   it("create_mapletechie_draft rejects forbidden fields loudly (isError, 422 message)", async () => {
@@ -492,7 +589,7 @@ describe("POST /mcp — tools", () => {
     expect(persistImageBufferMock).not.toHaveBeenCalled();
   });
 
-  it("backfill_mapletechie_images updates a published post while preserving its byline", async () => {
+  it("backfill_mapletechie_images rejects published posts without mutation", async () => {
     const existing = {
       id: 52,
       title: "Published MCP story",
@@ -502,30 +599,25 @@ describe("POST /mcp — tools", () => {
       coverImage: "/api/storage/objects/cover",
     };
     selectQueue = [[BOT_USER], [existing]];
-    updateReturn = [{ ...existing, coverImageAlt: "A circuit board under inspection" }];
-
     const res = await authed(callTool("backfill_mapletechie_images", {
       slug: "published-mcp-story",
       cover_image_alt: "A circuit board under inspection",
     }));
 
     expect(res.status).toBe(200);
-    expect(res.body.result.isError).toBeFalsy();
+    expect(res.body.result.isError).toBe(true);
     const payload = JSON.parse(res.body.result.content[0].text);
-    expect(payload).toMatchObject({ id: 52, status: "published" });
-    expect(captured.updateValues).toContainEqual({
-      coverImageAlt: "A circuit board under inspection",
-    });
-    expect(auditCalls.some((c) => c.input.action === "automation.post.backfill")).toBe(true);
+    expect(payload.error).toMatch(/only for drafts/);
+    expect(captured.updateValues).toHaveLength(0);
   });
 
-  it("backfill_mapletechie_images replaces cover and social-share images on a published post", async () => {
+  it("backfill_mapletechie_images replaces cover and social-share images on a draft post", async () => {
     const existing = {
       id: 53,
-      title: "Published replacement story",
-      slug: "published-replacement-story",
+      title: "Draft replacement story",
+      slug: "draft-replacement-story",
       authorId: 12,
-      status: "published",
+      status: "draft",
       coverImage: "/api/storage/objects/old-cover",
       coverImageAlt: "Existing cover description",
       ogImage: "/api/storage/objects/old-og",
@@ -541,7 +633,7 @@ describe("POST /mcp — tools", () => {
       .mockResolvedValueOnce("/api/storage/objects/new-og");
 
     const res = await authed(callTool("backfill_mapletechie_images", {
-      slug: "published-replacement-story",
+      slug: "draft-replacement-story",
       cover_image: "https://images.example.com/new-cover.jpg",
       og_image: "https://images.example.com/new-og.jpg",
     }));
@@ -551,7 +643,7 @@ describe("POST /mcp — tools", () => {
     const payload = JSON.parse(res.body.result.content[0].text);
     expect(payload).toMatchObject({
       id: 53,
-      status: "published",
+      status: "draft",
       updated_fields: ["coverImage", "ogImage"],
     });
     expect(captured.updateValues).toContainEqual({

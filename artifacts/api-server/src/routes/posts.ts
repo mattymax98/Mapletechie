@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { createHash } from "node:crypto";
-import { db, postsTable, seriesTable, usersTable, pageViewsTable, commentsTable, categoriesTable, auditLogsTable } from "@workspace/db";
+import { db, postsTable, seriesTable, usersTable, pageViewsTable, commentsTable, categoriesTable, auditLogsTable, topicClustersTable } from "@workspace/db";
 import { eq, desc, and, gte, sql, inArray, or, getTableColumns } from "drizzle-orm";
 import {
   ListPostsQueryParams,
@@ -24,12 +24,24 @@ import {
 } from "../lib/postCategoryHelpers";
 import { submitToIndexNow, buildPostUrls } from "../lib/indexNow";
 import { canonicalPostAuthor } from "../lib/postAuthor";
+import { attachPublicTopicContext } from "../lib/topicClusters";
 
 // Re-exported for automation.ts (historical import location).
 export { resolveCategory };
 
 const router = Router();
 
+async function attachPublicPostContext<T extends {
+  id: number;
+  categoryId: number | null;
+  category?: string;
+  categorySlug?: string;
+  status?: string;
+  clusterId?: number | null;
+  clusterRole?: string | null;
+}>(posts: T[]) {
+  return attachPublicTopicContext(await attachCategories(posts));
+}
 function reviewRatingError(rating: unknown): string | null {
   if (rating == null) return null;
   if (typeof rating !== "number" || !Number.isFinite(rating) ||
@@ -67,6 +79,28 @@ async function seriesSelectionError(seriesId: unknown, position: unknown, exclud
   return null;
 }
 
+async function topicMembershipError(
+  clusterId: unknown,
+  role: unknown,
+  excludePostId?: number,
+): Promise<{ status: number; error: string } | null> {
+  if (clusterId == null && role == null) return null;
+  if (!Number.isSafeInteger(clusterId) || (clusterId as number) < 1 ||
+      (role !== "pillar" && role !== "supporting")) {
+    return { status: 400, error: "Choose a topic cluster and either the pillar or supporting role." };
+  }
+  const [cluster] = await db.select({ id: topicClustersTable.id }).from(topicClustersTable)
+    .where(eq(topicClustersTable.id, clusterId as number)).limit(1);
+  if (!cluster) return { status: 400, error: "Selected topic cluster no longer exists." };
+  if (role === "pillar") {
+    const occupied = await db.select({ id: postsTable.id }).from(postsTable)
+      .where(and(eq(postsTable.clusterId, clusterId as number), eq(postsTable.clusterRole, "pillar")));
+    if (occupied.some((post) => post.id !== excludePostId)) {
+      return { status: 409, error: "This topic cluster already has a pillar post." };
+    }
+  }
+  return null;
+}
 /**
  * Non-fatal warnings for a just-saved post whose images could not be pulled
  * onto our own storage (persistExternalImage is best-effort). Editors see
@@ -417,7 +451,7 @@ router.get("/posts", async (req, res): Promise<void> => {
     .limit(limit)
     .offset(offset);
 
-  res.json(await attachCategories(posts));
+  res.json(await attachPublicPostContext(posts));
 });
 
 // Admin posts list — returns ALL posts (drafts included). Editors see their
@@ -438,6 +472,10 @@ router.get("/admin/posts", adminAuth, async (req, res): Promise<void> => {
 router.post("/posts", adminAuth, async (req, res): Promise<void> => {
   const user = req.user;
   const body = req.body ?? {};
+  if (user?.role !== "admin" && ("clusterId" in body || "clusterRole" in body)) {
+    res.status(403).json({ error: "Only admins can assign topic clusters." });
+    return;
+  }
 
   // Required fields
   const required = ["title", "slug", "content"];
@@ -458,6 +496,8 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
   }
   const resolvedCategory = resolvedCats.primary;
 
+  const clusterError = await topicMembershipError(body.clusterId ?? null, body.clusterRole ?? null);
+  if (clusterError) { res.status(clusterError.status).json({ error: clusterError.error }); return; }
   const ratingError = reviewRatingError(body.rating);
   if (ratingError) { res.status(400).json({ error: ratingError }); return; }
   const seriesError = await seriesSelectionError(body.seriesId, body.seriesPosition);
@@ -540,6 +580,8 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     seriesId: typeof body.seriesId === "number" ? body.seriesId : null,
     seriesPosition:
       typeof body.seriesPosition === "number" ? body.seriesPosition : null,
+    clusterId: body.clusterId ?? null,
+    clusterRole: body.clusterRole ?? null,
     rating: body.rating ?? null,
     pros: Array.isArray(body.pros)
       ? (body.pros as unknown[]).map((p) => cleanText(p)).filter((p): p is string => !!p)
@@ -596,7 +638,7 @@ router.get("/posts/featured", async (_req, res): Promise<void> => {
     .where(and(eq(postsTable.isFeatured, true), eq(postsTable.status, "published")))
     .orderBy(desc(postsTable.publishedAt))
     .limit(5);
-  res.json(await attachCategories(posts));
+  res.json(await attachPublicPostContext(posts));
 });
 
 router.get("/posts/latest", async (req, res): Promise<void> => {
@@ -606,7 +648,7 @@ router.get("/posts/latest", async (req, res): Promise<void> => {
     .where(eq(postsTable.status, "published"))
     .orderBy(desc(postsTable.publishedAt))
     .limit(limit);
-  res.json(await attachCategories(posts));
+  res.json(await attachPublicPostContext(posts));
 });
 
 router.get("/posts/trending", async (_req, res): Promise<void> => {
@@ -645,7 +687,7 @@ router.get("/posts/trending", async (_req, res): Promise<void> => {
     }
   }
 
-  res.json(await attachCategories(posts.slice(0, 5)));
+  res.json(await attachPublicPostContext(posts.slice(0, 5)));
 });
 
 router.get("/posts/most-discussed", async (_req, res): Promise<void> => {
@@ -674,7 +716,7 @@ router.get("/posts/most-discussed", async (_req, res): Promise<void> => {
     .map((p) => ({ ...p, commentCount: countBySlug.get(p.slug) || 0 }))
     .sort((a, b) => b.commentCount - a.commentCount)
     .slice(0, 5);
-  res.json(await attachCategories(ranked));
+  res.json(await attachPublicPostContext(ranked));
 });
 
 router.get("/posts/slug/:slug", async (req, res): Promise<void> => {
@@ -689,8 +731,8 @@ router.get("/posts/slug/:slug", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Post not found" });
     return;
   }
-  const [withCats] = await attachCategories([post]);
-  res.json(withCats);
+  const [withContext] = await attachPublicPostContext([post]);
+  res.json(withContext);
 });
 
 router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
@@ -719,9 +761,19 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
   const persistCtx = { uploaderId: user?.id ?? null, uploaderName: user?.displayName ?? null };
 
   const body = req.body ?? {};
+  if (user?.role !== "admin" && ("clusterId" in body || "clusterRole" in body)) {
+    res.status(403).json({ error: "Only admins can assign topic clusters." });
+    return;
+  }
   if ("rating" in body) {
     const ratingError = reviewRatingError(body.rating);
     if (ratingError) { res.status(400).json({ error: ratingError }); return; }
+  }
+  if ("clusterId" in body || "clusterRole" in body) {
+    const nextClusterId = "clusterId" in body ? body.clusterId : existing.clusterId;
+    const nextClusterRole = "clusterRole" in body ? body.clusterRole : existing.clusterRole;
+    const topicError = await topicMembershipError(nextClusterId, nextClusterRole, id);
+    if (topicError) { res.status(topicError.status).json({ error: topicError.error }); return; }
   }
   if ("seriesId" in body || "seriesPosition" in body) {
     const nextSeriesId = "seriesId" in body ? body.seriesId : existing.seriesId;
@@ -748,6 +800,8 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     "isFeatured",
     "seriesId",
     "seriesPosition",
+    "clusterId",
+    "clusterRole",
     "publishedAt",
     "status",
     "scheduledFor",

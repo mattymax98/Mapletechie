@@ -73,6 +73,13 @@ const ARTICLE = {
   updatedAt: "2026-01-16T12:00:00.000Z",
   author: "Matthew Mbaka",
   authorId: 7,
+  topicCluster: {
+    id: 9,
+    name: "Artificial Intelligence",
+    slug: "artificial-intelligence",
+    introduction: "Reporting and analysis about AI.",
+    role: "pillar",
+  },
   seoTitle: null,
   seoDescription: null,
 };
@@ -122,6 +129,14 @@ const CATEGORY = {
   description: "All things artificial intelligence.",
 };
 
+const TOPIC = {
+  id: 9,
+  name: "Artificial Intelligence",
+  slug: "artificial-intelligence",
+  introduction: "Reporting and analysis about AI.",
+  isPublic: true,
+};
+
 const POST_LIST = [
   {
     slug: "the-future-of-ai",
@@ -130,6 +145,30 @@ const POST_LIST = [
     publishedAt: "2026-01-15T12:00:00.000Z",
     author: "Matthew Mbaka",
     category: "AI",
+  },
+];
+
+const TOPIC_POSTS = [
+  {
+    ...POST_LIST[0],
+    id: 1,
+    clusterRole: "pillar",
+  },
+  {
+    ...POST_LIST[0],
+    id: 2,
+    slug: "ai-supporting-older",
+    title: "An Earlier Supporting Story",
+    publishedAt: "2026-02-01T12:00:00.000Z",
+    clusterRole: "supporting",
+  },
+  {
+    ...POST_LIST[0],
+    id: 3,
+    slug: "ai-supporting-newer",
+    title: "The Newest Supporting Story",
+    publishedAt: "2026-03-01T12:00:00.000Z",
+    clusterRole: "supporting",
   },
 ];
 
@@ -201,7 +240,12 @@ const JOB = {
 
 /** Build a tiny stand-in for the API server the prerenderer fetches from. */
 function startMockApi(
-  opts: { maintenance?: boolean; resourceFailure?: boolean } = {},
+  opts: {
+    maintenance?: boolean;
+    resourceFailure?: boolean;
+    emptyTopics?: boolean;
+    topicPostCount?: number;
+  } = {},
 ): Promise<{
   server: ReturnType<typeof express>;
   close: () => Promise<void>;
@@ -276,6 +320,19 @@ function startMockApi(
       return res.json({ series: SERIES, posts: POST_LIST });
     }
     res.status(404).json({ error: "not found" });
+  });
+  api.get("/api/topics/:slug", (req, res) => {
+    if (opts.resourceFailure) return res.status(503).json({ error: "temporary" });
+    if (req.params.slug === TOPIC.slug) {
+      const posts = TOPIC_POSTS.slice(0, opts.topicPostCount ?? TOPIC_POSTS.length);
+      if (posts.length < 3) return res.status(404).json({ error: "not found" });
+      return res.json({ cluster: TOPIC, posts });
+    }
+    res.status(404).json({ error: "not found" });
+  });
+  api.get("/api/topics", (_req, res) => {
+    if (opts.resourceFailure) return res.status(503).json({ error: "temporary" });
+    res.json(opts.emptyTopics ? [] : [TOPIC]);
   });
   api.get("/api/jobs", (_req, res) => {
     res.json([JOB]);
@@ -817,6 +874,7 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).toContain("Large language models are reshaping");
       expect(body).toContain('"@type":"NewsArticle"');
       expect(body).toContain(ARTICLE.author);
+      expect(body).toContain(`${SITE_URL}/topics/${TOPIC.slug}`);
       expect(body).not.toContain('<div id="root"></div>');
     });
 
@@ -1383,6 +1441,96 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       const { status, body } = await get("/series/nonexistent", GOOGLEBOT_UA);
       expect(status).toBe(404);
       expect(body).toContain("noindex");
+    });
+  });
+
+  describe("topics /topics/:slug", () => {
+    it("prerenders eligible topic content, canonical metadata, and article links for crawlers", async () => {
+      const { status, body, headers } = await get(`/topics/${TOPIC.slug}`, GOOGLEBOT_UA);
+      expect(status).toBe(200);
+      expect(body).toContain(`<h1>${TOPIC.name}</h1>`);
+      expect(body).toContain(TOPIC.introduction);
+      expect(body).toContain("Articles in this topic");
+      expect(body).toContain("Pillar article");
+      expect(body).toContain("Recent supporting coverage");
+      expect(body.indexOf("The Newest Supporting Story")).toBeLessThan(
+        body.indexOf("An Earlier Supporting Story"),
+      );
+      expect(body).toContain(`${SITE_URL}/blog/${FEATURED_POST.slug}`);
+      expect(body).not.toContain('<div id="root"></div>');
+      expectIndexableHead(body, headers, `${SITE_URL}/topics/${TOPIC.slug}`);
+    });
+
+    it("emits the topic breadcrumb trail and returns a browser SPA shell", async () => {
+      const crawler = await get(`/topics/${TOPIC.slug}`, GOOGLEBOT_UA);
+      const scripts = [
+        ...crawler.body.matchAll(
+          /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g,
+        ),
+      ].map((m) => JSON.parse(m[1]));
+      const crumbs = scripts.find((s) => s["@type"] === "BreadcrumbList");
+      expect(crumbs?.itemListElement.map((i: { name: string }) => i.name)).toEqual([
+        "Home",
+        "Topics",
+        TOPIC.name,
+      ]);
+
+      const browser = await get(`/topics/${TOPIC.slug}`, BROWSER_UA);
+      expect(browser.status).toBe(200);
+      expect(browser.body).toContain('<div id="root">');
+      expect(browser.body).not.toContain("Articles in this topic");
+    });
+
+    it("returns a noindex 404 for an unknown topic", async () => {
+      const { status, body } = await get("/topics/nonexistent", GOOGLEBOT_UA);
+      expect(status).toBe(404);
+      expect(body).toContain("noindex");
+    });
+  });
+
+  describe("topics index /topics", () => {
+    it("prerenders eligible topic links and serves the SPA shell to browsers", async () => {
+      const { status, body, headers } = await get("/topics", GOOGLEBOT_UA);
+      expect(status).toBe(200);
+      expect(body).toContain("<h1>Topics</h1>");
+      expect(body).toContain(`${SITE_URL}/topics/${TOPIC.slug}`);
+      expectIndexableHead(body, headers, `${SITE_URL}/topics`);
+
+      const browser = await get("/topics", BROWSER_UA);
+      expect(browser.status).toBe(200);
+      expect(browser.body).toContain('<div id="root">');
+      expect(browser.body).not.toContain(`${SITE_URL}/topics/${TOPIC.slug}`);
+    });
+
+    it("returns noindex 404 when there are no eligible public topics", async () => {
+      const emptyApi = await startMockApi({ emptyTopics: true });
+      const instance = await startPrerenderServer(`http://127.0.0.1:${emptyApi.port}`);
+      try {
+        const { status, body } = await getFrom(instance.baseUrl, "/topics", GOOGLEBOT_UA);
+        expect(status).toBe(404);
+        expect(body).toContain("noindex");
+        expect(body).not.toContain(`${SITE_URL}/topics/${TOPIC.slug}`);
+      } finally {
+        instance.close();
+        await emptyApi.close();
+      }
+    });
+
+    it("returns noindex 404 for a topic with fewer than three published posts", async () => {
+      const tooSmallApi = await startMockApi({ topicPostCount: 2 });
+      const instance = await startPrerenderServer(`http://127.0.0.1:${tooSmallApi.port}`);
+      try {
+        const { status, body } = await getFrom(
+          instance.baseUrl,
+          `/topics/${TOPIC.slug}`,
+          GOOGLEBOT_UA,
+        );
+        expect(status).toBe(404);
+        expect(body).toContain("noindex");
+      } finally {
+        instance.close();
+        await tooSmallApi.close();
+      }
     });
   });
 

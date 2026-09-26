@@ -21,6 +21,7 @@ import Home from "@/pages/home";
 const BlogIndex = lazy(() => import("@/pages/blog-index"));
 const BlogPost = lazy(() => import("@/pages/blog-post"));
 const CategoryIndex = lazy(() => import("@/pages/category-index"));
+const TopicsPage = lazy(() => import("@/pages/topics"));
 
 // Rarely-used public pages — split into their own chunks.
 const Contact = lazy(() => import("@/pages/contact"));
@@ -51,6 +52,8 @@ const AdminAnalytics = lazy(() => import("@/pages/admin/AdminAnalytics"));
 const AdminSendEmail = lazy(() => import("@/pages/admin/AdminSendEmail"));
 const AdminMedia = lazy(() => import("@/pages/admin/AdminMedia"));
 const AdminCategories = lazy(() => import("@/pages/admin/AdminCategories"));
+const AdminTopics = lazy(() => import("@/pages/admin/AdminTopics"));
+const AdminArchiveSearch = lazy(() => import("@/pages/admin/AdminArchiveSearch"));
 const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
 
 const AdminAbout = lazy(() => import("@/pages/admin/AdminAbout"));
@@ -99,6 +102,12 @@ function Router() {
       <Route path="/admin/categories">
         <AdminGuard><AdminCategories /></AdminGuard>
       </Route>
+      <Route path="/admin/topics">
+        <AdminGuard adminOnly><AdminTopics /></AdminGuard>
+      </Route>
+      <Route path="/admin/archive-search">
+        <AdminGuard><AdminArchiveSearch /></AdminGuard>
+      </Route>
       <Route path="/admin/inbox">
         <AdminGuard><AdminInbox /></AdminGuard>
       </Route>
@@ -141,6 +150,8 @@ function Router() {
             <Route path="/" component={Home} />
             <Route path="/blog" component={BlogIndex} />
             <Route path="/blog/:slug" component={BlogPost} />
+            <Route path="/topics" component={TopicsPage} />
+            <Route path="/topics/:slug" component={TopicsPage} />
             <Route path="/contact" component={Contact} />
             <Route path="/about" component={About} />
             <Route path="/careers" component={Careers} />

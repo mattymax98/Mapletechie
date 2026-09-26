@@ -2,6 +2,8 @@ import { Router } from "express";
 import { db, postsTable, categoriesTable } from "@workspace/db";
 import { and, desc, eq, getTableColumns, ilike, or } from "drizzle-orm";
 import { canonicalPostAuthor } from "../lib/postAuthor";
+import { adminAuth } from "../middlewares/adminAuth";
+import { parseArchiveSearchParams, searchArchivePosts } from "../lib/archiveSearch";
 
 const router = Router();
 
@@ -56,6 +58,27 @@ router.get("/search", async (req, res): Promise<void> => {
   scored.sort((a, b) => b.score - a.score);
 
   res.json(scored.slice(0, limit).map(({ p }) => p));
+});
+
+/**
+ * Paginated editor archive across every post status. Rows are ordered by
+ * createdAt/id descending so repeated pages have deterministic ordering.
+ */
+router.get("/admin/archive-search", adminAuth, async (req, res): Promise<void> => {
+  const parsed = parseArchiveSearchParams(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+  const user = req.user;
+  if (!user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const scope = user.role === "admin" || user.canEditOthersPosts
+    ? { all: true } as const
+    : { authorId: user.id };
+  res.json(await searchArchivePosts(parsed.data, scope));
 });
 
 export default router;

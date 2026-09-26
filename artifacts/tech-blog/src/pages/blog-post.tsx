@@ -39,6 +39,13 @@ import { PostContent as SharedPostContent } from "@/components/PostContent";
 
 const SITE_URL = "https://www.mapletechie.com";
 
+interface PostTopicContext {
+  slug: string;
+  title?: string | null;
+  name?: string | null;
+  introduction?: string | null;
+}
+
 // "Jul 25, 2026 at 3:00 AM EDT" in the reader's local timezone.
 function formatDateTimeWithZone(iso: string): string {
   const d = new Date(iso);
@@ -573,6 +580,25 @@ export default function BlogPost() {
       {/* Series banner (if part of a series) */}
       {(post as any).seriesId && (
         <SeriesBanner seriesId={(post as any).seriesId} currentPostId={post.id} />
+      )}
+
+      {(post as any).topicCluster?.slug && (
+        <aside className="container mx-auto max-w-4xl px-4 md:px-6 mb-8">
+          <Link
+            href={`/topics/${encodeURIComponent(((post as any).topicCluster as PostTopicContext).slug)}`}
+            className="group flex items-center justify-between gap-4 border border-border bg-card/50 p-5 transition-colors hover:border-primary"
+          >
+            <span>
+              <span className="block text-xs font-bold uppercase tracking-widest text-primary mb-1">Part of a topic guide</span>
+              <span className="font-bold group-hover:text-primary">
+                {((post as any).topicCluster as PostTopicContext).title ||
+                  ((post as any).topicCluster as PostTopicContext).name ||
+                  "Explore this topic"}
+              </span>
+            </span>
+            <span className="text-sm font-bold uppercase tracking-wider text-primary">View topic →</span>
+          </Link>
+        </aside>
       )}
 
       {/* Cover Image */}

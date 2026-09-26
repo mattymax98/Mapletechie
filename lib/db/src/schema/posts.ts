@@ -1,7 +1,9 @@
-import { pgTable, text, serial, timestamp, integer, boolean, doublePrecision, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean, doublePrecision, jsonb, check, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { categoriesTable } from "./categories";
+import { topicClustersTable } from "./topicClusters";
 
 export const postsTable = pgTable("posts", {
   id: serial("id").primaryKey(),
@@ -38,6 +40,11 @@ export const postsTable = pgTable("posts", {
   isFeatured: boolean("is_featured").notNull().default(false),
   seriesId: integer("series_id"),
   seriesPosition: integer("series_position"),
+  clusterId: integer("cluster_id").references(() => topicClustersTable.id, {
+    onDelete: "set null",
+    onUpdate: "cascade",
+  }),
+  clusterRole: text("cluster_role"),
   // Optional review toolkit. `rating` is a 0–5 score (one decimal allowed);
   // `pros`/`cons` are bullet lists; `verdict` is the bottom-line summary.
   rating: doublePrecision("rating"),
@@ -48,7 +55,15 @@ export const postsTable = pgTable("posts", {
   publishedAt: timestamp("published_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  check(
+    "posts_cluster_role_pair_check",
+    sql`(${t.clusterId} IS NULL AND ${t.clusterRole} IS NULL) OR (${t.clusterId} IS NOT NULL AND ${t.clusterRole} IN ('pillar', 'supporting'))`,
+  ),
+  uniqueIndex("posts_cluster_one_pillar_uq")
+    .on(t.clusterId)
+    .where(sql`${t.clusterRole} = 'pillar'`),
+]);
 
 export const insertPostSchema = createInsertSchema(postsTable).omit({ id: true, createdAt: true });
 export type InsertPost = z.infer<typeof insertPostSchema>;

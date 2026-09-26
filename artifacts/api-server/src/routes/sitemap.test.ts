@@ -18,11 +18,18 @@ vi.mock("drizzle-orm", () => ({
   gte: (col: unknown, val: unknown) => ({ op: "gte", col, val }),
 }));
 
-const postsTable = { slug: "posts.slug", publishedAt: "posts.publishedAt", status: "posts.status", tags: "posts.tags" };
+const postsTable = {
+  slug: "posts.slug",
+  publishedAt: "posts.publishedAt",
+  status: "posts.status",
+  tags: "posts.tags",
+  topicClusterId: "posts.topicClusterId",
+};
 const categoriesTable = { slug: "categories.slug" };
 const usersTable = { id: "users.id", username: "users.username", isActive: "users.isActive" };
 const seriesTable = { slug: "series.slug" };
 const jobsTable = { slug: "jobs.slug", isActive: "jobs.isActive" };
+const topicClustersTable = { id: "topicClusters.id", slug: "topicClusters.slug", isPublic: "topicClusters.isPublic" };
 
 // execute() is used for the tag query; return empty rows so it resolves cleanly.
 const db = {
@@ -50,6 +57,7 @@ vi.mock("@workspace/db", () => ({
   usersTable,
   seriesTable,
   jobsTable,
+  topicClustersTable,
 }));
 
 const sitemapRouter = (await import("./sitemap")).default;
@@ -71,7 +79,7 @@ async function get(path: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // By default return empty arrays so all six parallel queries resolve.
+  // By default return empty arrays so all database queries resolve.
   db.select.mockImplementation(() => makeChain([]));
   db.execute.mockResolvedValue({ rows: [] });
 });
@@ -124,6 +132,38 @@ describe("GET /sitemap.xml — SITE_DOMAIN protocol normalisation", () => {
     expect(body).toContain("<loc>https://www.mapletechie.com/blog/test-post</loc>");
   });
 
+  it("includes eligible public topic URLs and rejects malformed topic slugs", async () => {
+    process.env.SITE_DOMAIN = "https://www.mapletechie.com";
+    let callCount = 0;
+    db.select.mockImplementation(() => {
+      callCount++;
+      return makeChain(
+        callCount === 6
+          ? [
+              { slug: "artificial-intelligence", isPublic: true, publishedCount: 3 },
+              { slug: "too-few-posts", isPublic: true, publishedCount: 2 },
+              { slug: "bad.topic", isPublic: true, publishedCount: 4 },
+            ]
+          : [],
+      );
+    });
+
+    const { body } = await get("/sitemap.xml");
+
+    expect(body).toContain("<loc>https://www.mapletechie.com/topics/artificial-intelligence</loc>");
+    expect(body).toContain("<loc>https://www.mapletechie.com/topics</loc>");
+    expect(body).not.toContain("/topics/too-few-posts");
+    expect(body).not.toContain("/topics/bad.topic");
+  });
+
+  it("omits the topics index when there are no eligible public topics", async () => {
+    process.env.SITE_DOMAIN = "https://www.mapletechie.com";
+
+    const { body } = await get("/sitemap.xml");
+
+    expect(body).not.toContain("<loc>https://www.mapletechie.com/topics</loc>");
+  });
+
   it("does not emit malformed legacy route segments", async () => {
     process.env.SITE_DOMAIN = "https://www.mapletechie.com";
     let callCount = 0;
@@ -143,6 +183,10 @@ describe("GET /sitemap.xml — SITE_DOMAIN protocol normalisation", () => {
         ],
         [{ slug: "valid-series" }, { slug: "series.name" }],
         [{ slug: "valid-job" }, { slug: "editor.job" }],
+        [
+          { slug: "valid-topic", isPublic: true, publishedCount: 3 },
+          { slug: "topic.name", isPublic: true, publishedCount: 3 },
+        ],
       ][callCount - 1] ?? [];
       return makeChain(rows);
     });
@@ -158,5 +202,7 @@ describe("GET /sitemap.xml — SITE_DOMAIN protocol normalisation", () => {
     expect(body).not.toContain("science.space");
     expect(body).not.toContain("series.name");
     expect(body).not.toContain("editor.job");
+    expect(body).toContain("/topics/valid-topic");
+    expect(body).not.toContain("topic.name");
   });
 });

@@ -69,6 +69,7 @@ vi.mock("@workspace/db", () => ({
   commentsTable: {},
   categoriesTable: {},
   postCategoriesTable: {},
+  topicClustersTable: {},
 }));
 
 // drizzle helpers — stubbed to harmless no-ops since `db` is fully mocked.
@@ -182,6 +183,31 @@ describe("optional post fields — validation before writes", () => {
     scheduledFor: new Date("2027-06-01T14:00:00.000Z"),
     publishedAt: new Date("2026-01-01T12:00:00.000Z"),
   };
+
+  it("rejects membership in a missing topic cluster before writing the post", async () => {
+    selectQueue = [[CATEGORY_ROW], []];
+    const { status, json } = await create({ clusterId: 12, clusterRole: "pillar" });
+    expect(status).toBe(400);
+    expect(json.error).toMatch(/topic cluster/i);
+    expect(db.insert).not.toHaveBeenCalled();
+  });
+
+  it("does not let an editor assign a topic when creating a post, even one they may publish", async () => {
+    currentUser = { id: 2, role: "editor", displayName: "Editor", canPublishDirectly: true };
+    const { status, json } = await create({ clusterId: 12, clusterRole: "supporting" });
+    expect(status).toBe(403);
+    expect(json.error).toMatch(/only admins/i);
+    expect(db.insert).not.toHaveBeenCalled();
+  });
+
+  it("does not let an editor change the topic of their own post", async () => {
+    currentUser = { id: 2, role: "editor", displayName: "Editor", canEditOthersPosts: false };
+    selectQueue = [[{ id: 42, authorId: 2, categoryId: 7, clusterId: null, clusterRole: null }]];
+    const { status, json } = await request(makeApp(), "PUT", "/posts/42", { clusterId: 12, clusterRole: "pillar" });
+    expect(status).toBe(403);
+    expect(json.error).toMatch(/only admins/i);
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
 
   it.each(["", "not-a-date", "2020-01-01T10:00:00.000Z", "2027-02-30T10:00:00.000Z"])(
     "rejects a missing, invalid or past scheduled time on create (%s)",
@@ -645,5 +671,22 @@ describe("DELETE /posts/:id — stays owner/admin only", () => {
 
     expect(status).toBe(204);
     expect(db.delete).toHaveBeenCalled();
+  });
+});
+
+describe("public topic cluster context", () => {
+  it("attaches eligible public topic context to a published supporting article", async () => {
+    selectQueue = [
+      [{
+        id: 42, title: "Supporting article", slug: "supporting", excerpt: "", content: "",
+        categoryId: 7, status: "published", clusterId: 9, clusterRole: "supporting",
+      }],
+      [],
+      [{ id: 9, name: "Topic", slug: "topic", introduction: "Topic intro", isPublic: true }],
+      [{ clusterId: 9, count: 3 }],
+    ];
+    const { status, json } = await request(makeApp(), "GET", "/posts/slug/supporting");
+    expect(status).toBe(200);
+    expect(json.topicCluster).toMatchObject({ id: 9, name: "Topic", role: "supporting" });
   });
 });

@@ -1,7 +1,8 @@
 import { Router } from "express";
-import { db, postsTable, categoriesTable, usersTable, seriesTable, jobsTable } from "@workspace/db";
-import { desc, eq, sql } from "drizzle-orm";
+import { db, postsTable, categoriesTable, usersTable, seriesTable, jobsTable, topicClustersTable } from "@workspace/db";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { getSiteUrl } from "../lib/siteUrl";
+import { isTopicClusterPublic } from "../lib/topicClusters";
 
 const router = Router();
 const SLUG_SEGMENT_RE = /^[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?$/;
@@ -30,7 +31,7 @@ router.get("/sitemap/xml", (_req, res) => {
 router.get("/sitemap.xml", async (req, res): Promise<void> => {
   const domain = getSiteUrl();
 
-  const [posts, categories, authors, allSeries, jobs, tagRows] = await Promise.all([
+  const [posts, categories, authors, allSeries, jobs, tagRows, topicClusters] = await Promise.all([
     db
       .select({ slug: postsTable.slug, publishedAt: postsTable.publishedAt })
       .from(postsTable)
@@ -64,6 +65,20 @@ router.get("/sitemap.xml", async (req, res): Promise<void> => {
       WHERE ${postsTable.status} = 'published'
       ORDER BY tag
     `),
+
+    db
+      .select({
+        slug: topicClustersTable.slug,
+        isPublic: topicClustersTable.isPublic,
+        publishedCount: sql<number>`count(*)::int`,
+      })
+      .from(topicClustersTable)
+      .innerJoin(postsTable, eq(postsTable.clusterId, topicClustersTable.id))
+      .where(and(
+        eq(topicClustersTable.isPublic, true),
+        eq(postsTable.status, "published"),
+      ))
+      .groupBy(topicClustersTable.slug, topicClustersTable.isPublic),
   ]);
 
   type SitemapEntry = {
@@ -117,6 +132,17 @@ router.get("/sitemap.xml", async (req, res): Promise<void> => {
       changefreq: "weekly",
     }));
 
+  const topicUrls: SitemapEntry[] = topicClusters
+    .filter((topic) => isTopicClusterPublic(topic, topic.publishedCount) && isPublicSlug(topic.slug))
+    .map((topic) => ({
+      loc: `${domain}/topics/${topic.slug}`,
+      priority: "0.6",
+      changefreq: "weekly",
+    }));
+  const topicsIndexUrl: SitemapEntry[] = topicUrls.length
+    ? [{ loc: `${domain}/topics`, priority: "0.7", changefreq: "weekly" }]
+    : [];
+
   const jobUrls: SitemapEntry[] = jobs
     .filter((j) => isPublicSlug(j.slug))
     .map((j) => ({
@@ -138,6 +164,8 @@ router.get("/sitemap.xml", async (req, res): Promise<void> => {
     ...postUrls,
     ...authorUrls,
     ...seriesUrls,
+    ...topicsIndexUrl,
+    ...topicUrls,
     ...jobUrls,
     ...tagUrls,
   ];
