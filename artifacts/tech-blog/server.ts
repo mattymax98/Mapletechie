@@ -131,6 +131,7 @@ function buildSeoBlock(data: SeoData): string {
     "<!-- SEO_HEAD_START -->",
     `    <title>${title}</title>`,
     `    <meta name="description" content="${description}" />`,
+    `    <meta name="robots" content="max-image-preview:large" />`,
     `    <link rel="canonical" href="${url}" />`,
     `    <meta property="og:type" content="${type}" />`,
     `    <meta property="og:site_name" content="Mapletechie" />`,
@@ -139,8 +140,10 @@ function buildSeoBlock(data: SeoData): string {
     `    <meta property="og:description" content="${description}" />`,
     `    <meta property="og:url" content="${url}" />`,
     `    <meta property="og:image" content="${image}" />`,
-    `    <meta property="og:image:width" content="1200" />`,
-    `    <meta property="og:image:height" content="630" />`,
+    ...(/\/api\/(?:storage\/img-social\/|og\/)/.test(data.image) || data.image === DEFAULT_OG_IMAGE
+      ? [`    <meta property="og:image:width" content="1200" />`,
+         `    <meta property="og:image:height" content="630" />`]
+      : []),
     `    <meta name="twitter:card" content="summary_large_image" />`,
     `    <meta name="twitter:site" content="@mapletechie" />`,
     `    <meta name="twitter:title" content="${title}" />`,
@@ -908,7 +911,14 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
   const title = post.seoTitle?.trim() || post.title;
   const description =
     post.seoDescription?.trim() || post.excerpt?.trim() || DEFAULT_DESCRIPTION;
-  const image = absUrl(post.ogImage || post.coverImage, DEFAULT_OG_IMAGE);
+  const ogStoragePath = post.ogImage?.startsWith("/api/storage/objects/")
+    ? post.ogImage : post.ogImage?.startsWith(`${SITE_URL}/api/storage/objects/`)
+      ? post.ogImage.slice(SITE_URL.length) : null;
+  const image = absUrl(
+    ogStoragePath?.replace("/api/storage/objects/", "/api/storage/img-social/objects/")
+      || post.ogImage || `/api/og/post/${encodeURIComponent(post.slug)}.png`,
+    DEFAULT_OG_IMAGE,
+  );
 
   const seoTitleFull = buildSeoTitle(title);
   const seo = buildSeoBlock({

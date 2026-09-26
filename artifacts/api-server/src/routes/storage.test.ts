@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import express from "express";
 import { createServer } from "node:http";
+import sharp from "sharp";
 
 // ─── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -207,13 +208,25 @@ describe("POST /storage/uploads", () => {
     "accepts content-type %s",
     async (ct) => {
       mockPutObjectEntity.mockResolvedValue("/objects/uploads/uuid");
+      const format = ct.split("/")[1] === "jpeg" ? "jpeg" : ct.split("/")[1] as "png" | "webp" | "gif";
+      const image = await sharp({ create: { width: 2, height: 2, channels: 3, background: "#e66625" } })
+        .toFormat(format).toBuffer();
       const res = await request("post", "/storage/uploads", {
-        body: PNG,
+        body: image,
         headers: { "Content-Type": ct },
       });
       expect(res.status).toBe(200);
     },
   );
+
+  it("rejects a mislabeled image before it reaches storage", async () => {
+    const res = await request("post", "/storage/uploads", {
+      body: PNG,
+      headers: { "Content-Type": "image/jpeg" },
+    });
+    expect(res.status).toBe(400);
+    expect(mockPutObjectEntity).not.toHaveBeenCalled();
+  });
 });
 
 // ── POST /storage/uploads/request-url ────────────────────────────────────────

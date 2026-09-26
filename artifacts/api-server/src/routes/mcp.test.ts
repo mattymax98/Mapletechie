@@ -570,6 +570,21 @@ describe("POST /mcp — tools", () => {
     expect(auditCalls.some((c) => c.input.action === "automation.draft.create")).toBe(true);
   });
 
+  it("accepts a Reddit comment as controlled context and reports removed duplicate embeds for review", async () => {
+    selectQueue = [[BOT_USER], [CATEGORY], []];
+    insertReturn = [{ id: 44, title: "Test story", slug: "test-story", status: "draft" }];
+    const content = '<p>Outside reaction, not verified reporting.</p>' +
+      '<div data-social-embed="reddit" data-url="https://old.reddit.com/r/rust/comments/xyz987/topic/abcd56/"></div>' +
+      '<div data-social-embed="reddit" data-url="https://www.reddit.com/r/rust/comments/xyz987/other/abcd56/?context=2"></div>';
+    const res = await authed(callTool("create_mapletechie_draft", { ...draftArgs(), content }));
+    expect(res.body.result.isError).toBeFalsy();
+    const values = captured.insertValues!.find((v) => v.title === "Test story")!;
+    expect(values.status).toBe("draft");
+    expect(values.content).toContain("https://www.reddit.com/r/rust/comments/xyz987/_/abcd56/");
+    expect(values.embedReport).toMatchObject({ requested: 2, preserved: 1, removed: 1, by_provider: { reddit: 1 } });
+    expect((values.embedReport as any).items).toEqual(expect.arrayContaining([expect.objectContaining({ reason: "duplicate" })]));
+  });
+
   it("create_mapletechie_draft accepts validated cluster assignments", async () => {
     selectQueue = [[BOT_USER], [CATEGORY], [], [{ id: 6 }]];
     insertReturn = [{ id: 43, title: "Test story", slug: "test-story", status: "draft" }];

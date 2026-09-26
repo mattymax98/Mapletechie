@@ -37,8 +37,27 @@ const BLUESKY_RE =
 // The numeric-only status id keeps this from matching Threads-style URLs.
 const MASTODON_RE =
   /^https?:\/\/([a-z0-9-]+(?:\.[a-z0-9-]+)+)\/@[\w.-]+(?:@[\w.-]+)?\/(\d{8,25})(?:[/?#]|$)/i;
-const REDDIT_RE =
-  /^https?:\/\/(?:www\.|old\.|new\.)?reddit\.com\/r\/[A-Za-z0-9_]{2,21}\/comments\/([a-z0-9]{4,10})/i;
+function parseRedditPermalink(raw: string): ParsedSocialEmbed | null {
+  let parsed: URL;
+  try { parsed = new URL(raw); } catch { return null; }
+  const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+  if (!["reddit.com", "old.reddit.com", "new.reddit.com"].includes(host) ||
+      !["https:", "http:"].includes(parsed.protocol) || parsed.username || parsed.password) return null;
+  const parts = parsed.pathname.split("/").filter(Boolean);
+  if (parts.length < 4 || parts.length > 6 ||
+      parts[0] !== "r" || parts[2] !== "comments" ||
+      !/^[a-z0-9_]{2,21}$/i.test(parts[1]) ||
+      !/^[a-z0-9]{4,10}$/i.test(parts[3]) ||
+      (parts[4] !== undefined && !/^[a-z0-9_-]{1,120}$/i.test(parts[4])) ||
+      (parts[5] !== undefined && !/^[a-z0-9]{4,10}$/i.test(parts[5]))) return null;
+  const postId = parts[3].toLowerCase();
+  const commentId = parts[5]?.toLowerCase();
+  return {
+    provider: "reddit",
+    url: `https://www.reddit.com/r/${parts[1].toLowerCase()}/comments/${postId}/${commentId ? `_/${commentId}/` : ""}`,
+    id: commentId ?? postId,
+  };
+}
 
 export function parseSocialUrl(raw: string): ParsedSocialEmbed | null {
   const url = (raw || "").trim();
@@ -59,8 +78,8 @@ export function parseSocialUrl(raw: string): ParsedSocialEmbed | null {
   m = url.match(BLUESKY_RE);
   if (m) return { provider: "bluesky", url, id: m[2] };
 
-  m = url.match(REDDIT_RE);
-  if (m) return { provider: "reddit", url, id: m[1] };
+  const reddit = parseRedditPermalink(url);
+  if (reddit) return reddit;
 
   // Mastodon last — its host pattern is the broadest (any federated instance),
   // so the dedicated-host providers above always win.

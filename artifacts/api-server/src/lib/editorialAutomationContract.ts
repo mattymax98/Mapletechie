@@ -36,6 +36,7 @@ RESEARCH, ORIGINALITY, AND SOURCES
 - Research each candidate from multiple defensible, current sources. Prefer primary sources, official releases, filings, documentation, and direct reporting; record source names and links for the completion report.
 - Compare each candidate's search intent with recent titles, slugs, categories, and coverage. Reject or reshape duplicate intent and cannibalization instead of creating a near-copy. A unique slug alone does not make a topic original.
 - Treat originality, source quality, factual accuracy, and licensing judgement as editorial checks—not as guarantees supplied by the API.
+- X/Twitter and public Reddit discussion are third-party context, not verified reporting. Embed only safe public X/Twitter, YouTube, or Reddit post/comment URLs; never submit arbitrary widget scripts or HTML. Inspect the draft's embed_report: removed, malformed, hostile, or duplicate entries need correction or an explicit editorial decision before a draft counts as complete.
 - Do not invent facts, quotes, tests, access, or firsthand experience. Clearly distinguish reporting, analysis, and opinion.
 
 WRITING, SEO, LINKS, AND STRUCTURE

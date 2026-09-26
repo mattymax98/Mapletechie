@@ -1,4 +1,5 @@
 import sharp from "sharp";
+import { isSupportedMaster, MAX_IMAGE_PIXELS } from "./imageLimits";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { db, mediaTable } from "@workspace/db";
@@ -18,10 +19,6 @@ const objectStorageService = new ObjectStorageService();
 const MAX_BYTES = 25 * 1024 * 1024; // refuse absurdly large remote files
 const FETCH_TIMEOUT_MS = 15_000;
 const MAX_REDIRECTS = 3;
-// Keep enough resolution for a full-width article cover on retina displays
-// (~1152 CSS px × 2 DPR). The on-demand resizer still serves phones small
-// variants, so a large stored master costs nothing on mobile.
-const MAX_WIDTH = 2400;
 
 /**
  * SSRF guard: returns true if `ip` falls inside a private, loopback,
@@ -173,9 +170,35 @@ export function collectExternalImageUrls(html: unknown): string[] {
 
 /**
  * Derive a readable Media-library filename from the source URL's basename,
- * normalized to the .webp extension we re-encode to.
+ * with a filename extension matching the retained original image format.
  */
-function mediaFilenameFromUrl(url: string): string {
+function mimeForFormat(format: string | undefined, fallback = "application/octet-stream"): string {
+  switch (format) {
+    case "jpeg": return "image/jpeg";
+    case "png": return "image/png";
+    case "webp": return "image/webp";
+    case "gif": return "image/gif";
+    case "avif": return "image/avif";
+    // Only preserve browser-safe raster formats. Previously everything was
+    // re-encoded, so retaining source bytes must not start serving SVG scripts.
+    default: return fallback;
+  }
+}
+
+function extensionForMime(mimeType: string): string {
+  return ({
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+    "image/avif": ".avif",
+    "image/tiff": ".tiff",
+    "image/heif": ".heif",
+    "image/svg+xml": ".svg",
+  } as Record<string, string>)[mimeType] ?? ".img";
+}
+
+function mediaFilenameFromUrl(url: string, mimeType: string): string {
   let base = "";
   try {
     const segments = new URL(url).pathname.split("/").filter(Boolean);
@@ -189,7 +212,7 @@ function mediaFilenameFromUrl(url: string): string {
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 120);
-  return `${base || "external-image"}.webp`;
+  return `${(base || "external-image").replace(/\.(?:jpe?g|png|webp|gif|avif)$/i, "")}${extensionForMime(mimeType)}`;
 }
 
 /**
@@ -201,14 +224,15 @@ async function registerInMediaLibrary(
   servingPath: string,
   sourceUrl: string,
   bytes: number,
+  mimeType: string,
   ctx?: PersistContext,
 ): Promise<void> {
   try {
     // media.url is UNIQUE — onConflictDoNothing makes dedupe race-safe.
     await db.insert(mediaTable).values({
       url: servingPath,
-      filename: mediaFilenameFromUrl(sourceUrl),
-      mimeType: "image/webp",
+      filename: mediaFilenameFromUrl(sourceUrl, mimeType),
+      mimeType,
       size: bytes,
       alt: ctx?.alt?.trim().slice(0, 1000) || null,
       source: sourceUrl.slice(0, 2000),
@@ -303,7 +327,7 @@ async function readBodyCapped(resp: Response): Promise<Buffer | null> {
 }
 
 /**
- * Re-encode an in-memory image to WebP, store it on object storage, register
+ * Validate and retain an in-memory raster image, register
  * it in the Media library, and return the local serving path
  * (e.g. "/api/storage/objects/uploads/<uuid>").
  *
@@ -320,13 +344,15 @@ export async function persistImageBuffer(
   if (input.byteLength > MAX_BYTES) {
     throw new Error(`Image too large: max ${Math.floor(MAX_BYTES / (1024 * 1024))}MB`);
   }
-  let webp: Buffer;
+  let imageBytes: Buffer;
+  let mimeType: string;
   try {
-    webp = await sharp(input)
-      .rotate()
-      .resize({ width: MAX_WIDTH, withoutEnlargement: true })
-      .webp({ quality: 90, smartSubsample: true })
-      .toBuffer();
+    const metadata = await sharp(input, { limitInputPixels: MAX_IMAGE_PIXELS }).metadata();
+    mimeType = mimeForFormat(metadata.format);
+    if (!mimeType.startsWith("image/") || !isSupportedMaster(metadata.width, metadata.height)) {
+      throw new Error("Unsupported image format");
+    }
+    imageBytes = input;
   } catch {
     throw new Error("Data is not a decodable image (expected PNG, JPEG, WebP, GIF, ...)");
   }
@@ -334,8 +360,8 @@ export async function persistImageBuffer(
   const uploadURL = await objectStorageService.getObjectEntityUploadURL();
   const putResp = await fetch(uploadURL, {
     method: "PUT",
-    headers: { "Content-Type": "image/webp" },
-    body: webp,
+    headers: { "Content-Type": mimeType },
+    body: imageBytes,
   });
   if (!putResp.ok) {
     throw new Error(`Object storage upload failed (status ${putResp.status})`);
@@ -344,7 +370,7 @@ export async function persistImageBuffer(
   const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
   const servingPath = `/api/storage${objectPath}`;
   logger.info({ sourceName, objectPath }, "persistImageBuffer: stored uploaded image");
-  await registerInMediaLibrary(servingPath, sourceName, webp.byteLength, ctx);
+  await registerInMediaLibrary(servingPath, sourceName, imageBytes.byteLength, mimeType, ctx);
   return servingPath;
 }
 
@@ -368,19 +394,27 @@ export async function persistExternalImage(url: string, ctx?: PersistContext): P
     }
     const arrayBuf = body;
 
-    const webp = await sharp(Buffer.from(arrayBuf))
-      .rotate()
-      .resize({ width: MAX_WIDTH, withoutEnlargement: true })
-      // High quality for the stored master — every derived variant re-encodes
-      // from this file, so generation loss here is baked into everything.
-      .webp({ quality: 90, smartSubsample: true })
-      .toBuffer();
+    let metadata;
+    try {
+      metadata = await sharp(body, { limitInputPixels: MAX_IMAGE_PIXELS }).metadata();
+    } catch {
+      logger.warn({ url }, "persistExternalImage: image data could not be decoded");
+      return url;
+    }
+    const mimeType = mimeForFormat(metadata.format);
+    if (!mimeType.startsWith("image/") || !isSupportedMaster(metadata.width, metadata.height)) {
+      logger.warn({ url, format: metadata.format }, "persistExternalImage: unsupported image format");
+      return url;
+    }
+    // Store source bytes unchanged: the retained master remains suitable for
+    // every later aspect-ratio crop and never inherits an early resize loss.
+    const master = body;
 
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
     const putResp = await fetch(uploadURL, {
       method: "PUT",
-      headers: { "Content-Type": "image/webp" },
-      body: webp,
+      headers: { "Content-Type": mimeType },
+      body: master,
     });
     if (!putResp.ok) {
       logger.warn({ url, status: putResp.status }, "persistExternalImage: upload PUT failed");
@@ -390,7 +424,7 @@ export async function persistExternalImage(url: string, ctx?: PersistContext): P
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
     logger.info({ url, objectPath }, "persistExternalImage: stored external cover locally");
     const servingPath = `/api/storage${objectPath}`;
-    await registerInMediaLibrary(servingPath, url, webp.byteLength, ctx);
+    await registerInMediaLibrary(servingPath, url, master.byteLength, mimeType, ctx);
     return servingPath;
   } catch (err) {
     logger.warn({ err, url }, "persistExternalImage: failed, keeping original URL");

@@ -144,7 +144,10 @@ describe("BlogPost Article JSON-LD", () => {
     // Sanity: the fields Google actually reads carry the SEO-precedence values.
     expect(emitted.headline).toBe("The Future of AI — What Comes Next");
     expect(emitted.description).toBe("A deep dive into where machine learning is headed.");
-    expect(emitted.image).toEqual(["https://www.mapletechie.com/covers/ai-future-og.jpg"]);
+    expect(emitted.image).toEqual([
+      "https://www.mapletechie.com/covers/ai-future-og.jpg",
+      "https://www.mapletechie.com/covers/ai-future.webp",
+    ]);
     expect(emitted.author).toEqual({ "@type": "Person", name: "Jane Doe" });
     expect(emitted.datePublished).toBe(post.publishedAt);
     expect(emitted.dateModified).toBe(post.publishedAt);

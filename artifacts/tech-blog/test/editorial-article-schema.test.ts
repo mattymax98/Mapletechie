@@ -32,4 +32,31 @@ describe("editorial article metadata", () => {
     expect(buildArticleJsonLd({ ...base, categorySlug: "reviews" })["@type"]).toBe("Article");
     expect(buildArticleJsonLd(base)["@type"]).toBe("BlogPosting");
   });
+
+  it("publishes absolute exact-ratio variants and retains the original cover fallback", () => {
+    const schema = buildArticleJsonLd({
+      ...base,
+      coverImage: "/api/storage/objects/uploads/source-1",
+    });
+    expect(schema.image).toEqual([
+      "https://www.mapletechie.com/api/storage/img-ratio/16-9/objects/uploads/source-1",
+      "https://www.mapletechie.com/api/storage/img-ratio/4-3/objects/uploads/source-1",
+      "https://www.mapletechie.com/api/storage/img-ratio/1-1/objects/uploads/source-1",
+      "https://www.mapletechie.com/api/storage/objects/uploads/source-1",
+    ]);
+  });
+
+  it("keeps the custom OG image independent from cover variants", () => {
+    const schema = buildArticleJsonLd({
+      ...base,
+      coverImage: "/api/storage/objects/uploads/cover",
+      ogImage: "/api/storage/objects/uploads/og",
+    });
+    expect((schema.image as string[])[0]).toBe(
+      "https://www.mapletechie.com/api/storage/img-social/objects/uploads/og",
+    );
+    expect(schema.image).toContain(
+      "https://www.mapletechie.com/api/storage/img-ratio/16-9/objects/uploads/cover",
+    );
+  });
 });

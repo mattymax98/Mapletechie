@@ -148,8 +148,11 @@ function LinkCard({ embed }: { embed: ParsedSocialEmbed }) {
       <Icon className="w-5 h-5 text-primary shrink-0" />
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold text-foreground">
-          View this post on {PROVIDER_LABELS[embed.provider]}
+          {embed.provider === "reddit" ? "View Reddit discussion" : `View this post on ${PROVIDER_LABELS[embed.provider]}`}
         </span>
+        {embed.provider === "reddit" && (
+          <span className="block text-xs text-muted-foreground">Third-party discussion or reaction · context only, not independently verified reporting</span>
+        )}
         <span className="block text-xs text-muted-foreground truncate">{embed.url}</span>
       </span>
       <ExternalLink className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -476,46 +479,11 @@ function MastodonEmbed({ embed, onStatus }: { embed: ParsedSocialEmbed; onStatus
 }
 
 /* ------------------------------------------------------------------ */
-/* Reddit — official blockquote + widgets script                       */
+/* Reddit — controlled source card. No unreliable provider widget or script. */
 /* ------------------------------------------------------------------ */
 function RedditEmbed({ embed, onStatus }: { embed: ParsedSocialEmbed; onStatus?: EmbedStatusCallback }) {
-  const [failed, setFailed] = useState(false);
-  const { ref, rendered } = useWidgetRendered();
-  useEffect(() => {
-    let cancelled = false;
-    loadScript("https://embed.reddit.com/widgets.js").catch(() => {
-      if (!cancelled) setFailed(true);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [embed.url]);
-  useEffect(() => {
-    if (failed) onStatus?.("fallback");
-    else if (rendered) onStatus?.("rendered");
-  }, [failed, rendered, onStatus]);
-
-  if (failed) return <LinkCard embed={embed} />;
-  return (
-    <EmbedShell
-      provider="reddit"
-      loading={!rendered}
-      testId="embed-reddit"
-      maxWidth={550}
-      holderRef={ref}
-    >
-      <blockquote
-        className="reddit-embed-bq"
-        data-embed-theme={isDarkMode() ? "dark" : "light"}
-        data-embed-height="500"
-        style={{ maxWidth: 550, width: "100%", margin: 0 }}
-      >
-        <a href={embed.url} target="_blank" rel="noopener noreferrer">
-          View this post on Reddit
-        </a>
-      </blockquote>
-    </EmbedShell>
-  );
+  useEffect(() => { onStatus?.("fallback"); }, [onStatus]);
+  return <LinkCard embed={embed} />;
 }
 
 export function SocialEmbedView({

@@ -34,6 +34,44 @@ function absUrl(siteUrl: string, maybeRelative: string | null | undefined, fallb
   return `${siteUrl}${maybeRelative.startsWith("/") ? "" : "/"}${maybeRelative}`;
 }
 
+function articleImageUrls(
+  siteUrl: string,
+  coverImage: string | null | undefined,
+  ogImage: string | null | undefined,
+): string[] {
+  const images: string[] = [];
+  const add = (url: string) => {
+    if (!images.includes(url)) images.push(url);
+  };
+
+  // Keep the independently-authored OG image first, if one is configured.
+  if (ogImage) {
+    const ogStoragePath = ogImage.startsWith("/api/storage/objects/")
+      ? ogImage : ogImage.startsWith(`${siteUrl}/api/storage/objects/`)
+        ? ogImage.slice(siteUrl.length) : "";
+    add(absUrl(siteUrl, ogStoragePath
+      ? ogStoragePath.replace("/api/storage/objects/", "/api/storage/img-social/objects/")
+      : ogImage, `${siteUrl}/opengraph-v2.jpg`));
+  }
+  if (coverImage) {
+    const storagePath = /^https?:\/\//i.test(coverImage)
+      ? coverImage.startsWith(`${siteUrl}/`) ? coverImage.slice(siteUrl.length) : ""
+      : coverImage;
+    const match = storagePath.split("?")[0].match(/^\/api\/storage\/objects\/(.+)$/);
+    if (match) {
+      for (const ratio of ["16-9", "4-3", "1-1"]) {
+        add(`${siteUrl}/api/storage/img-ratio/${ratio}/objects/${match[1]}`);
+      }
+    }
+    // Keep the full source/legacy image as fallback for existing clients and
+    // sources that cannot provide all three crops.
+    add(absUrl(siteUrl, coverImage, `${siteUrl}/opengraph-v2.jpg`));
+  } else if (!ogImage) {
+    add(`${siteUrl}/opengraph-v2.jpg`);
+  }
+  return images;
+}
+
 /**
  * Builds the schema.org Article object for a post. Field precedence
  * (seoTitle over title, ogImage over coverImage, seoDescription over
@@ -49,7 +87,7 @@ export function buildArticleJsonLd(
   const title = post.seoTitle?.trim() || post.title;
   const description =
     post.seoDescription?.trim() || post.excerpt?.trim() || DEFAULT_DESCRIPTION;
-  const image = absUrl(siteUrl, post.ogImage || post.coverImage, `${siteUrl}/opengraph-v2.jpg`);
+  const images = articleImageUrls(siteUrl, post.coverImage, post.ogImage);
 
   return {
     "@context": "https://schema.org",
@@ -57,7 +95,7 @@ export function buildArticleJsonLd(
       ? "NewsArticle" : post.categorySlug === "reviews" ? "Article" : "BlogPosting",
     headline: title,
     description,
-    image: [image],
+    image: images,
     datePublished: post.publishedAt ?? undefined,
     dateModified: post.contentModifiedAt ?? post.publishedAt ?? undefined,
     author: post.author ? {

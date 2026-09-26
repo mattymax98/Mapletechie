@@ -33,6 +33,7 @@ export function ImageUploadField({
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [pendingCrop, setPendingCrop] = useState<File | null>(null);
+  const [lowResolutionWarning, setLowResolutionWarning] = useState(false);
 
   const aspect = cropAspect ?? (variant === "avatar" ? 1 : 16 / 9);
 
@@ -45,6 +46,7 @@ export function ImageUploadField({
   useEffect(() => {
     if (!value) {
       setPreviewStatus("idle");
+      setLowResolutionWarning(false);
       return;
     }
     setPreviewStatus("checking");
@@ -52,7 +54,10 @@ export function ImageUploadField({
 
     const img = new Image();
     img.onload = () => {
-      if (!cancelled) setPreviewStatus("ok");
+      if (!cancelled) {
+        setPreviewStatus("ok");
+        if (variant !== "avatar") setLowResolutionWarning(img.naturalWidth < 1200);
+      }
     };
     img.onerror = async () => {
       if (cancelled) return;
@@ -76,7 +81,7 @@ export function ImageUploadField({
       img.onload = null;
       img.onerror = null;
     };
-  }, [value]);
+  }, [value, variant]);
 
   const doUpload = async (file: File) => {
     setError("");
@@ -92,9 +97,20 @@ export function ImageUploadField({
     }
   };
 
-  const handleFile = (file: File) => {
-    // Skip cropper for GIFs (animated) — upload as-is.
-    if (file.type === "image/gif") {
+  const handleFile = async (file: File) => {
+    setLowResolutionWarning(false);
+    if (file.type.startsWith("image/") && file.type !== "image/gif") {
+      try {
+        const bitmap = await createImageBitmap(file);
+        setLowResolutionWarning(bitmap.width < 1200);
+        bitmap.close();
+      } catch {
+        // Upload validation will provide the actionable error for unreadable files.
+      }
+    }
+    // Covers/OG images retain their full-resolution source. Avatars still offer
+    // an explicit crop because their square display is itself the editorial target.
+    if (variant !== "avatar" || file.type === "image/gif") {
       doUpload(file);
       return;
     }
@@ -161,7 +177,7 @@ export function ImageUploadField({
           />
           {uploading ? (
             <div className="flex items-center justify-center gap-2 text-sm text-zinc-300">
-              <Loader2 className="w-4 h-4 animate-spin" /> Uploading & optimizing...
+              <Loader2 className="w-4 h-4 animate-spin" /> Uploading original...
             </div>
           ) : (
             <div className="flex flex-col items-center gap-1">
@@ -169,7 +185,7 @@ export function ImageUploadField({
               <p className="text-sm text-zinc-300 font-medium">
                 {dragOver ? "Drop to upload" : "Click or drag an image here"}
               </p>
-              <p className="text-xs text-zinc-500">JPG, PNG, WEBP, or GIF · auto-resized if oversized</p>
+              <p className="text-xs text-zinc-500">JPG, PNG, WEBP, or GIF · original resolution retained</p>
             </div>
           )}
         </div>
@@ -183,6 +199,12 @@ export function ImageUploadField({
       )}
 
       {error && <p className="text-xs text-red-400">{error}</p>}
+      {lowResolutionWarning && (
+        <p className="text-xs text-amber-400 flex items-start gap-1.5">
+          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+          <span>This source is below 1200px wide; large display variants will not be upscaled.</span>
+        </p>
+      )}
 
       {value && (
         <div

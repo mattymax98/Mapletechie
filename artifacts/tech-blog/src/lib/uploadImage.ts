@@ -1,7 +1,7 @@
 import { processImage } from "./processImage";
 
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-const MAX_BYTES = 25 * 1024 * 1024; // 25 MB pre-processing — we'll resize big ones automatically
+const MAX_BYTES = 25 * 1024 * 1024; // Keep in sync with the API raw-upload limit.
 const TOKEN_KEY = "mapletechie_admin_token";
 
 export interface UploadResult {
@@ -17,7 +17,7 @@ export async function uploadImage(rawFile: File): Promise<UploadResult> {
     throw new Error("Image is too large. Max size is 25 MB.");
   }
 
-  // Auto-resize oversized images (skips GIFs to preserve animation)
+  // Keep the uploaded master intact; variants are derived on demand from it.
   const file = await processImage(rawFile);
 
   const token = typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;

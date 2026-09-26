@@ -1,7 +1,22 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
+import { createElement } from "react";
+import { render, screen, cleanup } from "@testing-library/react";
 import { parseSocialUrl, extractSocialEmbeds } from "../src/lib/socialEmbedProviders";
-import { splitSocialEmbeds } from "../src/components/SocialEmbeds";
+import { splitSocialEmbeds, SocialEmbedView } from "../src/components/SocialEmbeds";
+
+afterEach(cleanup);
+
+describe("Reddit context card", () => {
+  it("links to the canonical discussion without loading a third-party widget or asserting its truth", () => {
+    const embed = parseSocialUrl("https://old.reddit.com/r/rust/comments/xyz987/topic/abcd56/")!;
+    render(createElement(SocialEmbedView, { embed }));
+    const link = screen.getByRole("link", { name: /View Reddit discussion/ });
+    expect(link.getAttribute("href")).toBe(embed.url);
+    expect(screen.getByText(/not independently verified reporting/i)).toBeTruthy();
+    expect(document.querySelector('script[src*="reddit.com"]')).toBeNull();
+  });
+});
 
 describe("splitSocialEmbeds", () => {
   const embedDiv = (url: string) =>
@@ -126,6 +141,16 @@ describe("parseSocialUrl", () => {
     expect(p?.provider).toBe("reddit");
     expect(p?.id).toBe("1abc23x");
     expect(parseSocialUrl("https://old.reddit.com/r/rust/comments/xyz987/")?.provider).toBe("reddit");
+    expect(p?.url).toBe("https://www.reddit.com/r/programming/comments/1abc23x/");
+    const comment = parseSocialUrl("https://new.reddit.com/r/rust/comments/xyz987/topic/abcd56/?context=2");
+    expect(comment).toEqual({
+      provider: "reddit",
+      url: "https://www.reddit.com/r/rust/comments/xyz987/_/abcd56/",
+      id: "abcd56",
+    });
+    expect(parseSocialUrl("https://www.reddit.com/r/rust/comments/xyz987/slug/abcd56/extra")).toBeNull();
+    expect(parseSocialUrl("https://www.reddit.com/r/rust/comments/xyz987/%2F/")).toBeNull();
+    expect(parseSocialUrl("https://reddit.com.evil.example/r/rust/comments/xyz987/")).toBeNull();
   });
 
   it("rejects everything else", () => {

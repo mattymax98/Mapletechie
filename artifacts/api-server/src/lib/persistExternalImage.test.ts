@@ -201,7 +201,7 @@ describe("persistExternalImage — success", () => {
     vi.clearAllMocks();
   });
 
-  it("downloads, re-encodes, uploads, and returns a local storage serving path", async () => {
+  it("downloads and retains the original image bytes in object storage", async () => {
     const fetchSpy = vi.fn(async (_input: unknown, init?: { method?: string }) => {
       if (init?.method === "PUT") {
         return { ok: true, status: 200, headers: { get: () => null } } as unknown as Response;
@@ -216,9 +216,8 @@ describe("persistExternalImage — success", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     const putCall = fetchSpy.mock.calls.find(([, init]) => (init as { method?: string })?.method === "PUT");
     expect(putCall).toBeTruthy();
-    expect((putCall?.[1] as { headers?: Record<string, string> })?.headers?.["Content-Type"]).toBe(
-      "image/webp",
-    );
+    expect((putCall?.[1] as { headers?: Record<string, string> })?.headers?.["Content-Type"]).toBe("image/png");
+    expect((putCall?.[1] as { body?: Buffer })?.body).toEqual(PNG_BYTES);
   });
 
   it("records supplied alt text with the persisted media item", async () => {
@@ -237,6 +236,8 @@ describe("persistExternalImage — success", () => {
       expect.objectContaining({
         alt: "Red processor package photographed from above",
         source: "https://example.com/a.png",
+        mimeType: "image/png",
+        filename: "a.png",
       }),
     );
   });

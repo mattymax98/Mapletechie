@@ -185,9 +185,18 @@ function canonicalEmbed(providerHint: string, rawUrl: string): { provider: strin
     provider = "tiktok"; url = parsed.toString();
   } else if (host === "bsky.app" && /^\/profile\/[A-Za-z0-9:%._-]+\/post\/[a-z0-9]{5,20}\/?$/i.test(parsed.pathname)) {
     provider = "bluesky"; url = parsed.toString();
-  } else if ((host === "reddit.com" || host === "old.reddit.com" || host === "new.reddit.com") &&
-             /^\/r\/[A-Za-z0-9_]{2,21}\/comments\/[a-z0-9]{4,10}(?:\/|$)/i.test(parsed.pathname)) {
-    provider = "reddit"; url = parsed.toString();
+  } else if (host === "reddit.com" || host === "old.reddit.com" || host === "new.reddit.com") {
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    if (parts.length < 4 || parts.length > 6 ||
+        parts[0] !== "r" || parts[2] !== "comments" ||
+        !/^[a-z0-9_]{2,21}$/i.test(parts[1]) ||
+        !/^[a-z0-9]{4,10}$/i.test(parts[3]) ||
+        (parts[4] !== undefined && !/^[a-z0-9_-]{1,120}$/i.test(parts[4])) ||
+        (parts[5] !== undefined && !/^[a-z0-9]{4,10}$/i.test(parts[5]))) return null;
+    provider = "reddit";
+    // Strip tracking parameters and title variations so one discussion
+    // cannot be submitted repeatedly under different permalink spellings.
+    url = `https://www.reddit.com/r/${parts[1].toLowerCase()}/comments/${parts[3].toLowerCase()}/${parts[5] ? `_/${parts[5].toLowerCase()}/` : ""}`;
   } else if (/^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/i.test(host) &&
              /^\/@[\w.-]+(?:@[\w.-]+)?\/\d{8,25}\/?$/i.test(parsed.pathname)) {
     provider = "mastodon"; url = parsed.toString();
@@ -204,7 +213,7 @@ function canonicalEmbed(providerHint: string, rawUrl: string): { provider: strin
 
 function safeEmbedHtml(provider: string, url: string): string {
   const escaped = url.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const label = provider === "twitter" ? "View this post on X" : provider === "youtube" ? "Watch this video on YouTube" : `View this post on ${provider}`;
+  const label = provider === "twitter" ? "View this post on X" : provider === "youtube" ? "Watch this video on YouTube" : provider === "reddit" ? "View third-party discussion on Reddit (unverified context)" : `View this post on ${provider}`;
   return `<div class="social-embed" data-social-embed="" data-provider="${provider}" data-url="${escaped}"><a href="${escaped}" rel="noopener noreferrer nofollow" target="_blank">${label}</a></div>`;
 }
 
@@ -320,6 +329,24 @@ export function normalizeSocialEmbeds(
   };
   // Convert supported iframe and X blockquote forms before the HTML sanitizer removes them.
   let prepared = source.replace(
+    /<script\b[^>]*>[\s\S]*?<\/script\s*>|<script\b[^>]*\/?>/gi,
+    () => {
+      report.requested++;
+      report.removed++;
+      report.items.push({ provider: "unknown", url: "", action: "removed", reason: "unsafe-markup" });
+      report.warnings.push("Removed a script: executable third-party markup is never accepted.");
+      return "";
+    },
+  ).replace(
+    /<([a-z][a-z0-9]*)\b[^>]*\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)[^>]*>/gi,
+    (tag) => {
+      report.requested++;
+      report.removed++;
+      report.items.push({ provider: "unknown", url: "", action: "removed", reason: "unsafe-markup" });
+      report.warnings.push("Removed an inline event handler from article markup.");
+      return tag.replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+    },
+  ).replace(
     /\bdata-social-embed(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/gi,
     (_attribute, doubleQuoted: string | undefined, singleQuoted: string | undefined, unquoted: string | undefined) =>
       `data-social-embed="${doubleQuoted || singleQuoted || unquoted || "true"}"`,
@@ -329,16 +356,24 @@ export function normalizeSocialEmbeds(
     report.requested++;
     if (!src) {
       report.removed++;
+      report.items.push({ provider: "unknown", url: "", action: "removed", reason: "missing-url" });
       report.warnings.push("Removed an iframe without a recoverable supported video URL.");
       return "";
     }
     const normalized = canonicalEmbed("youtube", src);
     if (!normalized || normalized.provider !== "youtube") {
       report.removed++;
+      report.items.push({ provider: "unknown", url: "", action: "removed", reason: "unsupported-iframe-url" });
       report.warnings.push("Removed an unsafe or unsupported iframe URL.");
       return "";
     }
     return safeEmbedHtml(normalized.provider, normalized.url).replace('data-social-embed=""', 'data-social-embed="normalized-source"');
+  }).replace(/<iframe\b[^>]*\/?>/gi, () => {
+    report.requested++;
+    report.removed++;
+    report.items.push({ provider: "unknown", url: "", action: "removed", reason: "unsafe-iframe" });
+    report.warnings.push("Removed an incomplete or unsupported iframe.");
+    return "";
   }).replace(/<blockquote\b([^>]*)>[\s\S]*?<\/blockquote\s*>/gi, (whole, attrs: string) => {
     const cite = attrs.match(/\bcite\s*=\s*["']([^"']+)["']/i)?.[1] || whole.match(/https?:\/\/(?:x\.com|twitter\.com)\/[^\s<"']+/i)?.[0];
     if (!cite) return whole;
@@ -346,6 +381,7 @@ export function normalizeSocialEmbeds(
     const normalized = canonicalEmbed("twitter", cite);
     if (!normalized || normalized.provider !== "twitter") {
       report.removed++;
+      report.items.push({ provider: "unknown", url: "", action: "removed", reason: "invalid-x-url" });
       report.warnings.push("Removed an unsafe or invalid X/Twitter status URL.");
       return "";
     }
@@ -367,7 +403,7 @@ export function normalizeSocialEmbeds(
         const shorthand = attrs["data-social-embed"] === "x" ? "twitter" : attrs["data-social-embed"];
         const suppliedProvider = (attrs["data-provider"] || shorthand || "").toLowerCase();
         const normalized = canonicalEmbed(attrs["data-provider"] || shorthand || "", attrs["data-url"] || "");
-        const automationAllowed = !options.automation || normalized?.provider === "youtube" || normalized?.provider === "twitter";
+        const automationAllowed = !options.automation || normalized?.provider === "youtube" || normalized?.provider === "twitter" || normalized?.provider === "reddit";
         const normalizedHint = suppliedProvider === "x" ? "twitter" : suppliedProvider;
         const providerMatches =
           !normalizedHint ||
@@ -375,7 +411,14 @@ export function normalizeSocialEmbeds(
           normalizedHint === "normalized-source" ||
           normalizedHint === normalized?.provider;
         if (!normalized || !automationAllowed || !providerMatches) {
-          report.removed++; report.warnings.push("Removed an embed with an unsafe URL or provider mismatch.");
+          report.removed++;
+          report.items.push({
+            provider: normalized?.provider ?? (suppliedProvider || "unknown"),
+            url: "",
+            action: "removed",
+            reason: !normalized ? "unsupported-or-malformed-url" : !providerMatches ? "provider-mismatch" : "provider-not-allowed",
+          });
+          report.warnings.push("Removed an embed with an unsupported or malformed URL, forbidden provider, or provider mismatch.");
           return { tagName: "div", attribs: { class: attrs.class || "" } };
         }
         return { tagName: "div", attribs: { class: "social-embed", "data-social-embed": "true", "data-provider": normalized.provider, "data-url": normalized.url } };

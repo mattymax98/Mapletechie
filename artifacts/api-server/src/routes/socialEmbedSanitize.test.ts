@@ -113,6 +113,39 @@ describe("cleanHtml social embed handling", () => {
     expect(report).toMatchObject({ requested: 3, preserved: 0, removed: 3 });
   });
 
+  it("accepts only canonical Reddit post and comment discussions for draft review", () => {
+    const { html, report } = normalizeSocialEmbeds([
+      '<div data-social-embed="reddit" data-url="https://old.reddit.com/r/programming/comments/1abc23x/a_topic/?utm_source=share"></div>',
+      '<div data-social-embed="reddit" data-url="https://www.reddit.com/r/programming/comments/1abc23x/a_topic/def456/"></div>',
+      '<div data-social-embed="reddit" data-url="https://reddit.com/r/programming/comments/1abc23x/another_title/"></div>',
+      '<div data-social-embed="reddit" data-url="https://reddit.com/r/programming/comments/1abc23x/a_topic/def456/?context=3"></div>',
+    ].join(""), { automation: true });
+    expect(report).toMatchObject({ requested: 4, preserved: 2, removed: 2, by_provider: { reddit: 2 } });
+    expect(report.items.filter((item) => item.reason === "duplicate")).toHaveLength(2);
+    expect(html).toContain("https://www.reddit.com/r/programming/comments/1abc23x/");
+    expect(html).toContain("https://www.reddit.com/r/programming/comments/1abc23x/_/def456/");
+    expect(html).toContain("unverified context");
+    expect(html).not.toContain("utm_source");
+  });
+
+  it("reports malformed Reddit paths, hostile markup and unsupported providers instead of silently claiming success", () => {
+    const { html, report } = normalizeSocialEmbeds([
+      '<p>Context</p><script src="https://evil.example/widget.js"></script>',
+      '<img src="/covers/sample.webp" alt="Screenshot" onerror="alert(1)">',
+      '<div data-social-embed="reddit" data-url="https://www.reddit.com/r/rust/comments/abcd123/slug/efg456/extra"></div>',
+      '<div data-social-embed="reddit" data-url="https://reddit.com.evil.example/r/rust/comments/abcd123/"></div>',
+      '<div data-social-embed="instagram" data-url="https://instagram.com/p/Cxyz_ABC123/"></div>',
+      '<iframe src="https://evil.example/widget"></iframe>',
+    ].join(""), { automation: true });
+    expect(report.requested).toBe(report.preserved + report.removed);
+    expect(report.preserved).toBe(0);
+    expect(report.removed).toBe(6);
+    expect(report.items.map((item) => item.reason)).toEqual(expect.arrayContaining([
+      "unsafe-markup", "unsupported-or-malformed-url", "provider-not-allowed", "unsupported-iframe-url",
+    ]));
+    expect(html).not.toMatch(/<script|<iframe|onerror|data-social-embed/);
+  });
+
   it("rejects nested embed markers and revisions only track preserved canonical embeds", () => {
     const nested = normalizeSocialEmbeds(
       '<div class="callout"><div data-social-embed="x" data-url="https://x.com/OpenAI/status/1234567890123"></div></div>',

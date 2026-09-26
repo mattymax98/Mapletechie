@@ -1,5 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import express from "express";
+import sharp from "sharp";
+import { isSupportedMaster, MAX_IMAGE_PIXELS } from "../lib/imageLimits";
 import { Readable } from "stream";
 import {
   RequestUploadUrlBody,
@@ -116,6 +118,19 @@ router.post(
       return;
     }
 
+    const expectedFormat = ({
+      "image/jpeg": "jpeg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
+    } as Record<string, string>)[contentType];
+    try {
+      const metadata = await sharp(req.body, { limitInputPixels: MAX_IMAGE_PIXELS }).metadata();
+      if (metadata.format !== expectedFormat || !isSupportedMaster(metadata.width, metadata.height)) {
+        res.status(400).json({ error: "Image format or dimensions are unsupported" });
+        return;
+      }
+    } catch {
+      res.status(400).json({ error: "Invalid or unreadable raster image" });
+      return;
+    }
     try {
       const objectPath = await objectStorageService.putObjectEntity(req.body, contentType);
       const url = `/api/storage${objectPath}`;
