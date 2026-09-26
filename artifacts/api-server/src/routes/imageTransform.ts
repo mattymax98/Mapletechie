@@ -3,6 +3,7 @@ import { Readable } from "stream";
 import sharp from "sharp";
 import { isSupportedMaster, MAX_IMAGE_PIXELS } from "../lib/imageLimits";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import { VariantQueueFullError, VariantWorkQueue } from "../lib/variantWork";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -13,6 +14,14 @@ const EXACT_ASPECTS = {
   "4-3": [4, 3],
   "1-1": [1, 1],
 } as const;
+
+type RatioResult =
+  | { ok: true; body: Buffer }
+  | { ok: false; status: number; error: string };
+
+// A decoded master can occupy tens of MB. Share cold misses per immutable
+// variant and bound simultaneous decodes plus distinct queued variants.
+const ratioWork = new VariantWorkQueue<RatioResult>(2, 24);
 
 export interface ExactCrop {
   left: number;
@@ -110,42 +119,50 @@ router.get("/storage/img-ratio/:ratio/objects/*path", async (req: Request, res: 
     }
     const raw = req.params.path;
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
-    const objectFile = await objectStorageService.getObjectEntityFile(`/objects/${wildcardPath}`);
-    const response = await objectStorageService.downloadObject(objectFile);
-    if (!response.ok || !response.body) {
-      res.status(response.status || 500).end();
-      return;
-    }
+    const objectPath = `/objects/${wildcardPath}`;
+    const result = await ratioWork.run(`${req.params.ratio}:${objectPath}`, async () => {
+      const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+      const response = await objectStorageService.downloadObject(objectFile);
+      if (!response.ok || !response.body) {
+        return { ok: false, status: response.status || 500, error: "Image master is unavailable" };
+      }
 
-    const source = Buffer.from(await response.arrayBuffer());
-    if (source.byteLength > 25 * 1024 * 1024) {
-      res.status(413).json({ error: "Image master is too large to transform" });
-      return;
-    }
-    const sourceMetadata = await sharp(source, { limitInputPixels: MAX_IMAGE_PIXELS }).metadata();
-    if (!isSupportedMaster(sourceMetadata.width, sourceMetadata.height)) {
-      res.status(422).json({ error: "Image master dimensions exceed the safe transform limit" });
-      return;
-    }
-    // Normalize EXIF orientation before calculating pixel crop coordinates.
-    const oriented = await sharp(source, { limitInputPixels: MAX_IMAGE_PIXELS }).rotate().toBuffer();
-    const metadata = await sharp(oriented).metadata();
-    if (!metadata.width || !metadata.height) {
-      res.status(422).json({ error: "Image dimensions are unavailable" });
-      return;
-    }
-    const crop = exactAspectCrop(metadata.width, metadata.height, aspect);
-    if (!crop) {
-      res.status(422).json({ error: "Source image is too small for this exact-ratio variant" });
-      return;
-    }
+      const source = Buffer.from(await response.arrayBuffer());
+      if (source.byteLength > 25 * 1024 * 1024) {
+        return { ok: false, status: 413, error: "Image master is too large to transform" };
+      }
+      const sourceMetadata = await sharp(source, { limitInputPixels: MAX_IMAGE_PIXELS }).metadata();
+      if (!isSupportedMaster(sourceMetadata.width, sourceMetadata.height)) {
+        return { ok: false, status: 422, error: "Image master dimensions exceed the safe transform limit" };
+      }
+      // Normalize EXIF orientation before calculating pixel crop coordinates.
+      const oriented = await sharp(source, { limitInputPixels: MAX_IMAGE_PIXELS }).rotate().toBuffer();
+      const metadata = await sharp(oriented).metadata();
+      if (!metadata.width || !metadata.height) {
+        return { ok: false, status: 422, error: "Image dimensions are unavailable" };
+      }
+      const crop = exactAspectCrop(metadata.width, metadata.height, aspect);
+      if (!crop) {
+        return { ok: false, status: 422, error: "Source image is too small for this exact-ratio variant" };
+      }
 
-    const output = await sharp(oriented).extract(crop).webp({ quality: 92, smartSubsample: true }).toBuffer();
+      const body = await sharp(oriented).extract(crop).webp({ quality: 92, smartSubsample: true }).toBuffer();
+      return { ok: true, body };
+    });
+    if (!result.ok) {
+      res.status(result.status).json({ error: result.error });
+      return;
+    }
     res.setHeader("Content-Type", "image/webp");
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
     res.setHeader("X-Image-Variant", `${req.params.ratio}`);
-    res.send(output);
+    res.send(result.body);
   } catch (error) {
+    if (error instanceof VariantQueueFullError) {
+      res.setHeader("Retry-After", "1");
+      res.status(429).json({ error: "Image transform is busy; retry shortly" });
+      return;
+    }
     if (error instanceof ObjectNotFoundError) {
       res.status(404).json({ error: "Object not found" });
       return;
