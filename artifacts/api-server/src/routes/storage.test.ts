@@ -187,7 +187,7 @@ describe("POST /storage/uploads", () => {
     expect(res.body.objectPath).toBe("/objects/uploads/test-uuid");
     expect(res.body.url).toBe("/api/storage/objects/uploads/test-uuid");
     expect(mockPutObjectEntity).toHaveBeenCalledWith(
-      expect.any(Buffer),
+      PNG,
       "image/png",
     );
   });
@@ -225,6 +225,38 @@ describe("POST /storage/uploads", () => {
       headers: { "Content-Type": "image/jpeg" },
     });
     expect(res.status).toBe(400);
+    expect(mockPutObjectEntity).not.toHaveBeenCalled();
+  });
+
+  it("rejects active SVG bytes disguised as a PNG without persisting them", async () => {
+    const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><script>alert(1)</script><rect width="200" height="200"/></svg>');
+    const res = await request("post", "/storage/uploads", {
+      body: svg,
+      headers: { "Content-Type": "image/png" },
+    });
+    expect(res.status).toBe(400);
+    expect(mockPutObjectEntity).not.toHaveBeenCalled();
+  });
+
+  it("rejects a compressed image whose decoded dimensions exceed the pixel limit", async () => {
+    const bomb = await sharp({
+      create: { width: 6000, height: 6000, channels: 3, background: "#ffffff" },
+    }).png().toBuffer();
+    expect(bomb.length).toBeLessThan(1024 * 1024);
+    const res = await request("post", "/storage/uploads", {
+      body: bomb,
+      headers: { "Content-Type": "image/png" },
+    });
+    expect(res.status).toBe(400);
+    expect(mockPutObjectEntity).not.toHaveBeenCalled();
+  });
+
+  it("rejects a raw body over 25 MB before writing to storage", async () => {
+    const res = await request("post", "/storage/uploads", {
+      body: Buffer.alloc(25 * 1024 * 1024 + 1),
+      headers: { "Content-Type": "image/png" },
+    });
+    expect(res.status).toBe(413);
     expect(mockPutObjectEntity).not.toHaveBeenCalled();
   });
 });

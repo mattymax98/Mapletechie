@@ -1,7 +1,9 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
 import sharp from "sharp";
-import { isSupportedMaster, MAX_IMAGE_PIXELS } from "../lib/imageLimits";
+import {
+  isSupportedMaster, MAX_IMAGE_MASTER_BYTES, MAX_IMAGE_PIXELS, SAFE_RASTER_FORMATS,
+} from "../lib/imageLimits";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { VariantQueueFullError, VariantWorkQueue } from "../lib/variantWork";
 
@@ -18,6 +20,48 @@ const EXACT_ASPECTS = {
 type RatioResult =
   | { ok: true; body: Buffer }
   | { ok: false; status: number; error: string };
+
+type MasterResult = RatioResult;
+
+/** Bound the download itself, not just the buffer after it has been allocated. */
+async function readSafeMaster(response: globalThis.Response): Promise<MasterResult> {
+  if (!response.ok || !response.body) {
+    return { ok: false, status: response.status || 500, error: "Image master is unavailable" };
+  }
+  const size = Number(response.headers.get("content-length"));
+  if (size > MAX_IMAGE_MASTER_BYTES) {
+    await response.body.cancel();
+    return { ok: false, status: 413, error: "Image master is too large to transform" };
+  }
+  const reader = response.body.getReader();
+  const chunks: Buffer[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_IMAGE_MASTER_BYTES) {
+        await reader.cancel();
+        return { ok: false, status: 413, error: "Image master is too large to transform" };
+      }
+      chunks.push(Buffer.from(value));
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const body = Buffer.concat(chunks, total);
+  try {
+    const metadata = await sharp(body, { limitInputPixels: MAX_IMAGE_PIXELS }).metadata();
+    if (!metadata.format || !SAFE_RASTER_FORMATS.has(metadata.format) ||
+        !isSupportedMaster(metadata.width, metadata.height)) {
+      return { ok: false, status: 422, error: "Image master format or dimensions are unsupported" };
+    }
+  } catch {
+    return { ok: false, status: 422, error: "Image master format or dimensions are unsupported" };
+  }
+  return { ok: true, body };
+}
 
 // A decoded master can occupy tens of MB. Share cold misses per immutable
 // variant and bound simultaneous decodes plus distinct queued variants.
@@ -123,18 +167,9 @@ router.get("/storage/img-ratio/:ratio/objects/*path", async (req: Request, res: 
     const result = await ratioWork.run(`${req.params.ratio}:${objectPath}`, async () => {
       const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
       const response = await objectStorageService.downloadObject(objectFile);
-      if (!response.ok || !response.body) {
-        return { ok: false, status: response.status || 500, error: "Image master is unavailable" };
-      }
-
-      const source = Buffer.from(await response.arrayBuffer());
-      if (source.byteLength > 25 * 1024 * 1024) {
-        return { ok: false, status: 413, error: "Image master is too large to transform" };
-      }
-      const sourceMetadata = await sharp(source, { limitInputPixels: MAX_IMAGE_PIXELS }).metadata();
-      if (!isSupportedMaster(sourceMetadata.width, sourceMetadata.height)) {
-        return { ok: false, status: 422, error: "Image master dimensions exceed the safe transform limit" };
-      }
+      const master = await readSafeMaster(response);
+      if (!master.ok) return master;
+      const source = master.body;
       // Normalize EXIF orientation before calculating pixel crop coordinates.
       const oriented = await sharp(source, { limitInputPixels: MAX_IMAGE_PIXELS }).rotate().toBuffer();
       const metadata = await sharp(oriented).metadata();
@@ -189,22 +224,22 @@ router.get("/storage/img-social/objects/*path", async (req: Request, res: Respon
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
 
     const response = await objectStorageService.downloadObject(objectFile);
-    if (!response.ok || !response.body) {
-      res.status(response.status || 500).end();
+    const master = await readSafeMaster(response);
+    if (!master.ok) {
+      res.status(master.status).json({ error: master.error });
       return;
     }
 
-    const inputStream = Readable.fromWeb(response.body as ReadableStream<Uint8Array>);
-    const transformer = sharp({ limitInputPixels: MAX_IMAGE_PIXELS })
+    const body = await sharp(master.body, { limitInputPixels: MAX_IMAGE_PIXELS })
       .rotate()
       .resize({ width: 1200, height: 630, fit: "cover", position: "centre" })
-      .jpeg({ quality: 88, mozjpeg: true });
+      .jpeg({ quality: 88, mozjpeg: true }).toBuffer();
 
     res.setHeader("Content-Type", "image/jpeg");
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
     res.setHeader("X-Image-Variant", "social-1200x630");
 
-    inputStream.pipe(transformer).pipe(res);
+    res.send(body);
   } catch (error) {
     if (error instanceof ObjectNotFoundError) {
       res.status(404).json({ error: "Object not found" });
