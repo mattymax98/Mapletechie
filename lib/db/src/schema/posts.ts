@@ -53,6 +53,9 @@ export const postsTable = pgTable("posts", {
   verdict: text("verdict"),
   embedReport: jsonb("embed_report"),
   publishedAt: timestamp("published_at", { withTimezone: true }).notNull().defaultNow(),
+  publishedOnceAt: timestamp("published_once_at", { withTimezone: true }),
+  contentModifiedAt: timestamp("content_modified_at", { withTimezone: true }),
+  updateNote: text("update_note"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [

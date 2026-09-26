@@ -114,14 +114,29 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("BlogPost NewsArticle JSON-LD", () => {
+describe("BlogPost Article JSON-LD", () => {
+  it("shows both original and approved update dates with the note", async () => {
+    const refreshed = {
+      ...post,
+      contentModifiedAt: "2026-09-10T12:00:00.000Z",
+      updateNote: "Updated product comparisons",
+    };
+    mockApi(refreshed);
+    const { findByTestId } = renderArticlePage(refreshed.slug);
+    expect((await findByTestId("text-publish-datetime")).textContent).toMatch(/Published/);
+    expect((await findByTestId("text-update-datetime")).textContent).toMatch(/Updated/);
+    expect((await findByTestId("text-update-note")).textContent).toBe("Updated product comparisons");
+    const emitted = JSON.parse(ldScriptsOfType("BlogPosting")[0].textContent!);
+    expect(emitted.datePublished).toBe(post.publishedAt);
+    expect(emitted.dateModified).toBe(refreshed.contentModifiedAt);
+  });
   it("emits a Helmet script matching buildArticleJsonLd — same as the crawler prerender", async () => {
     mockApi(post);
     const { findByRole } = renderArticlePage(post.slug);
     await findByRole("heading", { name: post.title });
 
-    await waitFor(() => expect(ldScriptsOfType("NewsArticle")).toHaveLength(1));
-    const emitted = JSON.parse(ldScriptsOfType("NewsArticle")[0].textContent!);
+    await waitFor(() => expect(ldScriptsOfType("BlogPosting")).toHaveLength(1));
+    const emitted = JSON.parse(ldScriptsOfType("BlogPosting")[0].textContent!);
     expect(emitted).toEqual(
       JSON.parse(JSON.stringify(buildArticleJsonLd(post as ArticleSchemaPost))),
     );
@@ -132,6 +147,7 @@ describe("BlogPost NewsArticle JSON-LD", () => {
     expect(emitted.image).toEqual(["https://www.mapletechie.com/covers/ai-future-og.jpg"]);
     expect(emitted.author).toEqual({ "@type": "Person", name: "Jane Doe" });
     expect(emitted.datePublished).toBe(post.publishedAt);
+    expect(emitted.dateModified).toBe(post.publishedAt);
     expect(emitted.keywords).toBe("ai, machine-learning");
     expect(emitted.mainEntityOfPage["@id"]).toBe(
       "https://www.mapletechie.com/blog/the-future-of-ai",
@@ -143,8 +159,8 @@ describe("BlogPost NewsArticle JSON-LD", () => {
     const { findByRole } = renderArticlePage(minimalPost.slug);
     await findByRole("heading", { name: minimalPost.title });
 
-    await waitFor(() => expect(ldScriptsOfType("NewsArticle")).toHaveLength(1));
-    const emitted = JSON.parse(ldScriptsOfType("NewsArticle")[0].textContent!);
+    await waitFor(() => expect(ldScriptsOfType("BlogPosting")).toHaveLength(1));
+    const emitted = JSON.parse(ldScriptsOfType("BlogPosting")[0].textContent!);
     expect(emitted).toEqual(
       JSON.parse(JSON.stringify(buildArticleJsonLd(minimalPost as ArticleSchemaPost))),
     );

@@ -415,6 +415,7 @@ export function cleanText(input: unknown): string | null {
 const postColumnsWithCategory = {
   ...getTableColumns(postsTable),
   author: canonicalPostAuthor,
+  authorUsername: sql<string | null>`(select ${usersTable.username} from ${usersTable} where ${usersTable.id} = ${postsTable.authorId} and ${usersTable.isActive} = true)`,
   category: categoriesTable.name,
   categorySlug: categoriesTable.slug,
 };
@@ -758,9 +759,21 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     res.status(403).json({ error: "You can only edit your own posts" });
     return;
   }
+  // A non-publishing editor must not bypass the review workflow by omitting
+  // `status` (which would otherwise keep this article publicly published).
+  if (existing.status === "published" && user?.role !== "admin" && !user?.canPublishDirectly) {
+    res.status(403).json({ error: "Published articles require an approved revision. Propose your changes for review instead." });
+    return;
+  }
   const persistCtx = { uploaderId: user?.id ?? null, uploaderName: user?.displayName ?? null };
 
   const body = req.body ?? {};
+  if ((existing.status === "published" || existing.publishedOnceAt) &&
+      (("slug" in body && body.slug !== existing.slug) ||
+       ("publishedAt" in body && new Date(body.publishedAt).getTime() !== existing.publishedAt.getTime()))) {
+    res.status(422).json({ error: "A published article's URL and original publication date cannot be changed." });
+    return;
+  }
   if (user?.role !== "admin" && ("clusterId" in body || "clusterRole" in body)) {
     res.status(403).json({ error: "Only admins can assign topic clusters." });
     return;
@@ -890,7 +903,7 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     existing.status !== "published" &&
     !("publishedAt" in body)
   ) {
-    update.publishedAt = new Date();
+    update.publishedAt = existing.publishedOnceAt ?? new Date();
   }
 
   // Category changes. Three shapes are accepted:

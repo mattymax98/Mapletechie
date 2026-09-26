@@ -875,7 +875,9 @@ interface PostRecord {
   categorySlug?: string | null;
   tags: string[] | null;
   publishedAt: string | null;
-  updatedAt?: string | null;
+  contentModifiedAt?: string | null;
+  updateNote?: string | null;
+  authorUsername?: string | null;
   author: string | null;
   authorId?: number | null;
   seoTitle?: string | null;
@@ -916,7 +918,7 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
     url,
     type: "article",
     publishedTime: post.publishedAt,
-    modifiedTime: post.updatedAt ?? post.publishedAt,
+    modifiedTime: post.contentModifiedAt ?? post.publishedAt,
     author: post.author,
     section: post.category,
     tags: post.tags,
@@ -1002,17 +1004,16 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
         day: "numeric",
       })
     : "";
+  const updatedDate = post.contentModifiedAt
+    ? new Date(post.contentModifiedAt).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" })
+    : "";
   const metaParts = [post.author, publishedDate, post.category].filter(Boolean);
   let authorHtml = post.author ? htmlEscape(post.author) : "";
-  if (post.author && post.authorId) {
-    const authorResult = await fetchJsonResult<AuthorRecord>(
-      `${API_BASE}/api/authors/${post.authorId}`,
-    );
-    if (authorResult.kind === "ok" && authorResult.value.username) {
-      authorHtml = `<a href="${htmlEscape(`${SITE_URL}/author/${encodeURIComponent(authorResult.value.username)}`)}">${htmlEscape(post.author)}</a>`;
-    }
+  if (post.author && post.authorUsername) {
+    authorHtml = `<a href="${htmlEscape(`${SITE_URL}/author/${encodeURIComponent(post.authorUsername)}`)}">${htmlEscape(post.author)}</a>`;
   }
-  const metaHtml = [authorHtml, publishedDate && htmlEscape(publishedDate), post.category && htmlEscape(post.category)]
+  const metaHtml = [authorHtml, publishedDate && `Published ${htmlEscape(publishedDate)}`,
+    updatedDate && `Updated ${htmlEscape(updatedDate)}`, post.category && htmlEscape(post.category)]
     .filter(Boolean)
     .join(" · ");
   const tagsHtml =
@@ -1030,6 +1031,7 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
 <article style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>${htmlEscape(post.title)}</h1>
   ${metaParts.length ? `<p style="color:#666;font-size:.9em">${metaHtml}</p>` : ""}
+  ${updatedDate && post.updateNote ? `<p style="color:#666;font-size:.9em">Update note: ${htmlEscape(post.updateNote)}</p>` : ""}
   ${topicContextHtml}
   ${coverImgHtml}
   ${safeContent}

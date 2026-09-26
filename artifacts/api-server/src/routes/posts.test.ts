@@ -442,6 +442,24 @@ describe("GET /posts/:id — editor detail", () => {
 });
 
 describe("PUT /posts/:id — external image persistence", () => {
+  it("does not let a non-publishing author change a live article without review, even when status is omitted", async () => {
+    currentUser = { id: 2, role: "editor", displayName: "Ed", canPublishDirectly: false, canEditOthersPosts: false };
+    selectQueue = [[{
+      id: 42, authorId: 2, categoryId: 7, status: "published",
+      title: "Live title", content: "<p>Live content</p>",
+      slug: "live-article", publishedAt: new Date("2024-01-01T00:00:00Z"),
+    }]];
+
+    const { status, json } = await request(makeApp(), "PUT", "/posts/42", {
+      content: "<p>Unreviewed replacement</p>",
+    });
+
+    expect(status).toBe(403);
+    expect(json.error).toMatch(/approved revision/i);
+    expect(db.transaction).not.toHaveBeenCalled();
+    expect(captured.updateSet).toBeUndefined();
+  });
+
   it("rewrites an external coverImage to a storage path on update", async () => {
     const existing = { id: 42, authorId: 1, categoryId: 7, title: "Old", status: "published" };
     // existing select -> [existing]; refetch via postsBaseQuery -> [updated]; raw refetch -> [updatedRaw]

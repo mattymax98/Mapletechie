@@ -13,6 +13,7 @@ import { useGetAuthor, getGetAuthorQueryKey } from "@workspace/api-client-react"
 
 interface AuthorBioProps {
   authorId?: number | null;
+  authorUsername?: string | null;
   fallbackName?: string;
   fallbackAvatar?: string | null;
 }
@@ -22,7 +23,7 @@ interface AuthorBioProps {
  * sit right under the article cover image. Clicking the name opens the
  * author's bio dialog (photo, bio text, socials if they have any).
  */
-export function AuthorBio({ authorId, fallbackName, fallbackAvatar }: AuthorBioProps) {
+export function AuthorBio({ authorId, authorUsername, fallbackName, fallbackAvatar }: AuthorBioProps) {
   const [bioOpen, setBioOpen] = useState(false);
 
   const { data: author } = useGetAuthor(authorId ?? 0, {
@@ -33,8 +34,9 @@ export function AuthorBio({ authorId, fallbackName, fallbackAvatar }: AuthorBioP
   const avatarUrl = author?.avatarUrl || fallbackAvatar || `${import.meta.env.BASE_URL}author-matthew.webp`;
   const jobTitle = author?.jobTitle?.trim() || "Editor, Mapletechie";
   const bio = author?.bio?.trim() || "Editor at Mapletechie — covering AI, electric vehicles, cybersecurity, and consumer gadgets.";
-  const authorHref = author?.username
-    ? `/author/${encodeURIComponent(author.username)}`
+  const canonicalUsername = authorUsername || author?.username;
+  const authorHref = canonicalUsername
+    ? `/author/${encodeURIComponent(canonicalUsername)}`
     : null;
 
   const normalizeUrl = (raw?: string | null): string | null => {

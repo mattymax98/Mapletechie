@@ -40,6 +40,7 @@ import { RichTextEditor } from "@/components/RichTextEditor";
 import { ImageUploadField, type ImagePreviewStatus } from "@/components/ImageUploadField";
 import { countImagesMissingAltText } from "@/lib/ensureImgAlt";
 import { formatLocalDateTime } from "@/lib/localDateTime";
+import { ArticleRevisions } from "@/components/admin/ArticleRevisions";
 
 interface AdminPostFormProps {
   postId?: number;
@@ -540,6 +541,10 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   const submit = (e: React.FormEvent, statusOverride?: "draft" | "published" | "scheduled") => {
     e.preventDefault();
     setError("");
+    if (isEditing && (existingPost as any)?.status === "published" && !canChooseStatus) {
+      setError("This article is live. Use the revision proposal above to submit changes for approval.");
+      return;
+    }
 
     const fail = (msg: string, fieldId?: string) => {
       setError(msg);
@@ -665,6 +670,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
+  const publishedReviewOnly = isEditing && (existingPost as any)?.status === "published" && !canChooseStatus;
 
   const previewTitle = (form.seoTitle.trim() || form.title || "Your post title") + " | Mapletechie";
   const previewDesc =
@@ -697,6 +703,14 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
         </main>
       ) : (
       <main className="max-w-4xl mx-auto px-4 py-8">
+        {isEditing && postId && token && (existingPost as any)?.status === "published" && (
+          <ArticleRevisions postId={postId} token={token} canApprove={canChooseStatus} />
+        )}
+        {publishedReviewOnly && (
+          <p className="mb-6 rounded border border-amber-800 bg-amber-950/40 p-4 text-sm text-amber-200">
+            This article is live. Submit changes in the revision proposal above; the post editor cannot save directly until an authorized reviewer approves them.
+          </p>
+        )}
         <form onSubmit={(e) => submit(e)} className="space-y-6">
           {error && (
             <div
@@ -762,6 +776,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
               </div>
               <Input
                 value={form.slug}
+                disabled={isEditing && ((existingPost as any)?.status === "published" || !!(existingPost as any)?.publishedOnceAt)}
                 onChange={(e) => {
                   setAutoSlug(false);
                   setForm((f) => ({ ...f, slug: e.target.value }));
@@ -770,7 +785,9 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                 className="bg-zinc-900 border-zinc-700 text-white font-mono text-sm focus:border-orange-500"
               />
               <p className="text-xs text-zinc-500">
-                Auto-fills from your title. Lowercase, dashes only — keep it short.
+                {isEditing && ((existingPost as any)?.status === "published" || !!(existingPost as any)?.publishedOnceAt)
+                  ? "This published article's URL is permanent."
+                  : "Auto-fills from your title. Lowercase, dashes only — keep it short."}
               </p>
             </div>
 
@@ -1322,7 +1339,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
             )}
             <Button
               type="submit"
-              disabled={isPending || hasBrokenImage}
+              disabled={isPending || hasBrokenImage || publishedReviewOnly}
               title={hasBrokenImage ? "Fix the broken image preview before saving." : undefined}
               className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
               onClick={(e) =>
@@ -1340,6 +1357,8 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
               <Save className="w-4 h-4" />
               {isPending
                 ? "Saving..."
+                : publishedReviewOnly
+                  ? "Use revision proposal above"
                 : !canChooseStatus
                   ? (isEditing ? "Update Draft" : "Submit for Review")
                   : form.scheduledFor

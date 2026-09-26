@@ -64,6 +64,7 @@ const db = {
   })),
   transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => {
     const tx = {
+        execute: vi.fn(async () => undefined),
       insert: vi.fn(() => ({
         values: vi.fn((v: Record<string, unknown>) => {
           captured.insertValues!.push(v);
@@ -78,7 +79,10 @@ const db = {
       select: vi.fn(() => makeSelectChain(selectQueue)),
       delete: vi.fn(() => ({ where: vi.fn(async () => undefined) })),
       update: vi.fn(() => ({
-        set: vi.fn(() => ({ where: vi.fn(async () => undefined) })),
+        set: vi.fn((v: Record<string, unknown>) => {
+          captured.updateValues!.push(v);
+          return { where: vi.fn(async () => undefined) };
+        }),
       })),
     };
     return cb(tx);
@@ -92,6 +96,7 @@ vi.mock("@workspace/db", () => ({
   categoriesTable: { id: {}, name: {}, slug: {} },
   topicsTable: { id: {} },
   postCategoriesTable: {},
+  postRevisionsTable: { id: {}, postId: {}, status: {}, createdAt: {} },
   automationRequestsTable: {},
   auditLogsTable: {},
   pageViewsTable: {},
@@ -163,6 +168,8 @@ vi.mock("../middlewares/adminAuth", () => ({
 }));
 
 const mcpRouter = (await import("./mcp")).default;
+const revisionsRouter = (await import("./postRevisions")).default;
+const { editorialFingerprint } = await import("./postRevisions");
 const imagePersistence = await import("../lib/persistExternalImage");
 const persistExternalImageMock = vi.mocked(imagePersistence.persistExternalImage);
 const persistImageBufferMock = vi.mocked(imagePersistence.persistImageBuffer);
@@ -176,6 +183,26 @@ function makeApp() {
   app.use(express.json());
   app.use(mcpRouter);
   return app;
+}
+
+async function reviewRequest(
+  action: string, user: Record<string, unknown>, body?: unknown,
+): Promise<{ status: number; body: any }> {
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => { req.user = user as any; next(); });
+  app.use(revisionsRouter);
+  const server = createServer(app);
+  await new Promise<void>((r) => server.listen(0, r));
+  const address = server.address();
+  try {
+    const response = await fetch(`http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}/admin/posts/42/revisions/15/${action}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body ?? {}),
+    });
+    return { status: response.status, body: await response.json() };
+  } finally { server.close(); }
 }
 
 import { createServer } from "node:http";
@@ -303,6 +330,7 @@ describe("POST /mcp — tools", () => {
     expect(names).toContain("get_mapletechie_topic_cluster");
     expect(names).toContain("create_mapletechie_draft");
     expect(names).toContain("get_mapletechie_post");
+    expect(names).toContain("propose_mapletechie_revision");
     expect(names).toContain("preview_mapletechie_post");
   });
 
@@ -335,6 +363,46 @@ describe("POST /mcp — tools", () => {
       created_at: "2026-01-01T00:00:00.000Z",
       updated_at: "2026-01-02T00:00:00.000Z",
     });
+  });
+
+  it("proposes a published revision without touching the live article", async () => {
+    const live = {
+      id: 42, status: "published", slug: "kept-url", title: "Old title",
+      excerpt: "Old summary", content: "<p>Old body</p>",
+      publishedAt: new Date("2024-01-01T00:00:00Z"),
+      updatedAt: new Date("2026-09-20T00:00:00Z"),
+      authorId: 5, contentModifiedAt: null,
+    };
+    selectQueue = [[live]];
+    insertReturn = [{ id: 15, status: "pending", postId: 42 }];
+    const res = await authed(callTool("propose_mapletechie_revision", {
+      post_id: 42, changes: { content: "<p>Revised body</p>" }, update_note: "Added new testing",
+    }));
+    expect(res.body.result.isError).toBeFalsy();
+    expect(JSON.parse(res.body.result.content[0].text).revision.status).toBe("pending");
+    expect(captured.insertValues).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        postId: 42, source: "connector", changes: { content: "<p>Revised body</p>" },
+      }),
+    ]));
+    expect(captured.updateValues).toHaveLength(0);
+    expect(auditCalls.some((c) => c.input.action === "automation.post.revision.proposed")).toBe(true);
+  });
+
+  it("refuses identity changes or SEO-only freshness claims through connector proposals", async () => {
+    const badIdentity = await authed(callTool("propose_mapletechie_revision", {
+      post_id: 42, changes: { content: "<p>New</p>", slug: "new-url" },
+    }));
+    expect(badIdentity.body.result.isError).toBe(true);
+    selectQueue = [[{
+      id: 42, status: "published", slug: "kept-url", title: "Old",
+      excerpt: "Old", content: "<p>Old</p>", publishedAt: new Date("2024-01-01T00:00:00Z"),
+    }]];
+    const seo = await authed(callTool("propose_mapletechie_revision", {
+      post_id: 42, changes: { seoTitle: "SEO only" },
+    }));
+    expect(seo.body.result.isError).toBe(true);
+    expect(captured.updateValues).toHaveLength(0);
   });
 
   it("returns a signed HTTPS preview URL with identity and viewport", async () => {
@@ -675,5 +743,54 @@ describe("POST /mcp — tools", () => {
     const payload = JSON.parse(res.body.result.content[0].text);
     expect(payload).toMatchObject({ id: 42, replayed: true });
     expect(captured.insertValues!.filter((v) => v.title).length).toBe(0);
+  });
+});
+
+describe("published revision approval boundary", () => {
+  const published = {
+    id: 42, status: "published", slug: "permanent-url", title: "Original",
+    excerpt: "Original excerpt", content: "<p>Original body</p>",
+    publishedAt: new Date("2024-01-01T00:00:00Z"),
+    contentModifiedAt: null, authorId: 3,
+  };
+  const admin = { id: 1, username: "admin", role: "admin" };
+
+  it("rejects approval by an editor without publishing permission", async () => {
+    selectQueue = [[published]];
+    const response = await reviewRequest("approve", {
+      id: 3, username: "editor", role: "editor", canPublishDirectly: false,
+    });
+    expect(response.status).toBe(403);
+    expect(captured.updateValues).toHaveLength(0);
+  });
+
+  it("requires re-review when the live editorial version changed", async () => {
+    selectQueue = [[{ ...published, content: "<p>Newer live edit</p>" }], [{
+      id: 15, postId: 42, status: "pending", baseHash: editorialFingerprint(published as any),
+      changes: { content: "<p>Proposed</p>" }, updateNote: null,
+    }]];
+    const response = await reviewRequest("approve", admin);
+    expect(response.status).toBe(409);
+    expect(captured.updateValues).toHaveLength(0);
+  });
+
+  it("applies an approved change without altering URL or original publication date", async () => {
+    selectQueue = [[published], [{
+      id: 15, postId: 42, status: "pending", baseHash: editorialFingerprint(published as any),
+      changes: { content: "<p>Reviewed and improved</p>" }, updateNote: "Updated examples",
+    }]];
+    const response = await reviewRequest("approve", admin);
+    expect(response.status).toBe(200);
+    const postUpdate = captured.updateValues!.find((v) => "contentModifiedAt" in v)!;
+    expect(postUpdate).toMatchObject({
+      content: "<p>Reviewed and improved</p>", updateNote: "Updated examples",
+      contentModifiedAt: expect.any(Date),
+    });
+    expect(postUpdate).not.toHaveProperty("publishedAt");
+    expect(postUpdate).not.toHaveProperty("slug");
+    expect(auditCalls).toHaveLength(0); // review audit is inserted in the same transaction
+    expect(captured.insertValues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ action: "post.revision.approved" }),
+    ]));
   });
 });

@@ -132,6 +132,17 @@ describe("GET /sitemap.xml — SITE_DOMAIN protocol normalisation", () => {
     expect(body).toContain("<loc>https://www.mapletechie.com/blog/test-post</loc>");
   });
 
+  it("uses an approved editorial update, never a routine write, as article lastmod", async () => {
+    let callCount = 0;
+    db.select.mockImplementation(() => makeChain(++callCount === 1 ? [
+      { slug: "ordinary-write", publishedAt: "2024-01-01T00:00:00Z", updatedAt: "2026-09-25T00:00:00Z", contentModifiedAt: null },
+      { slug: "approved-refresh", publishedAt: "2024-01-01T00:00:00Z", updatedAt: "2026-09-25T00:00:00Z", contentModifiedAt: "2026-09-10T00:00:00Z" },
+    ] : []));
+    const { body } = await get("/sitemap.xml");
+    expect(body).toMatch(/blog\/ordinary-write<\/loc>[\s\S]*?<lastmod>2024-01-01<\/lastmod>/);
+    expect(body).toMatch(/blog\/approved-refresh<\/loc>[\s\S]*?<lastmod>2026-09-10<\/lastmod>/);
+  });
+
   it("includes eligible public topic URLs and rejects malformed topic slugs", async () => {
     process.env.SITE_DOMAIN = "https://www.mapletechie.com";
     let callCount = 0;

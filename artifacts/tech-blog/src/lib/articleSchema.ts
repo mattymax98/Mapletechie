@@ -3,7 +3,7 @@
  *
  * Shared by the crawler prerender server (server.ts) and the SPA blog-post
  * page so the schema human visitors' browsers emit via Helmet is
- * byte-for-byte the same NewsArticle schema Google gets in the prerendered
+ * byte-for-byte the same Article schema Google gets in the prerendered
  * HTML. Both sides read the same `/api/posts/slug/:slug` record.
  */
 
@@ -21,7 +21,8 @@ export interface ArticleSchemaPost {
   categorySlug?: string | null;
   tags?: string[] | null;
   publishedAt?: string | null;
-  updatedAt?: string | null;
+  contentModifiedAt?: string | null;
+  authorUsername?: string | null;
   author?: string | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
@@ -34,7 +35,7 @@ function absUrl(siteUrl: string, maybeRelative: string | null | undefined, fallb
 }
 
 /**
- * Builds the schema.org NewsArticle object for a post. Field precedence
+ * Builds the schema.org Article object for a post. Field precedence
  * (seoTitle over title, ogImage over coverImage, seoDescription over
  * excerpt) mirrors the OG/meta tags so every surface tells Google the
  * same story.
@@ -52,13 +53,17 @@ export function buildArticleJsonLd(
 
   return {
     "@context": "https://schema.org",
-    "@type": "NewsArticle",
+    "@type": post.categorySlug === "news" || post.category?.toLowerCase() === "news"
+      ? "NewsArticle" : post.categorySlug === "reviews" ? "Article" : "BlogPosting",
     headline: title,
     description,
     image: [image],
     datePublished: post.publishedAt ?? undefined,
-    dateModified: post.updatedAt ?? post.publishedAt ?? undefined,
-    author: post.author ? { "@type": "Person", name: post.author } : undefined,
+    dateModified: post.contentModifiedAt ?? post.publishedAt ?? undefined,
+    author: post.author ? {
+      "@type": "Person", name: post.author,
+      ...(post.authorUsername ? { url: `${siteUrl}/author/${encodeURIComponent(post.authorUsername)}` } : {}),
+    } : undefined,
     publisher: {
       "@type": "Organization",
       name: "Mapletechie",

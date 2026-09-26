@@ -34,7 +34,9 @@ async function tick(): Promise<void> {
         .update(postsTable)
         .set({
           status: "published",
-          publishedAt: post.scheduledFor ?? now,
+          // A previously published article may have been temporarily
+          // unpublished and rescheduled; its original date is permanent.
+          publishedAt: post.publishedOnceAt ?? post.scheduledFor ?? now,
           scheduledFor: null,
         })
         .where(eq(postsTable.id, post.id));

@@ -276,6 +276,7 @@ export function canonicalMapletechiePost(post: Record<string, any>): Record<stri
     pros: post.pros ?? [], cons: post.cons ?? [], verdict: value(post.verdict),
     embed_report: post.embedReport ?? null,
     published_at: value(post.publishedAt), created_at: value(post.createdAt),
+    content_modified_at: value(post.contentModifiedAt), update_note: value(post.updateNote),
     updated_at: value(post.updatedAt),
   };
 }

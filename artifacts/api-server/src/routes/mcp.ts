@@ -21,6 +21,7 @@ import {
   DAILY_EDITORIAL_AUTOMATION_SCHEDULE,
 } from "../lib/editorialAutomationContract";
 import { parseArchiveSearchParams, searchArchivePosts } from "../lib/archiveSearch";
+import { proposePostRevision } from "./postRevisions";
 
 /**
  * MCP connector for ChatGPT — exposes the automation draft pipeline as a
@@ -323,6 +324,35 @@ function buildMcpServer(req: Request): McpServer {
       return post
         ? { content: [{ type: "text", text: JSON.stringify(post, null, 2) }] }
         : { content: [{ type: "text", text: JSON.stringify({ error: "Post not found" }) }], isError: true };
+    },
+  );
+
+  server.registerTool(
+    "propose_mapletechie_revision",
+    {
+      title: "Propose changes to a published article",
+      description: "Review-only: stage editorial changes for an existing published post. Never modifies the live post, URL, publication date or author. Use get_mapletechie_post first to inspect the complete current article. A human editor must explicitly approve the proposal in the admin editor.",
+      inputSchema: z.object({
+        post_id: z.number().int().positive(),
+        changes: z.object({
+          title: z.string().min(1).optional(),
+          excerpt: z.string().min(1).optional(),
+          content: z.string().min(1).optional(),
+          seoTitle: z.string().optional(),
+          seoDescription: z.string().optional(),
+        }).strict(),
+        update_note: z.string().max(1000).optional(),
+      }).strict(),
+    },
+    async (args) => {
+      const input = args as { post_id: number; changes: Record<string, unknown>; update_note?: string };
+      const result = await proposePostRevision(req, input.post_id, {
+        changes: input.changes, updateNote: input.update_note,
+      }, "connector");
+      return {
+        content: [{ type: "text", text: JSON.stringify(result.body, null, 2) }],
+        isError: result.status >= 400,
+      };
     },
   );
 

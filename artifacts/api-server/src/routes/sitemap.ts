@@ -33,7 +33,7 @@ router.get("/sitemap.xml", async (req, res): Promise<void> => {
 
   const [posts, categories, authors, allSeries, jobs, tagRows, topicClusters] = await Promise.all([
     db
-      .select({ slug: postsTable.slug, publishedAt: postsTable.publishedAt })
+      .select({ slug: postsTable.slug, publishedAt: postsTable.publishedAt, contentModifiedAt: postsTable.contentModifiedAt })
       .from(postsTable)
       .where(eq(postsTable.status, "published"))
       .orderBy(desc(postsTable.publishedAt)),
@@ -113,7 +113,9 @@ router.get("/sitemap.xml", async (req, res): Promise<void> => {
       loc: `${domain}/blog/${p.slug}`,
       priority: "0.8",
       changefreq: "monthly",
-      lastmod: p.publishedAt ? new Date(p.publishedAt).toISOString().split("T")[0] : undefined,
+       lastmod: p.contentModifiedAt || p.publishedAt
+         ? new Date(p.contentModifiedAt ?? p.publishedAt).toISOString().split("T")[0]
+         : undefined,
     }));
 
   const authorUrls: SitemapEntry[] = authors

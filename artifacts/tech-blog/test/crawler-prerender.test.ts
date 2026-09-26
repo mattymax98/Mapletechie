@@ -73,6 +73,7 @@ const ARTICLE = {
   updatedAt: "2026-01-16T12:00:00.000Z",
   author: "Matthew Mbaka",
   authorId: 7,
+  authorUsername: "matthew",
   topicCluster: {
     id: 9,
     name: "Artificial Intelligence",
@@ -872,7 +873,7 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(status).toBe(200);
       expect(body).toContain(`<h1>${ARTICLE.title}</h1>`);
       expect(body).toContain("Large language models are reshaping");
-      expect(body).toContain('"@type":"NewsArticle"');
+      expect(body).toContain('"@type":"BlogPosting"');
       expect(body).toContain(ARTICLE.author);
       expect(body).toContain(`${SITE_URL}/topics/${TOPIC.slug}`);
       expect(body).not.toContain('<div id="root"></div>');
@@ -885,12 +886,12 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
           /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g,
         ),
       ].map((m) => JSON.parse(m[1]));
-      const article = scripts.find((schema) => schema["@type"] === "NewsArticle");
+      const article = scripts.find((schema) => schema["@type"] === "BlogPosting");
       expect(article).toMatchObject({
         datePublished: ARTICLE.publishedAt,
         author: { "@type": "Person", name: ARTICLE.author },
       });
-      // The current source intentionally emits NewsArticle, not stale forum
+      // The current source intentionally emits Article markup, not stale forum
       // markup. Search Console's Discussion forum warning is from an older
       // crawl and will clear after it reprocesses this valid page response.
       expect(scripts.some((schema) => schema["@type"] === "DiscussionForumPosting")).toBe(false);
@@ -1748,7 +1749,7 @@ describe("maintenance gate — recovery after maintenance ends", () => {
     const article = await getFrom(server!.baseUrl, `/blog/${ARTICLE.slug}`, GOOGLEBOT_UA);
     expect(article.status, "article should be 200 after maintenance ends").toBe(200);
     expect(article.body).toContain(ARTICLE.title);
-    expect(article.body).toContain('"@type":"NewsArticle"');
+    expect(article.body).toContain('"@type":"BlogPosting"');
 
     const about = await getFrom(server!.baseUrl, "/about", GOOGLEBOT_UA);
     expect(about.status).toBe(200);

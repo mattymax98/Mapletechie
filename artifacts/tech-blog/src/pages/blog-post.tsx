@@ -491,7 +491,7 @@ export default function BlogPost() {
         url={`/blog/${post.slug}`}
         type="article"
         publishedTime={post.publishedAt ?? undefined}
-        modifiedTime={(post as any).updatedAt ?? post.publishedAt ?? undefined}
+        modifiedTime={(post as any).contentModifiedAt ?? post.publishedAt ?? undefined}
         author={post.author ?? undefined}
         keywords={
           (post as any).seoKeywords && (post as any).seoKeywords.length > 0
@@ -550,13 +550,22 @@ export default function BlogPost() {
           <div className="shrink-0">
             <AuthorBio
               authorId={(post as any).authorId ?? null}
+              authorUsername={(post as any).authorUsername ?? null}
               fallbackName={post.author}
               fallbackAvatar={post.authorAvatar}
             />
           </div>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground lg:ml-auto">
-            <span data-testid="text-publish-datetime">{formatDateTimeWithZone(post.publishedAt)}</span>
+            <div className="flex flex-col gap-1">
+              <span data-testid="text-publish-datetime">Published {formatDateTimeWithZone(post.publishedAt)}</span>
+              {(post as any).contentModifiedAt && (
+                <span data-testid="text-update-datetime">Updated {formatDateTimeWithZone((post as any).contentModifiedAt)}</span>
+              )}
+              {(post as any).contentModifiedAt && (post as any).updateNote && (
+                <span className="max-w-xs" data-testid="text-update-note">{(post as any).updateNote}</span>
+              )}
+            </div>
             <a
               href="#comments"
               onClick={(e) => {

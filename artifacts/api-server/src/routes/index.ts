@@ -30,6 +30,7 @@ import mcpRouter from "./mcp";
 import indexNowRouter from "./indexnow";
 import techStackRouter from "./techStack";
 import topicsRouter from "./topics";
+import postRevisionsRouter from "./postRevisions";
 
 const router: IRouter = Router();
 
@@ -64,5 +65,6 @@ router.use(mcpRouter);
 router.use(indexNowRouter);
 router.use(techStackRouter);
 router.use(topicsRouter);
+router.use(postRevisionsRouter);
 
 export default router;
