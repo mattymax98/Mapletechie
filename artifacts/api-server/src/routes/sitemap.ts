@@ -50,7 +50,8 @@ router.get("/sitemap.xml", async (req, res): Promise<void> => {
 
     db
       .select({ slug: seriesTable.slug })
-      .from(seriesTable),
+      .from(seriesTable)
+      .where(sql`EXISTS (SELECT 1 FROM ${postsTable} WHERE ${postsTable.seriesId} = ${seriesTable.id} AND ${postsTable.status} = 'published')`),
 
     db
       .select({ slug: jobsTable.slug })

@@ -44,6 +44,7 @@ import type {
   Job,
   JobInput,
   ListCommentsParams,
+  ListEditorSeries200Item,
   ListPostsParams,
   ListProductsParams,
   LoginBody,
@@ -2564,6 +2565,81 @@ export function useListAdminPosts<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListAdminPostsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all series and occupied part numbers for authenticated editors
+ */
+export const getListEditorSeriesUrl = () => {
+  return `/api/admin/series`;
+};
+
+export const listEditorSeries = async (
+  options?: RequestInit,
+): Promise<ListEditorSeries200Item[]> => {
+  return customFetch<ListEditorSeries200Item[]>(getListEditorSeriesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListEditorSeriesQueryKey = () => {
+  return [`/api/admin/series`] as const;
+};
+
+export const getListEditorSeriesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listEditorSeries>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listEditorSeries>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListEditorSeriesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listEditorSeries>>
+  > = ({ signal }) => listEditorSeries({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listEditorSeries>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListEditorSeriesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listEditorSeries>>
+>;
+export type ListEditorSeriesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all series and occupied part numbers for authenticated editors
+ */
+
+export function useListEditorSeries<
+  TData = Awaited<ReturnType<typeof listEditorSeries>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listEditorSeries>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListEditorSeriesQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

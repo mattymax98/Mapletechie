@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, postsTable, seriesTable } from "@workspace/db";
-import { and, asc, eq, getTableColumns } from "drizzle-orm";
+import { and, asc, eq, exists, getTableColumns } from "drizzle-orm";
 import { canonicalPostAuthor } from "../lib/postAuthor";
 import { adminAuth } from "../middlewares/adminAuth";
 import { writeAuditLog } from "../lib/audit";
@@ -16,10 +16,29 @@ function slugify(input: string): string {
     .slice(0, 80);
 }
 
-/** Public: list all series. */
+/** Public: list only series that currently have published posts. */
 router.get("/series", async (_req, res): Promise<void> => {
-  const all = await db.select().from(seriesTable).orderBy(asc(seriesTable.title));
+  const all = await db.select().from(seriesTable)
+    .where(exists(db.select({ id: postsTable.id }).from(postsTable)
+      .where(and(eq(postsTable.seriesId, seriesTable.id), eq(postsTable.status, "published")))))
+    .orderBy(asc(seriesTable.title));
   res.json(all);
+});
+
+/** Editors need to find their newly created (not yet public) series and available parts. */
+router.get("/admin/series", adminAuth, async (_req, res): Promise<void> => {
+  const all = await db.select().from(seriesTable).orderBy(asc(seriesTable.title));
+  const slots = await db.select({
+    postId: postsTable.id,
+    seriesId: postsTable.seriesId,
+    position: postsTable.seriesPosition,
+  }).from(postsTable);
+  res.json(all.map((series) => ({
+    ...series,
+    occupiedPositions: slots
+      .filter((slot) => slot.seriesId === series.id && slot.position != null)
+      .map((slot) => ({ postId: slot.postId, position: slot.position })),
+  })));
 });
 
 /** Public: a single series + its ordered, published posts. */
@@ -34,7 +53,11 @@ router.get("/series/:slug", async (req, res): Promise<void> => {
     .select({ ...getTableColumns(postsTable), author: canonicalPostAuthor })
     .from(postsTable)
     .where(and(eq(postsTable.seriesId, s.id), eq(postsTable.status, "published")))
-    .orderBy(asc(postsTable.seriesPosition), asc(postsTable.publishedAt));
+    .orderBy(asc(postsTable.seriesPosition), asc(postsTable.publishedAt), asc(postsTable.id));
+  if (posts.length === 0) {
+    res.status(404).json({ error: "Series not found" });
+    return;
+  }
   res.json({ series: s, posts });
 });
 

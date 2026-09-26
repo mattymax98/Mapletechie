@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { formatLocalDateTime } from "./localDateTime";
+import { formatLocalDateTime } from "../src/lib/localDateTime";
 
 const originalTz = process.env.TZ;
 afterEach(() => { process.env.TZ = originalTz; });

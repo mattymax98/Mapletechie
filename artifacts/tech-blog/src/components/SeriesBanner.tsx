@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { BookOpen, ChevronLeft, ChevronRight } from "lucide-react";
+import { seriesPartLabel } from "@/lib/seriesParts";
 
 interface SeriesRow {
   id: number;
@@ -51,7 +52,7 @@ export function SeriesBanner({ seriesId, currentPostId }: { seriesId: number; cu
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-6">
           <div>
             <p className="text-xs uppercase tracking-widest font-bold text-primary mb-2 flex items-center gap-2">
-              <BookOpen className="h-4 w-4" /> Part {currentIdx + 1} of {posts.length} ·{" "}
+              <BookOpen className="h-4 w-4" /> {seriesPartLabel(posts, currentIdx)} · {posts.length} published {posts.length === 1 ? "article" : "articles"} ·{" "}
               <Link href={`/series/${series.slug}`} className="hover:underline">
                 Series
               </Link>
@@ -82,8 +83,8 @@ export function SeriesBanner({ seriesId, currentPostId }: { seriesId: number; cu
                       : "border-transparent hover:border-primary hover:bg-primary/5"
                   }`}
                 >
-                  <span className="text-xs uppercase tracking-wider font-bold text-muted-foreground w-12 shrink-0">
-                    Part {i + 1}
+                  <span className="text-xs uppercase tracking-wider font-bold text-muted-foreground w-28 shrink-0">
+                    {seriesPartLabel(posts, i)}
                   </span>
                   <span className="flex-1 truncate">{p.title}</span>
                 </Link>

@@ -1067,6 +1067,22 @@ export const ListAdminPostsResponseItem = zod.object({
 export const ListAdminPostsResponse = zod.array(ListAdminPostsResponseItem);
 
 /**
+ * @summary List all series and occupied part numbers for authenticated editors
+ */
+export const ListEditorSeriesResponseItem = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  title: zod.string(),
+  occupiedPositions: zod.array(
+    zod.object({
+      postId: zod.number(),
+      position: zod.number(),
+    }),
+  ),
+});
+export const ListEditorSeriesResponse = zod.array(ListEditorSeriesResponseItem);
+
+/**
  * @summary Restore a deleted post from its latest audit-log snapshot (admin only)
  */
 export const RestorePostParams = zod.object({

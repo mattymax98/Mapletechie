@@ -35,6 +35,8 @@ export * from "./inboxCounts";
 export * from "./job";
 export * from "./jobInput";
 export * from "./listCommentsParams";
+export * from "./listEditorSeries200Item";
+export * from "./listEditorSeries200ItemOccupiedPositionsItem";
 export * from "./listPostsParams";
 export * from "./listProductsParams";
 export * from "./loginBody";

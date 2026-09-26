@@ -723,6 +723,18 @@ export type AdminLogout200 = {
   success?: boolean;
 };
 
+export type ListEditorSeries200ItemOccupiedPositionsItem = {
+  postId: number;
+  position: number;
+};
+
+export type ListEditorSeries200Item = {
+  id: number;
+  slug: string;
+  title: string;
+  occupiedPositions: ListEditorSeries200ItemOccupiedPositionsItem[];
+};
+
 export type BulkReassignPosts200 = {
   movedCount: number;
 };

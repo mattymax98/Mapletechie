@@ -583,6 +583,39 @@ paths:
                 items:
                   $ref: "#/components/schemas/Post"
 
+  /admin/series:
+    get:
+      operationId: listEditorSeries
+      tags: [admin]
+      summary: List all series and occupied part numbers for authenticated editors
+      responses:
+        "200":
+          description: Series available to the editor, including unpublished series
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, slug, title, occupiedPositions]
+                  properties:
+                    id:
+                      type: integer
+                    slug:
+                      type: string
+                    title:
+                      type: string
+                    occupiedPositions:
+                      type: array
+                      items:
+                        type: object
+                        required: [postId, position]
+                        properties:
+                          postId:
+                            type: integer
+                          position:
+                            type: integer
+
   /admin/posts/{id}/restore:
     post:
       operationId: restorePost

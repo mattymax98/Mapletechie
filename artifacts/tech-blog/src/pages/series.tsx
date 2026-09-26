@@ -12,6 +12,7 @@ import {
 } from "@/lib/articleSchema";
 import { PostCategoryChips } from "@/components/CategoryChip";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { seriesPartLabel } from "@/lib/seriesParts";
 
 interface SeriesRow {
   id: number;
@@ -147,10 +148,14 @@ export default function SeriesPage() {
                 href={`/blog/${p.slug}`}
                 className="group flex gap-6 border border-border hover:border-primary p-5 transition-colors"
               >
-                <div className="shrink-0 w-14 h-14 flex items-center justify-center bg-primary text-primary-foreground font-black text-xl">
+                <div className="shrink-0 w-14 h-14 flex items-center justify-center bg-primary text-primary-foreground font-black text-xl"
+                  aria-label={seriesPartLabel(posts, i)}>
                   {p.seriesPosition ?? i + 1}
                 </div>
                 <div className="flex-1">
+                  {posts.some((part, index) => index !== i && part.seriesPosition === p.seriesPosition) && (
+                    <span className="text-xs text-muted-foreground">{seriesPartLabel(posts, i)} in reading order</span>
+                  )}
                   {p.category && (
                     <PostCategoryChips post={p} variant="dot" className="text-xs mb-1" />
                   )}

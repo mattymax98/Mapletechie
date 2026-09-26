@@ -40,7 +40,13 @@ function reviewRatingError(rating: unknown): string | null {
 }
 
 function scheduledDate(value: unknown): Date | null {
-  if (typeof value !== "string" || !/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d{1,3})?)?(?:Z|[+-]\d\d:\d\d)$/.test(value)) return null;
+  if (typeof value !== "string") return null;
+  const parts = /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d)(?::(\d\d)(?:\.\d{1,3})?)?(?:Z|[+-]\d\d:\d\d)$/.exec(value);
+  if (!parts) return null;
+  const [, year, month, day, hour, minute, second] = parts;
+  if (+month < 1 || +month > 12 || +day < 1 ||
+      +day > new Date(Date.UTC(+year, +month, 0)).getUTCDate() ||
+      +hour > 23 || +minute > 59 || +(second ?? 0) > 59) return null;
   const when = new Date(value);
   return Number.isFinite(when.getTime()) && when.getTime() > Date.now() ? when : null;
 }
@@ -713,6 +719,22 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
   const persistCtx = { uploaderId: user?.id ?? null, uploaderName: user?.displayName ?? null };
 
   const body = req.body ?? {};
+  if ("rating" in body) {
+    const ratingError = reviewRatingError(body.rating);
+    if (ratingError) { res.status(400).json({ error: ratingError }); return; }
+  }
+  if ("seriesId" in body || "seriesPosition" in body) {
+    const nextSeriesId = "seriesId" in body ? body.seriesId : existing.seriesId;
+    const nextPosition = "seriesPosition" in body ? body.seriesPosition : existing.seriesPosition;
+    const seriesError = await seriesSelectionError(nextSeriesId, nextPosition, id);
+    if (seriesError) { res.status(seriesError.status).json({ error: seriesError.error }); return; }
+  }
+  if ((user?.role === "admin" || user?.canPublishDirectly) &&
+      (body.status === "scheduled" || (existing.status === "scheduled" && !("status" in body) && "scheduledFor" in body)) &&
+      !scheduledDate(body.scheduledFor)) {
+    res.status(400).json({ error: "Scheduled time must be a valid future date and time." });
+    return;
+  }
   const allowed = [
     "title",
     "slug",
@@ -752,10 +774,7 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     } else if (k === "seoTitle" || k === "seoDescription" || k === "verdict" || k === "coverImageAlt") {
       update[k] = cleanText(body[k]);
     } else if (k === "rating") {
-      update[k] =
-        typeof body[k] === "number" && !Number.isNaN(body[k])
-          ? Math.max(0, Math.min(5, body[k]))
-          : null;
+      update[k] = body[k];
     } else if (k === "pros" || k === "cons") {
       update[k] = Array.isArray(body[k])
         ? body[k].map((v: unknown) => cleanText(v)).filter((v: unknown): v is string => !!v)
@@ -789,18 +808,11 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
   }
 
   if (update.status === "scheduled") {
-    const raw = update.scheduledFor;
-    const when = raw ? new Date(raw as string | Date) : null;
-    if (!when || Number.isNaN(when.getTime()) || when.getTime() <= Date.now()) {
-      update.status = "published";
-      update.scheduledFor = null;
-    } else {
-      update.scheduledFor = when;
-    }
+    update.scheduledFor = scheduledDate(update.scheduledFor);
   } else if ("status" in update && update.status !== "scheduled") {
     update.scheduledFor = null;
-  } else if ("scheduledFor" in update && update.scheduledFor) {
-    update.scheduledFor = new Date(update.scheduledFor as string | Date);
+  } else if ("scheduledFor" in update && update.scheduledFor && existing.status === "scheduled") {
+    update.scheduledFor = scheduledDate(update.scheduledFor);
   }
 
   if (user?.role === "admin") {

@@ -63,6 +63,7 @@ const db = {
 vi.mock("@workspace/db", () => ({
   db,
   postsTable: {},
+  seriesTable: {},
   usersTable: {},
   pageViewsTable: {},
   commentsTable: {},
@@ -170,6 +171,123 @@ beforeEach(() => {
   insertReturn = [];
   captured.insertValues = undefined;
   captured.updateSet = undefined;
+});
+
+describe("optional post fields — validation before writes", () => {
+  const create = (extra: Record<string, unknown>) => request(makeApp(), "POST", "/posts", {
+    title: "Post", slug: "post", content: "<p>Body</p>", category: "ai", ...extra,
+  });
+  const existing = {
+    id: 42, authorId: 1, categoryId: 7, status: "scheduled",
+    scheduledFor: new Date("2027-06-01T14:00:00.000Z"),
+    publishedAt: new Date("2026-01-01T12:00:00.000Z"),
+  };
+
+  it.each(["", "not-a-date", "2020-01-01T10:00:00.000Z", "2027-02-30T10:00:00.000Z"])(
+    "rejects a missing, invalid or past scheduled time on create (%s)",
+    async (value) => {
+      selectQueue = [[CATEGORY_ROW]];
+      const { status, json } = await create({ status: "scheduled", scheduledFor: value });
+      expect(status).toBe(400);
+      expect(json.error).toMatch(/scheduled time/i);
+      expect(db.insert).not.toHaveBeenCalled();
+    },
+  );
+
+  it("preserves a valid future scheduled time rather than publishing immediately", async () => {
+    const future = new Date(Date.now() + 86_400_000).toISOString();
+    selectQueue = [[CATEGORY_ROW], [{ count: 1 }], [{ id: 99, title: "Post", status: "scheduled" }]];
+    insertReturn = [{ id: 99, title: "Post", status: "scheduled" }];
+    const { status } = await create({ status: "scheduled", scheduledFor: future });
+    expect(status).toBe(201);
+    expect(captured.insertValues?.status).toBe("scheduled");
+    expect(captured.insertValues?.scheduledFor).toEqual(new Date(future));
+  });
+
+  it("does not allow an untrusted editor to schedule a post", async () => {
+    currentUser = { id: 2, role: "editor", displayName: "Ed", canPublishDirectly: false };
+    selectQueue = [[CATEGORY_ROW], [{ count: 1 }], [{ id: 99, status: "draft" }]];
+    insertReturn = [{ id: 99, status: "draft" }];
+    const { status } = await create({ status: "scheduled", scheduledFor: "not-a-date" });
+    expect(status).toBe(201);
+    expect(captured.insertValues?.status).toBe("draft");
+  });
+
+  it("rejects a past reschedule without changing the status or publication date", async () => {
+    selectQueue = [[existing]];
+    const { status, json } = await request(makeApp(), "PUT", "/posts/42", {
+      status: "scheduled", scheduledFor: "2020-01-01T10:00:00.000Z",
+    });
+    expect(status).toBe(400);
+    expect(json.error).toMatch(/scheduled time/i);
+    expect(captured.updateSet).toBeUndefined();
+  });
+
+  it("reschedules an existing post without changing its publication date", async () => {
+    const future = new Date(Date.now() + 86_400_000).toISOString();
+    const updated = { ...existing, scheduledFor: new Date(future) };
+    selectQueue = [[existing], [], [updated], [], [updated]];
+    const { status } = await request(makeApp(), "PUT", "/posts/42", {
+      status: "scheduled", scheduledFor: future,
+    });
+    expect(status).toBe(200);
+    expect(captured.updateSet?.status).toBe("scheduled");
+    expect(captured.updateSet?.scheduledFor).toEqual(new Date(future));
+    expect(captured.updateSet).not.toHaveProperty("publishedAt");
+  });
+
+  it.each([-1, 5.1, 3.15, "4.5"])(
+    "rejects out-of-range or malformed rating %s",
+    async (rating) => {
+      selectQueue = [[CATEGORY_ROW]];
+      const { status, json } = await create({ rating });
+      expect(status).toBe(400);
+      expect(json.error).toMatch(/rating/i);
+      expect(db.insert).not.toHaveBeenCalled();
+    },
+  );
+
+  it("accepts an optional blank rating and a valid one-decimal score", async () => {
+    selectQueue = [[CATEGORY_ROW], [{ count: 1 }], [{ id: 99, title: "Post", status: "draft" }]];
+    insertReturn = [{ id: 99, title: "Post", status: "draft" }];
+    const { status } = await create({ rating: 4.5, status: "draft" });
+    expect(status).toBe(201);
+    expect(captured.insertValues?.rating).toBe(4.5);
+  });
+
+  it("rejects an invalid rating on update without writing", async () => {
+    selectQueue = [[existing]];
+    const { status } = await request(makeApp(), "PUT", "/posts/42", { rating: 7 });
+    expect(status).toBe(400);
+    expect(captured.updateSet).toBeUndefined();
+  });
+
+  it("rejects a reserved series part on create, including unpublished posts", async () => {
+    selectQueue = [[CATEGORY_ROW], [{ id: 5 }], [{ id: 88 }]];
+    const { status, json } = await create({ seriesId: 5, seriesPosition: 2, status: "draft" });
+    expect(status).toBe(409);
+    expect(json.error).toMatch(/part 2/i);
+    expect(db.insert).not.toHaveBeenCalled();
+  });
+
+  it("allows editing a post in its own part, but blocks someone else's part", async () => {
+    selectQueue = [[existing], [{ id: 5 }], [{ id: 42 }, { id: 88 }]];
+    const blocked = await request(makeApp(), "PUT", "/posts/42", { seriesId: 5, seriesPosition: 2 });
+    expect(blocked.status).toBe(409);
+    expect(captured.updateSet).toBeUndefined();
+    selectQueue = [[existing], [{ id: 5 }], [{ id: 42 }], [], [existing], [], [existing]];
+    const allowed = await request(makeApp(), "PUT", "/posts/42", { seriesId: 5, seriesPosition: 2 });
+    expect(allowed.status).toBe(200);
+  });
+
+  it("rejects non-positive, fractional or incomplete series part assignments", async () => {
+    for (const fields of [{ seriesId: 5, seriesPosition: 0 }, { seriesId: 5, seriesPosition: 1.5 }, { seriesId: 5 }]) {
+      selectQueue = [[CATEGORY_ROW]];
+      const { status } = await create(fields);
+      expect(status).toBe(400);
+    }
+    expect(db.insert).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /posts — external image persistence", () => {

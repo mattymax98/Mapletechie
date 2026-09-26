@@ -162,7 +162,10 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   };
   const [form, setForm] = useState(initialFormState);
 
-  const [seriesList, setSeriesList] = useState<Array<{ id: number; slug: string; title: string; occupiedPositions: number[] }>>([]);
+  const [seriesList, setSeriesList] = useState<Array<{
+    id: number; slug: string; title: string;
+    occupiedPositions: Array<{ postId: number; position: number }>;
+  }>>([]);
   useEffect(() => {
     if (!token) return;
     fetch("/api/admin/series", { headers: { Authorization: `Bearer ${token}` } })
@@ -552,6 +555,18 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
       return fail("The cover image URL didn't load. Fix or remove it before saving.", "field-cover");
     if (ogImageStatus === "broken")
       return fail("The social share image URL didn't load. Fix or remove it before saving.", "field-og");
+    const score = form.rating.trim();
+    if (score && (!/^(?:[0-4](?:\.\d)?|5(?:\.0)?)$/.test(score))) {
+      return fail("Rating must be from 0 to 5 with at most one decimal place.", "field-rating");
+    }
+    if (form.seriesId > 0) {
+      if (!Number.isSafeInteger(form.seriesPosition) || form.seriesPosition < 1)
+        return fail("Part number must be a positive whole number.", "field-series");
+      const occupied = seriesList.find((series) => series.id === form.seriesId)?.occupiedPositions ?? [];
+      if (occupied.some((slot) => slot.position === form.seriesPosition && slot.postId !== postId)) {
+        return fail(`Part ${form.seriesPosition} is already in this series. Choose another number.`, "field-series");
+      }
+    }
 
     const status = statusOverride ?? form.status;
 
@@ -560,9 +575,10 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
         return setError("Pick a date and time to schedule this post.");
       }
       const when = new Date(form.scheduledFor);
-      if (isNaN(when.getTime())) return setError("Scheduled date is invalid.");
+      if (isNaN(when.getTime()) || formatLocalDateTime(when) !== form.scheduledFor)
+        return fail("Scheduled date is invalid in your local time zone.", "input-scheduled-for");
       if (when.getTime() <= Date.now() + 30_000) {
-        return setError("Scheduled time must be in the future.");
+        return fail("Scheduled time must be in the future.", "input-scheduled-for");
       }
     }
 
@@ -1060,7 +1076,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
               />
             </div>
 
-            <div className="md:col-span-2 p-4 bg-zinc-900 rounded-lg border border-zinc-800 space-y-3">
+            <div id="field-series" className="md:col-span-2 p-4 bg-zinc-900 rounded-lg border border-zinc-800 space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium text-white">Series (optional)</p>
@@ -1110,6 +1126,12 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                   />
                 </div>
               </div>
+              {form.seriesId > 0 && seriesList.find((series) => series.id === form.seriesId)?.occupiedPositions
+                .some((slot) => slot.position === form.seriesPosition && slot.postId !== postId) && (
+                <p className="text-xs text-amber-400" role="alert">
+                  Part {form.seriesPosition} is already taken. Choose a different number before saving.
+                </p>
+              )}
             </div>
 
             <div className="md:col-span-2 border border-zinc-800 rounded-lg p-4 bg-zinc-950 space-y-4">
@@ -1120,7 +1142,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                 </p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
+                <div id="field-rating">
                   <Label className="text-xs text-zinc-400">Rating (0–5)</Label>
                   <Input
                     type="number"
