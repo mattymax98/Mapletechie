@@ -39,6 +39,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { ImageUploadField, type ImagePreviewStatus } from "@/components/ImageUploadField";
 import { countImagesMissingAltText } from "@/lib/ensureImgAlt";
+import { formatLocalDateTime } from "@/lib/localDateTime";
 
 interface AdminPostFormProps {
   postId?: number;
@@ -161,13 +162,14 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   };
   const [form, setForm] = useState(initialFormState);
 
-  const [seriesList, setSeriesList] = useState<Array<{ id: number; slug: string; title: string }>>([]);
+  const [seriesList, setSeriesList] = useState<Array<{ id: number; slug: string; title: string; occupiedPositions: number[] }>>([]);
   useEffect(() => {
-    fetch("/api/series")
-      .then((r) => (r.ok ? r.json() : []))
+    if (!token) return;
+    fetch("/api/admin/series", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => { if (!r.ok) throw new Error("Could not load series"); return r.json(); })
       .then((list) => setSeriesList(Array.isArray(list) ? list : []))
       .catch(() => setSeriesList([]));
-  }, []);
+  }, [token]);
 
   const createNewSeries = async () => {
     const title = window.prompt("New series title:");
@@ -187,7 +189,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
         return;
       }
       const created = (await r.json()) as { id: number; slug: string; title: string };
-      setSeriesList((prev) => [...prev, created].sort((a, b) => a.title.localeCompare(b.title)));
+      setSeriesList((prev) => [...prev, { ...created, occupiedPositions: [] }].sort((a, b) => a.title.localeCompare(b.title)));
       setForm((f) => ({ ...f, seriesId: created.id }));
     } catch (e: any) {
       alert(`Failed to create series: ${e?.message ?? e}`);
@@ -245,9 +247,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
         readTime: ep.readTime ?? 5,
         isFeatured: ep.isFeatured ?? false,
         status: ep.status ?? "published",
-        scheduledFor: ep.scheduledFor
-          ? new Date(ep.scheduledFor).toISOString().slice(0, 16)
-          : "",
+        scheduledFor: ep.scheduledFor ? formatLocalDateTime(ep.scheduledFor) : "",
         seoTitle: ep.seoTitle ?? "",
         seoDescription: ep.seoDescription ?? "",
         seoKeywords: Array.isArray(ep.seoKeywords) ? ep.seoKeywords.join(", ") : "",

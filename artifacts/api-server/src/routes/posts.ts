@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { createHash } from "node:crypto";
-import { db, postsTable, usersTable, pageViewsTable, commentsTable, categoriesTable, auditLogsTable } from "@workspace/db";
+import { db, postsTable, seriesTable, usersTable, pageViewsTable, commentsTable, categoriesTable, auditLogsTable } from "@workspace/db";
 import { eq, desc, and, gte, sql, inArray, or, getTableColumns } from "drizzle-orm";
 import {
   ListPostsQueryParams,
@@ -29,6 +29,37 @@ import { canonicalPostAuthor } from "../lib/postAuthor";
 export { resolveCategory };
 
 const router = Router();
+
+function reviewRatingError(rating: unknown): string | null {
+  if (rating == null) return null;
+  if (typeof rating !== "number" || !Number.isFinite(rating) ||
+      rating < 0 || rating > 5 || Math.abs(rating * 10 - Math.round(rating * 10)) > 1e-8) {
+    return "Rating must be a number from 0 to 5 with at most one decimal place.";
+  }
+  return null;
+}
+
+function scheduledDate(value: unknown): Date | null {
+  if (typeof value !== "string" || !/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d{1,3})?)?(?:Z|[+-]\d\d:\d\d)$/.test(value)) return null;
+  const when = new Date(value);
+  return Number.isFinite(when.getTime()) && when.getTime() > Date.now() ? when : null;
+}
+
+async function seriesSelectionError(seriesId: unknown, position: unknown, excludePostId?: number): Promise<{ status: number; error: string } | null> {
+  if (seriesId == null && position == null) return null;
+  if (!Number.isSafeInteger(seriesId) || (seriesId as number) <= 0 ||
+      !Number.isSafeInteger(position) || (position as number) <= 0) {
+    return { status: 400, error: "Choose a series and a positive whole-number part number." };
+  }
+  const [series] = await db.select({ id: seriesTable.id }).from(seriesTable).where(eq(seriesTable.id, seriesId as number)).limit(1);
+  if (!series) return { status: 400, error: "Selected series no longer exists." };
+  const occupied = await db.select({ id: postsTable.id }).from(postsTable)
+    .where(and(eq(postsTable.seriesId, seriesId as number), eq(postsTable.seriesPosition, position as number)));
+  if (occupied.some((post) => post.id !== excludePostId)) {
+    return { status: 409, error: `Part ${position} is already used in this series. Choose a different part number.` };
+  }
+  return null;
+}
 
 /**
  * Non-fatal warnings for a just-saved post whose images could not be pulled
@@ -421,6 +452,15 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
   }
   const resolvedCategory = resolvedCats.primary;
 
+  const ratingError = reviewRatingError(body.rating);
+  if (ratingError) { res.status(400).json({ error: ratingError }); return; }
+  const seriesError = await seriesSelectionError(body.seriesId, body.seriesPosition);
+  if (seriesError) { res.status(seriesError.status).json({ error: seriesError.error }); return; }
+  if ((user?.role === "admin" || user?.canPublishDirectly) && body.status === "scheduled" && !scheduledDate(body.scheduledFor)) {
+    res.status(400).json({ error: "Scheduled time must be a valid future date and time." });
+    return;
+  }
+
   const coverError = validateCoverImage(body.coverImage);
   if (coverError) {
     res.status(400).json({ error: coverError });
@@ -447,13 +487,12 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
   if (user?.role === "admin" || user?.canPublishDirectly) {
     if (body.status === "draft") {
       status = "draft";
-    } else if (body.status === "scheduled" && body.scheduledFor) {
-      const when = new Date(body.scheduledFor);
-      if (!Number.isNaN(when.getTime()) && when.getTime() > Date.now()) {
-        status = "scheduled";
-        scheduledFor = when;
-      } else {
-        status = "published";
+    } else if (body.status === "scheduled") {
+      status = "scheduled";
+      scheduledFor = scheduledDate(body.scheduledFor);
+      if (!scheduledFor) {
+        res.status(400).json({ error: "Scheduled time must be a valid future date and time." });
+        return;
       }
     } else {
       status = "published";
@@ -495,10 +534,7 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     seriesId: typeof body.seriesId === "number" ? body.seriesId : null,
     seriesPosition:
       typeof body.seriesPosition === "number" ? body.seriesPosition : null,
-    rating:
-      typeof body.rating === "number" && !Number.isNaN(body.rating)
-        ? Math.max(0, Math.min(5, body.rating))
-        : null,
+    rating: body.rating ?? null,
     pros: Array.isArray(body.pros)
       ? (body.pros as unknown[]).map((p) => cleanText(p)).filter((p): p is string => !!p)
       : [],
