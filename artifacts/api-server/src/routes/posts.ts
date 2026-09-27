@@ -63,6 +63,29 @@ function scheduledDate(value: unknown): Date | null {
   return Number.isFinite(when.getTime()) && when.getTime() > Date.now() ? when : null;
 }
 
+async function hasPublishedAuditHistory(postId: number): Promise<boolean> {
+  const logs = await db
+    .select({ details: auditLogsTable.details })
+    .from(auditLogsTable)
+    .where(
+      and(
+        eq(auditLogsTable.entityType, "post"),
+        eq(auditLogsTable.entityId, String(postId)),
+        inArray(auditLogsTable.action, ["post.create", "post.update", "post.delete", "post.restore"]),
+      ),
+    );
+  return logs.some(({ details }) => {
+    if (!details || typeof details !== "object") return false;
+    const record = details as Record<string, unknown>;
+    return ["snapshot", "before", "after"].some((key) => {
+      const snapshot = record[key];
+      if (!snapshot || typeof snapshot !== "object") return false;
+      const row = snapshot as Record<string, unknown>;
+      return row.status === "published" || !!row.publishedOnceAt;
+    });
+  });
+}
+
 async function seriesSelectionError(seriesId: unknown, position: unknown, excludePostId?: number): Promise<{ status: number; error: string } | null> {
   if (seriesId == null && position == null) return null;
   if (!Number.isSafeInteger(seriesId) || (seriesId as number) <= 0 ||
@@ -604,6 +627,7 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
   }
 
   const normalizedContent = normalizeSocialEmbeds(body.content);
+  const initialPublishedAt = body.publishedAt ? new Date(body.publishedAt) : new Date();
   const values = {
     title: String(body.title).trim(),
     slug: String(body.slug).trim(),
@@ -644,7 +668,8 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
           .filter((k): k is string => !!k)
       : [],
     ogImage: body.ogImage ?? null,
-    publishedAt: body.publishedAt ? new Date(body.publishedAt) : new Date(),
+    publishedAt: initialPublishedAt,
+    publishedOnceAt: status === "published" ? initialPublishedAt : null,
   };
 
   const inserted = await db.transaction(async (tx) => {
@@ -779,6 +804,67 @@ router.get("/posts/slug/:slug", async (req, res): Promise<void> => {
   res.json(withContext);
 });
 
+router.put("/admin/posts/:id/author", adminAuth, async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const user = req.user;
+  if (user?.role !== "admin") {
+    res.status(403).json({ error: "Only admins can reassign post authors." });
+    return;
+  }
+  if (!Number.isSafeInteger(id) || id < 1) {
+    res.status(400).json({ error: "Invalid post id" });
+    return;
+  }
+  const authorId = req.body?.authorId;
+  if (typeof authorId !== "number" || !Number.isSafeInteger(authorId) || authorId < 1) {
+    res.status(400).json({ error: "A valid active authorId is required." });
+    return;
+  }
+
+  const outcome = await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT id FROM posts WHERE id = ${id} FOR UPDATE`);
+    const [existing] = await tx.select().from(postsTable).where(eq(postsTable.id, id));
+    if (!existing) {
+      return { status: 404, error: "Post not found" };
+    }
+    const [target] = await tx.select().from(usersTable).where(eq(usersTable.id, authorId));
+    if (!target || !target.isActive) {
+      return { status: 400, error: "The selected author does not exist or is inactive." };
+    }
+
+    const author = {
+      authorId: target.id,
+      author: target.displayName,
+      authorAvatar: target.avatarUrl ?? null,
+    };
+    if (existing.authorId !== target.id) {
+      const beforeAuthor = {
+        authorId: existing.authorId ?? null,
+        author: existing.author ?? null,
+        authorAvatar: existing.authorAvatar ?? null,
+      };
+      await tx.update(postsTable).set(author).where(eq(postsTable.id, id));
+      await tx.insert(auditLogsTable).values({
+        userId: user.id,
+        username: user.username ?? null,
+        action: "post.author.reassign",
+        entityType: "post",
+        entityId: String(id),
+        summary: `Reassigned author for post "${existing.title}"`,
+        details: { before: beforeAuthor, after: author },
+        ip: req.ip ?? req.socket?.remoteAddress ?? null,
+        userAgent: (req.headers["user-agent"] as string | undefined) ?? null,
+      });
+    }
+    return { status: 200, post: { ...existing, ...author } };
+  });
+  if ("error" in outcome) {
+    res.status(outcome.status).json({ error: outcome.error });
+    return;
+  }
+  res.json(outcome.post);
+});
+
 router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (Number.isNaN(id)) {
@@ -791,7 +877,19 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     res.status(404).json({ error: "Post not found" });
     return;
   }
-
+  const body = { ...(req.body ?? {}) };
+  const submittedBody = { ...body };
+  const protectedFields = [
+    "title",
+    "excerpt",
+    "content",
+    "coverImage",
+    "coverImageAlt",
+    "ogImage",
+    "seoTitle",
+    "seoDescription",
+  ] as const;
+  const authorFields = ["authorId", "author", "authorAvatar"] as const;
   const user = req.user;
   if (
     user &&
@@ -808,9 +906,51 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     res.status(403).json({ error: "Published and scheduled articles require an approved revision. Propose your changes for review instead." });
     return;
   }
+  // Backstop legacy rows from before publishedOnceAt was populated: the audit
+  // snapshots can distinguish an old published article from a normal draft.
+  const legacyPublishedHistory =
+    existing.status === "draft" &&
+    !existing.publishedOnceAt &&
+    !!existing.createdAt &&
+    (await hasPublishedAuditHistory(id));
+  const editorialHistoryLocked =
+    existing.status === "published" ||
+    existing.status === "scheduled" ||
+    !!existing.publishedOnceAt ||
+    legacyPublishedHistory;
+  if (editorialHistoryLocked) {
+    const changedFields = protectedFields.filter(
+      (field) =>
+        field in body &&
+        (body[field] ?? null) !== ((existing as unknown as Record<string, unknown>)[field] ?? null),
+    );
+    if (changedFields.length > 0) {
+      res.status(422).json({
+        error:
+          "Editorial fields on a post that has been published must be changed through an approved revision. Direct edits are blocked, even while the post is unpublished.",
+        fields: changedFields,
+      });
+      return;
+    }
+    const changedAuthor = authorFields.some(
+      (field) =>
+        field in body &&
+        (body[field] ?? null) !== ((existing as unknown as Record<string, unknown>)[field] ?? null),
+    );
+    if (changedAuthor) {
+      res.status(422).json({
+        error: "Use the admin author-reassignment action to change a published post's byline.",
+      });
+      return;
+    }
+    // A stale editor may submit fields that matched when the request began,
+    // while a revision is approved concurrently. Do not write those fields
+    // back from the ordinary editor, even when their submitted values matched
+    // the initial read.
+    for (const field of [...protectedFields, ...authorFields]) delete body[field];
+  }
   const persistCtx = { uploaderId: user?.id ?? null, uploaderName: user?.displayName ?? null };
 
-  const body = req.body ?? {};
   if ((existing.status === "published" || existing.publishedOnceAt) &&
       (("slug" in body && body.slug !== existing.slug) ||
        ("publishedAt" in body && new Date(body.publishedAt).getTime() !== existing.publishedAt.getTime()))) {
@@ -877,9 +1017,10 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
   for (const k of allowed) {
     if (!(k in body)) continue;
     if (k === "content") {
-      // Sanitize first, then re-host external body images (best-effort).
+      // Normalize now, but defer storage writes until the row is locked and
+      // the submitted editorial values have been revalidated.
       const normalized = normalizeSocialEmbeds(body[k]);
-      update[k] = await persistExternalImagesInHtml(normalized.html, persistCtx);
+      update[k] = normalized.html;
       update.embedReport = normalized.report;
     } else if (k === "seoTitle" || k === "seoDescription" || k === "verdict" || k === "coverImageAlt") {
       update[k] = cleanText(body[k]);
@@ -902,9 +1043,7 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
         res.status(400).json({ error: imgError });
         return;
       }
-      update[k] = isExternalImageUrl(body[k])
-        ? await persistExternalImage(body[k], persistCtx)
-        : body[k];
+      update[k] = body[k];
     } else {
       update[k] = body[k];
     }
@@ -947,6 +1086,26 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     !("publishedAt" in body)
   ) {
     update.publishedAt = existing.publishedOnceAt ?? new Date();
+  }
+  // Keep a durable marker once an article has ever been public. In particular,
+  // an admin unpublishing a post must not make its editorial fields directly
+  // editable by a follow-up generic PUT.
+  if (
+    existing.status === "published" &&
+    update.status !== undefined &&
+    update.status !== "published" &&
+    !existing.publishedOnceAt
+  ) {
+    update.publishedOnceAt = existing.publishedAt ?? new Date();
+  } else if (
+    update.status === "published" &&
+    existing.status !== "published" &&
+    !existing.publishedOnceAt
+  ) {
+    update.publishedOnceAt = update.publishedAt ?? existing.publishedAt ?? new Date();
+  }
+  if (legacyPublishedHistory && !existing.publishedOnceAt) {
+    update.publishedOnceAt = existing.publishedAt ?? new Date();
   }
 
   // Category changes. Three shapes are accepted:
@@ -995,11 +1154,121 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
       catPlan.ids.some((cid) => !currentIds.includes(cid));
   }
 
-  await db.transaction(async (tx) => {
-    await tx
-      .update(postsTable)
-      .set(update)
-      .where(eq(postsTable.id, id));
+  type UpdateTransactionResult = {
+    error: { status: 404 | 422; error: string; fields?: string[] } | null;
+    before: typeof existing | null;
+  };
+  const transactionResult: UpdateTransactionResult = await db.transaction(async (tx) => {
+    const [locked] = await tx
+      .select()
+      .from(postsTable)
+      .where(eq(postsTable.id, id))
+      .for("update");
+    if (!locked) {
+      return { error: { status: 404, error: "Post not found" }, before: null };
+    }
+
+    const lockedHistoryProtected =
+      locked.status === "published" ||
+      locked.status === "scheduled" ||
+      !!locked.publishedOnceAt ||
+      legacyPublishedHistory;
+    const changedProtectedFields = lockedHistoryProtected
+      ? protectedFields.filter(
+          (field) =>
+            field in submittedBody &&
+            (submittedBody[field] ?? null) !== ((locked as unknown as Record<string, unknown>)[field] ?? null),
+        )
+      : [];
+    if (changedProtectedFields.length > 0) {
+      return {
+        error: {
+          status: 422,
+          error:
+            "Editorial fields on a post that has been published must be changed through an approved revision. Direct edits are blocked, even while the post is unpublished.",
+          fields: changedProtectedFields,
+        },
+        before: locked,
+      };
+    }
+    const changedAuthorFields = lockedHistoryProtected
+      ? authorFields.filter(
+          (field) =>
+            field in submittedBody &&
+            (submittedBody[field] ?? null) !== ((locked as unknown as Record<string, unknown>)[field] ?? null),
+        )
+      : [];
+    if (changedAuthorFields.length > 0) {
+      return {
+        error: {
+          status: 422,
+          error: "Use the admin author-reassignment action to change a published post's byline.",
+        },
+        before: locked,
+      };
+    }
+
+    const lockedUpdate = { ...update };
+    if (lockedHistoryProtected) {
+      for (const field of [...protectedFields, ...authorFields]) delete lockedUpdate[field];
+      // A request that began as a draft may have staged a new publication
+      // timestamp before another request published the row. Do not overwrite
+      // the already-live article's canonical date.
+      if (locked.status === "published" && !("publishedAt" in submittedBody)) {
+        delete lockedUpdate.publishedAt;
+      }
+    }
+    // Re-evaluate the sticky marker from the locked row too. A publisher such
+    // as the scheduled-post worker may have changed status since the first read.
+    if (
+      locked.status === "published" &&
+      lockedUpdate.status !== undefined &&
+      lockedUpdate.status !== "published" &&
+      !locked.publishedOnceAt
+    ) {
+      lockedUpdate.publishedOnceAt = locked.publishedAt ?? new Date();
+    } else if (
+      locked.status === "published" &&
+      !locked.publishedOnceAt
+    ) {
+      lockedUpdate.publishedOnceAt = locked.publishedAt ?? new Date();
+    } else if (
+      lockedUpdate.status === "published" &&
+      locked.status !== "published" &&
+      !locked.publishedOnceAt
+    ) {
+      lockedUpdate.publishedOnceAt =
+        lockedUpdate.publishedAt ?? locked.publishedAt ?? new Date();
+    }
+    if (legacyPublishedHistory && !locked.publishedOnceAt) {
+      lockedUpdate.publishedOnceAt = locked.publishedAt ?? new Date();
+    }
+
+    // Editorial media may cause persistent storage writes, so defer those
+    // until after the locked row has passed the history and authorship checks.
+    if ("content" in lockedUpdate) {
+      lockedUpdate.content = await persistExternalImagesInHtml(
+        String(lockedUpdate.content ?? ""),
+        persistCtx,
+      );
+      update.content = lockedUpdate.content;
+    }
+    for (const field of ["coverImage", "ogImage"] as const) {
+      if (field in lockedUpdate && isExternalImageUrl(lockedUpdate[field])) {
+        lockedUpdate[field] = await persistExternalImage(
+          lockedUpdate[field] as string,
+          persistCtx,
+        );
+      }
+      if (field in lockedUpdate) update[field] = lockedUpdate[field];
+    }
+
+    if (Object.keys(lockedUpdate).length > 0) {
+      await tx
+        .update(postsTable)
+        .set(lockedUpdate)
+        .where(eq(postsTable.id, id));
+    }
 
     // Keep the join table, the posts.category_id mirror, and the cached
     // postCount of every affected category consistent in one transaction.
@@ -1007,7 +1276,16 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
       await syncPostCategories(tx, id, catPlan.ids, catPlan.primaryId);
       await refreshCategoryPostCounts(tx, [...currentIds, ...catPlan.ids]);
     }
+    return { error: null, before: locked };
   });
+  if (transactionResult.error) {
+    res.status(transactionResult.error.status).json({
+      error: transactionResult.error.error,
+      ...(transactionResult.error.fields ? { fields: transactionResult.error.fields } : {}),
+    });
+    return;
+  }
+  const transactionBefore = transactionResult.before ?? existing;
   // Re-fetch through the JOIN so the response includes the resolved category.
   const [updatedRow] = await postsBaseQuery().where(eq(postsTable.id, id));
   const [updated] = await attachCategories([updatedRow]);
@@ -1021,7 +1299,7 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     summary: categoryChanged
       ? `Updated post "${updated.title}" — moved to category "${updated.category}"`
       : `Updated post "${updated.title}"`,
-    details: { before: existing, after: updatedRaw },
+    details: { before: transactionBefore, after: updatedRaw },
   });
   // Only warn about fields this request actually submitted — untouched fields
   // were already handled (or warned about) when they were last saved.
@@ -1206,6 +1484,9 @@ router.post("/admin/posts/:id/restore", adminAuth, requireRole("admin"), async (
     ogImage: (snapshot.ogImage as string | null) ?? null,
     viewCount: typeof snapshot.viewCount === "number" ? snapshot.viewCount : 0,
     publishedAt: toDate(snapshot.publishedAt),
+    publishedOnceAt:
+      toDate(snapshot.publishedOnceAt) ??
+      (snapshot.status === "published" ? toDate(snapshot.publishedAt) : null),
     createdAt: toDate(snapshot.createdAt) ?? new Date(),
   };
 

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ClipboardList, RefreshCw, RotateCcw, Loader2, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import ErrorBanner from "@/components/ErrorBanner";
+import { Link } from "wouter";
 
 const TOKEN_KEY = "mapletechie_admin_token";
 
@@ -19,6 +20,31 @@ interface AuditEntry {
   ip: string | null;
   userAgent: string | null;
   createdAt: string;
+  details?: unknown;
+}
+
+function revisionIdFromDetails(details: unknown): number | null {
+  let value = details;
+  if (typeof value === "string") {
+    try { value = JSON.parse(value); } catch { return null; }
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const id = (value as Record<string, unknown>).revisionId;
+  return typeof id === "number" && Number.isInteger(id) && id > 0 ? id
+    : typeof id === "string" && /^\d+$/.test(id) && Number(id) > 0 ? Number(id) : null;
+}
+
+function postIdFromEntry(details: unknown, entityId: string | null): number | null {
+  let value = details;
+  if (typeof value === "string") {
+    try { value = JSON.parse(value); } catch { value = null; }
+  }
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const postId = (value as Record<string, unknown>).postId;
+    if (typeof postId === "number" && Number.isInteger(postId) && postId > 0) return postId;
+    if (typeof postId === "string" && /^\d+$/.test(postId) && Number(postId) > 0) return Number(postId);
+  }
+  return entityId && /^\d+$/.test(entityId) && Number(entityId) > 0 ? Number(entityId) : null;
 }
 
 function actionTone(action: string) {
@@ -173,7 +199,23 @@ export default function AdminAudit() {
                     </td>
                     <td className="px-4 py-3 text-zinc-300">
                       <div className="flex items-center gap-3 flex-wrap">
-                        <span>{r.summary || "—"}</span>
+                         <span>{r.summary || "—"}</span>
+                         {/(^|\.)(revision|revisions)(\.|$)/.test(r.action) && (() => {
+                           const completed = /\.(approve|approved|reject|rejected)$/.test(r.action);
+                           const revisionId = revisionIdFromDetails(r.details);
+                           const postId = postIdFromEntry(r.details, r.entityId);
+                           if (completed && revisionId !== null) return (
+                             <Link data-testid={`audit-revision-${r.id}`} href={`/admin/review?tab=history&revision=${revisionId}`} className="inline-flex items-center gap-1 text-xs font-medium text-orange-400 hover:text-orange-300">
+                               View revision #{revisionId}
+                             </Link>
+                           );
+                           if (!completed && postId !== null) return (
+                             <Link data-testid={`audit-revision-${r.id}`} href={`/admin/posts/${postId}/edit#editorial-corrections`} className="inline-flex items-center gap-1 text-xs font-medium text-orange-400 hover:text-orange-300">
+                               View correction
+                             </Link>
+                           );
+                           return null;
+                         })()}
                         {r.action === "post.delete" && r.entityType === "post" && r.entityId && (() => {
                           const state = restoreStates[r.entityId];
                           if (state?.status === "restored") {

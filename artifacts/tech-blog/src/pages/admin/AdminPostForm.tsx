@@ -124,10 +124,15 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   });
 
   const canChooseStatus = user?.role === "admin" || user?.canPublishDirectly === true;
+  const historyProtected =
+    isEditing &&
+    (["published", "scheduled"].includes((existingPost as any)?.status) ||
+      !!(existingPost as any)?.publishedOnceAt);
 
   const [coverImageStatus, setCoverImageStatus] = useState<ImagePreviewStatus>("idle");
   const [ogImageStatus, setOgImageStatus] = useState<ImagePreviewStatus>("idle");
-  const hasBrokenImage = coverImageStatus === "broken" || ogImageStatus === "broken";
+  const hasBrokenImage =
+    !historyProtected && (coverImageStatus === "broken" || ogImageStatus === "broken");
   const { toast } = useToast();
   // Dismissible inline notice when the saved post still points at images on
   // external sites (the server's copy-to-our-storage step is best-effort).
@@ -215,6 +220,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   };
 
   const [error, setError] = useState("");
+  const [authorSaving, setAuthorSaving] = useState(false);
 
   const [autoSlug, setAutoSlug] = useState(!isEditing);
   const [seoOpen, setSeoOpen] = useState(false);
@@ -538,12 +544,77 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     },
   });
 
+  const reassignAuthor = async () => {
+    const existingAuthorId = Number((existingPost as any)?.authorId ?? 0);
+    const target = editors?.find((editor) => editor.id === form.authorId);
+    if (user?.role !== "admin" || !postId || !token || !target || form.authorId === existingAuthorId) return;
+    if (!window.confirm(`Reassign this article's byline to ${target.displayName}? This action will be recorded in the audit log.`)) return;
+    setError("");
+    setAuthorSaving(true);
+    try {
+      const response = await fetch(`/api/admin/posts/${postId}/author`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ authorId: form.authorId }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Failed to reassign article author.");
+      queryClient.setQueryData(getGetPostQueryKey(postId), (current: any) =>
+        current ? { ...current, author: result.author ?? target.displayName, authorId: result.authorId ?? target.id, authorAvatar: result.authorAvatar ?? null } : current,
+      );
+      setForm((current) => ({
+        ...current,
+        author: result.author ?? target.displayName,
+        authorId: result.authorId ?? target.id,
+      }));
+      try {
+        const baseline = JSON.parse(baselineRef.current);
+        baseline.author = result.author ?? target.displayName;
+        baseline.authorId = result.authorId ?? target.id;
+        baselineRef.current = JSON.stringify(baseline);
+      } catch {
+        // The saved author is still reflected in the query cache.
+      }
+      queryClient.invalidateQueries();
+      toast({ title: "Author reassigned", description: `The byline is now ${target.displayName}.` });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reassign article author.");
+    } finally {
+      setAuthorSaving(false);
+    }
+  };
+
   const submit = (e: React.FormEvent, statusOverride?: "draft" | "published" | "scheduled") => {
     e.preventDefault();
     setError("");
     if (isEditing && ["published", "scheduled"].includes((existingPost as any)?.status) && !canChooseStatus) {
       setError("This article is published or scheduled. Use the revision proposal above to submit changes for approval.");
       return;
+    }
+
+    const existing = existingPost as any;
+    if (historyProtected && existing) {
+      const protectedChanges = [
+        ["title", form.title.trim(), existing.title ?? ""],
+        ["excerpt", form.excerpt.trim(), existing.excerpt ?? ""],
+        ["content", form.content, existing.content ?? ""],
+        ["coverImage", form.coverImage.trim() || null, existing.coverImage ?? null],
+        ["coverImageAlt", form.coverImageAlt.trim() || null, existing.coverImageAlt ?? null],
+        ["ogImage", form.ogImage.trim() || null, existing.ogImage ?? null],
+        ["seoTitle", form.seoTitle.trim() || null, existing.seoTitle ?? null],
+        ["seoDescription", form.seoDescription.trim() || null, existing.seoDescription ?? null],
+      ].filter(([, next, original]) => next !== original);
+      if (protectedChanges.length > 0) {
+        return setError(
+          "This article has published history. Editorial changes must go through an approved revision; direct edits are blocked even while it is unpublished.",
+        );
+      }
+      if (user?.role === "admin" && form.authorId !== (existing.authorId ?? 0)) {
+        return setError("Save author reassignment separately using the confirmed action below.");
+      }
     }
 
     const fail = (msg: string, fieldId?: string) => {
@@ -652,17 +723,39 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
     payload.coverImageAlt = form.coverImageAlt.trim() || null;
 
     const existingAuthorId = (existingPost as any)?.authorId ?? null;
-    if (user?.role === "admin" && form.authorId && (!isEditing || form.authorId !== existingAuthorId)) {
+    if (!historyProtected && user?.role === "admin" && form.authorId && (!isEditing || form.authorId !== existingAuthorId)) {
       payload.authorId = form.authorId;
     }
     if (!isEditing) {
       payload.author = form.author.trim() || user?.displayName || "Mapletechie";
       if (!statusOverride && status === "published") payload.publishedAt = new Date().toISOString();
-    } else if (user?.role === "admin" && form.author.trim()) {
+    } else if (!historyProtected && user?.role === "admin" && form.author.trim()) {
       payload.author = form.author.trim();
     }
 
     if (isEditing && postId) {
+      if (historyProtected) {
+        const permittedMetadata = new Set([
+          ...(existing?.status === "scheduled" && !existing?.publishedOnceAt ? ["slug"] : []),
+          "categories",
+          "primaryCategory",
+          "status",
+          "scheduledFor",
+          "readTime",
+          "isFeatured",
+          "seoKeywords",
+          "seriesId",
+          "seriesPosition",
+          "rating",
+          "pros",
+          "cons",
+          "verdict",
+          ...(user?.role === "admin" ? ["clusterId", "clusterRole"] : []),
+        ]);
+        for (const key of Object.keys(payload)) {
+          if (!permittedMetadata.has(key)) delete payload[key];
+        }
+      }
       updateMutation.mutate({ id: postId, data: payload as any });
     } else {
       createMutation.mutate({ data: payload as any });
@@ -670,7 +763,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
-  const publishedReviewOnly = isEditing && ["published", "scheduled"].includes((existingPost as any)?.status) && !canChooseStatus;
+  const publishedReviewOnly = historyProtected && !canChooseStatus;
 
   const previewTitle = (form.seoTitle.trim() || form.title || "Your post title") + " | Mapletechie";
   const previewDesc =
@@ -708,7 +801,12 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
         )}
         {publishedReviewOnly && (
           <p className="mb-6 rounded border border-amber-800 bg-amber-950/40 p-4 text-sm text-amber-200">
-            This article is {((existingPost as any)?.status === "scheduled") ? "scheduled" : "live"}. Submit corrections in the revision proposal above; the post editor cannot save directly until an authorized reviewer approves them.
+            This article is {((existingPost as any)?.status === "scheduled") ? "scheduled" : "live"}. Submit corrections in the revision proposal above; editorial changes cannot be saved directly.
+          </p>
+        )}
+        {historyProtected && !publishedReviewOnly && (
+          <p className="mb-6 rounded border border-amber-800 bg-amber-950/40 p-4 text-sm text-amber-200">
+            This article has published history. Changes to its title, excerpt, body, images, and primary SEO fields require an approved revision, even while the post is unpublished. Metadata can still be saved here. Revision proposals are currently available while the post is live or scheduled.
           </p>
         )}
         <form onSubmit={(e) => submit(e)} className="space-y-6">
@@ -861,6 +959,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                 Author {user?.role !== "admin" && <span className="text-zinc-500 text-xs">(you)</span>}
               </Label>
               {user?.role === "admin" ? (
+                <>
                 <Select
                   value={form.authorId ? String(form.authorId) : ""}
                   onValueChange={(v) => {
@@ -881,6 +980,18 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
                     ))}
                   </SelectContent>
                 </Select>
+                {historyProtected && form.authorId !== ((existingPost as any)?.authorId ?? 0) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={authorSaving || isPending}
+                    onClick={reassignAuthor}
+                    className="border-amber-700 text-amber-200 hover:bg-amber-950/40"
+                  >
+                    {authorSaving ? "Reassigning..." : "Confirm & reassign author"}
+                  </Button>
+                )}
+                </>
               ) : (
                 <Input
                   value={user?.displayName ?? ""}

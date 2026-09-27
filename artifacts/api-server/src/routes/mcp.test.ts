@@ -30,12 +30,19 @@ const captured: {
   updateValues?: Record<string, unknown>[];
 } = { insertValues: [], updateValues: [] };
 
+let lastSelectedPost: Record<string, unknown> | null = null;
+
 function makeSelectChain(queue: unknown[][]) {
   const proxy: unknown = new Proxy(function () {}, {
     get(_t, prop) {
       if (prop === "then") {
-        return (resolve: (v: unknown) => void, reject: (e: unknown) => void) =>
-          Promise.resolve(queue.length ? queue.shift() : []).then(resolve, reject);
+        return (resolve: (v: unknown) => void, reject: (e: unknown) => void) => {
+          const result = queue.length ? queue.shift() : [];
+          if (Array.isArray(result) && result[0] && typeof result[0] === "object" && "slug" in result[0]) {
+            lastSelectedPost = result[0] as Record<string, unknown>;
+          }
+          return Promise.resolve(result).then(resolve, reject);
+        };
       }
       return () => proxy;
     },
@@ -93,7 +100,14 @@ const db = {
       update: vi.fn(() => ({
         set: vi.fn((v: Record<string, unknown>) => {
           captured.updateValues!.push(v);
-          return { where: vi.fn(async () => undefined) };
+          return {
+            where: vi.fn(() => ({
+              returning: vi.fn(async () => "reviewedAt" in v
+                ? []
+                : (lastSelectedPost ? [{ ...lastSelectedPost, ...v }] : [])),
+              then: (resolve: (value: unknown) => void) => Promise.resolve(undefined).then(resolve),
+            })),
+          };
         }),
       })),
     };
@@ -125,6 +139,7 @@ vi.mock("drizzle-orm", () => ({
   gte: () => ({}),
   sql: Object.assign(() => ({}), {}),
   inArray: () => ({}),
+  isNotNull: () => ({}),
   or: () => ({}),
   getTableColumns: () => ({}),
 }));
@@ -292,6 +307,7 @@ beforeEach(() => {
   process.env.MCP_CONNECTOR_TOKEN = KEY;
   process.env.AUTOMATION_DRAFT_TOKEN = "unrelated-secret-1234567890";
   selectQueue = [];
+  lastSelectedPost = null;
   insertReturn = [];
   updateReturn = [];
   captured.insertValues = [];
@@ -431,7 +447,7 @@ describe("POST /mcp — tools", () => {
       authorId: 5, contentModifiedAt: null,
     };
     selectQueue = [[live]];
-    insertReturn = [{ id: 15, status: "pending", postId: 42 }];
+    insertReturn = [{ id: 15, status: "pending", postId: 42, createdAt: new Date("2026-02-10T12:00:00Z") }];
     const res = await authed(callTool("propose_mapletechie_revision", {
       post_id: 42, changes: { content: "<p>Revised body</p>" }, update_note: "Added new testing",
     }));
@@ -443,7 +459,9 @@ describe("POST /mcp — tools", () => {
       }),
     ]));
     expect(captured.updateValues).toHaveLength(0);
-    expect(auditCalls.some((c) => c.input.action === "automation.post.revision.proposed")).toBe(true);
+    expect(captured.insertValues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ action: "automation.post.revision.proposed" }),
+    ]));
   });
 
   it("refuses identity changes but allows SEO-only proposals without changing the live post", async () => {
@@ -455,7 +473,7 @@ describe("POST /mcp — tools", () => {
       id: 42, status: "published", slug: "kept-url", title: "Old",
       excerpt: "Old", content: "<p>Old</p>", publishedAt: new Date("2024-01-01T00:00:00Z"),
     }]];
-    insertReturn = [{ id: 15, status: "pending", postId: 42 }];
+    insertReturn = [{ id: 15, status: "pending", postId: 42, createdAt: new Date("2026-02-10T12:00:00Z") }];
     const seo = await authed(callTool("propose_mapletechie_revision", {
       post_id: 42, changes: { seoTitle: "SEO only" },
     }));
@@ -478,7 +496,7 @@ describe("POST /mcp — tools", () => {
       authorId: 5, contentModifiedAt: null, coverImageAlt: null,
     };
     selectQueue = [[scheduled]];
-    insertReturn = [{ id: 15, status: "pending", postId: 42 }];
+    insertReturn = [{ id: 15, status: "pending", postId: 42, createdAt: new Date("2026-02-10T12:00:00Z") }];
     const result = await authed(callTool("propose_mapletechie_revision", {
       post_id: 42, changes: {
         coverImage: url, coverImageAlt: "Canadian chip on a circuit board", ogImage: url,
