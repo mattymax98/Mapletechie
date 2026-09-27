@@ -64,6 +64,12 @@ export function ArticleRevisions({ postId, token, canApprove }: {
     return () => { active = false; };
   }, [postId, token]);
 
+  useEffect(() => {
+    if (!loading && window.location.hash === "#editorial-corrections") {
+      document.getElementById("editorial-corrections")?.scrollIntoView({ block: "start" });
+    }
+  }, [loading]);
+
   async function send(path: string, method: string, body?: unknown) {
     setBusy(true); setError("");
     try {
@@ -77,15 +83,18 @@ export function ArticleRevisions({ postId, token, canApprove }: {
         throw new Error(data.error || `Request failed (${response.status})`);
       }
       await load();
+      if (!path || path.endsWith("/approve") || path.endsWith("/reject")) {
+        window.dispatchEvent(new Event("admin:revisions-changed"));
+      }
       if (!path) { setDraft({}); setNote(""); }
     } catch (e) { setError(e instanceof Error ? e.message : "Could not save revision"); }
     finally { setBusy(false); }
   }
 
-  if (loading) return <p className="text-sm text-zinc-400">Loading article revisions…</p>;
-  if (!live) return <p role="alert" className="text-red-400">{error}</p>;
+  if (loading) return <div id="editorial-corrections" className="scroll-mt-20"><p className="text-sm text-zinc-400">Loading article revisions…</p></div>;
+  if (!live) return <div id="editorial-corrections" className="scroll-mt-20"><p role="alert" className="text-red-400">{error}</p></div>;
   return (
-    <section className="border border-zinc-700 bg-zinc-900/70 p-5 mb-8 space-y-5" aria-label="Article revisions">
+    <section id="editorial-corrections" className="border border-zinc-700 bg-zinc-900/70 p-5 mb-8 space-y-5 scroll-mt-20" aria-label="Article revisions">
       <div>
         <h2 className="text-xl font-bold text-white">Editorial corrections</h2>
         <p className="text-sm text-zinc-400 mt-1">

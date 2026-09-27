@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, PlusCircle, Pencil, Trash2, X, ExternalLink } from "lucide-react";
+import { PlusCircle, Pencil, Trash2, X, ExternalLink } from "lucide-react";
 
 const TOKEN_KEY = "mapletechie_admin_token";
 
@@ -43,7 +43,7 @@ const empty = {
   isActive: true,
 };
 
-export default function AdminJobs() {
+export default function AdminJobs({ embedded = false }: { embedded?: boolean }) {
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [editing, setEditing] = useState<number | "new" | null>(null);
   const [form, setForm] = useState<typeof empty>(empty);
@@ -109,7 +109,7 @@ export default function AdminJobs() {
   }
 
   return (
-    <AdminShell
+    <AdminShell embedded={embedded}
       title="Job Postings"
       actions={
         !editing ? (
@@ -121,7 +121,8 @@ export default function AdminJobs() {
     >
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-6">
-          <p className="text-zinc-400 text-sm mt-1">Create and manage open roles. Applications appear in your <Link href="/admin/inbox" className="text-orange-400 hover:underline">Inbox</Link>.</p>
+          <p className="text-zinc-400 text-sm mt-1">Create and manage open roles. Applications appear in your <Link href="/admin/tools?tab=inbox" className="text-orange-400 hover:underline">Inbox</Link>.</p>
+          {embedded && !editing && <Button onClick={startNew} className="mt-4 bg-orange-500 hover:bg-orange-600 text-white gap-2"><PlusCircle className="w-4 h-4" />New Job Posting</Button>}
         </div>
 
         {msg && (

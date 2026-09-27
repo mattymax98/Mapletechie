@@ -11,18 +11,17 @@ import {
   Users,
   ClipboardList,
   Briefcase,
-  Inbox,
-  Send,
   ExternalLink,
   LogOut,
   ChevronLeft,
   ChevronRight,
   Menu,
   User as UserIcon,
-  Info,
   Layers,
   Search,
+  ClipboardCheck,
 } from "lucide-react";
+import { adminJson } from "@/lib/adminFetch";
 
 interface NavItem {
   href: string;
@@ -30,6 +29,7 @@ interface NavItem {
   icon: React.ElementType;
   exact?: boolean;
   permission?: (u: any) => boolean;
+  badge?: number;
 }
 
 interface NavSection {
@@ -55,6 +55,7 @@ const NAV: NavSection[] = [
       },
       { href: "/admin/media", label: "Media", icon: ImageIcon },
       { href: "/admin/archive-search", label: "Archive search", icon: Search },
+      { href: "/admin/review", label: "Review queue", icon: ClipboardCheck, permission: (u) => u?.role === "admin" || u?.canPublishDirectly === true },
       { href: "/admin/topics", label: "Topic clusters", icon: Layers, permission: (u) => u?.role === "admin" },
     ],
   },
@@ -80,12 +81,6 @@ const NAV: NavSection[] = [
         permission: (u) => u?.role === "admin",
       },
       {
-        href: "/admin/about",
-        label: "About",
-        icon: Info,
-        permission: (u) => u?.role === "admin",
-      },
-      {
         href: "/admin/users",
         label: "Editors",
         icon: Users,
@@ -100,26 +95,9 @@ const NAV: NavSection[] = [
     ],
   },
   {
-    title: "Tools",
+    title: "Workspace",
     items: [
-      {
-        href: "/admin/jobs",
-        label: "Jobs",
-        icon: Briefcase,
-        permission: (u) => u?.role === "admin" || u?.canManageJobs,
-      },
-      {
-        href: "/admin/inbox",
-        label: "Inbox",
-        icon: Inbox,
-        permission: (u) => u?.role === "admin" || u?.canViewInbox,
-      },
-      {
-        href: "/admin/send-email",
-        label: "Send Email",
-        icon: Send,
-        permission: (u) => u?.role === "admin" || u?.canSendEmail,
-      },
+      { href: "/admin/tools", label: "Tools", icon: Briefcase, permission: (u) => u?.role === "admin" || u?.canManageJobs || u?.canViewInbox || u?.canSendEmail },
     ],
   },
 ];
@@ -129,9 +107,10 @@ export interface AdminShellProps {
   children: React.ReactNode;
   /** Optional buttons/controls shown on the right side of the top bar */
   actions?: React.ReactNode;
+  embedded?: boolean;
 }
 
-export function AdminShell({ title, children, actions }: AdminShellProps) {
+export function AdminShell({ title, children, actions, embedded = false }: AdminShellProps) {
   const { user, logout } = useAdmin();
   const [location] = useLocation();
   const [collapsed, setCollapsed] = useState<boolean>(() => {
@@ -142,6 +121,22 @@ export function AdminShell({ title, children, actions }: AdminShellProps) {
     }
   });
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    if (embedded || !(user?.role === "admin" || user?.canPublishDirectly === true)) return;
+    let active = true;
+    let latest = 0;
+    const refresh = () => {
+      const current = ++latest;
+      adminJson<{ pendingCount: number }>("/api/admin/revisions?status=pending&page=1&pageSize=1")
+        .then((data) => { if (active && current === latest) setPendingCount(Number(data.pendingCount) || 0); })
+        .catch(() => { if (active && current === latest) setPendingCount(0); });
+    };
+    refresh();
+    window.addEventListener("admin:revisions-changed", refresh);
+    return () => { active = false; window.removeEventListener("admin:revisions-changed", refresh); };
+  }, [embedded, user?.role, user?.canPublishDirectly]);
 
   useEffect(() => {
     try {
@@ -153,6 +148,8 @@ export function AdminShell({ title, children, actions }: AdminShellProps) {
   useEffect(() => {
     setMobileOpen(false);
   }, [location]);
+
+  if (embedded) return <>{children}</>;
 
   function isActive(item: NavItem): boolean {
     if (item.exact) return location === item.href;
@@ -223,6 +220,9 @@ export function AdminShell({ title, children, actions }: AdminShellProps) {
                           <span className="text-sm font-medium flex-1 truncate">
                             {item.label}
                           </span>
+                        )}
+                        {!collapsed && item.href === "/admin/review" && pendingCount > 0 && (
+                          <span className="rounded-full bg-orange-500/20 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-orange-300">{pendingCount}</span>
                         )}
                         {!collapsed && active && (
                           <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />

@@ -117,6 +117,7 @@ vi.mock("@workspace/db", () => ({
 
 vi.mock("drizzle-orm", () => ({
   eq: () => ({}),
+  count: () => ({}),
   ilike: () => ({}),
   asc: () => ({}),
   desc: () => ({}),
@@ -213,6 +214,21 @@ async function reviewRequest(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body ?? {}),
     });
+    return { status: response.status, body: await response.json() };
+  } finally { server.close(); }
+}
+
+async function queueRequest(
+  user: Record<string, unknown>, query = "",
+): Promise<{ status: number; body: any }> {
+  const app = express();
+  app.use((req, _res, next) => { req.user = user as any; next(); });
+  app.use(revisionsRouter);
+  const server = createServer(app);
+  await new Promise<void>((r) => server.listen(0, r));
+  const address = server.address();
+  try {
+    const response = await fetch(`http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}/admin/revisions${query}`);
     return { status: response.status, body: await response.json() };
   } finally { server.close(); }
 }
@@ -946,6 +962,64 @@ describe("published revision approval boundary", () => {
     expect(update).toEqual({ title: "Corrected before publication" });
     for (const key of ["status", "scheduledFor", "slug", "publishedAt", "authorId", "contentModifiedAt", "updateNote"]) {
       expect(update).not.toHaveProperty(key);
+    }
+  });
+});
+
+describe("aggregate review queue", () => {
+  const post = {
+    id: 42, status: "published", slug: "permanent-url", title: "Published story",
+    excerpt: "Excerpt", content: "<p>Private body</p>", authorId: 3,
+    publishedAt: new Date("2024-01-01T00:00:00Z"), scheduledFor: null as Date | null, contentModifiedAt: null,
+  };
+  const revision = (id: number, article = post, status = "pending", stale = false) => ({
+    revision: {
+      id, postId: article.id, status, source: "connector",
+      changes: { title: "Better title", coverImage: "/covers/new.webp" },
+      baseHash: stale ? "old" : editorialFingerprint(article as any),
+      createdAt: new Date("2026-09-26T12:00:00Z"),
+    },
+    post: article,
+  });
+  const admin = { id: 1, role: "admin" };
+
+  it("defaults to pending, excludes history, and returns compact review data and count", async () => {
+    selectQueue = [[{ value: 1 }], [revision(15), revision(16, post, "approved"), revision(17, post, "rejected")]];
+    const { status, body } = await queueRequest(admin);
+    expect(status).toBe(200);
+    expect(body).toMatchObject({ total: 1, pendingCount: 1, page: 1, pageSize: 20 });
+    expect(body.items).toEqual([expect.objectContaining({
+      id: 15, postId: 42, title: "Published story", postStatus: "published",
+      source: "connector", fields: ["title", "coverImage"], stale: false,
+    })]);
+    expect(JSON.stringify(body)).not.toContain("Private body");
+    expect(JSON.stringify(body)).not.toContain("Better title");
+  });
+
+  it("applies the same approval rule to rows and count before pagination, including stale proposals", async () => {
+    const other = { ...post, id: 44, authorId: 9, title: "Colleague story" };
+    const scheduled = { ...post, id: 45, status: "scheduled", scheduledFor: new Date("2026-10-01T00:00:00Z") };
+    selectQueue = [[{ value: 2 }], [revision(16, post, "pending", true)]];
+    const { body } = await queueRequest({ id: 3, role: "editor", canPublishDirectly: true }, "?status=pending&page=1&pageSize=1");
+    expect(body).toMatchObject({ total: 2, pendingCount: 2, pageSize: 1 });
+    expect(body.items).toEqual([expect.objectContaining({ id: 16, stale: true })]);
+    selectQueue = [[{ value: 2 }], [revision(17, scheduled)]];
+    const secondPage = await queueRequest({ id: 3, role: "editor", canPublishDirectly: true }, "?page=2&pageSize=1");
+    expect(secondPage.body.items).toEqual([expect.objectContaining({ id: 17, postStatus: "scheduled" })]);
+  });
+
+  it("does not expose proposals to non-publishing editors, but honors edit-others reviewers", async () => {
+    selectQueue = [];
+    const proposer = await queueRequest({ id: 3, role: "editor", canPublishDirectly: false });
+    expect(proposer.body).toMatchObject({ items: [], pendingCount: 0 });
+    selectQueue = [[{ value: 1 }], [revision(15)]];
+    const reviewer = await queueRequest({ id: 9, role: "editor", canPublishDirectly: true, canEditOthersPosts: true });
+    expect(reviewer.body.pendingCount).toBe(1);
+  });
+
+  it("rejects invalid pagination or unsupported status", async () => {
+    for (const query of ["?page=0", "?pageSize=51", "?status=approved"]) {
+      expect((await queueRequest(admin, query)).status).toBe(400);
     }
   });
 });

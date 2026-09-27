@@ -44,19 +44,16 @@ const AdminNewPost = lazy(() => import("@/pages/admin/AdminNewPost"));
 const AdminEditPost = lazy(() => import("@/pages/admin/AdminEditPost"));
 const AdminUsers = lazy(() => import("@/pages/admin/AdminUsers"));
 const AdminProfile = lazy(() => import("@/pages/admin/AdminProfile"));
-const AdminInbox = lazy(() => import("@/pages/admin/AdminInbox"));
 const AdminNewsletter = lazy(() => import("@/pages/admin/AdminNewsletter"));
-const AdminJobs = lazy(() => import("@/pages/admin/AdminJobs"));
 const AdminAudit = lazy(() => import("@/pages/admin/AdminAudit"));
 const AdminAnalytics = lazy(() => import("@/pages/admin/AdminAnalytics"));
-const AdminSendEmail = lazy(() => import("@/pages/admin/AdminSendEmail"));
 const AdminMedia = lazy(() => import("@/pages/admin/AdminMedia"));
 const AdminCategories = lazy(() => import("@/pages/admin/AdminCategories"));
 const AdminTopics = lazy(() => import("@/pages/admin/AdminTopics"));
 const AdminArchiveSearch = lazy(() => import("@/pages/admin/AdminArchiveSearch"));
 const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
-
-const AdminAbout = lazy(() => import("@/pages/admin/AdminAbout"));
+const AdminReview = lazy(() => import("@/pages/admin/AdminReview"));
+const AdminTools = lazy(() => import("@/pages/admin/AdminTools"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -96,6 +93,12 @@ function Router() {
       <Route path="/admin/profile">
         <AdminGuard><AdminProfile /></AdminGuard>
       </Route>
+      <Route path="/admin/review">
+        <AdminGuard><AdminReview /></AdminGuard>
+      </Route>
+      <Route path="/admin/tools">
+        <AdminGuard><AdminTools /></AdminGuard>
+      </Route>
       <Route path="/admin/media">
         <AdminGuard><AdminMedia /></AdminGuard>
       </Route>
@@ -109,13 +112,13 @@ function Router() {
         <AdminGuard><AdminArchiveSearch /></AdminGuard>
       </Route>
       <Route path="/admin/inbox">
-        <AdminGuard><AdminInbox /></AdminGuard>
+        <AdminGuard><AdminTools legacy="inbox" /></AdminGuard>
       </Route>
       <Route path="/admin/newsletter">
         <AdminGuard><AdminNewsletter /></AdminGuard>
       </Route>
       <Route path="/admin/jobs">
-        <AdminGuard><AdminJobs /></AdminGuard>
+        <AdminGuard><AdminTools legacy="jobs" /></AdminGuard>
       </Route>
       <Route path="/admin/audit">
         <AdminGuard><AdminAudit /></AdminGuard>
@@ -124,13 +127,10 @@ function Router() {
         <AdminGuard><AdminAnalytics /></AdminGuard>
       </Route>
       <Route path="/admin/send-email">
-        <AdminGuard><AdminSendEmail /></AdminGuard>
+        <AdminGuard><AdminTools legacy="email" /></AdminGuard>
       </Route>
       <Route path="/admin/settings">
         <AdminGuard adminOnly><AdminSettings /></AdminGuard>
-      </Route>
-      <Route path="/admin/about">
-        <AdminGuard adminOnly><AdminAbout /></AdminGuard>
       </Route>
       <Route path="/admin/posts/new">
         <AdminGuard><AdminNewPost /></AdminGuard>

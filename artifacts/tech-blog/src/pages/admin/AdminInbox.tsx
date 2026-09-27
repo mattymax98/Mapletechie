@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { useAdmin } from "@/context/AdminContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Trash2, Mail, Megaphone, FileText, Briefcase, ExternalLink, MessageCircle, Send, X, CheckCircle2 } from "lucide-react";
+import { Trash2, Mail, Megaphone, FileText, Briefcase, ExternalLink, MessageCircle, Send, X, CheckCircle2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -56,8 +57,10 @@ Once I have that I'll be back to you within a few days.`,
   },
 };
 
-export default function AdminInbox() {
-  const [tab, setTab] = useState<Tab>("applications");
+export default function AdminInbox({ embedded = false }: { embedded?: boolean }) {
+  const { user } = useAdmin();
+  const canManageJobs = user?.role === "admin" || user?.canManageJobs === true;
+  const [tab, setTab] = useState<Tab>(canManageJobs ? "applications" : "comments");
   const [data, setData] = useState<Record<Tab, any[] | null>>({
     applications: null, ads: null, contacts: null, comments: null,
   });
@@ -127,7 +130,7 @@ export default function AdminInbox() {
 
   async function loadAll() {
     const [a, ad, c, cm] = await Promise.all([
-      safeFetch("/api/admin/applications"),
+      canManageJobs ? safeFetch("/api/admin/applications") : Promise.resolve([]),
       safeFetch("/api/admin/ad-inquiries"),
       safeFetch("/api/admin/contacts"),
       safeFetch("/api/admin/comments"),
@@ -145,7 +148,10 @@ export default function AdminInbox() {
     }
   }
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => {
+    if (!canManageJobs && tab === "applications") setTab("comments");
+    void loadAll();
+  }, [canManageJobs]);
 
   async function del(url: string) {
     if (!confirm("Delete this entry? This cannot be undone.")) return;
@@ -154,14 +160,14 @@ export default function AdminInbox() {
   }
 
   const tabs: Array<{ id: Tab; label: string; icon: any; count: number }> = [
-    { id: "applications", label: "Job Applications", icon: Briefcase, count: data.applications?.length || 0 },
+    ...(canManageJobs ? [{ id: "applications" as const, label: "Job Applications", icon: Briefcase, count: data.applications?.length || 0 }] : []),
     { id: "comments", label: "Article Comments", icon: MessageCircle, count: data.comments?.length || 0 },
     { id: "ads", label: "Ad Inquiries", icon: Megaphone, count: data.ads?.length || 0 },
     { id: "contacts", label: "Contact Messages", icon: Mail, count: data.contacts?.length || 0 },
   ];
 
   return (
-    <AdminShell title="Inbox">
+    <AdminShell title="Inbox" embedded={embedded}>
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-8">
           <p className="text-zinc-400 text-sm mt-1">All submissions from your readers, advertisers, and applicants in one place.</p>

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Send, AlertCircle, CheckCircle2, Mail } from "lucide-react";
+import { Send, AlertCircle, CheckCircle2 } from "lucide-react";
 
 const TOKEN_KEY = "mapletechie_admin_token";
 const MAPLETECHIE_EMAIL_RE = /@mapletechie\.com$/i;
@@ -34,7 +34,7 @@ const TEMPLATES: { label: string; subject: string; body: string }[] = [
   },
 ];
 
-export default function AdminSendEmail() {
+export default function AdminSendEmail({ embedded = false }: { embedded?: boolean }) {
   const { user: me } = useAdmin();
   const [to, setTo] = useState("");
   const [cc, setCc] = useState("");
@@ -102,7 +102,7 @@ export default function AdminSendEmail() {
   }
 
   return (
-    <AdminShell title="Send Email">
+    <AdminShell title="Send Email" embedded={embedded}>
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-6">
         {!hasMapletechieEmail && (
           <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/40 text-amber-200 rounded-lg p-4">

@@ -1,7 +1,7 @@
 import { Router, type Request } from "express";
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, sql } from "drizzle-orm";
 import { db, postsTable, postRevisionsTable, auditLogsTable, type Post } from "@workspace/db";
 import { adminAuth } from "../middlewares/adminAuth";
 import { automationAuth } from "./automation";
@@ -27,6 +27,11 @@ const editable = z.object({
 const proposal = z.object({
   changes: editable.refine((v) => Object.keys(v).length > 0, "Provide at least one editorial change"),
   updateNote: z.string().trim().max(1000).nullable().optional(),
+}).strict();
+const queueQuery = z.object({
+  status: z.literal("pending").default("pending"),
+  page: z.coerce.number().int().min(1).max(100_000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).default(20),
 }).strict();
 type Changes = z.infer<typeof editable>;
 
@@ -57,8 +62,14 @@ export function editorialFingerprint(post: Post): string {
 function canEdit(user: Request["user"], post: Post): boolean {
   return !!user && (user.role === "admin" || !!user.canEditOthersPosts || post.authorId === user.id);
 }
-function canApprove(user: Request["user"], post: Post): boolean {
-  return canEdit(user, post) && (user?.role === "admin" || user?.canPublishDirectly === true);
+function approvalScope(user: Request["user"]): { all: true } | { all: false; authorId: number } | null {
+  if (user?.role === "admin") return { all: true };
+  if (!user || user.canPublishDirectly !== true) return null;
+  return user.canEditOthersPosts ? { all: true } : { all: false, authorId: user.id };
+}
+function canApprove(user: Request["user"], post: Pick<Post, "authorId">): boolean {
+  const scope = approvalScope(user);
+  return !!scope && (scope.all || scope.authorId === post.authorId);
 }
 function validateChanges(input: unknown, post: Post): { changes: Changes; updateNote: string | null } | { error: string } {
   const parsed = proposal.safeParse(input);
@@ -177,6 +188,57 @@ router.post("/admin/posts/:id/revisions", adminAuth, async (req, res) => {
 router.post("/automation/posts/:id/revisions", automationAuth, async (req, res) => {
   const result = await proposePostRevision(req, Number(req.params.id), req.body, "connector");
   res.status(result.status).json(result.body);
+});
+
+router.get("/admin/revisions", adminAuth, async (req, res): Promise<void> => {
+  const parsed = queueQuery.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid review queue filters" });
+    return;
+  }
+  const { page, pageSize } = parsed.data;
+  res.setHeader("Cache-Control", "private, no-store");
+  const scope = approvalScope(req.user);
+  if (!scope) {
+    res.json({ items: [], total: 0, pendingCount: 0, page, pageSize });
+    return;
+  }
+  // Both SQL queries use the policy backing canApprove; still verify every
+  // returned row with canApprove before serializing any article metadata.
+  const predicate = and(
+    eq(postRevisionsTable.status, "pending"),
+    sql`${postsTable.status} IN ('published', 'scheduled')`,
+    scope.all ? undefined : eq(postsTable.authorId, scope.authorId),
+  );
+  const [totalRow] = await db.select({ value: count() })
+    .from(postRevisionsTable)
+    .innerJoin(postsTable, eq(postRevisionsTable.postId, postsTable.id))
+    .where(predicate);
+  const total = totalRow?.value ?? 0;
+  const rows = total === 0 ? [] : await db.select({ revision: postRevisionsTable, post: postsTable })
+    .from(postRevisionsTable)
+    .innerJoin(postsTable, eq(postRevisionsTable.postId, postsTable.id))
+    .where(predicate)
+    .orderBy(desc(postRevisionsTable.createdAt), desc(postRevisionsTable.id))
+    .limit(pageSize)
+    .offset((page - 1) * pageSize);
+  const items = rows.filter(({ post, revision }) =>
+    revision.status === "pending" &&
+    (post.status === "published" || post.status === "scheduled") &&
+    canApprove(req.user, post))
+    .map(({ post, revision }) => ({
+      id: revision.id,
+      postId: post.id,
+      title: post.title,
+      postStatus: post.status,
+      publishedAt: post.publishedAt,
+      scheduledFor: post.scheduledFor,
+      source: revision.source,
+      createdAt: revision.createdAt,
+      fields: Object.keys(revision.changes),
+      stale: editorialFingerprint(post) !== revision.baseHash,
+    }));
+  res.json({ items, total, pendingCount: total, page, pageSize });
 });
 
 router.get("/admin/posts/:id/revisions", adminAuth, async (req, res): Promise<void> => {
