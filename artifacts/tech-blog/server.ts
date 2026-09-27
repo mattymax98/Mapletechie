@@ -222,6 +222,28 @@ interface PostSummary {
   clusterRole?: "pillar" | "supporting" | string | null;
 }
 
+function isPostSummaryArray(value: unknown): value is PostSummary[] {
+  return (
+    Array.isArray(value) &&
+    value.every((post) => {
+      if (!post || typeof post !== "object" || Array.isArray(post)) return false;
+      const record = post as Record<string, unknown>;
+      return (
+        typeof record.slug === "string" &&
+        record.slug.trim().length > 0 &&
+        typeof record.title === "string" &&
+        record.title.trim().length > 0 &&
+        ["excerpt", "publishedAt", "author", "category", "clusterRole"].every(
+          (key) =>
+            record[key] === undefined ||
+            record[key] === null ||
+            typeof record[key] === "string",
+        )
+      );
+    })
+  );
+}
+
 /** Build a <ul> post list for crawler-facing listing pages. */
 function renderPostList(posts: PostSummary[], siteUrl: string): string {
   if (!posts.length) return "<p>No posts yet.</p>";
@@ -1179,7 +1201,13 @@ app.get(/^\/?$/, async (req, res, next) => {
     `    <script type="application/ld+json">${siteJsonLdSafe}</script>\n    <!-- SEO_HEAD_END -->`,
   );
 
-  const posts = await fetchJson<PostSummary[]>(`${API_BASE}/api/posts?limit=10`);
+  const postsResult = await fetchJsonResult<unknown>(
+    `${API_BASE}/api/posts?limit=10`,
+  );
+  if (postsResult.kind !== "ok" || !isPostSummaryArray(postsResult.value)) {
+    return sendTemporaryFailure(res, `${SITE_URL}/`);
+  }
+  const posts = postsResult.value;
 
   // Build the category list from the live API — a hardcoded list once linked
   // to categories that no longer exist, giving crawlers 404s. If the fetch
@@ -1204,7 +1232,7 @@ app.get(/^\/?$/, async (req, res, next) => {
   <p>${htmlEscape(description)}</p>
   <p>No press junkets. No hype cycles. Sharp opinion, real reviews, and the context the spec sheets leave out. Independent tech journalism built in Canada.</p>
 ${categorySectionHtml}  <h2>Latest Articles</h2>
-  ${renderPostList(posts ?? [], SITE_URL)}
+  ${renderPostList(posts, SITE_URL)}
   <h2>About Us</h2>
   <p>Mapletechie is an independent tech publication covering artificial intelligence, gadgets, cybersecurity, electric vehicles, and software. We write from Toronto with a global lens. <a href="${htmlEscape(`${SITE_URL}/about`)}">Learn more about Mapletechie</a>.</p>
   <p><a href="${htmlEscape(`${SITE_URL}/blog`)}">Read all articles</a> &middot; <a href="${htmlEscape(`${SITE_URL}/contact`)}">Contact us</a></p>
@@ -1244,12 +1272,18 @@ app.get(/^\/blog\/?$/, async (req, res, next) => {
     sendSpaShell(res, 200, seo);
     return;
   }
-  const posts = await fetchJson<PostSummary[]>(`${API_BASE}/api/posts?limit=20`);
+  const postsResult = await fetchJsonResult<unknown>(
+    `${API_BASE}/api/posts?limit=20`,
+  );
+  if (postsResult.kind !== "ok" || !isPostSummaryArray(postsResult.value)) {
+    return sendTemporaryFailure(res, `${SITE_URL}/blog`);
+  }
+  const posts = postsResult.value;
   const body = `
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>Blog — Tech News &amp; Reviews</h1>
   <p>${htmlEscape(description)}</p>
-  ${renderPostList(posts ?? [], SITE_URL)}
+  ${renderPostList(posts, SITE_URL)}
 </main>`;
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Vary", "User-Agent");

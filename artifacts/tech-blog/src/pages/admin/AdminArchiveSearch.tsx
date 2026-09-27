@@ -11,13 +11,14 @@ type Item = {
   canonical_url?: string;
 };
 type Results = { items: Item[]; page: number; limit: number; total: number };
-const filterNames = ["q", "title", "slug", "body", "tag", "category", "cluster", "author", "status", "dateFrom", "dateTo"] as const;
+const filterNames = ["q", "title", "slug", "body", "tag", "category", "cluster", "author", "status", "dateFrom", "dateTo", "publishedFrom", "publishedTo"] as const;
 type Filters = Record<(typeof filterNames)[number], string>;
 const initial: Filters = Object.fromEntries(filterNames.map((name) => [name, ""])) as Filters;
 const labels: Record<keyof Filters, string> = {
   q: "All text", title: "Title", slug: "Slug", body: "Article body", tag: "Tag",
   category: "Category", cluster: "Topic cluster", author: "Author",
   status: "Status", dateFrom: "Created from", dateTo: "Created through",
+  publishedFrom: "Published from", publishedTo: "Published through",
 };
 
 export default function AdminArchiveSearch() {
@@ -49,7 +50,7 @@ export default function AdminArchiveSearch() {
 
   return <AdminShell title="Editorial archive search">
     <main className="max-w-6xl mx-auto p-6 space-y-6">
-      <p className="text-zinc-400 text-sm">Search every current article, including drafts and scheduled posts. Only published articles have public links.</p>
+      <p className="text-zinc-400 text-sm">Search every current article, including drafts and scheduled posts. Created dates filter when a post was created; published dates filter its publication timestamp (scheduled posts use their published date, and drafts without one do not match). Date ranges include both UTC calendar days. Only published articles have public links.</p>
       <form onSubmit={(event) => { event.preventDefault(); setPage(1); setApplied({ ...filters }); }}
         className="border border-zinc-800 bg-zinc-900 p-5 space-y-4">
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -58,7 +59,7 @@ export default function AdminArchiveSearch() {
               className="block w-full mt-1 bg-black border border-zinc-700 text-white p-2">
               <option value="">All statuses</option><option value="published">Published</option>
               <option value="draft">Draft</option><option value="scheduled">Scheduled</option>
-            </select> : <input type={name.startsWith("date") ? "date" : "text"}
+            </select> : <input type={name.startsWith("date") || name.startsWith("published") ? "date" : "text"}
               value={filters[name]} onChange={(e) => setFilters({ ...filters, [name]: e.target.value })}
               className="block w-full mt-1 bg-black border border-zinc-700 text-white p-2" />}
           </label>)}

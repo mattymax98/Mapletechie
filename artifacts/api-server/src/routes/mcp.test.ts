@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import express from "express";
+import { ObjectNotFoundError } from "../lib/objectStorage";
 
 // --- Mocks (same conventions as automation.test.ts) ----------------------
 
@@ -10,8 +11,19 @@ const archiveSearchMocks = vi.hoisted(() => ({
   })),
   searchArchivePosts: vi.fn(async () => ({} as any)),
 }));
+const imageStorage = vi.hoisted(() => ({
+  getObjectEntityFile: vi.fn(async (): Promise<any> => ({
+    getMetadata: async () => [{ contentType: "image/webp" }],
+  })),
+}));
 
 vi.mock("../lib/archiveSearch", () => archiveSearchMocks);
+vi.mock("../lib/objectStorage", () => ({
+  ObjectNotFoundError: class ObjectNotFoundError extends Error {},
+  ObjectStorageService: class ObjectStorageService {
+    getObjectEntityFile = imageStorage.getObjectEntityFile;
+  },
+}));
 
 const captured: {
   insertValues?: Record<string, unknown>[];
@@ -270,6 +282,9 @@ beforeEach(() => {
   captured.updateValues = [];
   auditCalls.length = 0;
   vi.clearAllMocks();
+  imageStorage.getObjectEntityFile.mockImplementation(async () => ({
+    getMetadata: async () => [{ contentType: "image/webp" }],
+  }));
   archiveSearchMocks.parseArchiveSearchParams.mockImplementation(
     (input: unknown) => ({ success: true, data: input }),
   );
@@ -332,6 +347,18 @@ describe("POST /mcp — tools", () => {
     expect(names).toContain("get_mapletechie_post");
     expect(names).toContain("propose_mapletechie_revision");
     expect(names).toContain("preview_mapletechie_post");
+    expect(names).toContain("upload_mapletechie_image");
+    expect(names).toContain("backfill_mapletechie_images");
+    const tools = res.body.result.tools;
+    const draft = tools.find((t: any) => t.name === "create_mapletechie_draft");
+    expect(Object.keys(draft.inputSchema.properties)).toEqual(expect.arrayContaining(["cluster_id", "cluster_role"]));
+    expect(draft.inputSchema.properties.content.description).toMatch(/reddit\|twitter\|youtube|youtube\|twitter\|reddit/i);
+    const backfill = tools.find((t: any) => t.name === "backfill_mapletechie_images");
+    expect(backfill.description).toMatch(/draft only/i);
+    const revision = tools.find((t: any) => t.name === "propose_mapletechie_revision");
+    expect(Object.keys(revision.inputSchema.properties.changes.properties)).toEqual(expect.arrayContaining(["coverImage", "coverImageAlt", "ogImage"]));
+    const archive = tools.find((t: any) => t.name === "search_mapletechie_archive");
+    expect(Object.keys(archive.inputSchema.properties)).toEqual(expect.arrayContaining(["publishedFrom", "publishedTo"]));
   });
 
   it("requires exactly one post_id or slug for get_mapletechie_post", async () => {
@@ -365,6 +392,20 @@ describe("POST /mcp — tools", () => {
     });
   });
 
+  it.each(["published", "scheduled"])("can inspect a %s post before proposing a correction", async (status) => {
+    selectQueue = [[{
+      id: 42, title: "Correction target", slug: "correction-target", excerpt: "Summary",
+      content: "<p>Stored</p>", categoryId: 10, tags: [], author: "Editor",
+      authorId: 5, status, createdAt: new Date("2026-01-01T00:00:00Z"),
+      updatedAt: new Date("2026-01-02T00:00:00Z"),
+      scheduledFor: status === "scheduled" ? new Date("2026-10-01T00:00:00Z") : null,
+      publishedAt: new Date("2026-01-01T00:00:00Z"), seoKeywords: [],
+    }], []];
+    const result = await authed(callTool("get_mapletechie_post", { post_id: 42 }));
+    expect(result.body.result.isError).toBeFalsy();
+    expect(JSON.parse(result.body.result.content[0].text)).toMatchObject({ id: 42, slug: "correction-target", status });
+  });
+
   it("proposes a published revision without touching the live article", async () => {
     const live = {
       id: 42, status: "published", slug: "kept-url", title: "Old title",
@@ -389,7 +430,7 @@ describe("POST /mcp — tools", () => {
     expect(auditCalls.some((c) => c.input.action === "automation.post.revision.proposed")).toBe(true);
   });
 
-  it("refuses identity changes or SEO-only freshness claims through connector proposals", async () => {
+  it("refuses identity changes but allows SEO-only proposals without changing the live post", async () => {
     const badIdentity = await authed(callTool("propose_mapletechie_revision", {
       post_id: 42, changes: { content: "<p>New</p>", slug: "new-url" },
     }));
@@ -398,11 +439,69 @@ describe("POST /mcp — tools", () => {
       id: 42, status: "published", slug: "kept-url", title: "Old",
       excerpt: "Old", content: "<p>Old</p>", publishedAt: new Date("2024-01-01T00:00:00Z"),
     }]];
+    insertReturn = [{ id: 15, status: "pending", postId: 42 }];
     const seo = await authed(callTool("propose_mapletechie_revision", {
       post_id: 42, changes: { seoTitle: "SEO only" },
     }));
-    expect(seo.body.result.isError).toBe(true);
+    // A complete proposal never updates the live post; only a reviewer can do so.
+    expect(seo.body.result.isError).toBeFalsy();
     expect(captured.updateValues).toHaveLength(0);
+  });
+
+  it("proposes a scheduled image correction using an uploaded Mapletechie URL without changing the post", async () => {
+    const upload = await authed(callTool("upload_mapletechie_image", {
+      image_base64: Buffer.from("fake-image-bytes").toString("base64"),
+      alt_text: "Canadian chip on a circuit board",
+    }));
+    const url = JSON.parse(upload.body.result.content[0].text).url;
+    const scheduled = {
+      id: 42, status: "scheduled", slug: "upcoming-story", title: "Upcoming",
+      excerpt: "Summary", content: "<p>Body</p>",
+      publishedAt: new Date("2026-10-01T00:00:00Z"),
+      scheduledFor: new Date("2026-10-03T00:00:00Z"),
+      authorId: 5, contentModifiedAt: null, coverImageAlt: null,
+    };
+    selectQueue = [[scheduled]];
+    insertReturn = [{ id: 15, status: "pending", postId: 42 }];
+    const result = await authed(callTool("propose_mapletechie_revision", {
+      post_id: 42, changes: {
+        coverImage: url, coverImageAlt: "Canadian chip on a circuit board", ogImage: url,
+      },
+    }));
+    expect(result.body.result.isError).toBeFalsy();
+    expect(imageStorage.getObjectEntityFile).toHaveBeenCalledWith("/objects/uploads/mock-upload");
+    expect(captured.insertValues).toEqual(expect.arrayContaining([expect.objectContaining({
+      source: "connector", changes: {
+        coverImage: url, coverImageAlt: "Canadian chip on a circuit board", ogImage: url,
+      },
+    })]));
+    expect(captured.updateValues).toHaveLength(0);
+  });
+
+  it("rejects missing or non-image replacement uploads without creating a proposal", async () => {
+    const live = {
+      id: 42, status: "published", slug: "live", title: "Live", content: "<p>Text</p>",
+      publishedAt: new Date("2024-01-01T00:00:00Z"), authorId: 5, coverImageAlt: "Existing cover",
+    };
+    selectQueue = [[live]];
+    imageStorage.getObjectEntityFile.mockRejectedValueOnce(new ObjectNotFoundError());
+    const missing = await authed(callTool("propose_mapletechie_revision", {
+      post_id: 42, changes: { coverImage: "/api/storage/objects/uploads/not-present" },
+    }));
+    expect(missing.body.result.isError).toBe(true);
+    expect(JSON.parse(missing.body.result.content[0].text).error).toMatch(/not found/i);
+    expect(captured.insertValues).toHaveLength(0);
+
+    selectQueue = [[live]];
+    imageStorage.getObjectEntityFile.mockResolvedValueOnce({
+      getMetadata: async () => [{ contentType: "text/html" }],
+    });
+    const invalid = await authed(callTool("propose_mapletechie_revision", {
+      post_id: 42, changes: { coverImage: "/api/storage/objects/uploads/not-an-image" },
+    }));
+    expect(invalid.body.result.isError).toBe(true);
+    expect(JSON.parse(invalid.body.result.content[0].text).error).toMatch(/not an image/i);
+    expect(captured.insertValues).toHaveLength(0);
   });
 
   it("returns a signed HTTPS preview URL with identity and viewport", async () => {
@@ -500,6 +599,8 @@ describe("POST /mcp — tools", () => {
       status: "draft",
       dateFrom: "2026-01-01",
       dateTo: "2026-02-01",
+      publishedFrom: "2026-01-15",
+      publishedTo: "2026-01-31",
       author: "Editor",
       page: 3,
       limit: 17,
@@ -694,6 +795,15 @@ describe("POST /mcp — tools", () => {
     expect(captured.updateValues).toHaveLength(0);
   });
 
+  it("backfill_mapletechie_images rejects scheduled posts without mutation", async () => {
+    selectQueue = [[BOT_USER], [{ id: 52, slug: "scheduled-story", status: "scheduled", coverImage: "/covers/old.webp" }]];
+    const res = await authed(callTool("backfill_mapletechie_images", {
+      post_id: 52, cover_image_alt: "A circuit board",
+    }));
+    expect(res.body.result.isError).toBe(true);
+    expect(captured.updateValues).toHaveLength(0);
+  });
+
   it("backfill_mapletechie_images replaces cover and social-share images on a draft post", async () => {
     const existing = {
       id: 53,
@@ -807,5 +917,35 @@ describe("published revision approval boundary", () => {
     expect(captured.insertValues).toEqual(expect.arrayContaining([
       expect.objectContaining({ action: "post.revision.approved" }),
     ]));
+  });
+
+  it("approves image-only and SEO-only corrections without claiming new editorial freshness", async () => {
+    selectQueue = [[published], [{
+      id: 15, postId: 42, status: "pending", baseHash: editorialFingerprint(published as any),
+      changes: { coverImage: "/api/storage/objects/uploads/new-cover", coverImageAlt: "Canadian chip", seoTitle: "Better search title" },
+      updateNote: "Image metadata repaired",
+    }]];
+    const response = await reviewRequest("approve", admin);
+    expect(response.status).toBe(200);
+    const update = captured.updateValues!.find((v) => "coverImage" in v)!;
+    expect(update).toMatchObject({ coverImage: "/api/storage/objects/uploads/new-cover", coverImageAlt: "Canadian chip", seoTitle: "Better search title" });
+    expect(update).not.toHaveProperty("contentModifiedAt");
+    expect(update).not.toHaveProperty("updateNote");
+    expect(update).not.toHaveProperty("publishedAt");
+  });
+
+  it("approves a scheduled correction without publishing or setting editorial freshness", async () => {
+    const scheduled = { ...published, status: "scheduled", scheduledFor: new Date("2026-10-03T00:00:00Z") };
+    selectQueue = [[scheduled], [{
+      id: 15, postId: 42, status: "pending", baseHash: editorialFingerprint(scheduled as any),
+      changes: { title: "Corrected before publication" }, updateNote: "Not a public update",
+    }]];
+    const response = await reviewRequest("approve", admin);
+    expect(response.status).toBe(200);
+    const update = captured.updateValues!.find((v) => "title" in v)!;
+    expect(update).toEqual({ title: "Corrected before publication" });
+    for (const key of ["status", "scheduledFor", "slug", "publishedAt", "authorId", "contentModifiedAt", "updateNote"]) {
+      expect(update).not.toHaveProperty(key);
+    }
   });
 });

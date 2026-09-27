@@ -804,8 +804,8 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
   }
   // A non-publishing editor must not bypass the review workflow by omitting
   // `status` (which would otherwise keep this article publicly published).
-  if (existing.status === "published" && user?.role !== "admin" && !user?.canPublishDirectly) {
-    res.status(403).json({ error: "Published articles require an approved revision. Propose your changes for review instead." });
+  if (["published", "scheduled"].includes(existing.status) && user?.role !== "admin" && !user?.canPublishDirectly) {
+    res.status(403).json({ error: "Published and scheduled articles require an approved revision. Propose your changes for review instead." });
     return;
   }
   const persistCtx = { uploaderId: user?.id ?? null, uploaderName: user?.displayName ?? null };

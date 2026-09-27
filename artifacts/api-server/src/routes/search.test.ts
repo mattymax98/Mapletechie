@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import express from "express";
 import { createServer } from "node:http";
-import { eq } from "drizzle-orm";
+import { eq, gte, lt } from "drizzle-orm";
 
 const { db, queue, authState } = vi.hoisted(() => {
   const rows: unknown[][] = [];
@@ -26,7 +26,7 @@ const { db, queue, authState } = vi.hoisted(() => {
 
 vi.mock("@workspace/db", () => ({
   db,
-  postsTable: { authorId: "posts.authorId" },
+  postsTable: { authorId: "posts.authorId", createdAt: "posts.createdAt", publishedAt: "posts.publishedAt" },
   categoriesTable: {},
   postCategoriesTable: {},
   topicClustersTable: {},
@@ -36,11 +36,11 @@ vi.mock("drizzle-orm", () => ({
   asc: () => ({}),
   desc: () => ({}),
   eq: vi.fn(() => ({})),
-  gte: () => ({}),
+  gte: vi.fn(() => ({})),
   getTableColumns: () => ({}),
   ilike: () => ({}),
   inArray: () => ({}),
-  lt: () => ({}),
+  lt: vi.fn(() => ({})),
   or: () => ({}),
   sql: () => ({}),
 }));
@@ -136,10 +136,16 @@ describe("authenticated full-post archive search", () => {
   it("accepts the archive's search and field filters with pagination", async () => {
     queue.push([{ total: 0 }], []);
     const response = await get(
-      "/admin/archive-search?q=technology&title=launch&slug=launch&body=review&tag=ai&category=software&cluster=9&status=scheduled&dateFrom=2026-06-01&dateTo=2026-06-30&author=editor&page=2&limit=10",
+      "/admin/archive-search?q=technology&title=launch&slug=launch&body=review&tag=ai&category=software&cluster=9&status=scheduled&dateFrom=2026-06-01&dateTo=2026-06-30&publishedFrom=2026-05-01&publishedTo=2026-05-31&author=editor&page=2&limit=10",
     );
     expect(response.status).toBe(200);
     expect(response.json).toMatchObject({ items: [], page: 2, limit: 10, total: 0 });
+    expect(gte).toHaveBeenCalledWith("posts.createdAt", new Date("2026-06-01T00:00:00.000Z"));
+    expect(lt).toHaveBeenCalledWith("posts.createdAt", new Date("2026-07-01T00:00:00.000Z"));
+    expect(gte).toHaveBeenCalledWith("posts.publishedAt", new Date("2026-05-01T00:00:00.000Z"));
+    expect(lt).toHaveBeenCalledWith("posts.publishedAt", new Date("2026-06-01T00:00:00.000Z"));
+    expect(gte).not.toHaveBeenCalledWith("posts.scheduledFor", expect.any(Date));
+    expect(lt).not.toHaveBeenCalledWith("posts.scheduledFor", expect.any(Date));
   });
 
   it("restricts ordinary editors to their own posts, including draft metadata", async () => {
@@ -163,6 +169,8 @@ describe("authenticated full-post archive search", () => {
     expect(invalidStatus.status).toBe(400);
     const invalidDate = await get("/admin/archive-search?dateFrom=2026-13-40");
     expect(invalidDate.status).toBe(400);
+    const invalidPublishedRange = await get("/admin/archive-search?publishedFrom=2026-06-02&publishedTo=2026-06-01");
+    expect(invalidPublishedRange.status).toBe(400);
     const invalidLimit = await get("/admin/archive-search?limit=1000");
     expect(invalidLimit.status).toBe(400);
     expect(db.select).not.toHaveBeenCalled();

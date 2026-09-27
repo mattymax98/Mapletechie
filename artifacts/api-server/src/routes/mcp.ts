@@ -138,7 +138,7 @@ function buildMcpServer(req: Request): McpServer {
     {
       title: "Search the Mapletechie article archive",
       description:
-        "Read-only search across all existing posts, including drafts, scheduled posts, and published posts. Supports full-text q plus title, slug, body, tag, category, cluster, author, status, and inclusive UTC created-date filters. Results use the editor archive-search contract: {items, page, limit, total}.",
+        "Read-only search across all existing posts, including drafts, scheduled posts, and published posts. Supports full-text q plus title, slug, body, tag, category, cluster, author, status, and independent inclusive UTC created-date (dateFrom/dateTo) and publication-date (publishedFrom/publishedTo) filters. Results use the editor archive-search contract: {items, page, limit, total}.",
       inputSchema: z.object({
         q: z.string().trim().max(200).optional().describe("Search title, slug, excerpt, body, author, tag, category, or cluster"),
         title: z.string().trim().max(200).optional(),
@@ -150,6 +150,8 @@ function buildMcpServer(req: Request): McpServer {
         status: z.enum(["draft", "scheduled", "published"]).optional(),
         dateFrom: z.string().trim().max(200).optional().describe("Inclusive UTC creation date, YYYY-MM-DD"),
         dateTo: z.string().trim().max(200).optional().describe("Inclusive UTC creation date, YYYY-MM-DD"),
+        publishedFrom: z.string().trim().max(200).optional().describe("Inclusive UTC original publication date, YYYY-MM-DD; independent of creation date"),
+        publishedTo: z.string().trim().max(200).optional().describe("Inclusive UTC original publication date, YYYY-MM-DD; independent of creation date"),
         author: z.string().trim().max(200).optional(),
         page: z.number().int().min(1).max(100000).default(1),
         limit: z.number().int().min(1).max(100).default(20),
@@ -330,8 +332,8 @@ function buildMcpServer(req: Request): McpServer {
   server.registerTool(
     "propose_mapletechie_revision",
     {
-      title: "Propose changes to a published article",
-      description: "Review-only: stage editorial changes for an existing published post. Never modifies the live post, URL, publication date or author. Use get_mapletechie_post first to inspect the complete current article. A human editor must explicitly approve the proposal in the admin editor.",
+       title: "Propose a published or scheduled correction",
+       description: "Review-only: stage text, SEO, or image corrections for a published or scheduled post. Never modifies the post, URL, publication date, scheduling, or author. Use get_mapletechie_post first; upload images to Mapletechie storage before proposing their URLs. A human editor must explicitly approve in the admin editor. Only substantive published text revisions establish editorial freshness.",
       inputSchema: z.object({
         post_id: z.number().int().positive(),
         changes: z.object({
@@ -340,6 +342,9 @@ function buildMcpServer(req: Request): McpServer {
           content: z.string().min(1).optional(),
           seoTitle: z.string().optional(),
           seoDescription: z.string().optional(),
+           coverImage: z.string().trim().min(1).optional().describe("Mapletechie-owned upload or /covers/ image URL"),
+           coverImageAlt: z.string().trim().min(1).optional().describe("Meaningful cover alt text; required if the replacement cover has no existing alt"),
+           ogImage: z.string().trim().min(1).optional().describe("Mapletechie-owned social image URL"),
         }).strict(),
         update_note: z.string().max(1000).optional(),
       }).strict(),
@@ -395,8 +400,8 @@ function buildMcpServer(req: Request): McpServer {
     "upload_mapletechie_image",
     {
       title: "Upload Mapletechie image",
-      description:
-        "Upload an image (base64-encoded, optionally a data: URI) to the blog's own storage. Returns a local URL to use as cover_image, og_image, or an inline <img src> inside content for create_mapletechie_draft. Max ~6MB of image data per upload.",
+       description:
+         "Upload an image (base64-encoded, optionally a data: URI) to the blog's own storage. Returns a local URL to use in a draft or a review-only published/scheduled correction proposal (coverImage, ogImage, or inline <img src> in full content HTML). Max ~6MB of image data per upload.",
       inputSchema: {
         image_base64: z
           .string()

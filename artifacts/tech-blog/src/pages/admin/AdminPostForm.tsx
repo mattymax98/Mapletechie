@@ -541,8 +541,8 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   const submit = (e: React.FormEvent, statusOverride?: "draft" | "published" | "scheduled") => {
     e.preventDefault();
     setError("");
-    if (isEditing && (existingPost as any)?.status === "published" && !canChooseStatus) {
-      setError("This article is live. Use the revision proposal above to submit changes for approval.");
+    if (isEditing && ["published", "scheduled"].includes((existingPost as any)?.status) && !canChooseStatus) {
+      setError("This article is published or scheduled. Use the revision proposal above to submit changes for approval.");
       return;
     }
 
@@ -670,7 +670,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
-  const publishedReviewOnly = isEditing && (existingPost as any)?.status === "published" && !canChooseStatus;
+  const publishedReviewOnly = isEditing && ["published", "scheduled"].includes((existingPost as any)?.status) && !canChooseStatus;
 
   const previewTitle = (form.seoTitle.trim() || form.title || "Your post title") + " | Mapletechie";
   const previewDesc =
@@ -703,12 +703,12 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
         </main>
       ) : (
       <main className="max-w-4xl mx-auto px-4 py-8">
-        {isEditing && postId && token && (existingPost as any)?.status === "published" && (
+        {isEditing && postId && token && ["published", "scheduled"].includes((existingPost as any)?.status) && (
           <ArticleRevisions postId={postId} token={token} canApprove={canChooseStatus} />
         )}
         {publishedReviewOnly && (
           <p className="mb-6 rounded border border-amber-800 bg-amber-950/40 p-4 text-sm text-amber-200">
-            This article is live. Submit changes in the revision proposal above; the post editor cannot save directly until an authorized reviewer approves them.
+            This article is {((existingPost as any)?.status === "scheduled") ? "scheduled" : "live"}. Submit corrections in the revision proposal above; the post editor cannot save directly until an authorized reviewer approves them.
           </p>
         )}
         <form onSubmit={(e) => submit(e)} className="space-y-6">

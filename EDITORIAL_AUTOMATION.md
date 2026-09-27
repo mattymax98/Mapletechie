@@ -100,3 +100,13 @@ was submitted. The operator must verify the connector URL and authorization,
 refresh/publish the MCP metadata snapshot, and then retry with the same stable
 idempotency key. The API's idempotency ledger makes a safe retry return the
 existing draft instead of creating a duplicate.
+
+The application publishes its live tool schema through authenticated
+`POST /api/mcp` (`tools/list`); there is no separate checked-in connector
+manifest. Verify this response before diagnosing a stale external connector
+catalog. ChatGPT may cache a previous tool snapshot: its owner must refresh
+or reconnect the connector in ChatGPT and confirm the new tool list there.
+Inspecting the production endpoint cannot prove what ChatGPT currently shows.
+Archive search uses `dateFrom`/`dateTo` for created-at dates and independent
+`publishedFrom`/`publishedTo` for original publication dates (inclusive UTC
+calendar days in `YYYY-MM-DD` format).

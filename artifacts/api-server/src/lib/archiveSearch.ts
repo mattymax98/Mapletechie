@@ -7,8 +7,9 @@ export const ARCHIVE_POST_STATUSES = ["draft", "scheduled", "published"] as cons
 export type ArchivePostStatus = (typeof ARCHIVE_POST_STATUSES)[number];
 
 /**
- * Archive date filters are inclusive UTC calendar days over posts.createdAt,
- * regardless of status (not publishedAt).
+ * dateFrom/dateTo are inclusive UTC calendar days over posts.createdAt,
+ * regardless of status. publishedFrom/publishedTo independently filter
+ * posts.publishedAt; rows with no publication timestamp do not match.
  */
 export type ArchiveSearchParams = {
   q?: string;
@@ -22,6 +23,8 @@ export type ArchiveSearchParams = {
   status?: ArchivePostStatus;
   dateFrom?: string;
   dateTo?: string;
+  publishedFrom?: string;
+  publishedTo?: string;
   page: number;
   limit: number;
 };
@@ -47,7 +50,7 @@ export type ArchiveSearchItem = {
   clusterRole: string | null;
   createdAt: Date;
   updatedAt: Date;
-  publishedAt: Date;
+  publishedAt: Date | null;
   scheduledFor: Date | null;
   categories: ArchiveCategory[];
   canonical_url?: string;
@@ -70,7 +73,7 @@ export function parseArchiveSearchParams(input: unknown): ArchiveSearchParamsRes
     return { success: false, error: "Invalid archive search parameters." };
   }
   const query = input as Record<string, unknown>;
-  const filterNames = ["q", "title", "slug", "body", "tag", "category", "cluster", "author", "status", "dateFrom", "dateTo"] as const;
+  const filterNames = ["q", "title", "slug", "body", "tag", "category", "cluster", "author", "status", "dateFrom", "dateTo", "publishedFrom", "publishedTo"] as const;
   const params: Record<string, string> = {};
   for (const key of filterNames) {
     const value = query[key];
@@ -107,6 +110,11 @@ export function parseArchiveSearchParams(input: unknown): ArchiveSearchParamsRes
   if (dateFrom === false || dateTo === false || (dateFrom && dateTo && dateFrom > dateTo)) {
     return { success: false, error: "dateFrom and dateTo must be valid dates in YYYY-MM-DD format." };
   }
+  const publishedFrom = parseDay(params.publishedFrom);
+  const publishedTo = parseDay(params.publishedTo);
+  if (publishedFrom === false || publishedTo === false || (publishedFrom && publishedTo && publishedFrom > publishedTo)) {
+    return { success: false, error: "publishedFrom and publishedTo must be valid dates in YYYY-MM-DD format." };
+  }
   return {
     success: true,
     data: {
@@ -114,6 +122,8 @@ export function parseArchiveSearchParams(input: unknown): ArchiveSearchParamsRes
       status: params.status as ArchivePostStatus | undefined,
       dateFrom: params.dateFrom,
       dateTo: params.dateTo,
+      publishedFrom: params.publishedFrom,
+      publishedTo: params.publishedTo,
       page,
       limit,
     },
@@ -156,11 +166,20 @@ export async function searchArchivePosts(params: ArchiveSearchParams, scope: Arc
   const conditions: SQL[] = [];
   if ("authorId" in scope) conditions.push(eq(postsTable.authorId, scope.authorId));
   if (params.status) conditions.push(eq(postsTable.status, params.status));
+  // Draft rows receive a default published_at at creation in the current
+  // schema, but that timestamp is not evidence they were ever published.
+  if (params.publishedFrom || params.publishedTo) conditions.push(sql`${postsTable.status} <> 'draft'`);
   if (params.dateFrom) conditions.push(gte(postsTable.createdAt, new Date(`${params.dateFrom}T00:00:00.000Z`)));
   if (params.dateTo) {
     const exclusiveEnd = new Date(`${params.dateTo}T00:00:00.000Z`);
     exclusiveEnd.setUTCDate(exclusiveEnd.getUTCDate() + 1);
     conditions.push(lt(postsTable.createdAt, exclusiveEnd));
+  }
+  if (params.publishedFrom) conditions.push(gte(postsTable.publishedAt, new Date(`${params.publishedFrom}T00:00:00.000Z`)));
+  if (params.publishedTo) {
+    const exclusiveEnd = new Date(`${params.publishedTo}T00:00:00.000Z`);
+    exclusiveEnd.setUTCDate(exclusiveEnd.getUTCDate() + 1);
+    conditions.push(lt(postsTable.publishedAt, exclusiveEnd));
   }
   if (params.q) {
     const pattern = escapeLike(params.q);

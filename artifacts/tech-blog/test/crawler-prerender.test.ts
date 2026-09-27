@@ -252,12 +252,28 @@ function startMockApi(
   close: () => Promise<void>;
   port: number;
   setMaintenance: (on: boolean) => void;
+  setPostsMode: (
+    mode:
+      | "populated"
+      | "empty"
+      | "server-error"
+      | "timeout"
+      | "malformed"
+      | "invalid-structure",
+  ) => void;
   getFeaturedHits: () => number;
 }> {
   const api = express();
   // Mutable so the recovery suite can flip maintenance off mid-test.
   let maintenance = opts.maintenance ?? false;
   let featuredHits = 0;
+  let postsMode:
+    | "populated"
+    | "empty"
+    | "server-error"
+    | "timeout"
+    | "malformed"
+    | "invalid-structure" = "populated";
 
   api.get("/api/settings/status", (_req, res) => {
     res.json({
@@ -283,6 +299,22 @@ function startMockApi(
     res.json([CATEGORY]);
   });
   api.get("/api/posts", (_req, res) => {
+    if (postsMode === "empty") return res.json([]);
+    if (postsMode === "server-error") {
+      return res.status(500).json({ error: "temporary" });
+    }
+    if (postsMode === "timeout") {
+      setTimeout(() => {
+        if (!res.destroyed) res.json(POST_LIST);
+      }, 4500);
+      return;
+    }
+    if (postsMode === "malformed") {
+      return res.type("application/json").send("{malformed json");
+    }
+    if (postsMode === "invalid-structure") {
+      return res.json([{ slug: "missing-title" }]);
+    }
     res.json(POST_LIST);
   });
   api.get("/api/authors/by-username/:username", (req, res) => {
@@ -352,6 +384,9 @@ function startMockApi(
         port,
         setMaintenance: (on: boolean) => {
           maintenance = on;
+        },
+        setPostsMode: (mode) => {
+          postsMode = mode;
         },
         getFeaturedHits: () => featuredHits,
         close: () =>
@@ -753,6 +788,67 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
         expect(body, `dead link to /category/${phantom} must not be emitted`).not.toContain(
           `/category/${phantom}`,
         );
+      }
+    });
+  });
+
+  describe("crawler listing API failure handling", () => {
+    const listingRoutes = ["/", "/blog"];
+    const failureModes = [
+      ["server-error", "HTTP 500"],
+      ["timeout", "timeout"],
+      ["malformed", "malformed JSON"],
+      ["invalid-structure", "invalid response structure"],
+    ] as const;
+
+    it("serves valid empty post arrays as successful crawler listings", async () => {
+      mockApi!.setPostsMode("empty");
+      try {
+        const responses = await Promise.all(
+          listingRoutes.map((route) => get(route, GOOGLEBOT_UA)),
+        );
+        for (const { status, body } of responses) {
+          expect(status).toBe(200);
+          expect(body).toContain("No posts yet.");
+        }
+      } finally {
+        mockApi!.setPostsMode("populated");
+      }
+    });
+
+    for (const [mode, description] of failureModes) {
+      it(`returns retryable no-store 503s for ${description} on both crawler listings`, async () => {
+        mockApi!.setPostsMode(mode);
+        try {
+          const responses = await Promise.all(
+            listingRoutes.map((route) => get(route, GOOGLEBOT_UA)),
+          );
+          for (const { status, body, headers } of responses) {
+            expect(status).toBe(503);
+            expect(headers.get("retry-after")).toBe("60");
+            expect(headers.get("cache-control")).toBe("no-store");
+            expect(body).toContain("Temporarily Unavailable");
+            expect(body).not.toContain("No posts yet.");
+          }
+        } finally {
+          mockApi!.setPostsMode("populated");
+        }
+      });
+    }
+
+    it("keeps both browser routes on the SPA shell when the posts API fails", async () => {
+      mockApi!.setPostsMode("server-error");
+      try {
+        const responses = await Promise.all(
+          listingRoutes.map((route) => get(route, BROWSER_UA)),
+        );
+        for (const { status, body } of responses) {
+          expect(status).toBe(200);
+          expect(body).toContain('<div id="root">');
+          expect(body).not.toContain("Temporarily Unavailable");
+        }
+      } finally {
+        mockApi!.setPostsMode("populated");
       }
     });
   });

@@ -80,11 +80,12 @@ Image rules:
   use the returned URL in `cover_image`/`cover_image_alt` or an inline
   `<img src="..." alt="...">` inside `content`.
 
-### Live image backfills
+### Image corrections and draft backfills
 
 The private `POST /api/automation/posts/backfill` endpoint and the
-`backfill_mapletechie_images` MCP tool can update image fields on an existing
-post, including a published post. Target exactly one post with `post_id` or
+`backfill_mapletechie_images` MCP tool directly update image fields on **drafts only**.
+Published and scheduled posts are rejected, even if their status changes while
+an image request is in flight. Target exactly one draft with `post_id` or
 `slug`. Send `cover_image` to replace the cover, `og_image` to replace the
 social-share image, `cover_image_alt` to set cover alt text, and/or send the
 complete updated `content` HTML to add or repair inline images. When `content`
@@ -93,9 +94,17 @@ images are copied to Mapletechie's storage through the existing
 SSRF-protected pipeline when possible; `/api/storage/objects/...` and
 `/covers/...` paths can be used directly. A cover replacement uses the
 supplied `cover_image_alt`, or preserves an existing meaningful cover alt; it
-is rejected if neither is available. The operation preserves the post's
-current author, byline, status, slug, and publish time, so it also works after
-an editor changes the author to themselves.
+is rejected if neither is available.
+
+For a published or scheduled article, call `get_mapletechie_post`, upload any
+replacement image with `upload_mapletechie_image`, then send its returned
+Mapletechie URL to `propose_mapletechie_revision` under `changes.coverImage`
+and/or `changes.ogImage` (with `changes.coverImageAlt` where needed). The
+proposal does not edit the post: an authorized human reviews and approves it
+in the admin editor. Inline replacement images belong in a proposed complete
+HTML `changes.content`, with meaningful alt text. Metadata/image-only changes
+do not create a new editorial freshness date; scheduled corrections leave
+status and scheduled time unchanged.
 
 The `list_mapletechie_posts` MCP tool is the read-only discovery step for
 backfills. It can filter by `status` and limit the result count, and returns

@@ -7,16 +7,22 @@ import { adminAuth } from "../middlewares/adminAuth";
 import { automationAuth } from "./automation";
 import { cleanText, normalizeSocialEmbeds } from "./posts";
 import { validateAutomationImages } from "./automation";
+import { validateCoverImage } from "../lib/coverImageValidation";
+import { ObjectNotFoundError, ObjectStorageService } from "../lib/objectStorage";
 import { writeAuditLog, writeAuditLogForUser } from "../lib/audit";
 import { submitToIndexNow, buildPostUrls } from "../lib/indexNow";
 
 const router = Router();
+const objectStorage = new ObjectStorageService();
 const editable = z.object({
   title: z.string().trim().min(1).max(300).optional(),
   excerpt: z.string().trim().min(1).max(2000).optional(),
   content: z.string().min(1).max(500_000).optional(),
   seoTitle: z.string().max(300).optional(),
   seoDescription: z.string().max(1000).optional(),
+  coverImage: z.string().trim().min(1).max(2048).optional(),
+  coverImageAlt: z.string().trim().min(1).max(1000).optional(),
+  ogImage: z.string().trim().min(1).max(2048).optional(),
 }).strict();
 const proposal = z.object({
   changes: editable.refine((v) => Object.keys(v).length > 0, "Provide at least one editorial change"),
@@ -24,10 +30,21 @@ const proposal = z.object({
 }).strict();
 type Changes = z.infer<typeof editable>;
 
+function ownedImagePath(image: string): string | null {
+  let path = image;
+  if (/^https?:\/\//i.test(image)) {
+    let url: URL;
+    try { url = new URL(image); } catch { return null; }
+    if (!["mapletechie.com", "www.mapletechie.com"].includes(url.hostname.toLowerCase()) || url.search || url.hash) return null;
+    path = url.pathname;
+  }
+  return /^\/(?:api\/storage\/objects|covers)\/[^\s"'<>?#]+$/i.test(path) ? path : null;
+}
+
 /** Deliberately excludes routine counters, updated_at, and other non-editorial writes. */
 export function editorialFingerprint(post: Post): string {
   return createHash("sha256").update(JSON.stringify([
-    post.id, post.status, post.slug, post.publishedAt?.toISOString(),
+    post.id, post.status, post.slug, post.publishedAt?.toISOString(), post.scheduledFor?.toISOString(),
     post.authorId, post.author, post.authorAvatar,
     post.title, post.excerpt, post.content, post.coverImage, post.coverImageAlt,
     post.categoryId, post.tags, post.ogImage, post.readTime,
@@ -43,13 +60,10 @@ function canEdit(user: Request["user"], post: Post): boolean {
 function canApprove(user: Request["user"], post: Post): boolean {
   return canEdit(user, post) && (user?.role === "admin" || user?.canPublishDirectly === true);
 }
-function validateChanges(input: unknown): { changes: Changes; updateNote: string | null } | { error: string } {
+function validateChanges(input: unknown, post: Post): { changes: Changes; updateNote: string | null } | { error: string } {
   const parsed = proposal.safeParse(input);
   if (!parsed.success) return { error: parsed.error.message };
   const changes = { ...parsed.data.changes };
-  if (!["title", "excerpt", "content"].some((key) => key in changes)) {
-    return { error: "A substantive title, summary, or article-body change is required; SEO-only changes do not establish editorial freshness." };
-  }
   if (changes.content !== undefined) {
     const normalized = normalizeSocialEmbeds(changes.content, { automation: true });
     if (!normalized.html.trim()) return { error: "Content is empty after sanitization" };
@@ -58,16 +72,74 @@ function validateChanges(input: unknown): { changes: Changes; updateNote: string
     }
     const imageError = validateAutomationImages(normalized.html);
     if (imageError) return { error: imageError };
+    const existingSources = new Set([...post.content.matchAll(/<img\b[^>]*\bsrc="([^"]+)"/gi)].map((match) => match[1]));
+    for (const match of normalized.html.matchAll(/<img\b[^>]*\bsrc="([^"]+)"/gi)) {
+      if (!existingSources.has(match[1]) && !ownedImagePath(match[1])) {
+        return { error: "Upload new article images to Mapletechie before proposing article HTML." };
+      }
+    }
     changes.content = normalized.html;
+  }
+  for (const field of ["coverImage", "ogImage"] as const) {
+    const image = changes[field];
+    if (image === undefined) continue;
+    const path = ownedImagePath(image);
+    if (!path) {
+      return { error: `${field} must be a Mapletechie-owned upload or cover path.` };
+    }
+    const error = validateCoverImage(path);
+    if (error) return { error };
+    changes[field] = path;
+  }
+  if (changes.coverImageAlt !== undefined) {
+    changes.coverImageAlt = cleanText(changes.coverImageAlt) ?? "";
+    if (!changes.coverImageAlt) return { error: "Cover image alt text must be meaningful." };
+  }
+  if (changes.coverImage !== undefined && !changes.coverImageAlt && !cleanText(post.coverImageAlt)) {
+    return { error: "Cover image alt text is required when replacing a cover without existing alt text." };
+  }
+  if (changes.coverImageAlt !== undefined && !changes.coverImage && !post.coverImage) {
+    return { error: "Cannot set cover image alt text without a cover image." };
   }
   if (changes.seoTitle !== undefined) changes.seoTitle = cleanText(changes.seoTitle) ?? "";
   if (changes.seoDescription !== undefined) changes.seoDescription = cleanText(changes.seoDescription) ?? "";
   return { changes, updateNote: parsed.data.updateNote ? cleanText(parsed.data.updateNote) : null };
 }
 
-async function findPublished(id: number) {
+/** Check actual storage objects, not just the syntactic shape of an upload URL. */
+async function verifyReplacementImages(changes: Changes, post: Post): Promise<{ error: string; status: number } | null> {
+  const paths = new Set<string>();
+  for (const image of [changes.coverImage, changes.ogImage]) {
+    if (image?.startsWith("/api/storage/objects/")) paths.add(image);
+  }
+  if (changes.content !== undefined) {
+    const existingSources = new Set([...post.content.matchAll(/<img\b[^>]*\bsrc="([^"]+)"/gi)].map((match) => match[1]));
+    for (const match of changes.content.matchAll(/<img\b[^>]*\bsrc="([^"]+)"/gi)) {
+      if (existingSources.has(match[1])) continue;
+      const path = ownedImagePath(match[1]);
+      if (path?.startsWith("/api/storage/objects/")) paths.add(path);
+    }
+  }
+  for (const path of paths) {
+    try {
+      const file = await objectStorage.getObjectEntityFile(path.slice("/api/storage".length));
+      const [metadata] = await file.getMetadata();
+      if (!metadata.contentType?.toLowerCase().startsWith("image/")) {
+        return { status: 422, error: "Replacement upload is not an image." };
+      }
+    } catch (error) {
+      if (error instanceof ObjectNotFoundError) {
+        return { status: 422, error: "Replacement image upload was not found. Upload it again before proposing the correction." };
+      }
+      return { status: 503, error: "Image storage could not be checked. Retry before proposing or approving this correction." };
+    }
+  }
+  return null;
+}
+
+async function findRevisable(id: number) {
   if (!Number.isSafeInteger(id) || id < 1) return null;
-  const [post] = await db.select().from(postsTable).where(and(eq(postsTable.id, id), eq(postsTable.status, "published")));
+  const [post] = await db.select().from(postsTable).where(and(eq(postsTable.id, id), sql`${postsTable.status} IN ('published', 'scheduled')`));
   return post ?? null;
 }
 
@@ -75,11 +147,13 @@ async function findPublished(id: number) {
 export async function proposePostRevision(
   req: Request, postId: number, input: unknown, source: "connector" | "editor",
 ): Promise<{ status: number; body: Record<string, unknown> }> {
-  const post = await findPublished(postId);
-  if (!post) return { status: 404, body: { error: "Published post not found" } };
+  const post = await findRevisable(postId);
+  if (!post) return { status: 404, body: { error: "Published or scheduled post not found" } };
   if (source === "editor" && !canEdit(req.user, post)) return { status: 403, body: { error: "Forbidden" } };
-  const validated = validateChanges(input);
+  const validated = validateChanges(input, post);
   if ("error" in validated) return { status: 422, body: { error: validated.error } };
+  const imageError = await verifyReplacementImages(validated.changes, post);
+  if (imageError) return { status: imageError.status, body: { error: imageError.error } };
   const [revision] = await db.insert(postRevisionsTable).values({
     postId, baseHash: editorialFingerprint(post), changes: validated.changes,
     updateNote: validated.updateNote, source, proposedBy: source === "editor" ? req.user?.id ?? null : null,
@@ -106,8 +180,8 @@ router.post("/automation/posts/:id/revisions", automationAuth, async (req, res) 
 });
 
 router.get("/admin/posts/:id/revisions", adminAuth, async (req, res): Promise<void> => {
-  const post = await findPublished(Number(req.params.id));
-  if (!post) { res.status(404).json({ error: "Published post not found" }); return; }
+  const post = await findRevisable(Number(req.params.id));
+  if (!post) { res.status(404).json({ error: "Published or scheduled post not found" }); return; }
   if (!canEdit(req.user, post)) { res.status(403).json({ error: "Forbidden" }); return; }
   const revisions = await db.select().from(postRevisionsTable).where(eq(postRevisionsTable.postId, post.id))
     .orderBy(desc(postRevisionsTable.createdAt));
@@ -117,8 +191,8 @@ router.get("/admin/posts/:id/revisions", adminAuth, async (req, res): Promise<vo
 });
 
 router.put("/admin/posts/:id/revisions/:revisionId", adminAuth, async (req, res): Promise<void> => {
-  const post = await findPublished(Number(req.params.id));
-  if (!post) { res.status(404).json({ error: "Published post not found" }); return; }
+  const post = await findRevisable(Number(req.params.id));
+  if (!post) { res.status(404).json({ error: "Published or scheduled post not found" }); return; }
   if (!canApprove(req.user, post)) { res.status(403).json({ error: "Approval permission required" }); return; }
   const [revision] = await db.select().from(postRevisionsTable).where(and(
     eq(postRevisionsTable.id, Number(req.params.revisionId)), eq(postRevisionsTable.postId, post.id),
@@ -127,12 +201,19 @@ router.put("/admin/posts/:id/revisions/:revisionId", adminAuth, async (req, res)
   if (editorialFingerprint(post) !== revision.baseHash) {
     res.status(409).json({ error: "The live post changed. Reject this proposal and submit a new revision after reviewing the current version." }); return;
   }
-  const validated = validateChanges(req.body);
+  const validated = validateChanges(req.body, post);
   if ("error" in validated) { res.status(422).json({ error: validated.error }); return; }
+  const imageError = await verifyReplacementImages(validated.changes, post);
+  if (imageError) { res.status(imageError.status).json({ error: imageError.error }); return; }
   const [saved] = await db.update(postRevisionsTable)
     .set({ changes: validated.changes, updateNote: validated.updateNote })
     .where(and(eq(postRevisionsTable.id, revision.id), eq(postRevisionsTable.status, "pending")))
     .returning();
+  if (!saved) { res.status(409).json({ error: "This proposal is no longer pending." }); return; }
+  if (saved) await writeAuditLog(req, {
+    action: "post.revision.edited", entityType: "post", entityId: post.id,
+    summary: `Reviewed proposal for "${post.title}"`, details: { revisionId: revision.id, before: revision.changes, after: validated.changes },
+  });
   res.json(saved);
 });
 
@@ -147,7 +228,7 @@ router.post("/admin/posts/:id/revisions/:revisionId/:action", adminAuth, async (
     // Lock the post before reading the revision; concurrent edits/approvals serialize here.
     await tx.execute(sql`SELECT id FROM posts WHERE id = ${postId} FOR UPDATE`);
     const [post] = await tx.select().from(postsTable).where(eq(postsTable.id, postId));
-    if (!post || post.status !== "published") return { status: 404, error: "Published post not found" };
+    if (!post || !["published", "scheduled"].includes(post.status)) return { status: 404, error: "Published or scheduled post not found" };
     if (!canApprove(req.user, post)) return { status: 403, error: "Approval permission required" };
     const [revision] = await tx.select().from(postRevisionsTable).where(and(
       eq(postRevisionsTable.id, revisionId), eq(postRevisionsTable.postId, postId),
@@ -157,15 +238,19 @@ router.post("/admin/posts/:id/revisions/:revisionId/:action", adminAuth, async (
       return { status: 409, error: "The live post changed. Reject and propose a new revision after reviewing it." };
     if (action === "approve") {
       // Stored proposals were validated on entry; validate again in case of legacy/manual rows.
-      const validated = validateChanges({ changes: revision.changes, updateNote: revision.updateNote });
+      const validated = validateChanges({ changes: revision.changes, updateNote: revision.updateNote }, post);
       if ("error" in validated) return { status: 422, error: validated.error };
-      const meaningful = (["title", "excerpt", "content"] as const)
-        .some((key) => validated.changes[key] !== undefined && validated.changes[key] !== post[key]);
-      if (!meaningful) return { status: 422, error: "No editorial changes to approve" };
+      const imageError = await verifyReplacementImages(validated.changes, post);
+      if (imageError) return imageError;
+      const changed = Object.fromEntries(Object.entries(validated.changes).filter(([key, value]) =>
+        value !== post[key as keyof Post],
+      )) as Changes;
+      if (!Object.keys(changed).length) return { status: 422, error: "No changes to approve" };
+      const meaningful = post.status === "published" && (["title", "excerpt", "content"] as const)
+        .some((key) => changed[key] !== undefined);
       await tx.update(postsTable).set({
-        ...validated.changes,
-        contentModifiedAt: new Date(),
-        updateNote: validated.updateNote,
+        ...changed,
+        ...(meaningful ? { contentModifiedAt: new Date(), updateNote: validated.updateNote } : {}),
       }).where(eq(postsTable.id, postId));
     }
     await tx.update(postRevisionsTable).set({
@@ -182,7 +267,7 @@ router.post("/admin/posts/:id/revisions/:revisionId/:action", adminAuth, async (
     return { status: 200, post };
   });
   if ("error" in outcome) { res.status(outcome.status).json({ error: outcome.error }); return; }
-  if (action === "approve") void submitToIndexNow(buildPostUrls({ slug: outcome.post.slug }));
+  if (action === "approve" && outcome.post.status === "published") void submitToIndexNow(buildPostUrls({ slug: outcome.post.slug }));
   res.json({ status: action === "approve" ? "approved" : "rejected" });
 });
 

@@ -460,6 +460,23 @@ describe("PUT /posts/:id — external image persistence", () => {
     expect(captured.updateSet).toBeUndefined();
   });
 
+  it("does not let a non-publishing author edit or unschedule a scheduled article directly", async () => {
+    currentUser = { id: 2, role: "editor", displayName: "Ed", canPublishDirectly: false, canEditOthersPosts: false };
+    selectQueue = [[{
+      id: 42, authorId: 2, categoryId: 7, status: "scheduled",
+      title: "Upcoming title", content: "<p>Upcoming content</p>",
+      slug: "upcoming-article", publishedAt: new Date("2026-01-01T00:00:00Z"),
+      scheduledFor: new Date("2027-01-01T00:00:00Z"),
+    }]];
+    const { status, json } = await request(makeApp(), "PUT", "/posts/42", {
+      content: "<p>Unreviewed replacement</p>", status: "draft",
+    });
+    expect(status).toBe(403);
+    expect(json.error).toMatch(/approved revision/i);
+    expect(db.transaction).not.toHaveBeenCalled();
+    expect(captured.updateSet).toBeUndefined();
+  });
+
   it("rewrites an external coverImage to a storage path on update", async () => {
     const existing = { id: 42, authorId: 1, categoryId: 7, title: "Old", status: "published" };
     // existing select -> [existing]; refetch via postsBaseQuery -> [updated]; raw refetch -> [updatedRaw]
