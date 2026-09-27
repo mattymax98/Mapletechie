@@ -9,7 +9,9 @@
     "fix-laptops-cover": "tsx ./src/fix-laptops-cover.ts",
     "verify-canonical-host": "tsx ./src/verify-canonical-host.ts",
     "migrate:railway": "tsx ./src/migrate-railway.ts",
-    "test": "tsx --test ./src/railwayMigrationGuard.test.ts ./no-direct-ai-generation.test.mjs",
+    "schema:railway": "tsx ./src/railwaySchemaCompatibility.ts",
+    "smoke:production": "tsx ./src/productionSmoke.ts",
+    "test": "tsx --test ./src/railwayMigrationGuard.test.ts ./src/railwaySchemaCompatibility.test.ts ./src/productionSmoke.test.ts ./no-direct-ai-generation.test.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

@@ -94,6 +94,20 @@ it now requires `RAILWAY_DATABASE_URL`, verifies that database's identity, and
 refuses to run without an explicit confirmation flag. Its row set must be
 separately reviewed and approved before anyone invokes it.
 
+For migration-backed code, expand the schema first, verify it, and only then
+deploy code that reads the new objects. Run the read-only compatibility check
+with `pnpm --filter @workspace/scripts run schema:railway --base origin/main
+--head HEAD --requires <numbered-migration.sql>` before pushing. It verifies
+the pinned Railway cluster and checks actual tables, columns, valid indexes,
+validated constraints, and enabled triggers for declared migrations. A missing
+object names its migration and blocks delivery; a file merely existing in Git
+does not count. For a reviewed backend change with no schema dependency, use
+`--requires none`. No migration is ever applied by this check. An ordinary Git
+push is **not** authorization to write to production: obtain separate owner
+authorization before using the guarded `migrate:railway --apply` command, then
+rerun the compatibility check. Avoid dropping replacement schema during the
+same release that begins using it unless compatibility has been proven.
+
 ## Validated direct-to-main development
 
 `main` is the production branch and Railway deploys it automatically. Routine
@@ -101,15 +115,30 @@ work follows this delivery sequence:
 
 1. Fetch the latest `origin/main` and confirm the working copy is based on it.
 2. Implement the requested change.
-3. Run the validation commands above.
+3. Run the validation commands above. For backend or database-schema changes,
+   review which numbered Railway migration(s) the candidate code requires.
+   Install the versioned pre-push hook once per clone with
+   `git config --local core.hooksPath .githooks` (it retains the Git LFS check).
+   The hook runs the read-only schema gate against the actual remote base and
+   candidate commit before a direct push to `origin/main`.
 4. Commit with `mattymax98 <197423417+mattymax98@users.noreply.github.com>` as
    both author and committer, with no additional attribution trailers.
 5. Fetch `origin/main` again, confirm the commit is a normal fast-forward, and
-   run a targeted HTTPS dry-run push.
+   run a targeted HTTPS dry-run push. For backend changes, set
+   `RAILWAY_SCHEMA_REQUIREMENTS` to `none` **only after reviewing** that no new
+   schema is required, or to comma-separated numbered migration filenames
+   (for example `0007_topic_clusters.sql,0008_post_editorial_revisions.sql`).
+   The gate rejects undeclared backend/schema changes, changed migration SQL
+   declared as `none`, and missing live schema objects; it never applies SQL.
+   Changes with no backend or schema impact do not need this declaration.
 6. Push directly to GitHub `main` over HTTPS using the configured GitHub CLI
    credential helper.
 7. Confirm Railway deploys that exact commit and verify the affected production
-   behavior.
+   behavior. Run the production smoke command against the confirmed Railway
+   custom domain, for example:
+   `pnpm --filter @workspace/scripts run smoke:production https://www.mapletechie.com`.
+   A smoke failure is a failed delivery, even if Railway marks both services
+   healthy.
 
 These are normal task-completion steps, not separate prompts for approval.
 The repository-local GitHub HTTPS credential helper uses

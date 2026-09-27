@@ -11,14 +11,34 @@ Railway production remains connected to GitHub `main`. The normal deployment
 flow is:
 
 ```text
-latest main → implement → validate → canonical commit → fast-forward push
-→ Railway production deployment → production verification
+latest main → implement → validate → schema compatibility preflight
+→ canonical commit → fast-forward push → Railway production deployment
+→ production smoke check
 ```
 
 Before every push, run the repository typecheck, tests, and production build.
 Confirm the commit uses the canonical `mattymax98` identity, fetch `main` again,
 and push only when the update remains a normal fast-forward. Never force-push or
 delete `main` during routine delivery.
+
+Run `git config --local core.hooksPath .githooks` in each clone to enable the
+versioned pre-push gate (which keeps the Git LFS check). Backend or database
+schema changes require an explicit reviewed `RAILWAY_SCHEMA_REQUIREMENTS`
+declaration: `none` if no migration is needed, or comma-separated numbered
+SQL migration filenames. The hook compares the proposed commits against the
+remote base and verifies declared schema objects on the pinned Railway cluster
+inside a read-only transaction. A missing object stops the push and names its
+reviewed migration. For an unapplied migration, obtain separate owner approval
+before running the guarded production migration; Git push approval is not
+database-write approval. Expand schema, verify production, then deploy code
+that uses it. Do not remove old schema in that first release without proving
+compatibility. Do not skip the hook.
+
+After Railway reports both services on the candidate commit, run
+`pnpm --filter @workspace/scripts run smoke:production https://www.mapletechie.com`.
+It checks API health, public/latest/featured posts, crawler article links on
+`/blog` and `/`, and one published article. Treat any failure as a failed
+deployment, even if Railway reports healthy containers.
 
 Railway pull-request environments are not required. The project has no isolated
 preview database or preview-scoped R2 credentials, so do not enable a preview
