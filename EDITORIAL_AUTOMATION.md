@@ -15,7 +15,7 @@ long-form prompt that can drift.
 | Local time | 7:00 AM |
 | Time zone | `America/Thunder_Bay` |
 | Cron representation | `0 7 * * *` |
-| Volume | At least five fresh completed drafts; no artificial maximum |
+| Volume | Aim for five strong fresh drafts; submit fewer when quality gates fail; no artificial maximum |
 | Authority | Research, writing, image preparation, validation, and draft submission only |
 | Human control | Editors review every item and alone publish or schedule it |
 
@@ -31,11 +31,14 @@ repository or in the routine message.
 1. Call `get_mapletechie_editorial_contract`.
 2. Call `list_mapletechie_categories` and use only the live categories.
 3. Call `list_mapletechie_posts` for recent `published`, `scheduled`, and
-   `draft` coverage. Compare search intent, titles, slugs, and categories before
+   `draft` coverage, search the full published archive, inspect available topic
+   clusters, and compare the newest covers and alt text. Check reader intent,
+   titles, slugs, categories, and existing pillar/evergreen resources before
    selecting candidates.
-4. Keep fresh daily candidates separate from backlog/catch-up and maintenance
-   candidates. Maintenance candidates may be identified, but there is no
-   separate archive maintenance desk in this workflow.
+4. Keep fresh daily candidates separate from backlog/catch-up and REFRESH
+   CANDIDATES. A review-only revision proposal may be attached to an existing
+   published or scheduled article where supported; it never directly changes
+   the live post.
 5. Research from multiple defensible sources, select rights-safe imagery, and
    complete the factual, originality, prose, SEO, linking, structured-data,
    image-rights, alt-text, HTML, and visual checks.
@@ -54,10 +57,11 @@ invalid image replacements. A new draft is also blocked if image persistence
 falls back to an external URL, so a partially stored article is never reported
 as completed. The automation must not try to work around those errors.
 
-`backfill_mapletechie_images` is only for an explicitly identified repair on
-an existing post. It can update image-related fields, including on a published
-post, but preserves that post's author, byline, status, slug, and publication
-time. It is not a new-article submission or a publishing mechanism.
+`backfill_mapletechie_images` is only for image repairs on drafts. It cannot
+directly modify published or scheduled posts. Where supported, propose a
+review-only revision attached to the existing post for human approval, preserving
+its URL, original publication date and authorship. Only substantive editorial
+revisions should propose a content-modified date.
 
 ## Completion report
 
@@ -65,12 +69,16 @@ Use this order and vocabulary in the run report:
 
 ```text
 RUN — YYYY-MM-DD HH:MM America/Thunder_Bay
-FRESH — completed N / minimum 5
+FRESH — completed N / target 5
 COMPLETED
-- id; title; category; edit URL
-  sources: source name + URL
-  image: source/creator + license or permission basis + stored URL
-  QA: status=draft; returned fields checked; content/image/alt/SEO/link checks
+- id; title; categories and primary; format; edit URL
+  Mapletechie value-add: contribution beyond the underlying sources
+  sources: primary names + URLs and independent corroboration where available
+  image: source/creator + license or permission basis + stored cover/OG URLs; alt
+  QA: status=draft; stored fields, content/image/alt/SEO/link checks
+  where relevant: cluster and pillar/supporting role; internal links; Canadian
+  angle; social reaction and whether anecdotal/verified; competing page checked;
+  original calculations or comparisons
 
 BACKLOG / CATCH-UP
 - candidate; label; outcome
@@ -90,7 +98,7 @@ NEXT MANUAL ACTION — editor review, rights check, metadata refresh, or other a
 passed. `BLOCKED` means no draft was accepted. `PARTIAL` means a draft may have
 been accepted but a required verification remains unresolved; it is never
 counted toward five. If the run cannot reach five fresh items, report the
-shortfall plainly rather than submitting filler or claiming success.
+actual count and exact blockers plainly rather than submitting filler or claiming success. Five is a quality-first target, not a mandatory quota.
 
 ## Connector/MCP recovery
 
@@ -110,3 +118,14 @@ Inspecting the production endpoint cannot prove what ChatGPT currently shows.
 Archive search uses `dateFrom`/`dateTo` for created-at dates and independent
 `publishedFrom`/`publishedTo` for original publication dates (inclusive UTC
 calendar days in `YYYY-MM-DD` format).
+
+## Editorial library and supporting evidence
+
+The canonical instructions require meaningful Mapletechie value beyond a rewrite,
+full-archive linking and refresh checks, genuine topic-cluster assignment,
+proportionate public reaction, factual Canadian implications, straightforward
+headings and endings, and physical cover-image logic. Series remain reserved for
+sequential stories. Supported social embeds and inline evidence are used only
+when they improve the reporting. No article HTML contains manual JSON-LD; the
+application generates structured data from accurate post metadata. The existing
+responsive-table hard gate still applies.

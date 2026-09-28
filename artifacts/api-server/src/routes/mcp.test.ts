@@ -562,7 +562,14 @@ describe("POST /mcp — tools", () => {
       timezone: "America/Thunder_Bay",
     });
     expect(payload.schedule.days).toHaveLength(7);
-    expect(payload.instructions).toMatch(/at least five fresh/i);
+    expect(payload.instructions).toMatch(/five is a target/i);
+    expect(payload.instructions).toMatch(/meaningful original value/i);
+    expect(payload.instructions).toMatch(/full published archive/i);
+    expect(payload.instructions).toMatch(/review-only revision proposal/i);
+    expect(payload.instructions).toMatch(/topic clusters/i);
+    expect(payload.instructions).toMatch(/social reaction/i);
+    expect(payload.instructions).toMatch(/visual-logic pass/i);
+    expect(payload.instructions).toMatch(/do not insert JSON-LD/i);
     expect(payload.instructions).toMatch(/never.*publish/i);
     expect(payload.instructions).toMatch(/cannibalization/i);
     expect(payload.reportFormat.blocked).toMatch(/exact blocker/i);
