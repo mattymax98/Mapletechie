@@ -1,0 +1,439 @@
+import { useState } from "react";
+import { AdminShell } from "@/components/admin/AdminShell";
+import { ImageUploadField } from "@/components/ImageUploadField";
+import {
+  RichProfileFieldsEditor,
+  emptyRichProfile,
+  richProfileFromUser,
+  richProfileToPayload,
+  type RichProfileFormValue,
+} from "@/components/admin/RichProfileFields";
+import {
+  useListUsers,
+  useCreateUser,
+  useUpdateUser,
+  useDeleteUser,
+} from "@workspace/api-client-react";
+import { useAdmin } from "@/context/AdminContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { ArrowLeft, Plus, Pencil, Trash2 } from "lucide-react";
+import ErrorBanner from "@/components/ErrorBanner";
+import { useQueryClient } from "@tanstack/react-query";
+
+interface UserRow {
+  id: number;
+  username: string;
+  displayName: string;
+  email?: string;
+  bio?: string;
+  avatarUrl?: string;
+  twitterUrl?: string;
+  linkedinUrl?: string;
+  instagramUrl?: string;
+  githubUrl?: string;
+  websiteUrl?: string;
+  role: string;
+  canPublishDirectly: boolean;
+  canManageShop?: boolean;
+  canManageJobs?: boolean;
+  canViewInbox?: boolean;
+  canManageEditors?: boolean;
+  canSendEmail?: boolean;
+  canManageCategories?: boolean;
+  canEditOthersPosts?: boolean;
+  isActive: boolean;
+  showOnTeam?: boolean;
+}
+
+const emptyForm = {
+  username: "",
+  password: "",
+  displayName: "",
+  email: "",
+  bio: "",
+  avatarUrl: "",
+  twitterUrl: "",
+  linkedinUrl: "",
+  instagramUrl: "",
+  githubUrl: "",
+  websiteUrl: "",
+  role: "editor",
+  canPublishDirectly: false,
+  canManageShop: false,
+  canManageJobs: false,
+  canViewInbox: false,
+  canManageEditors: false,
+  canSendEmail: false,
+  canManageCategories: false,
+  canEditOthersPosts: false,
+  isActive: true,
+  showOnTeam: true,
+};
+
+export default function AdminUsers() {
+  const { user: me } = useAdmin();
+  const { data: users, isLoading } = useListUsers();
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState<UserRow | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState({ ...emptyForm });
+  const [rich, setRich] = useState<RichProfileFormValue>(emptyRichProfile);
+  const [error, setError] = useState("");
+
+  const invalidate = () => queryClient.invalidateQueries();
+
+  const createMut = useCreateUser({
+    mutation: {
+      onSuccess: () => { invalidate(); closeAll(); },
+      onError: (err: any) => setError(err?.message || "Failed to create user."),
+    },
+  });
+  const updateMut = useUpdateUser({
+    mutation: {
+      onSuccess: () => { invalidate(); closeAll(); },
+      onError: (err: any) => setError(err?.message || "Failed to update user."),
+    },
+  });
+  const deleteMut = useDeleteUser({
+    mutation: { onSuccess: invalidate },
+  });
+
+  const closeAll = () => {
+    setEditing(null);
+    setCreating(false);
+    setForm({ ...emptyForm });
+    setRich(emptyRichProfile);
+    setError("");
+  };
+
+  const openCreate = () => {
+    setForm({ ...emptyForm });
+    setRich(emptyRichProfile);
+    setError("");
+    setCreating(true);
+  };
+
+  const openEdit = (u: UserRow) => {
+    setForm({
+      username: u.username,
+      password: "",
+      displayName: u.displayName,
+      email: u.email ?? "",
+      bio: u.bio ?? "",
+      avatarUrl: u.avatarUrl ?? "",
+      twitterUrl: u.twitterUrl ?? "",
+      linkedinUrl: u.linkedinUrl ?? "",
+      instagramUrl: u.instagramUrl ?? "",
+      githubUrl: u.githubUrl ?? "",
+      websiteUrl: u.websiteUrl ?? "",
+      role: u.role,
+      canPublishDirectly: u.canPublishDirectly,
+      canManageShop: !!u.canManageShop,
+      canManageJobs: !!u.canManageJobs,
+      canViewInbox: !!u.canViewInbox,
+      canManageEditors: !!u.canManageEditors,
+      canSendEmail: !!u.canSendEmail,
+      canManageCategories: !!u.canManageCategories,
+      canEditOthersPosts: !!u.canEditOthersPosts,
+      isActive: u.isActive,
+      showOnTeam: u.showOnTeam !== false,
+    });
+    setRich(richProfileFromUser(u as any));
+    setError("");
+    setEditing(u);
+  };
+
+  const submit = () => {
+    setError("");
+    if (!form.displayName.trim()) return setError("Display name is required.");
+    if (creating) {
+      if (form.username.trim().length < 2) return setError("Username must be at least 2 characters.");
+      if (form.password.length < 6) return setError("Password must be at least 6 characters.");
+      const { username, password, displayName, email: _email, ...rest } = form;
+      createMut.mutate({ data: { username: username.trim().toLowerCase(), password, displayName: displayName.trim(), ...rest } as any });
+    } else if (editing) {
+      // email is always derived from the username server-side; never send it.
+      // Only the founding admin may rename an editor — include the username
+      // only when it actually changed.
+      const { username, password, email: _e, ...rest } = form;
+      const payload: any = { ...rest, displayName: form.displayName.trim(), ...richProfileToPayload(rich) };
+      if (password.length >= 6) payload.password = password;
+      const cleanUsername = username.trim().toLowerCase();
+      if (me?.role === "admin" && cleanUsername && cleanUsername !== editing.username) {
+        if (cleanUsername.length < 2) return setError("Username must be at least 2 characters.");
+        payload.username = cleanUsername;
+      }
+      updateMut.mutate({ id: editing.id, data: payload });
+    }
+  };
+
+  const handleDelete = (u: UserRow) => {
+    if (u.id === me?.id) return;
+    if (confirm(`Delete editor "${u.displayName}"? Their posts will remain but become unowned.`)) {
+      deleteMut.mutate({ id: u.id });
+    }
+  };
+
+  return (
+    <AdminShell
+      title="Manage Editors"
+      actions={
+        <Button onClick={openCreate} className="bg-orange-500 hover:bg-orange-600 text-white gap-2">
+          <Plus className="w-4 h-4" /> Add Editor
+        </Button>
+      }
+    >
+      <main className="max-w-5xl mx-auto px-4 py-8">
+        {isLoading ? (
+          <div className="space-y-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 bg-zinc-900" />)}</div>
+        ) : (
+          <div className="grid gap-4">
+            {(users as UserRow[] | undefined)?.map((u) => (
+              <Card key={u.id} className="bg-zinc-900 border-zinc-800">
+                <CardContent className="p-4 flex items-center gap-4 flex-wrap">
+                  <div className="w-14 h-14 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700 shrink-0">
+                    {u.avatarUrl ? (
+                      <img src={u.avatarUrl} alt={u.displayName} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-orange-400 font-bold">
+                        {u.displayName.charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-white">{u.displayName}</span>
+                      <Badge className={u.role === "admin" ? "bg-orange-500/20 text-orange-400 border-orange-500/30" : "bg-blue-500/20 text-blue-400 border-blue-500/30"}>
+                        {u.role.toUpperCase()}
+                      </Badge>
+                      {!u.isActive && <Badge className="bg-red-500/20 text-red-400 border-red-500/30">DISABLED</Badge>}
+                      {u.canPublishDirectly && u.role !== "admin" && (
+                        <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-[10px]">CAN PUBLISH</Badge>
+                      )}
+                    </div>
+                    <p className="text-zinc-400 text-sm mt-0.5">@{u.username} {u.email && `· ${u.email}`}</p>
+                    {u.bio && <p className="text-zinc-500 text-xs mt-1 line-clamp-2">{u.bio}</p>}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => openEdit(u)} className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 gap-1">
+                      <Pencil className="w-3 h-3" /> Edit
+                    </Button>
+                    {u.id !== me?.id && (
+                      <Button variant="outline" size="sm" onClick={() => handleDelete(u)} className="border-zinc-700 text-red-400 hover:bg-red-500/10 hover:border-red-500/50 gap-1">
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </main>
+
+      <Dialog open={creating || !!editing} onOpenChange={(open) => !open && closeAll()}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{creating ? "Add New Editor" : `Edit ${editing?.displayName}`}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <ErrorBanner message={error} />
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Username *</Label>
+                <Input
+                  value={form.username}
+                  onChange={(e) => setForm({ ...form, username: e.target.value })}
+                  disabled={!creating && me?.role !== "admin"}
+                  placeholder="janedoe"
+                  className="bg-zinc-800 border-zinc-700"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{creating ? "Password *" : "New Password (optional)"}</Label>
+                <Input
+                  type="password"
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  placeholder={creating ? "min 6 chars" : "Leave blank to keep"}
+                  className="bg-zinc-800 border-zinc-700"
+                />
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label>Display Name *</Label>
+                <Input
+                  value={form.displayName}
+                  onChange={(e) => setForm({ ...form, displayName: e.target.value })}
+                  placeholder="Jane Doe"
+                  className="bg-zinc-800 border-zinc-700"
+                />
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label>Email <span className="text-zinc-500 text-xs font-normal">(auto-derived from username)</span></Label>
+                <Input
+                  value={
+                    form.username.trim()
+                      ? `${form.username.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "")}@mapletechie.com`
+                      : "(set the username above)"
+                  }
+                  disabled
+                  className="bg-zinc-800/60 border-zinc-700 text-zinc-300 disabled:opacity-100 font-mono text-sm"
+                  data-testid="input-editor-email"
+                />
+                <p className="text-xs text-zinc-500">
+                  Every editor sends from their own <span className="font-mono">@mapletechie.com</span> address — the email always matches the username and can't be edited directly. {me?.role === "admin" ? "Changing the username updates the email with it." : "Only the founding admin can change usernames after creation."}
+                </p>
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label>Profile Picture</Label>
+                <ImageUploadField
+                  value={form.avatarUrl}
+                  onChange={(url) => setForm({ ...form, avatarUrl: url })}
+                  variant="avatar"
+                  helpText="Upload a square photo or paste an image URL."
+                />
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label>Bio</Label>
+                <Textarea
+                  value={form.bio}
+                  onChange={(e) => setForm({ ...form, bio: e.target.value })}
+                  placeholder="Short biography shown under their posts and on author pages."
+                  rows={3}
+                  className="bg-zinc-800 border-zinc-700 resize-none"
+                />
+              </div>
+              <div className="space-y-2"><Label>Twitter / X URL</Label><Input value={form.twitterUrl} onChange={(e) => setForm({ ...form, twitterUrl: e.target.value })} placeholder="https://x.com/..." className="bg-zinc-800 border-zinc-700" /></div>
+              <div className="space-y-2"><Label>LinkedIn URL</Label><Input value={form.linkedinUrl} onChange={(e) => setForm({ ...form, linkedinUrl: e.target.value })} placeholder="https://linkedin.com/in/..." className="bg-zinc-800 border-zinc-700" /></div>
+              <div className="space-y-2"><Label>Instagram URL</Label><Input value={form.instagramUrl} onChange={(e) => setForm({ ...form, instagramUrl: e.target.value })} placeholder="https://instagram.com/..." className="bg-zinc-800 border-zinc-700" /></div>
+              <div className="space-y-2"><Label>GitHub URL</Label><Input value={form.githubUrl} onChange={(e) => setForm({ ...form, githubUrl: e.target.value })} placeholder="https://github.com/..." className="bg-zinc-800 border-zinc-700" /></div>
+              <div className="space-y-2 col-span-2"><Label>Personal Website</Label><Input value={form.websiteUrl} onChange={(e) => setForm({ ...form, websiteUrl: e.target.value })} placeholder="https://..." className="bg-zinc-800 border-zinc-700" /></div>
+
+              {!creating && (
+                <div className="col-span-2 pt-4 border-t border-zinc-800">
+                  <RichProfileFieldsEditor value={rich} onChange={setRich} />
+                </div>
+              )}
+
+              <div className="col-span-2 flex items-center justify-between p-3 bg-zinc-800 rounded border border-zinc-700">
+                <div>
+                  <p className="text-sm font-medium">Can publish directly</p>
+                  <p className="text-xs text-zinc-400">When OFF, their posts save as drafts until you approve them.</p>
+                </div>
+                <Switch
+                  checked={form.canPublishDirectly}
+                  onCheckedChange={(v) => setForm({ ...form, canPublishDirectly: v })}
+                />
+              </div>
+
+              {me?.role === "admin" && editing?.role !== "admin" && (
+                <div className="col-span-2 space-y-2">
+                  <Label className="text-orange-400 text-xs uppercase tracking-wider font-bold">Admin Permissions</Label>
+                  <p className="text-xs text-zinc-500">Grant this editor access to specific admin areas. They will never be able to modify your admin account.</p>
+
+                  <PermissionToggle
+                    label="Manage Jobs & Applications"
+                    desc="Post and edit job listings; view applicants."
+                    checked={form.canManageJobs}
+                    onChange={(v) => setForm({ ...form, canManageJobs: v })}
+                  />
+                  <PermissionToggle
+                    label="View the Inbox"
+                    desc="Read reviews, ad inquiries, and contact messages."
+                    checked={form.canViewInbox}
+                    onChange={(v) => setForm({ ...form, canViewInbox: v })}
+                  />
+                  <PermissionToggle
+                    label="Manage Editors"
+                    desc="Add or remove other editors. Cannot modify your admin account."
+                    checked={form.canManageEditors}
+                    onChange={(v) => setForm({ ...form, canManageEditors: v })}
+                  />
+                  <PermissionToggle
+                    label="Send Email"
+                    desc="Compose and send emails from the admin panel as their own @mapletechie.com address."
+                    checked={form.canSendEmail}
+                    onChange={(v) => setForm({ ...form, canSendEmail: v })}
+                  />
+                  <PermissionToggle
+                    label="Edit Others' Posts"
+                    desc="Open and edit any editor's article. The byline stays with the original author, and every change is recorded in the Activity log. Deleting stays limited to their own posts."
+                    checked={form.canEditOthersPosts}
+                    onChange={(v) => setForm({ ...form, canEditOthersPosts: v })}
+                  />
+                  <PermissionToggle
+                    label="Manage Categories"
+                    desc="Create, rename, recolor, and delete blog categories. Renames cascade to existing posts."
+                    checked={form.canManageCategories}
+                    onChange={(v) => setForm({ ...form, canManageCategories: v })}
+                  />
+                </div>
+              )}
+
+              <div className="col-span-2 flex items-center justify-between p-3 bg-zinc-800 rounded border border-zinc-700">
+                <div>
+                  <p className="text-sm font-medium">Show on Our Team page</p>
+                  <p className="text-xs text-zinc-400">Hidden editors keep their author page and bylines — they just don't appear on the public team page.</p>
+                </div>
+                <Switch
+                  checked={form.showOnTeam}
+                  onCheckedChange={(v) => setForm({ ...form, showOnTeam: v })}
+                />
+              </div>
+
+              {!creating && editing?.id !== me?.id && (
+                <div className="col-span-2 flex items-center justify-between p-3 bg-zinc-800 rounded border border-zinc-700">
+                  <div>
+                    <p className="text-sm font-medium">Account active</p>
+                    <p className="text-xs text-zinc-400">Disabled accounts cannot log in.</p>
+                  </div>
+                  <Switch
+                    checked={form.isActive}
+                    onCheckedChange={(v) => setForm({ ...form, isActive: v })}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeAll} className="border-zinc-700 text-zinc-300">Cancel</Button>
+            <Button onClick={submit} disabled={createMut.isPending || updateMut.isPending} className="bg-orange-500 hover:bg-orange-600">
+              {createMut.isPending || updateMut.isPending ? "Saving..." : creating ? "Create Editor" : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </AdminShell>
+  );
+}
+
+function PermissionToggle({
+  label,
+  desc,
+  checked,
+  onChange,
+}: {
+  label: string;
+  desc: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between p-3 bg-zinc-800 rounded border border-zinc-700">
+      <div className="pr-3">
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-xs text-zinc-400">{desc}</p>
+      </div>
+      <Switch checked={checked} onCheckedChange={onChange} />
+    </div>
+  );
+}

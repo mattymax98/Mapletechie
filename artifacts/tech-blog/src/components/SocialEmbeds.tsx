@@ -1,0 +1,586 @@
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode, type Ref } from "react";
+import {
+  Youtube,
+  Twitter,
+  Instagram,
+  Music2,
+  ExternalLink,
+  Cloud,
+  AtSign,
+  MessageCircle,
+} from "lucide-react";
+import {
+  parseSocialUrl,
+  blueskyAtUri,
+  PROVIDER_LABELS,
+  type ParsedSocialEmbed,
+  type SocialProvider,
+} from "@/lib/socialEmbedProviders";
+
+/* ------------------------------------------------------------------ */
+/* Shared script loader — loads each provider script at most once,     */
+/* and only when an embed is actually on the page.                     */
+/* ------------------------------------------------------------------ */
+const scriptPromises = new Map<string, Promise<void>>();
+
+function loadScript(src: string): Promise<void> {
+  const existing = scriptPromises.get(src);
+  if (existing) return existing;
+  const p = new Promise<void>((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = src;
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => {
+      scriptPromises.delete(src);
+      reject(new Error(`Failed to load ${src}`));
+    };
+    document.head.appendChild(s);
+  });
+  scriptPromises.set(src, p);
+  return p;
+}
+
+function isDarkMode(): boolean {
+  return document.documentElement.classList.contains("dark");
+}
+
+/* ------------------------------------------------------------------ */
+/* CLS guard — reserve approximate space while third-party widgets     */
+/* load so the article text doesn't jump under the reader.             */
+/* ------------------------------------------------------------------ */
+const EMBED_MIN_HEIGHTS: Partial<Record<SocialProvider, number>> = {
+  twitter: 250,
+  instagram: 500,
+  tiktok: 580,
+  bluesky: 250,
+  reddit: 500,
+};
+
+/**
+ * Tracks when a provider script has actually rendered its widget by
+ * watching the holder's height (blockquote fallbacks are short; real
+ * widgets are tall). Used to fade out the loading skeleton.
+ */
+function useWidgetRendered(threshold = 150) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [rendered, setRendered] = useState(false);
+  useEffect(() => {
+    if (rendered) return;
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const check = () => {
+      if (el.offsetHeight >= threshold) setRendered(true);
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [rendered, threshold]);
+  return { ref, rendered };
+}
+
+/**
+ * Wrapper that reserves a provider-appropriate min-height before the
+ * third-party widget arrives, with a skeleton behind the content while
+ * loading. The min-height is kept after load so the block never
+ * collapses/expands under the reader.
+ */
+function EmbedShell({
+  provider,
+  loading,
+  testId,
+  maxWidth,
+  holderRef,
+  children,
+}: {
+  provider: SocialProvider;
+  loading: boolean;
+  testId: string;
+  maxWidth: number;
+  holderRef?: Ref<HTMLDivElement>;
+  children: ReactNode;
+}) {
+  return (
+    <div className="not-prose my-6 flex justify-center" data-testid={testId}>
+      <div
+        className="relative w-full"
+        style={{ maxWidth, minHeight: EMBED_MIN_HEIGHTS[provider] }}
+      >
+        {loading && (
+          <div
+            aria-hidden
+            data-testid={`${testId}-skeleton`}
+            className="absolute inset-0 animate-pulse rounded border border-border bg-muted/50"
+          />
+        )}
+        <div ref={holderRef} className="relative">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Fallback link card (broken embed, deleted post, blocked script)     */
+/* ------------------------------------------------------------------ */
+const PROVIDER_ICONS: Record<SocialProvider, typeof Youtube> = {
+  youtube: Youtube,
+  twitter: Twitter,
+  instagram: Instagram,
+  tiktok: Music2,
+  bluesky: Cloud,
+  mastodon: AtSign,
+  reddit: MessageCircle,
+};
+
+function LinkCard({ embed }: { embed: ParsedSocialEmbed }) {
+  const Icon = PROVIDER_ICONS[embed.provider];
+  return (
+    <a
+      href={embed.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      data-testid="embed-link-card"
+      className="not-prose my-6 flex items-center gap-3 rounded border border-border bg-muted/40 px-4 py-3 no-underline hover:border-primary transition-colors"
+    >
+      <Icon className="w-5 h-5 text-primary shrink-0" />
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold text-foreground">
+          {embed.provider === "reddit" ? "View Reddit discussion" : `View this post on ${PROVIDER_LABELS[embed.provider]}`}
+        </span>
+        {embed.provider === "reddit" && (
+          <span className="block text-xs text-muted-foreground">Third-party discussion or reaction · context only, not independently verified reporting</span>
+        )}
+        <span className="block text-xs text-muted-foreground truncate">{embed.url}</span>
+      </span>
+      <ExternalLink className="w-4 h-4 text-muted-foreground shrink-0" />
+    </a>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* YouTube — consume the iframe's API events without replacing the iframe */
+/* ------------------------------------------------------------------ */
+export type EmbedTerminalStatus = "rendered" | "fallback" | "failed";
+type EmbedStatusCallback = (status: EmbedTerminalStatus) => void;
+
+function YouTubeEmbed({ embed, onStatus }: { embed: ParsedSocialEmbed; onStatus?: EmbedStatusCallback }) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const playerId = useId();
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let settlementTimer: number | undefined;
+    let listeningTimer: number | undefined;
+    let initialized = false;
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    const send = (payload: Record<string, unknown>) => {
+      iframe.contentWindow?.postMessage(
+        JSON.stringify({ id: playerId, channel: playerId, ...payload }),
+        "https://www.youtube-nocookie.com",
+      );
+    };
+    const subscribe = () => {
+      if (initialized) return;
+      initialized = true;
+      if (listeningTimer !== undefined) window.clearInterval(listeningTimer);
+      send({ event: "command", func: "addEventListener", args: ["onReady"] });
+      send({ event: "command", func: "addEventListener", args: ["onError"] });
+    };
+    const receivePlayerEvent = (event: MessageEvent) => {
+      if (event.source !== iframe.contentWindow ||
+          (event.origin !== "https://www.youtube-nocookie.com" && event.origin !== "https://www.youtube.com")) return;
+      let payload: unknown = event.data;
+      if (typeof payload === "string") {
+        try { payload = JSON.parse(payload); } catch { return; }
+      }
+      if (!payload || typeof payload !== "object") return;
+      const playerEvent = payload as { event?: string };
+      // Any valid response proves the listening channel is established.
+      subscribe();
+      if (playerEvent.event === "onReady") {
+        settlementTimer = window.setTimeout(() => onStatus?.("rendered"), 250);
+      } else if (playerEvent.event === "onError") {
+        if (settlementTimer !== undefined) window.clearTimeout(settlementTimer);
+        onStatus?.("failed");
+      }
+    };
+    window.addEventListener("message", receivePlayerEvent);
+    const listen = () => send({ event: "listening" });
+    listen();
+    listeningTimer = window.setInterval(listen, 100);
+    return () => {
+      if (settlementTimer !== undefined) window.clearTimeout(settlementTimer);
+      if (listeningTimer !== undefined) window.clearInterval(listeningTimer);
+      window.removeEventListener("message", receivePlayerEvent);
+    };
+  }, [embed.id, onStatus, playerId]);
+
+  if (failed) {
+    return (
+      <a
+        href={embed.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-testid="embed-youtube-fallback"
+        className="not-prose my-6 flex aspect-video w-full items-center justify-center rounded border border-border bg-muted/40 text-lg font-semibold text-primary"
+      >
+        Watch on YouTube
+      </a>
+    );
+  }
+
+  const origin = window.location.origin;
+  return (
+    <div className="not-prose my-6 aspect-video w-full overflow-hidden rounded border border-border">
+      <iframe
+        id={playerId}
+        ref={iframeRef}
+        src={`https://www.youtube-nocookie.com/embed/${embed.id}?enablejsapi=1&origin=${encodeURIComponent(origin)}`}
+        title="YouTube video"
+        data-testid="embed-youtube-player"
+        className="h-full w-full"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        referrerPolicy="strict-origin-when-cross-origin"
+        onError={() => {
+          setFailed(true);
+          onStatus?.("fallback");
+        }}
+        allowFullScreen
+      />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* X / Twitter — widgets.js, with fallback card on failure             */
+/* ------------------------------------------------------------------ */
+declare global {
+  interface Window {
+    twttr?: { widgets: { createTweet: (id: string, el: HTMLElement, opts?: object) => Promise<HTMLElement | null> } };
+    instgrm?: { Embeds: { process: () => void } };
+  }
+}
+
+function TweetEmbed({ embed, onStatus }: { embed: ParsedSocialEmbed; onStatus?: EmbedStatusCallback }) {
+  const holderRef = useRef<HTMLDivElement>(null);
+  const useFallback = /^\/preview\/posts\/\d+\/?$/.test(window.location.pathname);
+  const [state, setState] = useState<"loading" | "done" | "failed">(
+    useFallback ? "failed" : "loading",
+  );
+
+  useEffect(() => {
+    if (useFallback) return;
+    let cancelled = false;
+    const timeout = setTimeout(() => {
+      if (!cancelled) setState((s) => (s === "loading" ? "failed" : s));
+    }, 10000);
+    loadScript("https://platform.twitter.com/widgets.js")
+      .then(() => {
+        if (cancelled || !holderRef.current || !window.twttr) throw new Error("no twttr");
+        return window.twttr.widgets.createTweet(embed.id, holderRef.current, {
+          theme: isDarkMode() ? "dark" : "light",
+          dnt: true,
+          align: "center",
+        });
+      })
+      .then((el) => {
+        if (cancelled) return;
+         setState(el ? "done" : "failed"); // null => tweet deleted/protected
+      })
+      .catch(() => {
+        if (!cancelled) setState("failed");
+      });
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [embed.id, useFallback]);
+  useEffect(() => {
+    if (state === "done") onStatus?.("rendered");
+    else if (state === "failed") onStatus?.("fallback");
+  }, [state, onStatus]);
+
+  if (state === "failed") return <LinkCard embed={embed} />;
+  return (
+    <EmbedShell
+      provider="twitter"
+      loading={state === "loading"}
+      testId="embed-tweet"
+      maxWidth={550}
+      holderRef={holderRef}
+    >
+      {state === "loading" && (
+        <span className="sr-only">Loading post from X…</span>
+      )}
+    </EmbedShell>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Instagram / TikTok — official blockquote + provider script          */
+/* ------------------------------------------------------------------ */
+function InstagramEmbed({ embed, onStatus }: { embed: ParsedSocialEmbed; onStatus?: EmbedStatusCallback }) {
+  const [failed, setFailed] = useState(false);
+  const { ref, rendered } = useWidgetRendered();
+  useEffect(() => {
+    let cancelled = false;
+    loadScript("https://www.instagram.com/embed.js")
+      .then(() => {
+        if (!cancelled) window.instgrm?.Embeds.process();
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [embed.url]);
+  useEffect(() => {
+    if (failed) onStatus?.("fallback");
+    else if (rendered) onStatus?.("rendered");
+  }, [failed, rendered, onStatus]);
+
+  if (failed) return <LinkCard embed={embed} />;
+  return (
+    <EmbedShell
+      provider="instagram"
+      loading={!rendered}
+      testId="embed-instagram"
+      maxWidth={540}
+      holderRef={ref}
+    >
+      <blockquote
+        className="instagram-media"
+        data-instgrm-permalink={embed.url}
+        data-instgrm-version="14"
+        style={{ maxWidth: 540, width: "100%", margin: 0 }}
+      >
+        <a href={embed.url} target="_blank" rel="noopener noreferrer">
+          View this post on Instagram
+        </a>
+      </blockquote>
+    </EmbedShell>
+  );
+}
+
+function TikTokEmbed({ embed, onStatus }: { embed: ParsedSocialEmbed; onStatus?: EmbedStatusCallback }) {
+  const [failed, setFailed] = useState(false);
+  const { ref, rendered } = useWidgetRendered();
+  useEffect(() => {
+    let cancelled = false;
+    loadScript("https://www.tiktok.com/embed.js").catch(() => {
+      if (!cancelled) setFailed(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [embed.url]);
+  useEffect(() => {
+    if (failed) onStatus?.("fallback");
+    else if (rendered) onStatus?.("rendered");
+  }, [failed, rendered, onStatus]);
+
+  if (failed) return <LinkCard embed={embed} />;
+  return (
+    <EmbedShell
+      provider="tiktok"
+      loading={!rendered}
+      testId="embed-tiktok"
+      maxWidth={540}
+      holderRef={ref}
+    >
+      <blockquote
+        className="tiktok-embed"
+        cite={embed.url}
+        data-video-id={embed.id}
+        style={{ maxWidth: 540, width: "100%", margin: 0 }}
+      >
+        <a href={embed.url} target="_blank" rel="noopener noreferrer">
+          View this video on TikTok
+        </a>
+      </blockquote>
+    </EmbedShell>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Bluesky — official blockquote + embed.bsky.app script               */
+/* ------------------------------------------------------------------ */
+function BlueskyEmbed({ embed, onStatus }: { embed: ParsedSocialEmbed; onStatus?: EmbedStatusCallback }) {
+  const [failed, setFailed] = useState(false);
+  const atUri = blueskyAtUri(embed.url);
+  const { ref, rendered } = useWidgetRendered();
+  useEffect(() => {
+    let cancelled = false;
+    loadScript("https://embed.bsky.app/static/embed.js").catch(() => {
+      if (!cancelled) setFailed(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [embed.url]);
+  useEffect(() => {
+    if (failed || !atUri) onStatus?.("fallback");
+    else if (rendered) onStatus?.("rendered");
+  }, [failed, atUri, rendered, onStatus]);
+
+  if (failed || !atUri) return <LinkCard embed={embed} />;
+  return (
+    <EmbedShell
+      provider="bluesky"
+      loading={!rendered}
+      testId="embed-bluesky"
+      maxWidth={550}
+      holderRef={ref}
+    >
+      <blockquote
+        className="bluesky-embed"
+        data-bluesky-uri={atUri}
+        style={{ maxWidth: 550, width: "100%", margin: 0 }}
+      >
+        <a href={embed.url} target="_blank" rel="noopener noreferrer">
+          View this post on Bluesky
+        </a>
+      </blockquote>
+    </EmbedShell>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Mastodon — instance-hosted /embed iframe (works for any instance,   */
+/* no per-instance script needed). Sandboxed since the host is only    */
+/* pattern-validated, not from a fixed whitelist.                      */
+/* ------------------------------------------------------------------ */
+function MastodonEmbed({ embed, onStatus }: { embed: ParsedSocialEmbed; onStatus?: EmbedStatusCallback }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <LinkCard embed={embed} />;
+  return (
+    <div className="not-prose my-6 flex justify-center" data-testid="embed-mastodon">
+      <iframe
+        src={`${embed.url.replace(/[?#].*$/, "").replace(/\/+$/, "")}/embed`}
+        title="Mastodon post"
+        className="w-full max-w-[550px] rounded border border-border"
+        style={{ minHeight: 300 }}
+        sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+        loading="lazy"
+        onLoad={() => onStatus?.("rendered")}
+        onError={() => {
+          setFailed(true);
+          onStatus?.("fallback");
+        }}
+        allowFullScreen
+      />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Reddit — controlled source card. No unreliable provider widget or script. */
+/* ------------------------------------------------------------------ */
+function RedditEmbed({ embed, onStatus }: { embed: ParsedSocialEmbed; onStatus?: EmbedStatusCallback }) {
+  useEffect(() => { onStatus?.("fallback"); }, [onStatus]);
+  return <LinkCard embed={embed} />;
+}
+
+export function SocialEmbedView({
+  embed,
+  embedKey,
+  onStatus,
+}: {
+  embed: ParsedSocialEmbed;
+  embedKey?: string;
+  onStatus?: (key: string, status: EmbedTerminalStatus) => void;
+}) {
+  const report = useCallback(
+    (status: EmbedTerminalStatus) => onStatus?.(embedKey ?? embed.id, status),
+    [embed.id, embedKey, onStatus],
+  );
+  switch (embed.provider) {
+    case "youtube":
+      return <YouTubeEmbed embed={embed} onStatus={report} />;
+    case "twitter":
+      return <TweetEmbed embed={embed} onStatus={report} />;
+    case "instagram":
+      return <InstagramEmbed embed={embed} onStatus={report} />;
+    case "tiktok":
+      return <TikTokEmbed embed={embed} onStatus={report} />;
+    case "bluesky":
+      return <BlueskyEmbed embed={embed} onStatus={report} />;
+    case "mastodon":
+      return <MastodonEmbed embed={embed} onStatus={report} />;
+    case "reddit":
+      return <RedditEmbed embed={embed} onStatus={report} />;
+    default:
+      report("fallback");
+      return <LinkCard embed={embed} />;
+  }
+}
+
+export type ArticleSegment =
+  | { kind: "html"; html: string }
+  | { kind: "embed"; embed: ParsedSocialEmbed };
+
+/**
+ * Split saved article HTML into plain-HTML segments and social embed blocks
+ * so embeds render as real React components (click-to-load YouTube, tweet
+ * widgets, ...) instead of relying on post-mount DOM hydration.
+ *
+ * DOM-aware on purpose: the HTML is parsed and only TOP-LEVEL
+ * `div[data-social-embed]` blocks become embed segments, so surrounding
+ * markup can never be sliced apart mid-element. Placeholders nested inside
+ * other containers (blockquote, list, table...) are left in the HTML flow —
+ * their inner fallback link still renders. Every URL is re-validated against
+ * the provider whitelist.
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+export function splitSocialEmbeds(html: string): ArticleSegment[] {
+  if (typeof DOMParser === "undefined" || !/data-social-embed/i.test(html)) {
+    return [{ kind: "html", html }];
+  }
+  const body = new DOMParser().parseFromString(html, "text/html").body;
+  const segments: ArticleSegment[] = [];
+  let buf = "";
+  const flush = () => {
+    if (buf) {
+      segments.push({ kind: "html", html: buf });
+      buf = "";
+    }
+  };
+  for (const node of Array.from(body.childNodes)) {
+    if (
+      node.nodeType === 1 &&
+      (node as Element).tagName === "DIV" &&
+      (node as Element).hasAttribute("data-social-embed")
+    ) {
+      const parsed = parseSocialUrl((node as Element).getAttribute("data-url") || "");
+      if (parsed) {
+        flush();
+        segments.push({ kind: "embed", embed: parsed });
+        continue;
+      }
+    }
+    if (node.nodeType === 1) {
+      buf += (node as Element).outerHTML;
+    } else if (node.nodeType === 3) {
+      // Re-escape text nodes — textContent decodes entities, which would turn
+      // previously-escaped text back into live HTML inside
+      // dangerouslySetInnerHTML.
+      buf += escapeHtml(node.textContent ?? "");
+    }
+    // Other node types (comments etc.) are dropped.
+  }
+  flush();
+  return segments.length ? segments : [{ kind: "html", html }];
+}

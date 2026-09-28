@@ -1,0 +1,1141 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import express from "express";
+
+// --- Mocks for everything posts.ts pulls in at import time ----------------
+
+// Capture what the route writes to the DB so we can assert on the persisted
+// coverImage / ogImage values.
+const captured: { insertValues?: Record<string, unknown>; updateSet?: Record<string, unknown> } = {};
+let transactionLockedRow: unknown[] = [];
+let lockedRowOverride: unknown[] | null = null;
+
+// A thenable chainable query stub. Every builder method returns the same proxy;
+// awaiting it resolves to the next queued result array.
+function makeSelectChain(
+  queue: unknown[][],
+  lockQueue?: () => unknown[][],
+  onResult?: (rows: unknown[]) => void,
+) {
+  let resultQueue = queue;
+  const proxy: unknown = new Proxy(function () {}, {
+    get(_t, prop) {
+      if (prop === "then") {
+        return (resolve: (v: unknown) => void, reject: (e: unknown) => void) =>
+          Promise.resolve(resultQueue.length ? resultQueue.shift() : [])
+            .then((rows) => {
+              onResult?.(rows as unknown[]);
+              return rows;
+            })
+            .then(resolve, reject);
+      }
+      if (prop === "for" && lockQueue) {
+        return (mode: string) => {
+          if (mode === "update") resultQueue = lockQueue();
+          return proxy;
+        };
+      }
+      return () => proxy;
+    },
+    apply() {
+      return proxy;
+    },
+  });
+  return proxy;
+}
+
+// Queue of results the route's `db.select(...)` chains resolve to, in call order.
+let selectQueue: unknown[][] = [];
+let insertReturn: unknown[] = [];
+
+const db = {
+  select: vi.fn(() =>
+    makeSelectChain(selectQueue, undefined, (rows) => {
+      const row = rows[0] as Record<string, unknown> | undefined;
+      if (row && "id" in row && "status" in row) transactionLockedRow = [row];
+    }),
+  ),
+  delete: vi.fn(() => ({ where: vi.fn(async () => undefined) })),
+  insert: vi.fn(() => ({
+    values: vi.fn((v: Record<string, unknown> | Array<Record<string, unknown>>) => {
+      // Join-table rows (post_categories) arrive as arrays — don't let them
+      // clobber the captured post insert.
+      if (!Array.isArray(v)) captured.insertValues = v;
+      return { returning: vi.fn(async () => insertReturn) };
+    }),
+  })),
+  transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => {
+    const tx = {
+      execute: vi.fn(async () => undefined),
+      update: vi.fn(() => ({
+        set: vi.fn((v: Record<string, unknown>) => {
+          // Ignore the categoryId mirror / postCount cache writes so tests
+          // keep asserting on the post's own update payload.
+          const keys = Object.keys(v);
+          const isMirror = keys.length === 1 && (keys[0] === "categoryId" || keys[0] === "postCount" || keys[0] === "isPrimary");
+          if (!isMirror) captured.updateSet = v;
+          return { where: vi.fn(async () => undefined) };
+        }),
+      })),
+      select: vi.fn(() =>
+        makeSelectChain(selectQueue, () => [lockedRowOverride ?? transactionLockedRow]),
+      ),
+      delete: (...args: unknown[]) => db.delete(...(args as [])),
+      insert: (...args: unknown[]) => db.insert(...(args as [])),
+    };
+    return cb(tx);
+  }),
+};
+
+vi.mock("@workspace/db", () => ({
+  db,
+  postsTable: {},
+  auditLogsTable: {},
+  seriesTable: {},
+  usersTable: {},
+  pageViewsTable: {},
+  commentsTable: {},
+  categoriesTable: {},
+  postCategoriesTable: {},
+  topicClustersTable: {},
+}));
+
+// drizzle helpers — stubbed to harmless no-ops since `db` is fully mocked.
+vi.mock("drizzle-orm", () => ({
+  eq: () => ({}),
+  desc: () => ({}),
+  asc: () => ({}),
+  and: () => ({}),
+  gte: () => ({}),
+  sql: Object.assign(() => ({}), {}),
+  inArray: () => ({}),
+  or: () => ({}),
+  getTableColumns: () => ({}),
+}));
+
+vi.mock("@workspace/api-zod", () => ({
+  ListPostsQueryParams: { safeParse: () => ({ success: true, data: {} }) },
+  GetPostParams: { safeParse: () => ({ success: true, data: {} }) },
+  GetPostBySlugParams: { safeParse: () => ({ success: true, data: {} }) },
+  GetLatestPostsQueryParams: { safeParse: () => ({ success: true, data: {} }) },
+}));
+
+// Inject a configurable user; bypass real session lookup. Tests can swap
+// `currentUser` to simulate editors with/without permissions.
+const ADMIN_USER = {
+  id: 1,
+  role: "admin",
+  displayName: "Matthew",
+  avatarUrl: null,
+  canPublishDirectly: true,
+  canEditOthersPosts: false,
+};
+let currentUser: Record<string, unknown> = { ...ADMIN_USER };
+vi.mock("../middlewares/adminAuth", () => ({
+  adminAuth: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
+    req.user = currentUser as unknown as express.Request["user"];
+    next();
+  },
+  requireRole: () => (_req: unknown, _res: unknown, next: () => void) => next(),
+  requirePermission: () => (_req: unknown, _res: unknown, next: () => void) => next(),
+}));
+
+vi.mock("../lib/audit", () => ({ writeAuditLog: vi.fn(async () => undefined) }));
+vi.mock("../lib/coverImageValidation", () => ({ validateCoverImage: () => null }));
+
+// The core seam under test: external URLs get rewritten to a storage path.
+const persistExternalImage = vi.fn(async (url: string) => `/api/storage/objects/persisted-${url.length}`);
+vi.mock("../lib/persistExternalImage", async (importActual) => {
+  const actual = await importActual<typeof import("../lib/persistExternalImage")>();
+  return {
+    isExternalImageUrl: actual.isExternalImageUrl,
+    collectExternalImageUrls: actual.collectExternalImageUrls,
+    persistExternalImage,
+    persistExternalImagesInHtml: actual.persistExternalImagesInHtml,
+  };
+});
+
+// --- Build an app mounting the real posts router --------------------------
+
+const postsRouter = (await import("./posts")).default;
+
+function makeApp() {
+  const app = express();
+  app.use(express.json());
+  app.use(postsRouter);
+  return app;
+}
+
+// Tiny supertest-free HTTP helper.
+import { createServer } from "node:http";
+async function request(
+  app: express.Express,
+  method: "GET" | "POST" | "PUT" | "DELETE",
+  path: string,
+  body?: unknown,
+): Promise<{ status: number; json: any }> {
+  transactionLockedRow = [];
+  const server = createServer(app);
+  await new Promise<void>((r) => server.listen(0, r));
+  const addr = server.address();
+  const port = typeof addr === "object" && addr ? addr.port : 0;
+  try {
+    const resp = await fetch(`http://127.0.0.1:${port}${path}`, {
+      method,
+      headers: { "Content-Type": "application/json", Authorization: "Bearer test" },
+      body: method === "GET" || method === "DELETE" ? undefined : JSON.stringify(body),
+    });
+    const json = await resp.json().catch(() => null);
+    return { status: resp.status, json };
+  } finally {
+    server.close();
+  }
+}
+
+const CATEGORY_ROW = { id: 7, name: "AI", slug: "ai", postCount: 0 };
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  currentUser = { ...ADMIN_USER };
+  selectQueue = [];
+  transactionLockedRow = [];
+  lockedRowOverride = null;
+  insertReturn = [];
+  captured.insertValues = undefined;
+  captured.updateSet = undefined;
+});
+
+describe("public article update history", () => {
+  it("keeps legacy private approval notes out of the HTTP response", async () => {
+    const reviewedAt = "2026-09-10T12:00:00.000Z";
+    selectQueue = [
+      [{ id: 42, publishedAt: new Date("2025-01-01T00:00:00.000Z"), contentModifiedAt: new Date(reviewedAt) }],
+      [{
+        createdAt: new Date(reviewedAt),
+        details: {
+          postStatus: "published", reviewedAt, appliedChanges: { content: "<p>Edited</p>" },
+          postAfterSnapshot: { contentModifiedAt: reviewedAt },
+          updateNote: "PRIVATE REVIEW NOTE MUST NOT APPEAR",
+          revisionId: 99, reviewerName: "PRIVATE REVIEWER",
+        },
+      }],
+    ];
+    const result = await request(makeApp(), "GET", "/posts/slug/edited-article/update-history");
+    expect(result.status).toBe(200);
+    expect(result.json).toEqual({ items: [{ date: reviewedAt, summary: "Article updated" }] });
+    expect(JSON.stringify(result.json)).not.toMatch(/PRIVATE|revisionId|reviewerName/);
+  });
+
+  it("allows only an explicitly approved public summary", async () => {
+    const reviewedAt = "2026-09-10T12:00:00.000Z";
+    selectQueue = [
+      [{ id: 42, publishedAt: new Date("2025-01-01T00:00:00.000Z"), contentModifiedAt: new Date(reviewedAt) }],
+      [{
+        createdAt: new Date(reviewedAt),
+        details: {
+          postStatus: "published", reviewedAt, appliedChanges: { title: "Edited" },
+          postAfterSnapshot: { contentModifiedAt: reviewedAt },
+          updateNote: "Clarified product availability.", publicSummaryApproved: true,
+        },
+      }],
+    ];
+    const result = await request(makeApp(), "GET", "/posts/slug/edited-article/update-history");
+    expect(result.status).toBe(200);
+    expect(result.json).toEqual({ items: [{ date: reviewedAt, summary: "Clarified product availability." }] });
+  });
+});
+
+describe("optional post fields — validation before writes", () => {
+  const create = (extra: Record<string, unknown>) => request(makeApp(), "POST", "/posts", {
+    title: "Post", slug: "post", content: "<p>Body</p>", category: "ai", ...extra,
+  });
+  const existing = {
+    id: 42, authorId: 1, categoryId: 7, status: "scheduled",
+    scheduledFor: new Date("2027-06-01T14:00:00.000Z"),
+    publishedAt: new Date("2026-01-01T12:00:00.000Z"),
+  };
+
+  it("rejects membership in a missing topic cluster before writing the post", async () => {
+    selectQueue = [[CATEGORY_ROW], []];
+    const { status, json } = await create({ clusterId: 12, clusterRole: "pillar" });
+    expect(status).toBe(400);
+    expect(json.error).toMatch(/topic cluster/i);
+    expect(db.insert).not.toHaveBeenCalled();
+  });
+
+  it("does not let an editor assign a topic when creating a post, even one they may publish", async () => {
+    currentUser = { id: 2, role: "editor", displayName: "Editor", canPublishDirectly: true };
+    const { status, json } = await create({ clusterId: 12, clusterRole: "supporting" });
+    expect(status).toBe(403);
+    expect(json.error).toMatch(/only admins/i);
+    expect(db.insert).not.toHaveBeenCalled();
+  });
+
+  it("does not let an editor change the topic of their own post", async () => {
+    currentUser = { id: 2, role: "editor", displayName: "Editor", canEditOthersPosts: false };
+    selectQueue = [[{ id: 42, authorId: 2, categoryId: 7, clusterId: null, clusterRole: null }]];
+    const { status, json } = await request(makeApp(), "PUT", "/posts/42", { clusterId: 12, clusterRole: "pillar" });
+    expect(status).toBe(403);
+    expect(json.error).toMatch(/only admins/i);
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
+  it.each(["", "not-a-date", "2020-01-01T10:00:00.000Z", "2027-02-30T10:00:00.000Z"])(
+    "rejects a missing, invalid or past scheduled time on create (%s)",
+    async (value) => {
+      selectQueue = [[CATEGORY_ROW]];
+      const { status, json } = await create({ status: "scheduled", scheduledFor: value });
+      expect(status).toBe(400);
+      expect(json.error).toMatch(/scheduled time/i);
+      expect(db.insert).not.toHaveBeenCalled();
+    },
+  );
+
+  it("preserves a valid future scheduled time rather than publishing immediately", async () => {
+    const future = new Date(Date.now() + 86_400_000).toISOString();
+    selectQueue = [[CATEGORY_ROW], [{ count: 1 }], [{ id: 99, title: "Post", status: "scheduled" }]];
+    insertReturn = [{ id: 99, title: "Post", status: "scheduled" }];
+    const { status } = await create({ status: "scheduled", scheduledFor: future });
+    expect(status).toBe(201);
+    expect(captured.insertValues?.status).toBe("scheduled");
+    expect(captured.insertValues?.scheduledFor).toEqual(new Date(future));
+  });
+
+  it("does not allow an untrusted editor to schedule a post", async () => {
+    currentUser = { id: 2, role: "editor", displayName: "Ed", canPublishDirectly: false };
+    selectQueue = [[CATEGORY_ROW], [{ count: 1 }], [{ id: 99, status: "draft" }]];
+    insertReturn = [{ id: 99, status: "draft" }];
+    const { status } = await create({ status: "scheduled", scheduledFor: "not-a-date" });
+    expect(status).toBe(201);
+    expect(captured.insertValues?.status).toBe("draft");
+  });
+
+  it("rejects a past reschedule without changing the status or publication date", async () => {
+    selectQueue = [[existing]];
+    const { status, json } = await request(makeApp(), "PUT", "/posts/42", {
+      status: "scheduled", scheduledFor: "2020-01-01T10:00:00.000Z",
+    });
+    expect(status).toBe(400);
+    expect(json.error).toMatch(/scheduled time/i);
+    expect(captured.updateSet).toBeUndefined();
+  });
+
+  it("reschedules an existing post without changing its publication date", async () => {
+    const future = new Date(Date.now() + 86_400_000).toISOString();
+    const updated = { ...existing, scheduledFor: new Date(future) };
+    selectQueue = [[existing], [], [updated], [], [updated]];
+    const { status } = await request(makeApp(), "PUT", "/posts/42", {
+      status: "scheduled", scheduledFor: future,
+    });
+    expect(status).toBe(200);
+    expect(captured.updateSet?.status).toBe("scheduled");
+    expect(captured.updateSet?.scheduledFor).toEqual(new Date(future));
+    expect(captured.updateSet).not.toHaveProperty("publishedAt");
+  });
+
+  it.each([-1, 5.1, 3.15, "4.5"])(
+    "rejects out-of-range or malformed rating %s",
+    async (rating) => {
+      selectQueue = [[CATEGORY_ROW]];
+      const { status, json } = await create({ rating });
+      expect(status).toBe(400);
+      expect(json.error).toMatch(/rating/i);
+      expect(db.insert).not.toHaveBeenCalled();
+    },
+  );
+
+  it("accepts an optional blank rating and a valid one-decimal score", async () => {
+    selectQueue = [[CATEGORY_ROW], [{ count: 1 }], [{ id: 99, title: "Post", status: "draft" }]];
+    insertReturn = [{ id: 99, title: "Post", status: "draft" }];
+    const { status } = await create({ rating: 4.5, status: "draft" });
+    expect(status).toBe(201);
+    expect(captured.insertValues?.rating).toBe(4.5);
+  });
+
+  it("rejects an invalid rating on update without writing", async () => {
+    selectQueue = [[existing]];
+    const { status } = await request(makeApp(), "PUT", "/posts/42", { rating: 7 });
+    expect(status).toBe(400);
+    expect(captured.updateSet).toBeUndefined();
+  });
+
+  it("rejects a reserved series part on create, including unpublished posts", async () => {
+    selectQueue = [[CATEGORY_ROW], [{ id: 5 }], [{ id: 88 }]];
+    const { status, json } = await create({ seriesId: 5, seriesPosition: 2, status: "draft" });
+    expect(status).toBe(409);
+    expect(json.error).toMatch(/part 2/i);
+    expect(db.insert).not.toHaveBeenCalled();
+  });
+
+  it("allows editing a post in its own part, but blocks someone else's part", async () => {
+    selectQueue = [[existing], [{ id: 5 }], [{ id: 42 }, { id: 88 }]];
+    const blocked = await request(makeApp(), "PUT", "/posts/42", { seriesId: 5, seriesPosition: 2 });
+    expect(blocked.status).toBe(409);
+    expect(captured.updateSet).toBeUndefined();
+    selectQueue = [[existing], [{ id: 5 }], [{ id: 42 }], [], [existing], [], [existing]];
+    const allowed = await request(makeApp(), "PUT", "/posts/42", { seriesId: 5, seriesPosition: 2 });
+    expect(allowed.status).toBe(200);
+  });
+
+  it("rejects non-positive, fractional or incomplete series part assignments", async () => {
+    for (const fields of [{ seriesId: 5, seriesPosition: 0 }, { seriesId: 5, seriesPosition: 1.5 }, { seriesId: 5 }]) {
+      selectQueue = [[CATEGORY_ROW]];
+      const { status } = await create(fields);
+      expect(status).toBe(400);
+    }
+    expect(db.insert).not.toHaveBeenCalled();
+  });
+});
+
+describe("authenticated post detail editorial history signal", () => {
+  it("marks a legacy draft as editorial-history locked from published audit snapshots", async () => {
+    const legacyDraft = {
+      id: 42,
+      authorId: 1,
+      categoryId: null,
+      status: "draft",
+      title: "Previously published",
+      publishedOnceAt: null,
+      createdAt: new Date("2025-01-01T00:00:00.000Z"),
+    };
+    selectQueue = [
+      [legacyDraft],
+      [],
+      [{ details: { before: { status: "published" }, after: { status: "draft" } } }],
+    ];
+    const { status, json } = await request(makeApp(), "GET", "/posts/42");
+    expect(status).toBe(200);
+    expect(json.editorialHistoryLocked).toBe(true);
+  });
+});
+
+describe("POST /posts — external image persistence", () => {
+  it("rewrites an external coverImage and ogImage to a storage path", async () => {
+    // resolveCategory -> [category]; tx postCount recompute -> [{count}];
+    // postsBaseQuery refetch -> [post] (attachCategories then drains an empty queue)
+    selectQueue = [[CATEGORY_ROW], [{ count: 1 }], [{ id: 99, title: "T", status: "published" }]];
+    insertReturn = [{ id: 99, title: "T", status: "published" }];
+
+    const { status } = await request(makeApp(), "POST", "/posts", {
+      title: "T",
+      slug: "t",
+      content: "<p>hi</p>",
+      category: "ai",
+      coverImage: "https://images.unsplash.com/photo-1.jpg",
+      ogImage: "https://images.unsplash.com/og-2.jpg",
+    });
+
+    expect(status).toBe(201);
+    expect(persistExternalImage).toHaveBeenCalledWith("https://images.unsplash.com/photo-1.jpg", expect.objectContaining({ uploaderId: 1 }));
+    expect(persistExternalImage).toHaveBeenCalledWith("https://images.unsplash.com/og-2.jpg", expect.objectContaining({ uploaderId: 1 }));
+    expect(String(captured.insertValues?.coverImage)).toMatch(/^\/api\/storage\/objects\//);
+    expect(String(captured.insertValues?.ogImage)).toMatch(/^\/api\/storage\/objects\//);
+  });
+
+  it("leaves a local coverImage untouched and never calls persist", async () => {
+    selectQueue = [[CATEGORY_ROW], [{ count: 1 }], [{ id: 99, title: "T", status: "published" }]];
+    insertReturn = [{ id: 99, title: "T", status: "published" }];
+
+    const { status } = await request(makeApp(), "POST", "/posts", {
+      title: "T",
+      slug: "t",
+      content: "<p>hi</p>",
+      category: "ai",
+      coverImage: "/covers/local.webp",
+    });
+
+    expect(status).toBe(201);
+    expect(persistExternalImage).not.toHaveBeenCalled();
+    expect(captured.insertValues?.coverImage).toBe("/covers/local.webp");
+  });
+
+  it("returns imageWarnings when persistence fails and the post keeps an external URL", async () => {
+    selectQueue = [[CATEGORY_ROW], [{ count: 1 }], [{ id: 99, title: "T", status: "published" }]];
+    insertReturn = [{ id: 99, title: "T", status: "published" }];
+    // Simulate failure: the persist step keeps the original external URL.
+    persistExternalImage.mockImplementationOnce(async (url: string) => url);
+
+    const { status, json: body } = await request(makeApp(), "POST", "/posts", {
+      title: "T",
+      slug: "t",
+      content: "<p>hi</p>",
+      category: "ai",
+      coverImage: "https://images.unsplash.com/photo-1.jpg",
+    });
+
+    expect(status).toBe(201);
+    expect(Array.isArray(body.imageWarnings)).toBe(true);
+    expect(body.imageWarnings.join(" ")).toMatch(/cover image/i);
+  });
+
+  it("omits imageWarnings when everything persisted", async () => {
+    selectQueue = [[CATEGORY_ROW], [{ count: 1 }], [{ id: 99, title: "T", status: "published" }]];
+    insertReturn = [{ id: 99, title: "T", status: "published" }];
+
+    const { json: body } = await request(makeApp(), "POST", "/posts", {
+      title: "T",
+      slug: "t",
+      content: "<p>hi</p>",
+      category: "ai",
+      coverImage: "https://images.unsplash.com/photo-1.jpg",
+    });
+
+    expect(body.imageWarnings).toBeUndefined();
+  });
+});
+
+describe("GET /posts/:id — editor detail", () => {
+  it("returns an automation draft to an authenticated admin for editing", async () => {
+    const draft = {
+      id: 42,
+      title: "Automation draft",
+      status: "draft",
+      authorId: 77,
+      categoryId: 7,
+      content: "<p>Ready for review</p>",
+    };
+    // Post lookup, followed by the category-membership lookup.
+    selectQueue = [[draft], []];
+
+    const { status, json } = await request(makeApp(), "GET", "/posts/42");
+
+    expect(status).toBe(200);
+    expect(json).toMatchObject({
+      id: 42,
+      title: "Automation draft",
+      status: "draft",
+      content: "<p>Ready for review</p>",
+    });
+  });
+
+  it("does not let an untrusted editor read a colleague's draft", async () => {
+    currentUser = {
+      id: 2,
+      role: "editor",
+      displayName: "Ed",
+      canPublishDirectly: false,
+      canEditOthersPosts: false,
+    };
+    selectQueue = [[{ id: 42, authorId: 77, categoryId: 7, status: "draft" }]];
+
+    const { status, json } = await request(makeApp(), "GET", "/posts/42");
+
+    expect(status).toBe(403);
+    expect(json.error).toMatch(/own posts/i);
+  });
+
+  it("returns not found when the requested post no longer exists", async () => {
+    selectQueue = [[]];
+
+    const { status, json } = await request(makeApp(), "GET", "/posts/999");
+
+    expect(status).toBe(404);
+    expect(json.error).toMatch(/not found/i);
+  });
+});
+
+describe("PUT /posts/:id — external image persistence", () => {
+  it("does not let a non-publishing author change a live article without review, even when status is omitted", async () => {
+    currentUser = { id: 2, role: "editor", displayName: "Ed", canPublishDirectly: false, canEditOthersPosts: false };
+    selectQueue = [[{
+      id: 42, authorId: 2, categoryId: 7, status: "published",
+      title: "Live title", content: "<p>Live content</p>",
+      slug: "live-article", publishedAt: new Date("2024-01-01T00:00:00Z"),
+    }]];
+
+    const { status, json } = await request(makeApp(), "PUT", "/posts/42", {
+      content: "<p>Unreviewed replacement</p>",
+    });
+
+    expect(status).toBe(403);
+    expect(json.error).toMatch(/approved revision/i);
+    expect(db.transaction).not.toHaveBeenCalled();
+    expect(captured.updateSet).toBeUndefined();
+  });
+
+  it("does not let a non-publishing author edit or unschedule a scheduled article directly", async () => {
+    currentUser = { id: 2, role: "editor", displayName: "Ed", canPublishDirectly: false, canEditOthersPosts: false };
+    selectQueue = [[{
+      id: 42, authorId: 2, categoryId: 7, status: "scheduled",
+      title: "Upcoming title", content: "<p>Upcoming content</p>",
+      slug: "upcoming-article", publishedAt: new Date("2026-01-01T00:00:00Z"),
+      scheduledFor: new Date("2027-01-01T00:00:00Z"),
+    }]];
+    const { status, json } = await request(makeApp(), "PUT", "/posts/42", {
+      content: "<p>Unreviewed replacement</p>", status: "draft",
+    });
+    expect(status).toBe(403);
+    expect(json.error).toMatch(/approved revision/i);
+    expect(db.transaction).not.toHaveBeenCalled();
+    expect(captured.updateSet).toBeUndefined();
+  });
+
+  it("rewrites an external coverImage to a storage path on update", async () => {
+    const existing = { id: 42, authorId: 1, categoryId: 7, title: "Old", status: "draft" };
+    // existing select -> [existing]; refetch via postsBaseQuery -> [updated]; raw refetch -> [updatedRaw]
+    selectQueue = [[existing], [{ ...existing, title: "Old" }], [{ ...existing }]];
+
+    const { status } = await request(makeApp(), "PUT", "/posts/42", {
+      coverImage: "https://cdn.example.com/new-cover.png",
+    });
+
+    expect(status).toBe(200);
+    expect(persistExternalImage).toHaveBeenCalledWith("https://cdn.example.com/new-cover.png", expect.objectContaining({ uploaderId: 1 }));
+    expect(String(captured.updateSet?.coverImage)).toMatch(/^\/api\/storage\/objects\//);
+  });
+
+  it("leaves a local coverImage untouched on update", async () => {
+    const existing = { id: 42, authorId: 1, categoryId: 7, title: "Old", status: "draft" };
+    selectQueue = [[existing], [{ ...existing }], [{ ...existing }]];
+
+    const { status } = await request(makeApp(), "PUT", "/posts/42", {
+      coverImage: "/covers/keep.webp",
+    });
+
+    expect(status).toBe(200);
+    expect(persistExternalImage).not.toHaveBeenCalled();
+    expect(captured.updateSet?.coverImage).toBe("/covers/keep.webp");
+  });
+
+  it("returns imageWarnings on update when the cover keeps an external URL", async () => {
+    const existing = { id: 42, authorId: 1, categoryId: 7, title: "Old", status: "draft" };
+    selectQueue = [[existing], [{ ...existing }], [{ ...existing }]];
+    persistExternalImage.mockImplementationOnce(async (url: string) => url);
+
+    const { status, json: body } = await request(makeApp(), "PUT", "/posts/42", {
+      coverImage: "https://cdn.example.com/broken-host.png",
+    });
+
+    expect(status).toBe(200);
+    expect(Array.isArray(body.imageWarnings)).toBe(true);
+    expect(body.imageWarnings.join(" ")).toMatch(/cover image/i);
+  });
+
+  it("returns imageWarnings on update when body content keeps an external image", async () => {
+    const existing = { id: 42, authorId: 1, categoryId: 7, title: "Old", status: "draft" };
+    selectQueue = [[existing], [{ ...existing }], [{ ...existing }]];
+    // Body-image persistence goes through persistExternalImage too.
+    persistExternalImage.mockImplementationOnce(async (url: string) => url);
+
+    const { status, json: body } = await request(makeApp(), "PUT", "/posts/42", {
+      content: '<p>hi</p><img src="https://cdn.example.com/inline.png">',
+    });
+
+    expect(status).toBe(200);
+    expect(Array.isArray(body.imageWarnings)).toBe(true);
+    expect(body.imageWarnings.join(" ")).toMatch(/article body/i);
+  });
+
+  it("does not warn about fields the update did not submit", async () => {
+    // Existing post already has an external cover, but this update only
+    // touches the title — no warning should fire for the untouched cover.
+    const existing = {
+      id: 42,
+      authorId: 1,
+      categoryId: 7,
+      title: "Old",
+      status: "draft",
+      coverImage: "https://cdn.example.com/old-external.png",
+    };
+    selectQueue = [[existing], [{ ...existing, title: "New" }], [{ ...existing, title: "New" }]];
+
+    const { status, json: body } = await request(makeApp(), "PUT", "/posts/42", {
+      title: "New",
+    });
+
+    expect(status).toBe(200);
+    expect(body.imageWarnings).toBeUndefined();
+  });
+});
+
+describe("PUT /posts/:id — publication ordering", () => {
+  it("timestamps a draft when it is published so public lists place it by publication time", async () => {
+    const draftCreatedAt = new Date("2026-01-01T12:00:00.000Z");
+    const existing = {
+      id: 42,
+      authorId: 1,
+      categoryId: 7,
+      title: "Draft",
+      status: "draft",
+      publishedAt: draftCreatedAt,
+    };
+    const updated = { ...existing, status: "published" };
+    // Existing row; current category memberships; joined refetch; category
+    // attachment; raw refetch for the audit snapshot.
+    selectQueue = [[existing], [], [updated], [], [updated]];
+    const beforePublish = Date.now();
+
+    const { status } = await request(makeApp(), "PUT", "/posts/42", {
+      status: "published",
+    });
+
+    const publishedAt = captured.updateSet?.publishedAt;
+    expect(status).toBe(200);
+    expect(publishedAt).toBeInstanceOf(Date);
+    expect((publishedAt as Date).getTime()).toBeGreaterThanOrEqual(beforePublish);
+    expect((publishedAt as Date).getTime()).not.toBe(draftCreatedAt.getTime());
+    expect(captured.updateSet?.publishedOnceAt).toEqual(publishedAt);
+  });
+
+  it("preserves an explicit publication date when publishing a draft", async () => {
+    const existing = {
+      id: 42,
+      authorId: 1,
+      categoryId: 7,
+      title: "Imported draft",
+      status: "draft",
+      publishedAt: new Date("2026-01-01T12:00:00.000Z"),
+    };
+    const updated = { ...existing, status: "published" };
+    selectQueue = [[existing], [], [updated], [], [updated]];
+    const explicitDate = "2025-06-15T09:30:00.000Z";
+
+    const { status } = await request(makeApp(), "PUT", "/posts/42", {
+      status: "published",
+      publishedAt: explicitDate,
+    });
+
+    expect(status).toBe(200);
+    expect(captured.updateSet?.publishedAt).toEqual(new Date(explicitDate));
+    expect(captured.updateSet?.publishedOnceAt).toEqual(new Date(explicitDate));
+  });
+
+  it("does not move an already-published article when metadata is edited", async () => {
+    const originalPublishedAt = new Date("2026-01-01T12:00:00.000Z");
+    const existing = {
+      id: 42,
+      authorId: 1,
+      categoryId: 7,
+      title: "Published article",
+      status: "published",
+      publishedAt: originalPublishedAt,
+      isFeatured: false,
+    };
+    const updated = { ...existing, isFeatured: true };
+    selectQueue = [[existing], [], [updated], [], [updated]];
+
+    const { status } = await request(makeApp(), "PUT", "/posts/42", {
+      isFeatured: true,
+      status: "published",
+    });
+
+    expect(status).toBe(200);
+    expect(captured.updateSet).not.toHaveProperty("publishedAt");
+  });
+});
+
+describe("PUT /posts/:id — published editorial history protection", () => {
+  const livePost = {
+    id: 42,
+    authorId: 1,
+    categoryId: 7,
+    status: "published",
+    title: "Original title",
+    excerpt: "Original excerpt",
+    content: "<p>Original body</p>",
+    coverImage: "/original-cover.webp",
+    coverImageAlt: "Original cover",
+    ogImage: "/original-og.webp",
+    seoTitle: "Original SEO title",
+    seoDescription: "Original SEO description",
+    publishedAt: new Date("2026-01-01T12:00:00.000Z"),
+  };
+  const editorialFields = [
+    "title",
+    "excerpt",
+    "content",
+    "coverImage",
+    "coverImageAlt",
+    "ogImage",
+    "seoTitle",
+    "seoDescription",
+  ] as const;
+
+  it.each(editorialFields)("rejects a changed %s on a published post before any writes", async (field) => {
+    selectQueue = [[livePost]];
+    const { status, json } = await request(makeApp(), "PUT", "/posts/42", {
+      [field]: `${String(livePost[field])} changed`,
+    });
+    expect(status).toBe(422);
+    expect(json.error).toMatch(/approved revision/i);
+    expect(json.fields).toContain(field);
+    expect(db.transaction).not.toHaveBeenCalled();
+    expect(captured.updateSet).toBeUndefined();
+    expect(persistExternalImage).not.toHaveBeenCalled();
+  });
+
+  it("rejects a direct-publishing editor too, even when they provide the existing field", async () => {
+    currentUser = { id: 1, role: "editor", displayName: "Trusted Ed", canPublishDirectly: true };
+    selectQueue = [[livePost]];
+    const { status } = await request(makeApp(), "PUT", "/posts/42", {
+      content: "<p>Unreviewed body</p>",
+    });
+    expect(status).toBe(422);
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
+  it("keeps unchanged submitted editorial fields out of a locked live metadata update", async () => {
+    const existing = { ...livePost, isFeatured: false };
+    const updated = { ...existing, isFeatured: true };
+    selectQueue = [[existing], [], [updated], [], [updated]];
+    const { status } = await request(makeApp(), "PUT", "/posts/42", {
+      title: existing.title,
+      content: existing.content,
+      isFeatured: true,
+    });
+    expect(status).toBe(200);
+    expect(captured.updateSet?.isFeatured).toBe(true);
+    expect(captured.updateSet).not.toHaveProperty("title");
+    expect(captured.updateSet).not.toHaveProperty("content");
+  });
+
+  it("blocks editorial edits on an unpublished post with publishedOnceAt", async () => {
+    selectQueue = [[{
+      ...livePost,
+      status: "draft",
+      publishedOnceAt: new Date("2026-01-01T12:00:00.000Z"),
+    }]];
+    const { status, json } = await request(makeApp(), "PUT", "/posts/42", {
+      title: "Changed while unpublished",
+    });
+    expect(status).toBe(422);
+    expect(json.error).toMatch(/even while the post is unpublished/i);
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
+  it("uses old post audit snapshots to protect legacy drafts without publishedOnceAt", async () => {
+    const existing = {
+      ...livePost,
+      status: "draft",
+      createdAt: new Date("2025-01-01T00:00:00.000Z"),
+    };
+    selectQueue = [
+      [existing],
+      [{ details: { before: { status: "published" }, after: { status: "draft" } } }],
+    ];
+    const { status, json } = await request(makeApp(), "PUT", "/posts/42", {
+      title: "Changed after unpublishing",
+    });
+    expect(status).toBe(422);
+    expect(json.error).toMatch(/even while the post is unpublished/i);
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { slug: "changed-historical-url" },
+    { publishedAt: "2026-02-01T00:00:00.000Z" },
+  ])("blocks historical URL/date changes on audit-only drafts: %j", async (change) => {
+    const existing = {
+      ...livePost, status: "draft", publishedOnceAt: null,
+      createdAt: new Date("2025-01-01T00:00:00.000Z"),
+    };
+    selectQueue = [
+      [existing],
+      [{ details: { before: { status: "published" }, after: { status: "draft" } } }],
+    ];
+    const { status, json } = await request(makeApp(), "PUT", "/posts/42", change);
+    expect(status).toBe(422);
+    expect(json.error).toMatch(/original publication date cannot be changed/i);
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
+  it("rechecks protected fields against the locked row after a concurrent draft-to-published transition", async () => {
+    const draft = {
+      id: 42,
+      authorId: 1,
+      categoryId: 7,
+      status: "draft",
+      title: "Original title",
+      content: "<p>Draft content</p>",
+    };
+    const publishedByConcurrentRequest = {
+      ...draft,
+      status: "published",
+      content: "<p>Live content</p>",
+      publishedOnceAt: new Date("2026-01-01T12:00:00.000Z"),
+    };
+    selectQueue = [[draft], []];
+    lockedRowOverride = [publishedByConcurrentRequest];
+
+    const { status, json } = await request(makeApp(), "PUT", "/posts/42", {
+      content: '<p>Concurrent edit <img src="https://cdn.example.com/unreviewed.png"></p>',
+    });
+
+    expect(status).toBe(422);
+    expect(json.error).toMatch(/approved revision/i);
+    expect(json.fields).toContain("content");
+    expect(db.transaction).toHaveBeenCalled();
+    expect(captured.updateSet).toBeUndefined();
+    expect(persistExternalImage).not.toHaveBeenCalled();
+  });
+
+  it("sets the permanent published-history marker when an admin unpublishes a live post", async () => {
+    const publishedAt = new Date("2026-01-01T12:00:00.000Z");
+    const existing = { ...livePost, publishedAt };
+    const updated = { ...existing, status: "draft", publishedOnceAt: publishedAt };
+    selectQueue = [[existing], [], [updated], [], [updated]];
+    const { status } = await request(makeApp(), "PUT", "/posts/42", { status: "draft" });
+    expect(status).toBe(200);
+    expect(captured.updateSet?.status).toBe("draft");
+    expect(captured.updateSet?.publishedOnceAt).toEqual(publishedAt);
+  });
+
+  it("allows metadata changes on an unpublished post with published history", async () => {
+    const existing = {
+      ...livePost,
+      status: "draft",
+      publishedOnceAt: new Date("2026-01-01T12:00:00.000Z"),
+    };
+    const updated = { ...existing, isFeatured: true };
+    selectQueue = [[existing], [], [updated], [], [updated]];
+    const { status } = await request(makeApp(), "PUT", "/posts/42", { isFeatured: true });
+    expect(status).toBe(200);
+    expect(captured.updateSet?.isFeatured).toBe(true);
+  });
+
+  it("rejects generic author reassignment for posts with published history", async () => {
+    selectQueue = [[livePost]];
+    const { status, json } = await request(makeApp(), "PUT", "/posts/42", { authorId: 9 });
+    expect(status).toBe(422);
+    expect(json.error).toMatch(/author-reassignment/i);
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("PUT /admin/posts/:id/author", () => {
+  it("reassigns the byline to an active author and records the identity change in the same transaction", async () => {
+    const existing = {
+      id: 42,
+      title: "Live post",
+      status: "published",
+      authorId: 1,
+      author: "Matthew",
+      authorAvatar: "/matthew.webp",
+      publishedAt: new Date("2026-01-01T12:00:00.000Z"),
+    };
+    const activeTarget = {
+      id: 9,
+      isActive: true,
+      displayName: "New Author",
+      avatarUrl: "/new-author.webp",
+    };
+    selectQueue = [[existing], [activeTarget]];
+
+    const { status, json } = await request(makeApp(), "PUT", "/admin/posts/42/author", { authorId: 9 });
+
+    expect(status).toBe(200);
+    expect(json.authorId).toBe(9);
+    expect(json.author).toBe("New Author");
+    expect(captured.updateSet).toEqual({
+      authorId: 9,
+      author: "New Author",
+      authorAvatar: "/new-author.webp",
+    });
+    expect(captured.updateSet).not.toHaveProperty("publishedAt");
+    expect(db.transaction).toHaveBeenCalled();
+    expect(db.insert).toHaveBeenCalled();
+    expect(captured.insertValues).toMatchObject({
+      action: "post.author.reassign",
+      details: {
+        before: { authorId: 1, author: "Matthew" },
+        after: { authorId: 9, author: "New Author" },
+      },
+    });
+  });
+
+  it("rejects an inactive target before updating or auditing", async () => {
+    selectQueue = [[{ id: 42, authorId: 1 }], [{ id: 9, isActive: false }]];
+    const { status, json } = await request(makeApp(), "PUT", "/admin/posts/42/author", { authorId: 9 });
+    expect(status).toBe(400);
+    expect(json.error).toMatch(/inactive/i);
+    expect(captured.updateSet).toBeUndefined();
+    expect(db.insert).not.toHaveBeenCalled();
+  });
+
+  it("is admin-only", async () => {
+    currentUser = { id: 2, role: "editor", displayName: "Editor" };
+    const { status } = await request(makeApp(), "PUT", "/admin/posts/42/author", { authorId: 9 });
+    expect(status).toBe(403);
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+});
+
+// --- Ownership / canEditOthersPosts permission ----------------------------
+
+const auditMock = (await import("../lib/audit")).writeAuditLog as ReturnType<typeof vi.fn>;
+
+describe("PUT /posts/:id — ownership & canEditOthersPosts", () => {
+  const colleaguePost = { id: 42, authorId: 9, categoryId: 7, title: "Colleague's", status: "draft" };
+
+  it("rejects an editor without the permission editing a colleague's post", async () => {
+    currentUser = { id: 2, role: "editor", displayName: "Ed", canPublishDirectly: true, canEditOthersPosts: false };
+    selectQueue = [[colleaguePost]];
+
+    const { status, json } = await request(makeApp(), "PUT", "/posts/42", { title: "Hijacked" });
+
+    expect(status).toBe(403);
+    expect(json.error).toMatch(/own posts/i);
+    expect(captured.updateSet).toBeUndefined();
+  });
+
+  it("allows a trusted editor (canEditOthersPosts) to update a colleague's post and audits their identity", async () => {
+    currentUser = { id: 2, role: "editor", displayName: "Trusted Ed", canPublishDirectly: true, canEditOthersPosts: true };
+    selectQueue = [[colleaguePost], [{ ...colleaguePost, title: "Fixed" }], [{ ...colleaguePost, title: "Fixed" }]];
+
+    const { status } = await request(makeApp(), "PUT", "/posts/42", { title: "Fixed" });
+
+    expect(status).toBe(200);
+    expect(captured.updateSet?.title).toBe("Fixed");
+    // Byline is untouched: no author fields in the update (only admins may change them).
+    expect(captured.updateSet).not.toHaveProperty("author");
+    expect(captured.updateSet).not.toHaveProperty("authorId");
+    // Audit log is written from the trusted editor's request identity.
+    expect(auditMock).toHaveBeenCalledWith(
+      expect.objectContaining({ user: expect.objectContaining({ id: 2 }) }),
+      expect.objectContaining({ action: "post.update" }),
+    );
+  });
+
+  it("still lets an editor update their own post without the permission", async () => {
+    currentUser = { id: 9, role: "editor", displayName: "Owner", canPublishDirectly: true, canEditOthersPosts: false };
+    selectQueue = [[colleaguePost], [{ ...colleaguePost }], [{ ...colleaguePost }]];
+
+    const { status } = await request(makeApp(), "PUT", "/posts/42", { title: "Mine" });
+
+    expect(status).toBe(200);
+  });
+});
+
+describe("DELETE /posts/:id — stays owner/admin only", () => {
+  const colleaguePost = { id: 42, authorId: 9, title: "Colleague's" };
+
+  it("rejects deleting a colleague's post even with canEditOthersPosts", async () => {
+    currentUser = { id: 2, role: "editor", displayName: "Trusted Ed", canEditOthersPosts: true };
+    selectQueue = [[colleaguePost]];
+
+    const { status, json } = await request(makeApp(), "DELETE", "/posts/42", undefined);
+
+    expect(status).toBe(403);
+    expect(json.error).toMatch(/own posts/i);
+    expect(db.delete).not.toHaveBeenCalled();
+  });
+
+  it("rejects deleting a colleague's post without the permission", async () => {
+    currentUser = { id: 2, role: "editor", displayName: "Ed", canEditOthersPosts: false };
+    selectQueue = [[colleaguePost]];
+
+    const { status } = await request(makeApp(), "DELETE", "/posts/42", undefined);
+
+    expect(status).toBe(403);
+    expect(db.delete).not.toHaveBeenCalled();
+  });
+
+  it("allows the owner to delete their own post", async () => {
+    currentUser = { id: 9, role: "editor", displayName: "Owner", canEditOthersPosts: false };
+    selectQueue = [[colleaguePost]];
+
+    const { status } = await request(makeApp(), "DELETE", "/posts/42", undefined);
+
+    expect(status).toBe(204);
+    expect(db.delete).toHaveBeenCalled();
+  });
+});
+
+describe("POST /admin/posts/:id/restore — publication history", () => {
+  const restoreFrom = async (snapshot: Record<string, unknown>) => {
+    const restoredRow = { ...snapshot, id: 42, status: "draft" };
+    selectQueue = [
+      [],
+      [{ details: { snapshot } }],
+      [CATEGORY_ROW],
+      [],
+      [{ count: 1 }],
+      [restoredRow],
+      [],
+    ];
+    return request(makeApp(), "POST", "/admin/posts/42/restore");
+  };
+  const snapshotBase = {
+    id: 42,
+    title: "Restored post",
+    slug: "restored-post",
+    excerpt: "Excerpt",
+    content: "<p>Body</p>",
+    categoryId: 7,
+    status: "published",
+    publishedAt: new Date("2026-01-01T12:00:00.000Z"),
+    createdAt: new Date("2025-01-01T12:00:00.000Z"),
+  };
+
+  it("sets the marker from publishedAt when restoring an old published snapshot without one", async () => {
+    const { status } = await restoreFrom(snapshotBase);
+    expect(status).toBe(201);
+    expect(captured.insertValues?.status).toBe("draft");
+    expect(captured.insertValues?.publishedOnceAt).toEqual(snapshotBase.publishedAt);
+  });
+
+  it("preserves publishedOnceAt when restoring an already-unpublished snapshot", async () => {
+    const marker = new Date("2026-02-03T04:05:06.000Z");
+    const { status } = await restoreFrom({
+      ...snapshotBase,
+      status: "draft",
+      publishedOnceAt: marker,
+    });
+    expect(status).toBe(201);
+    expect(captured.insertValues?.status).toBe("draft");
+    expect(captured.insertValues?.publishedOnceAt).toEqual(marker);
+  });
+});
+
+describe("public topic cluster context", () => {
+  it("attaches eligible public topic context to a published supporting article", async () => {
+    selectQueue = [
+      [{
+        id: 42, title: "Supporting article", slug: "supporting", excerpt: "", content: "",
+        categoryId: 7, status: "published", clusterId: 9, clusterRole: "supporting",
+      }],
+      [],
+      [{ id: 9, name: "Topic", slug: "topic", introduction: "Topic intro", isPublic: true }],
+      [{ clusterId: 9, count: 3 }],
+    ];
+    const { status, json } = await request(makeApp(), "GET", "/posts/slug/supporting");
+    expect(status).toBe(200);
+    expect(json.topicCluster).toMatchObject({ id: 9, name: "Topic", role: "supporting" });
+  });
+
+  it.each([
+    {
+      label: "private clusters",
+      isPublic: false,
+      publishedCount: 4,
+    },
+    {
+      label: "public clusters with fewer than three published articles",
+      isPublic: true,
+      publishedCount: 2,
+    },
+  ])("does not attach article context for $label", async ({ isPublic, publishedCount }) => {
+    selectQueue = [
+      [{
+        id: 42, title: "Supporting article", slug: "supporting", excerpt: "", content: "",
+        categoryId: 7, status: "published", clusterId: 9, clusterRole: "supporting",
+      }],
+      [],
+      [{ id: 9, name: "Hidden topic", slug: "hidden-topic", introduction: "Not public yet", isPublic }],
+      [{ clusterId: 9, count: publishedCount }],
+    ];
+
+    const { status, json } = await request(makeApp(), "GET", "/posts/slug/supporting");
+
+    expect(status).toBe(200);
+    expect(json.topicCluster).toBeNull();
+  });
+
+  it("does not return draft posts from the public slug API", async () => {
+    selectQueue = [];
+
+    const { status, json } = await request(makeApp(), "GET", "/posts/slug/unpublished-draft");
+
+    expect(status).toBe(404);
+    expect(json).toMatchObject({ error: "Post not found" });
+  });
+});

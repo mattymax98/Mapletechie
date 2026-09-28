@@ -1,0 +1,408 @@
+import { useEffect, useState } from "react";
+import { AdminShell } from "@/components/admin/AdminShell";
+import { useAdmin } from "@/context/AdminContext";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Trash2, Mail, Megaphone, FileText, Briefcase, ExternalLink, MessageCircle, Send, X, CheckCircle2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { format } from "date-fns";
+
+const TOKEN_KEY = "mapletechie_admin_token";
+
+type Tab = "applications" | "ads" | "contacts" | "comments";
+
+type ReplyTemplate = "forward" | "pass" | "clarify" | "blank";
+
+// NOTE: Do NOT include the greeting ("Hi {firstName},") or the sign-off
+// ("Best, {Name}") in these templates — the server-side wrapper adds both.
+// Otherwise the candidate sees "Hi Okorobia, Hi Okorobia," twice.
+const REPLY_TEMPLATES: Record<ReplyTemplate, { label: string; subject: (jobTitle: string) => string; body: (firstName: string, jobTitle: string) => string }> = {
+  forward: {
+    label: "Move forward",
+    subject: () => `Your application to Mapletechie — next steps`,
+    body: (_fn, jt) => `Thanks for applying to the ${jt} role at Mapletechie. I read through your application and I'd like to learn more.
+
+Could you reply with:
+
+1. A 100-word note on a tech story you wish more outlets had covered properly, and what you'd have done differently.
+2. Two writing samples or links to published work.
+3. Your availability for a 30-minute video call over the next two weeks.
+
+No deadline pressure — take the time you need to put your best foot forward.`,
+  },
+  pass: {
+    label: "Pass politely",
+    subject: () => `Your application to Mapletechie`,
+    body: (_fn, jt) => `Thanks for applying to the ${jt} role at Mapletechie and for the time you put into your submission.
+
+After reviewing the applications we received, we've decided to move forward with other candidates whose backgrounds more closely matched what we're looking for right now. This isn't a reflection of your work — it's a small team and a narrow brief.
+
+I'd encourage you to apply again when we open future roles. We'll be posting new openings on mapletechie.com/careers as the team grows.
+
+Wishing you the best.`,
+  },
+  clarify: {
+    label: "Ask a question",
+    subject: () => `Quick question about your Mapletechie application`,
+    body: (_fn, jt) => `Thanks for applying to the ${jt} role. Before I take this to the next round, I'd love to clarify one thing: [your question here].
+
+Once I have that I'll be back to you within a few days.`,
+  },
+  blank: {
+    label: "Start blank",
+    subject: () => `Re: your Mapletechie application`,
+    body: () => ``,
+  },
+};
+
+export default function AdminInbox({ embedded = false }: { embedded?: boolean }) {
+  const { user } = useAdmin();
+  const canManageJobs = user?.role === "admin" || user?.canManageJobs === true;
+  const [tab, setTab] = useState<Tab>(canManageJobs ? "applications" : "comments");
+  const [data, setData] = useState<Record<Tab, any[] | null>>({
+    applications: null, ads: null, contacts: null, comments: null,
+  });
+  const [replyTo, setReplyTo] = useState<number | null>(null);
+  const [replySubject, setReplySubject] = useState("");
+  const [replyMessage, setReplyMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [replyMsg, setReplyMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
+  const token = typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;
+  const headers = { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+
+  function openReply(app: any, template: ReplyTemplate = "forward") {
+    const firstName = (app.name || "").split(" ")[0] || "there";
+    const jobTitle = `Job #${app.jobId}`;
+    const t = REPLY_TEMPLATES[template];
+    setReplyTo(app.id);
+    setReplySubject(t.subject(jobTitle));
+    setReplyMessage(t.body(firstName, jobTitle));
+    setReplyMsg(null);
+  }
+
+  function applyTemplate(app: any, template: ReplyTemplate) {
+    const firstName = (app.name || "").split(" ")[0] || "there";
+    const jobTitle = `Job #${app.jobId}`;
+    const t = REPLY_TEMPLATES[template];
+    setReplySubject(t.subject(jobTitle));
+    setReplyMessage(t.body(firstName, jobTitle));
+  }
+
+  function closeReply() {
+    setReplyTo(null);
+    setReplySubject("");
+    setReplyMessage("");
+    setReplyMsg(null);
+  }
+
+  async function sendReply(appId: number) {
+    if (!replySubject.trim() || !replyMessage.trim()) {
+      setReplyMsg({ kind: "err", text: "Please add a subject and a message." });
+      return;
+    }
+    setSending(true);
+    setReplyMsg(null);
+    try {
+      const res = await fetch(`/api/admin/applications/${appId}/reply`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ subject: replySubject.trim(), message: replyMessage.trim() }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.message || json.error || "Send failed");
+      setReplyMsg({ kind: "ok", text: "Reply sent." });
+      await loadAll();
+      setTimeout(() => closeReply(), 1200);
+    } catch (err: any) {
+      setReplyMsg({ kind: "err", text: err.message || "Send failed" });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  const safeFetch = (url: string) =>
+    fetch(url, { headers })
+      .then((res) => (res.ok ? res.json() : []))
+      .catch(() => []);
+
+  async function loadAll() {
+    const [a, ad, c, cm] = await Promise.all([
+      canManageJobs ? safeFetch("/api/admin/applications") : Promise.resolve([]),
+      safeFetch("/api/admin/ad-inquiries"),
+      safeFetch("/api/admin/contacts"),
+      safeFetch("/api/admin/comments"),
+    ]);
+    setData({ applications: a, ads: ad, contacts: c, comments: cm });
+  }
+
+  async function setCommentStatus(id: number, status: string) {
+    try {
+      const res = await fetch(`/api/admin/comments/${id}`, { method: "PATCH", headers, body: JSON.stringify({ status }) });
+      if (!res.ok) throw new Error(String(res.status));
+      await loadAll();
+    } catch {
+      alert("Could not update the comment. Please try again.");
+    }
+  }
+
+  useEffect(() => {
+    if (!canManageJobs && tab === "applications") setTab("comments");
+    void loadAll();
+  }, [canManageJobs]);
+
+  async function del(url: string) {
+    if (!confirm("Delete this entry? This cannot be undone.")) return;
+    await fetch(url, { method: "DELETE", headers });
+    await loadAll();
+  }
+
+  const tabs: Array<{ id: Tab; label: string; icon: any; count: number }> = [
+    ...(canManageJobs ? [{ id: "applications" as const, label: "Job Applications", icon: Briefcase, count: data.applications?.length || 0 }] : []),
+    { id: "comments", label: "Article Comments", icon: MessageCircle, count: data.comments?.length || 0 },
+    { id: "ads", label: "Ad Inquiries", icon: Megaphone, count: data.ads?.length || 0 },
+    { id: "contacts", label: "Contact Messages", icon: Mail, count: data.contacts?.length || 0 },
+  ];
+
+  return (
+    <AdminShell title="Inbox" embedded={embedded}>
+      <main className="max-w-6xl mx-auto px-4 py-8">
+        <div className="mb-8">
+          <p className="text-zinc-400 text-sm mt-1">All submissions from your readers, advertisers, and applicants in one place.</p>
+          <p className="text-amber-400/80 text-xs mt-2 bg-amber-500/10 border border-amber-500/30 rounded px-3 py-2 inline-block">
+            <FileText className="w-3 h-3 inline mr-1" />
+            Email forwarding to your inbox isn't enabled yet — connect a mail service (e.g. Resend) to also get these in your email.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2 mb-6 border-b border-zinc-800 pb-3">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded ${tab === t.id ? "bg-orange-500 text-white" : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"}`}
+            >
+              <t.icon className="w-4 h-4" />
+              {t.label}
+              <span className={`text-xs px-2 py-0.5 rounded-full ${tab === t.id ? "bg-white/20" : "bg-zinc-800"}`}>{t.count}</span>
+            </button>
+          ))}
+        </div>
+
+        {tab === "applications" && (
+          <div className="space-y-3">
+            {data.applications?.length === 0 && <Empty label="No applications yet." />}
+            {data.applications?.map((app: any) => (
+              <div key={app.id} className="bg-zinc-950 border border-zinc-800 rounded-lg p-5">
+                <div className="flex items-start justify-between gap-4 mb-3 flex-wrap">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-bold text-lg">{app.name}</h3>
+                      {app.status === "replied" && (
+                        <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Replied
+                        </Badge>
+                      )}
+                    </div>
+                    <a href={`mailto:${app.email}`} className="text-orange-400 text-sm hover:underline">{app.email}</a>
+                    {app.phone && <span className="text-zinc-500 text-sm ml-3">· {app.phone}</span>}
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-zinc-500">
+                    <span>Job #{app.jobId}</span>
+                    <span>{format(new Date(app.createdAt), "MMM d, yyyy")}</span>
+                    <Button size="sm" variant="ghost" onClick={() => del(`/api/admin/applications/${app.id}`)} className="h-7 px-2 text-zinc-400 hover:text-red-400">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-3 mb-3">
+                  {app.resumeUrl && <a href={app.resumeUrl} target="_blank" rel="noopener" className="text-xs px-2 py-1 bg-zinc-900 border border-zinc-700 rounded text-zinc-300 hover:text-orange-400 inline-flex items-center gap-1"><ExternalLink className="w-3 h-3"/> Resume</a>}
+                  {app.portfolioUrl && <a href={app.portfolioUrl} target="_blank" rel="noopener" className="text-xs px-2 py-1 bg-zinc-900 border border-zinc-700 rounded text-zinc-300 hover:text-orange-400 inline-flex items-center gap-1"><ExternalLink className="w-3 h-3"/> Portfolio</a>}
+                </div>
+                <p className="text-zinc-300 text-sm whitespace-pre-line bg-zinc-900/50 p-3 rounded border border-zinc-800">{app.coverLetter}</p>
+
+                {replyTo !== app.id ? (
+                  <div className="mt-3 flex items-center gap-2">
+                    <Button size="sm" onClick={() => openReply(app, "forward")} className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5 h-8 px-3 text-xs">
+                      <Send className="w-3.5 h-3.5" /> Reply via email
+                    </Button>
+                    <span className="text-xs text-zinc-500">
+                      Sends from the shared <code className="text-zinc-400">careers@mapletechie.com</code> mailbox.
+                    </span>
+                  </div>
+                ) : (
+                  <div className="mt-4 p-4 bg-zinc-900/50 border border-zinc-800 rounded space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-bold text-white">Reply to {app.name}</h4>
+                      <Button type="button" variant="ghost" size="sm" onClick={closeReply} className="h-7 px-2 text-zinc-400 hover:text-white">
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="text-xs text-zinc-500 mr-1 self-center">Templates:</span>
+                      {(Object.keys(REPLY_TEMPLATES) as ReplyTemplate[]).map((k) => (
+                        <button
+                          key={k}
+                          type="button"
+                          onClick={() => applyTemplate(app, k)}
+                          className="text-xs px-2 py-1 bg-zinc-900 border border-zinc-700 rounded text-zinc-300 hover:bg-zinc-800 hover:text-orange-400"
+                        >
+                          {REPLY_TEMPLATES[k].label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div>
+                      <Label className="text-xs text-zinc-400">To</Label>
+                      <Input value={app.email} disabled className="bg-zinc-900 border-zinc-700 text-zinc-400 mt-1 h-9" />
+                    </div>
+
+                    <div>
+                      <Label className="text-xs text-zinc-400">Subject</Label>
+                      <Input
+                        value={replySubject}
+                        onChange={(e) => setReplySubject(e.target.value)}
+                        maxLength={200}
+                        className="bg-zinc-900 border-zinc-700 mt-1 h-9"
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="text-xs text-zinc-400">Message</Label>
+                      <Textarea
+                        value={replyMessage}
+                        onChange={(e) => setReplyMessage(e.target.value)}
+                        maxLength={10000}
+                        rows={10}
+                        className="bg-zinc-900 border-zinc-700 mt-1 font-mono text-sm"
+                      />
+                      <p className="text-xs text-zinc-500 mt-1">
+                        {replyMessage.length} / 10,000 · The greeting (<em>"Hi {(app.name || "").split(" ")[0] || "there"},"</em>) and sign-off are added automatically — write only the body. Sends from <code className="text-zinc-400">careers@mapletechie.com</code>; replies land in the shared careers inbox.
+                      </p>
+                    </div>
+
+                    {replyMsg && (
+                      <div className={`text-xs p-2 rounded ${replyMsg.kind === "ok" ? "bg-green-500/10 text-green-400 border border-green-500/30" : "bg-red-500/10 text-red-400 border border-red-500/30"}`}>
+                        {replyMsg.text}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={sending || !replySubject.trim() || !replyMessage.trim()}
+                        onClick={() => sendReply(app.id)}
+                        className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5"
+                      >
+                        <Send className="w-4 h-4" />
+                        {sending ? "Sending…" : "Send reply"}
+                      </Button>
+                      <Button type="button" variant="ghost" size="sm" onClick={closeReply} className="text-zinc-400">
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === "ads" && (
+          <div className="space-y-3">
+            {data.ads?.length === 0 && <Empty label="No ad inquiries yet." />}
+            {data.ads?.map((a: any) => (
+              <div key={a.id} className="bg-zinc-950 border border-zinc-800 rounded-lg p-5">
+                <div className="flex items-start justify-between gap-4 mb-3 flex-wrap">
+                  <div>
+                    <h3 className="font-bold text-lg">{a.companyName}</h3>
+                    <p className="text-sm text-zinc-400">
+                      {a.contactName} · <a href={`mailto:${a.email}`} className="text-orange-400 hover:underline">{a.email}</a>
+                      {a.website && <> · <a href={a.website} target="_blank" rel="noopener" className="text-orange-400 hover:underline">{a.website}</a></>}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-zinc-500">
+                    <span>{format(new Date(a.createdAt), "MMM d, yyyy")}</span>
+                    <Button size="sm" variant="ghost" onClick={() => del(`/api/admin/ad-inquiries/${a.id}`)} className="h-7 px-2 text-zinc-400 hover:text-red-400">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 mb-3 text-xs">
+                  <span className="bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-1 rounded">{a.adType}</span>
+                  {a.budget && <span className="bg-zinc-900 border border-zinc-700 px-2 py-1 rounded text-zinc-300">Budget: {a.budget}</span>}
+                </div>
+                <p className="text-zinc-300 text-sm whitespace-pre-line bg-zinc-900/50 p-3 rounded border border-zinc-800">{a.message}</p>
+                {a.creativeUrl && (
+                  <div className="mt-3">
+                    <a href={a.creativeUrl} target="_blank" rel="noopener">
+                      <img src={a.creativeUrl} alt="Creative" className="max-h-48 border border-zinc-700 rounded" />
+                    </a>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === "comments" && (
+          <div className="space-y-3">
+            {data.comments?.length === 0 && <Empty label="No reader comments yet." />}
+            {data.comments?.map((c: any) => (
+              <div key={c.id} className="bg-zinc-950 border border-zinc-800 rounded-lg p-5">
+                <div className="flex items-start justify-between gap-4 mb-3 flex-wrap">
+                  <div>
+                    <h3 className="font-bold">{c.name || "Anonymous"} <span className="text-zinc-500 font-normal text-sm">on</span> <a href={`/blog/${c.postSlug}`} target="_blank" rel="noopener" className="text-orange-400 hover:underline text-sm">/{c.postSlug}</a></h3>
+                    {c.email && <a href={`mailto:${c.email}`} className="text-orange-400 text-xs hover:underline">{c.email}</a>}
+                  </div>
+                  <span className="text-xs text-zinc-500">{format(new Date(c.createdAt), "MMM d, yyyy · h:mm a")}</span>
+                </div>
+                <p className="text-zinc-300 text-sm whitespace-pre-line bg-zinc-900/50 p-3 rounded border border-zinc-800 mb-3">{c.body}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge className={c.status === "approved" ? "bg-green-500/20 text-green-400 border-green-500/30" : c.status === "rejected" ? "bg-red-500/20 text-red-400 border-red-500/30" : "bg-amber-500/20 text-amber-400 border-amber-500/30"}>
+                    {c.status}
+                  </Badge>
+                  {c.status !== "approved" && (
+                    <Button size="sm" onClick={() => setCommentStatus(c.id, "approved")} className="h-7 px-3 text-xs bg-green-600 hover:bg-green-700">Approve</Button>
+                  )}
+                  {c.status !== "rejected" && (
+                    <Button size="sm" variant="outline" onClick={() => setCommentStatus(c.id, "rejected")} className="h-7 px-3 text-xs border-zinc-700">Reject</Button>
+                  )}
+                  <Button size="sm" variant="ghost" onClick={() => del(`/api/admin/comments/${c.id}`)} className="h-7 px-2 text-zinc-400 hover:text-red-400 ml-auto">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === "contacts" && (
+          <div className="space-y-3">
+            {data.contacts?.length === 0 && <Empty label="No contact messages yet (or this view isn't wired up)." />}
+            {data.contacts?.map((c: any) => (
+              <div key={c.id} className="bg-zinc-950 border border-zinc-800 rounded-lg p-5">
+                <div className="flex items-start justify-between gap-4 mb-2 flex-wrap">
+                  <div>
+                    <h3 className="font-bold">{c.subject}</h3>
+                    <p className="text-sm text-zinc-400">{c.name} · <a href={`mailto:${c.email}`} className="text-orange-400 hover:underline">{c.email}</a></p>
+                  </div>
+                  <span className="text-xs text-zinc-500">{format(new Date(c.createdAt), "MMM d, yyyy")}</span>
+                </div>
+                <p className="text-zinc-300 text-sm whitespace-pre-line bg-zinc-900/50 p-3 rounded border border-zinc-800">{c.message}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </main>
+    </AdminShell>
+  );
+}
+
+function Empty({ label }: { label: string }) {
+  return <div className="text-center py-12 text-zinc-500 border border-zinc-800 border-dashed rounded">{label}</div>;
+}

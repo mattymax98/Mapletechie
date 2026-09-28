@@ -44,6 +44,13 @@ Thumbs.db
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
 
-# removed-platform
+# Workspace internal directories (not needed on GitHub)
 .cache/
 .local/
+.agents/
+attached_assets/
+
+# Local env files (never commit secrets)
+.env
+.env.*
+!.env.example

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="200" viewBox="0 0 800 200">
+  <title>Mapletechie, inverse</title>
+  <desc id="desc">The Mapletechie Signal Leaf and light wordmark for dark backgrounds.</desc>
+  <g transform="translate(14 14) scale(.336)">
+    <path fill="#DA753B" d="M256 52 296 145 354 106 344 187 434 163 393 241 458 256 389 315 408 414 300 366 282 460H230l-18-94-108 48 19-99-69-59 65-15-41-78 90 24-10-81 58 39 40-93Z"/>
+    <path fill="#FAFAFA" d="m154 207 66 68 36-37 36 37 66-68v101l-52 53v66l-32 33V347l-18 19-18-19v113l-32-33v-66l-52-53V207Z"/>
+  </g>
+  <text x="210" y="130" fill="#FAFAFA" font-family="Arial, Helvetica, sans-serif" font-size="76" font-weight="800" letter-spacing="1">MAPLE</text>
+  <text x="494" y="130" fill="#DA753B" font-family="Arial, Helvetica, sans-serif" font-size="76" font-weight="800" letter-spacing="1">TECHIE</text>
+</svg>

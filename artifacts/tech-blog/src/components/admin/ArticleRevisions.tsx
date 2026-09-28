@@ -1,0 +1,224 @@
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+
+type Field = "title" | "excerpt" | "content" | "seoTitle" | "seoDescription" | "coverImage" | "coverImageAlt" | "ogImage";
+const labels: Record<Field, string> = {
+  title: "Title", excerpt: "Summary", content: "Article HTML",
+  seoTitle: "Search title", seoDescription: "Search description",
+  coverImage: "Cover image URL", coverImageAlt: "Cover image alt text", ogImage: "Social image URL",
+};
+const fields = Object.keys(labels) as Field[];
+const imageFields = new Set<Field>(["coverImage", "ogImage"]);
+function ImagePreview({ src, alt }: { src: string | null | undefined; alt: string }) {
+  if (!src) return null;
+  return <img src={src} alt={alt} loading="lazy" className="mt-2 max-h-40 max-w-full rounded border border-zinc-700 object-contain" />;
+}
+type Revision = {
+  id: number; status: string; stale: boolean; source: string;
+  changes: Partial<Record<Field, string>>; updateNote: string | null; createdAt: string;
+};
+type Live = Record<Field, string | null> & { slug: string; status: string; publishedAt: string; scheduledFor?: string | null; contentModifiedAt?: string | null };
+
+export function ArticleRevisions({ postId, token, canApprove, onApproved }: {
+  postId: number; token: string; canApprove: boolean; onApproved?: (post: Live) => void;
+}) {
+  const [live, setLive] = useState<Live | null>(null);
+  const [revisions, setRevisions] = useState<Revision[]>([]);
+  const [draft, setDraft] = useState<Partial<Record<Field, string>>>({});
+  const [note, setNote] = useState("");
+  const [edits, setEdits] = useState<Record<number, Partial<Record<Field, string>>>>({});
+  const [notes, setNotes] = useState<Record<number, string>>({});
+  const [publishSummaries, setPublishSummaries] = useState<Record<number, boolean>>({});
+  const [feedback, setFeedback] = useState<Record<number, { type: "success" | "error"; message: string }>>({});
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const draftIsPublicUpdate = live?.status === "published" &&
+    (["title", "excerpt", "content"] as const).some((field) =>
+      !!draft[field]?.trim() && draft[field]?.trim() !== live[field]);
+
+  async function load() {
+    const response = await fetch(`/api/admin/posts/${postId}/revisions`, {
+      headers: { Authorization: `Bearer ${token}` }, cache: "no-store",
+    });
+    if (!response.ok) throw new Error("Could not load revisions");
+    const data = await response.json() as { live: Live; revisions: Revision[] };
+    setLive(data.live);
+    setRevisions(data.revisions);
+    setEdits(Object.fromEntries(data.revisions.map((r) => [r.id, r.changes])));
+    setNotes(Object.fromEntries(data.revisions.map((r) => [r.id, r.updateNote ?? ""])));
+    return data.live;
+  }
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    fetch(`/api/admin/posts/${postId}/revisions`, {
+      headers: { Authorization: `Bearer ${token}` }, cache: "no-store",
+    }).then(async (r) => {
+      if (!r.ok) throw new Error("Could not load revisions");
+      return r.json();
+    }).then((data) => {
+      if (!active) return;
+      setLive(data.live);
+      setRevisions(data.revisions);
+      setEdits(Object.fromEntries(data.revisions.map((r: Revision) => [r.id, r.changes])));
+      setNotes(Object.fromEntries(data.revisions.map((r: Revision) => [r.id, r.updateNote ?? ""])));
+    }).catch((e) => { if (active) setError(e.message); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [postId, token]);
+
+  useEffect(() => {
+    if (!loading && window.location.hash === "#editorial-corrections") {
+      document.getElementById("editorial-corrections")?.scrollIntoView({ block: "start" });
+    }
+  }, [loading]);
+
+  async function send(path: string, method: string, body?: unknown) {
+    const revisionId = Number(path.match(/^\/(\d+)/)?.[1] ?? NaN);
+    const hasRevision = Number.isSafeInteger(revisionId);
+    setBusy(true); setError("");
+    if (hasRevision) {
+      setFeedback((current) => {
+        const next = { ...current };
+        delete next[revisionId];
+        return next;
+      });
+    }
+    try {
+      const response = await fetch(`/api/admin/posts/${postId}/revisions${path}`, {
+        method,
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `Request failed (${response.status})`);
+      }
+      const currentPost = await load();
+      if (path.endsWith("/approve")) onApproved?.(currentPost);
+      if (!path || path.endsWith("/approve") || path.endsWith("/reject")) {
+        window.dispatchEvent(new Event("admin:revisions-changed"));
+      }
+      if (!path) { setDraft({}); setNote(""); }
+      if (hasRevision) {
+        const message = path.endsWith("/approve")
+          ? "Revision approved."
+          : path.endsWith("/reject")
+            ? "Revision rejected."
+            : "Review edits saved.";
+        setFeedback((current) => ({ ...current, [revisionId]: { type: "success", message } }));
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Could not save revision";
+      if (hasRevision) {
+        setFeedback((current) => ({ ...current, [revisionId]: { type: "error", message } }));
+      } else {
+        setError(message);
+      }
+    } finally { setBusy(false); }
+  }
+
+  if (loading) return <div id="editorial-corrections" className="scroll-mt-20"><p className="text-sm text-zinc-400">Loading article revisions…</p></div>;
+  if (!live) return <div id="editorial-corrections" className="scroll-mt-20"><p role="alert" className="text-red-400">{error}</p></div>;
+  return (
+    <section id="editorial-corrections" className="border border-zinc-700 bg-zinc-900/70 p-5 mb-8 space-y-5 scroll-mt-20" aria-label="Article revisions">
+      <div>
+        <h2 className="text-xl font-bold text-white">Editorial corrections</h2>
+        <p className="text-sm text-zinc-400 mt-1">
+          Proposed changes stay private until a publishing editor approves them.
+          The URL ({live.slug}) and author stay unchanged.
+          {live.status === "published"
+            ? ` Original publication: ${new Date(live.publishedAt).toLocaleDateString()}. Only substantive article changes can update its editorial freshness date.`
+            : live.status === "scheduled"
+              ? ` Scheduled publication remains ${live.scheduledFor ? new Date(live.scheduledFor).toLocaleString() : "unchanged"}. Corrections before publication do not set an editorial freshness date.`
+              : " This article is temporarily unpublished. Approval updates the private draft without republishing it, changing its original publication date, or setting a new editorial freshness date."}
+        </p>
+      </div>
+      {error && <p role="alert" className="text-red-400 text-sm">{error}</p>}
+      <details className="border border-zinc-700 p-4">
+        <summary className="cursor-pointer font-semibold text-orange-400">Propose a correction</summary>
+        <div className="space-y-3 mt-4">
+          <p className="text-xs text-zinc-400">Only fill fields you want to change. Upload replacement images first and use their Mapletechie URLs. Cover changes need meaningful alt text. Complete article HTML must include alt text on every image.</p>
+          {fields.map((field) => (
+            <label key={field} className="block text-sm text-zinc-200">
+              {labels[field]}
+              {field === "content"
+                ? <Textarea className="mt-1 bg-zinc-950 border-zinc-700 min-h-32" value={draft[field] ?? ""} onChange={(e) => setDraft({ ...draft, [field]: e.target.value })} placeholder={`Current: ${(live[field] ?? "").slice(0, 110)}…`} />
+                : <Input className="mt-1 bg-zinc-950 border-zinc-700" value={draft[field] ?? ""} onChange={(e) => setDraft({ ...draft, [field]: e.target.value })} placeholder={live[field] ?? ""} />}
+            </label>
+          ))}
+          {draftIsPublicUpdate && <label className="block text-sm text-zinc-200">Public update summary
+            <span className="block text-xs text-zinc-400 mt-1">A reviewer may choose to publish this summary in the article’s Update history. Describe the meaningful change, not review workflow or an internal diff.</span>
+            <Textarea className="mt-1 bg-zinc-950 border-zinc-700" value={note} onChange={(e) => setNote(e.target.value)} />
+          </label>}
+          <Button type="button" disabled={busy || !Object.values(draft).some((v) => v?.trim())}
+            onClick={() => send("", "POST", { changes: Object.fromEntries(Object.entries(draft).filter(([, v]) => v?.trim())), updateNote: note || null })}>
+            Submit for review
+          </Button>
+        </div>
+      </details>
+      {revisions.length === 0 && <p className="text-sm text-zinc-400">No revisions proposed yet.</p>}
+      {revisions.map((r) => (
+        <div key={r.id} className="border border-zinc-700 p-4 space-y-4">
+          <h3 className="font-semibold text-white">Proposal #{r.id} · {r.source} · {r.status}
+            {r.stale && r.status === "pending" && <span className="text-amber-400"> · Article changed — re-review required</span>}
+          </h3>
+          <p className="text-xs text-zinc-400">{new Date(r.createdAt).toLocaleString()}</p>
+          {fields.filter((field) => field in r.changes).map((field) => (
+            <div key={field}>
+              <h4 className="text-sm font-semibold text-zinc-200">{labels[field]} · changed</h4>
+              <div className="grid gap-3 md:grid-cols-2 text-sm">
+                  <div className="bg-zinc-950 p-3 min-w-0"><b>{live.status === "draft" ? "Current draft" : "Live"}</b><pre className="whitespace-pre-wrap break-words mt-2 max-h-48 overflow-y-auto">{live[field] ?? ""}</pre>
+                   {imageFields.has(field) && <ImagePreview src={live[field]} alt={`Current ${labels[field].toLowerCase()}`} />}
+                 </div>
+                <div className="bg-zinc-950 p-3 min-w-0"><b>Proposed</b>
+                  {r.status === "pending" && !r.stale && canApprove
+                    ? <Textarea className="mt-2 bg-zinc-900 border-zinc-700 min-h-24" value={edits[r.id]?.[field] ?? ""} onChange={(e) => setEdits({ ...edits, [r.id]: { ...edits[r.id], [field]: e.target.value } })} />
+                    : <pre className="whitespace-pre-wrap break-words mt-2 max-h-48 overflow-y-auto">{r.changes[field]}</pre>}
+                   {imageFields.has(field) && <ImagePreview src={edits[r.id]?.[field] ?? r.changes[field]} alt={`Proposed ${labels[field].toLowerCase()}`} />}
+                </div>
+              </div>
+            </div>
+          ))}
+          <p className="text-sm text-zinc-400">Update note: {r.updateNote || "(none)"}</p>
+          {canApprove && r.status === "pending" && live.status === "published" &&
+            (["title", "excerpt", "content"] as const).some((field) => field in (edits[r.id] ?? {})) && (
+              <label className="flex items-start gap-2 text-sm text-zinc-200">
+                <input type="checkbox" className="mt-1" checked={publishSummaries[r.id] ?? false}
+                  onChange={(e) => setPublishSummaries({ ...publishSummaries, [r.id]: e.target.checked })} />
+                Publish the reviewed update note as a reader-facing summary in public Update history.
+                Leave unchecked for private or legacy notes; readers will see “Article updated.”
+              </label>
+            )}
+          {r.status === "pending" && (
+            <div className="flex flex-wrap gap-2">
+              {canApprove && !r.stale && <>
+                 <Input aria-label={`Edit ${live.status === "published" && (["title", "excerpt", "content"] as const).some((field) => field in r.changes) ? "public update summary" : "update note"} for proposal ${r.id}`} className="bg-zinc-950 border-zinc-700" value={notes[r.id] ?? ""} onChange={(e) => setNotes({ ...notes, [r.id]: e.target.value })} />
+                <Button type="button" variant="outline" disabled={busy} onClick={() => send(`/${r.id}`, "PUT", { changes: edits[r.id], updateNote: notes[r.id] })}>Save review edits</Button>
+                <Button type="button" disabled={busy || JSON.stringify(edits[r.id]) !== JSON.stringify(r.changes) || (notes[r.id] ?? "") !== (r.updateNote ?? "")} onClick={() => {
+                   if (window.confirm(`Apply this reviewed correction to the ${live.status} article${publishSummaries[r.id] ? " and publish its summary to readers" : ""}?`))
+                     send(`/${r.id}/approve`, "POST", { publishUpdateSummary: publishSummaries[r.id] === true });
+                 }}>Approve correction</Button>
+              </>}
+              {canApprove && <Button type="button" variant="destructive" disabled={busy} onClick={() => {
+                if (window.confirm("Reject this proposal?")) send(`/${r.id}/reject`, "POST");
+              }}>Reject</Button>}
+            </div>
+          )}
+          {feedback[r.id] && (
+            <p
+              role={feedback[r.id].type === "error" ? "alert" : "status"}
+              data-testid={`revision-feedback-${r.id}`}
+              className={`text-sm ${feedback[r.id].type === "error" ? "text-red-400" : "text-emerald-400"}`}
+            >
+              {feedback[r.id].message}
+            </p>
+          )}
+        </div>
+      ))}
+    </section>
+  );
+}

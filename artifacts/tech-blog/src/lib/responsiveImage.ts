@@ -1,0 +1,171 @@
+/**
+ * Inject responsive srcset/sizes attributes on every <img> in a rendered post body
+ * whose src points at our object storage. Browsers then pick the smallest file
+ * that's big enough for the viewport — sharp on retina, fast on mobile.
+ */
+const VARIANT_WIDTHS = [400, 800, 1200, 1600, 2400] as const;
+
+function buildVariantUrl(originalSrc: string, width: number): string {
+  // /api/storage/objects/uploads/abc -> /api/storage/img/{width}/objects/uploads/abc
+  return originalSrc.replace(/^\/api\/storage\/objects\//, `/api/storage/img/${width}/objects/`);
+}
+
+/**
+ * Bundled brand cover/hero images that ship as static `.webp` files with
+ * pre-generated `-400` / `-800` / `-1200` / `-1600` width variants (the masters are
+ * 2400w). These are the seeded post covers (`/covers/*`) and the homepage
+ * hero fallback.
+ *
+ * Only these exact base names have width variants committed under `public/`, so
+ * the responsive `srcset` is gated to this set — any other `/covers/*` path is
+ * still normalized to `.webp` (below) but served as a single file, never a
+ * width-variant URL that would 404. Admin-uploaded covers go to object storage
+ * (`/api/storage/objects/`), not here, so this set stays the full source list.
+ */
+export const STATIC_COVER_VARIANTS = new Set([
+  "ai-trends",
+  "cybersecurity",
+  "ev-future",
+  "gadgets",
+  "laptops",
+  "quantum",
+  "software",
+  "hero-post",
+]);
+
+/**
+ * Normalize a bundled cover/hero path to its `.webp` form (rewriting any legacy
+ * `.png` so the browser never pays the 301 redirect hop), or null if the path
+ * isn't a bundled cover. Returns whether pre-generated width variants exist.
+ */
+function staticCoverWebp(src: string): { webp: string; hasVariants: boolean } | null {
+  const m = /^\/(?:covers|images)\/([^/]+)\.(?:png|webp)$/i.exec(src);
+  if (!m) return null;
+  return { webp: src.replace(/\.png$/i, ".webp"), hasVariants: STATIC_COVER_VARIANTS.has(m[1]) };
+}
+
+/**
+ * Standard `sizes` hints for cover images in their common layout contexts.
+ * These tell the browser how wide the image renders so it can pick the
+ * smallest matching srcset variant.
+ */
+/**
+ * The Tailwind `container` class plateaus at each breakpoint (its max-width IS
+ * the breakpoint), so rendered card widths are stepwise CONSTANTS between
+ * breakpoints — not fluid vw fractions. Each hint below therefore uses fixed
+ * px steps derived from the real layout math (container minus px-4/6 padding,
+ * minus grid gaps, divided by columns) so the browser picks the smallest
+ * sufficient variant at both 1x and 2x DPR and phones never fetch 1600/2400.
+ */
+export const COVER_SIZES = {
+  /** Large hero (home featured, 2 of 3 columns + gap; maxes at ~984px). */
+  hero: "(min-width: 1536px) 984px, (min-width: 1280px) 813px, (min-width: 1024px) 643px, 100vw",
+  /** Full-width article cover (max-w-6xl minus padding ≈ 1104px). */
+  full: "(min-width: 1152px) 1104px, 100vw",
+  /** 3-col card grid in the full container, 2-col at md (blog index, category, home latest). */
+  grid3: "(min-width: 1536px) 475px, (min-width: 1280px) 389px, (min-width: 1024px) 304px, (min-width: 768px) 344px, 100vw",
+  /** Related-posts 3-col grid inside the max-w-6xl article container. */
+  grid3Narrow: "(min-width: 1152px) 347px, (min-width: 1024px) 304px, (min-width: 768px) 219px, 100vw",
+  /** 4-across editorial row beside the rotated header (home top articles). */
+  grid4: "(min-width: 1536px) 304px, (min-width: 1280px) 240px, (min-width: 1024px) 176px, (min-width: 768px) 120px, (min-width: 640px) 48vw, 100vw",
+  /** 2-col split where each card spans half the container (category lead). */
+  grid2: "(min-width: 1536px) 724px, (min-width: 1280px) 596px, (min-width: 1024px) 468px, 100vw",
+  /** Narrow sidebar column (home sub-hero, 1 of 3 columns). */
+  sidebar: "(min-width: 1536px) 475px, (min-width: 1280px) 389px, (min-width: 1024px) 309px, 100vw",
+  /** Fixed small list thumbnail (w-24 rows). */
+  thumb: "96px",
+} as const;
+
+/**
+ * Build responsive <img> props for a cover image. When the src points at our
+ * own object storage we attach a srcset of resizer variants + the given sizes
+ * hint, so phones fetch a small file and large/retina screens fetch a sharp one.
+ * External URLs and bundled fallback images are returned untouched.
+ */
+export function responsiveCoverProps(
+  src: string,
+  sizes: string,
+): { src: string; srcSet?: string; sizes?: string } {
+  if (src.startsWith("/api/storage/objects/")) {
+    const srcSet = VARIANT_WIDTHS.map((w) => `${buildVariantUrl(src, w)} ${w}w`).join(", ");
+    return { src, srcSet, sizes };
+  }
+  // Bundled brand covers/hero: serve the small pre-generated variant the layout
+  // actually needs (the 2400w master is only fetched by large retina screens).
+  const cover = staticCoverWebp(src);
+  if (cover) {
+    if (!cover.hasVariants) {
+      // Normalize to .webp (no 301) but serve the single original file.
+      return { src: cover.webp };
+    }
+    const base = cover.webp.replace(/\.webp$/i, "");
+    const srcSet = [
+      `${base}-400.webp 400w`,
+      `${base}-800.webp 800w`,
+      `${base}-1200.webp 1200w`,
+      `${base}-1600.webp 1600w`,
+      `${cover.webp} 2400w`,
+    ].join(", ");
+    return { src: cover.webp, srcSet, sizes };
+  }
+  return { src };
+}
+
+/**
+ * Rewrite a custom OG image to the 1200x630 social-crop resizer variant when
+ * it's one of our own uploads. External URLs are returned unchanged; empty
+ * values pass through so callers can fall back to the generated share card.
+ */
+export function socialImageUrl(src: string | null | undefined): string | null {
+  if (!src) return null;
+  if (src.startsWith("/api/storage/objects/")) {
+    return src.replace(/^\/api\/storage\/objects\//, "/api/storage/img-social/objects/");
+  }
+  return src;
+}
+
+const BODY_IMG_SIZES = "(min-width: 1280px) 1200px, (min-width: 768px) 90vw, 100vw";
+
+/**
+ * Rewrite the article HTML string so every <img> pointing at our object
+ * storage carries srcset/sizes (plus lazy loading) BEFORE first render.
+ * Doing it on the string (instead of mutating the DOM afterwards) means the
+ * browser's preload scanner never kicks off a full-size download first, and
+ * client-side navigations are covered automatically since the transformed
+ * HTML is what gets rendered. External image URLs are left untouched.
+ */
+export function makeArticleHtmlResponsive(html: string): string {
+  if (!html || !html.includes("/api/storage/objects/")) return html;
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  for (const img of Array.from(doc.querySelectorAll<HTMLImageElement>("img"))) {
+    const src = img.getAttribute("src") || "";
+    if (!src.startsWith("/api/storage/objects/")) continue;
+    img.setAttribute(
+      "srcset",
+      VARIANT_WIDTHS.map((w) => `${buildVariantUrl(src, w)} ${w}w`).join(", "),
+    );
+    img.setAttribute("sizes", BODY_IMG_SIZES);
+    img.setAttribute("loading", "lazy");
+    img.setAttribute("decoding", "async");
+    img.dataset.responsive = "1";
+  }
+  return doc.body.innerHTML;
+}
+
+export function applyResponsiveImages(root: HTMLElement | null): void {
+  if (!root) return;
+  const imgs = Array.from(root.querySelectorAll<HTMLImageElement>("img"));
+  for (const img of imgs) {
+    const src = img.getAttribute("src") || "";
+    // Only rewrite our own uploads — leave external URLs untouched.
+    if (!src.startsWith("/api/storage/objects/")) continue;
+    if (img.dataset.responsive === "1") continue;
+
+    const srcset = VARIANT_WIDTHS.map((w) => `${buildVariantUrl(src, w)} ${w}w`).join(", ");
+    img.setAttribute("srcset", srcset);
+    img.setAttribute("sizes", "(min-width: 1280px) 1200px, (min-width: 768px) 90vw, 100vw");
+    img.setAttribute("loading", "lazy");
+    img.setAttribute("decoding", "async");
+    img.dataset.responsive = "1";
+  }
+}

@@ -2,15 +2,23 @@
   "name": "workspace",
   "version": "0.0.0",
   "license": "MIT",
+  "packageManager": "pnpm@10.26.1",
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "dev:api": "sh -c 'set -a; [ ! -f .env ] || . ./.env; set +a; export PORT=${API_PORT:-8080}; exec pnpm --filter @workspace/api-server run dev'",
+    "dev:web": "sh -c 'set -a; [ ! -f .env ] || . ./.env; set +a; export PORT=${WEB_PORT:-26015}; exec pnpm --filter @workspace/tech-blog run dev'",
+    "dev:mockups": "sh -c 'set -a; [ ! -f .env ] || . ./.env; set +a; export PORT=${MOCKUP_PORT:-8081}; exec pnpm --filter @workspace/mockup-sandbox run dev'",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "test": "pnpm -r --if-present --stream run test",
+    "test:preview-smoke": "pnpm --filter @workspace/tech-blog run test:preview-smoke",
+    "validate:development-storage": "sh -c 'set -a; [ ! -f .env ] || . ./.env; set +a; exec pnpm --filter @workspace/api-server run validate:development-storage'"
   },
   "private": true,
   "devDependencies": {
-    "typescript": "~5.9.2",
-    "prettier": "^3.8.1"
+    "playwright-core": "^1.63.0",
+    "prettier": "^3.8.1",
+    "typescript": "~5.9.2"
   }
 }

@@ -1,0 +1,159 @@
+import { useState, useEffect } from "react";
+import { AdminShell } from "@/components/admin/AdminShell";
+import { useUpdateCurrentUser } from "@workspace/api-client-react";
+import { useAdmin } from "@/context/AdminContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { ArrowLeft, Save } from "lucide-react";
+import ErrorBanner from "@/components/ErrorBanner";
+import { ImageUploadField } from "@/components/ImageUploadField";
+import {
+  RichProfileFieldsEditor,
+  emptyRichProfile,
+  richProfileFromUser,
+  richProfileToPayload,
+  type RichProfileFormValue,
+} from "@/components/admin/RichProfileFields";
+
+export default function AdminProfile() {
+  const { user, refreshUser } = useAdmin();
+  const [form, setForm] = useState({
+    displayName: "",
+    email: "",
+    bio: "",
+    avatarUrl: "",
+    twitterUrl: "",
+    linkedinUrl: "",
+    instagramUrl: "",
+    githubUrl: "",
+    websiteUrl: "",
+    password: "",
+  });
+  const [rich, setRich] = useState<RichProfileFormValue>(emptyRichProfile);
+  const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      setForm({
+        displayName: user.displayName ?? "",
+        email: user.email ?? "",
+        bio: user.bio ?? "",
+        avatarUrl: user.avatarUrl ?? "",
+        twitterUrl: user.twitterUrl ?? "",
+        linkedinUrl: user.linkedinUrl ?? "",
+        instagramUrl: user.instagramUrl ?? "",
+        githubUrl: user.githubUrl ?? "",
+        websiteUrl: user.websiteUrl ?? "",
+        password: "",
+      });
+      setRich(richProfileFromUser(user as any));
+    }
+  }, [user]);
+
+  const updateMe = useUpdateCurrentUser({
+    mutation: {
+      onSuccess: async () => {
+        setMsg({ kind: "ok", text: "Profile updated successfully." });
+        setForm((f) => ({ ...f, password: "" }));
+        await refreshUser();
+      },
+      onError: (err: any) => setMsg({ kind: "err", text: err?.message || "Failed to update profile." }),
+    },
+  });
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setMsg(null);
+    if (!form.displayName.trim()) {
+      setMsg({ kind: "err", text: "Display name is required." });
+      return;
+    }
+    const { password, ...rest } = form;
+    const payload: any = { ...rest, displayName: form.displayName.trim(), ...richProfileToPayload(rich) };
+    if (password.length >= 6) payload.password = password;
+    else if (password.length > 0) {
+      setMsg({ kind: "err", text: "Password must be at least 6 characters (or leave blank to keep current)." });
+      return;
+    }
+    updateMe.mutate({ data: payload });
+  };
+
+  return (
+    <AdminShell title="My Profile">
+      <main className="max-w-3xl mx-auto px-4 py-8">
+        <form onSubmit={submit} className="space-y-6">
+          <ErrorBanner message={msg?.text} kind={msg?.kind === "ok" ? "success" : "error"} />
+
+          <div className="flex items-center gap-4 p-4 bg-zinc-900 rounded-lg border border-zinc-800">
+            <div className="w-20 h-20 rounded-full overflow-hidden bg-zinc-800 border-2 border-orange-500">
+              {form.avatarUrl ? (
+                <img src={form.avatarUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-orange-400">
+                  {(form.displayName || user?.username || "?").charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+            <div>
+              <p className="text-sm text-zinc-400">@{user?.username}</p>
+              <p className="text-xs text-zinc-500 capitalize">{user?.role}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2 md:col-span-2">
+              <Label>Display Name</Label>
+              <Input required value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} className="bg-zinc-900 border-zinc-700" />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Profile Picture</Label>
+              <ImageUploadField
+                value={form.avatarUrl}
+                onChange={(url) => setForm({ ...form, avatarUrl: url })}
+                variant="avatar"
+                helpText="Upload a square photo for best results."
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Email</Label>
+              <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="bg-zinc-900 border-zinc-700" />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Bio</Label>
+              <Textarea value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} rows={4} className="bg-zinc-900 border-zinc-700 resize-none" placeholder="Tell readers about yourself..." />
+            </div>
+
+            <div className="space-y-2"><Label>Twitter / X</Label><Input value={form.twitterUrl} onChange={(e) => setForm({ ...form, twitterUrl: e.target.value })} placeholder="https://x.com/yourhandle" className="bg-zinc-900 border-zinc-700" /></div>
+            <div className="space-y-2"><Label>LinkedIn</Label><Input value={form.linkedinUrl} onChange={(e) => setForm({ ...form, linkedinUrl: e.target.value })} placeholder="https://linkedin.com/in/you" className="bg-zinc-900 border-zinc-700" /></div>
+            <div className="space-y-2"><Label>Instagram</Label><Input value={form.instagramUrl} onChange={(e) => setForm({ ...form, instagramUrl: e.target.value })} placeholder="https://instagram.com/you" className="bg-zinc-900 border-zinc-700" /></div>
+            <div className="space-y-2"><Label>GitHub</Label><Input value={form.githubUrl} onChange={(e) => setForm({ ...form, githubUrl: e.target.value })} placeholder="https://github.com/you" className="bg-zinc-900 border-zinc-700" /></div>
+            <div className="space-y-2 md:col-span-2"><Label>Personal Website</Label><Input value={form.websiteUrl} onChange={(e) => setForm({ ...form, websiteUrl: e.target.value })} placeholder="https://yoursite.com" className="bg-zinc-900 border-zinc-700" /></div>
+
+            <div className="md:col-span-2 pt-4 border-t border-zinc-800">
+              <RichProfileFieldsEditor value={rich} onChange={setRich} />
+            </div>
+
+            <div className="space-y-2 md:col-span-2 pt-4 border-t border-zinc-800">
+              <Label>Change Password</Label>
+              <Input
+                type="password"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                placeholder="Leave blank to keep current (min 6 chars to change)"
+                className="bg-zinc-900 border-zinc-700"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-4 border-t border-zinc-800">
+            <Button type="submit" disabled={updateMe.isPending} className="bg-orange-500 hover:bg-orange-600 gap-2">
+              <Save className="w-4 h-4" /> {updateMe.isPending ? "Saving..." : "Save Profile"}
+            </Button>
+          </div>
+        </form>
+      </main>
+    </AdminShell>
+  );
+}

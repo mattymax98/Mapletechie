@@ -1,0 +1,469 @@
+import { AdminShell } from "@/components/admin/AdminShell";
+import { useState } from "react";
+import {
+  useListCategories,
+  useCreateCategory,
+  useUpdateCategory,
+  useDeleteCategory,
+  useReassignCategoryPosts,
+} from "@workspace/api-client-react";
+import { useAdmin } from "@/context/AdminContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  ArrowLeft,
+  Plus,
+  Pencil,
+  Trash2,
+  AlertCircle,
+  Tag,
+  ArrowRightLeft,
+} from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import ErrorBanner from "@/components/ErrorBanner";
+
+// Slugs from artifacts/api-server/src/lib/seedCategories.ts. Mirror this list
+// when the curated set changes server-side.
+const CURATED_SLUGS = new Set([
+  "news",
+  "reviews",
+  "ai",
+  "gadgets",
+  "software",
+  "gaming",
+  "business",
+  "canada-tech",
+]);
+
+interface CategoryRow {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string | null;
+  postCount: number;
+  color?: string | null;
+}
+
+const emptyForm = { name: "", slug: "", description: "", color: "#f97316" };
+
+export default function AdminCategories() {
+  const { user } = useAdmin();
+  const isAdmin = user?.role === "admin";
+  const canManage = isAdmin || !!user?.canManageCategories;
+  const { data: categories, isLoading } = useListCategories();
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState<CategoryRow | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState({ ...emptyForm });
+  const [error, setError] = useState("");
+  const [reassignTargets, setReassignTargets] = useState<Record<number, string>>({});
+  const [reassigningId, setReassigningId] = useState<number | null>(null);
+
+  const invalidate = () => queryClient.invalidateQueries();
+
+  const createMut = useCreateCategory({
+    mutation: {
+      onSuccess: () => {
+        invalidate();
+        closeAll();
+      },
+      onError: (err: any) => setError(err?.message || "Failed to create category."),
+    },
+  });
+  const updateMut = useUpdateCategory({
+    mutation: {
+      onSuccess: () => {
+        invalidate();
+        closeAll();
+      },
+      onError: (err: any) => setError(err?.message || "Failed to update category."),
+    },
+  });
+  const deleteMut = useDeleteCategory({
+    mutation: {
+      onSuccess: invalidate,
+      onError: (err: any) => alert(err?.message || "Failed to delete category."),
+    },
+  });
+  const reassignMut = useReassignCategoryPosts({
+    mutation: {
+      onSuccess: (data: any, vars) => {
+        invalidate();
+        setReassigningId(null);
+        const moved = data?.movedCount ?? 0;
+        alert(
+          `Moved ${moved} post${moved === 1 ? "" : "s"} from "${vars.data.fromName}" to "${vars.data.toName}". You can now delete the empty category.`,
+        );
+      },
+      onError: (err: any) => {
+        setReassigningId(null);
+        alert(err?.message || "Failed to reassign posts.");
+      },
+    },
+  });
+
+  const allCategories = (categories as CategoryRow[] | undefined) ?? [];
+  const staleCategories = allCategories.filter(
+    (c) => !CURATED_SLUGS.has(c.slug) && c.postCount > 0,
+  );
+  const reassignDestinations = (from: CategoryRow) =>
+    allCategories.filter((c) => c.id !== from.id);
+
+  const runReassign = (from: CategoryRow) => {
+    const toName = reassignTargets[from.id];
+    if (!toName) {
+      alert("Pick a destination category first.");
+      return;
+    }
+    if (
+      !confirm(
+        `Move all ${from.postCount} post${from.postCount === 1 ? "" : "s"} from "${from.name}" to "${toName}"? This updates the category on every affected post.`,
+      )
+    ) {
+      return;
+    }
+    setReassigningId(from.id);
+    reassignMut.mutate({ data: { fromName: from.name, toName } });
+  };
+
+  const closeAll = () => {
+    setEditing(null);
+    setCreating(false);
+    setForm({ ...emptyForm });
+    setError("");
+  };
+
+  const openCreate = () => {
+    setForm({ ...emptyForm });
+    setError("");
+    setCreating(true);
+  };
+
+  const openEdit = (c: CategoryRow) => {
+    setForm({
+      name: c.name,
+      slug: c.slug,
+      description: c.description ?? "",
+      color: c.color ?? "#f97316",
+    });
+    setError("");
+    setEditing(c);
+  };
+
+  const submit = () => {
+    setError("");
+    if (form.name.trim().length < 2) {
+      setError("Name must be at least 2 characters.");
+      return;
+    }
+    const payload = {
+      name: form.name.trim(),
+      slug: form.slug.trim() || undefined,
+      description: form.description.trim() || null,
+      color: form.color || null,
+    };
+    if (creating) {
+      createMut.mutate({ data: payload as any });
+    } else if (editing) {
+      updateMut.mutate({ id: editing.id, data: payload as any });
+    }
+  };
+
+  const handleDelete = (c: CategoryRow) => {
+    if (c.postCount > 0) {
+      alert(
+        `Cannot delete "${c.name}" — ${c.postCount} post${c.postCount === 1 ? "" : "s"} still use it. Reassign those posts to another category first.`,
+      );
+      return;
+    }
+    if (
+      confirm(
+        `Delete category "${c.name}"? This only removes the category itself; the URL /category/${c.slug} will start returning 404.`,
+      )
+    ) {
+      deleteMut.mutate({ id: c.id });
+    }
+  };
+
+  return (
+    <AdminShell
+      title="Categories"
+      actions={
+        canManage ? (
+          <Button onClick={openCreate} className="bg-orange-500 hover:bg-orange-600 text-white gap-2">
+            <Plus className="w-4 h-4" /> New Category
+          </Button>
+        ) : undefined
+      }
+    >
+      <main className="max-w-5xl mx-auto px-4 py-8">
+        <p className="text-zinc-500 text-sm mb-6">
+          Renaming a category automatically updates every post that uses it. Deleting
+          is blocked while any post still references the category — reassign those
+          posts first.
+        </p>
+
+        {isLoading ? (
+          <div className="space-y-3">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-20 bg-zinc-900" />
+            ))}
+          </div>
+        ) : (
+          <>
+            {canManage && staleCategories.length > 0 && (
+              <section className="mb-8">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertCircle className="w-4 h-4 text-amber-400" />
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-amber-400">
+                    Stale categories ({staleCategories.length})
+                  </h2>
+                </div>
+                <p className="text-zinc-400 text-sm mb-4">
+                  These categories aren't part of the curated set but still have
+                  posts. Reassign their posts to a curated category, then delete
+                  the now-empty row below.
+                </p>
+                <div className="grid gap-3">
+                  {staleCategories.map((c) => {
+                    const target = reassignTargets[c.id] ?? "";
+                    const busy = reassigningId === c.id && reassignMut.isPending;
+                    return (
+                      <Card
+                        key={`stale-${c.id}`}
+                        className="bg-amber-950/20 border-amber-900/50"
+                      >
+                        <CardContent className="p-4 flex items-center gap-3 flex-wrap">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-white">{c.name}</span>
+                              <Badge className="bg-zinc-800 text-zinc-400 border-zinc-700 font-mono text-[10px]">
+                                /category/{c.slug}
+                              </Badge>
+                              <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40">
+                                {c.postCount} post{c.postCount === 1 ? "" : "s"} stuck
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Select
+                              value={target}
+                              onValueChange={(v) =>
+                                setReassignTargets((s) => ({ ...s, [c.id]: v }))
+                              }
+                            >
+                              <SelectTrigger className="w-56 bg-zinc-900 border-zinc-700 text-sm">
+                                <SelectValue placeholder="Reassign all posts to…" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
+                                {reassignDestinations(c).map((dest) => (
+                                  <SelectItem key={dest.id} value={dest.name}>
+                                    {dest.name}
+                                    {CURATED_SLUGS.has(dest.slug) ? "" : "  (non-curated)"}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              size="sm"
+                              onClick={() => runReassign(c)}
+                              disabled={busy || !target}
+                              className="bg-amber-500 hover:bg-amber-600 text-black gap-1"
+                            >
+                              <ArrowRightLeft className="w-3 h-3" />
+                              {busy ? "Moving…" : "Reassign"}
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            <div className="grid gap-3">
+            {allCategories.map((c) => (
+              <Card key={c.id} className="bg-zinc-900 border-zinc-800">
+                <CardContent className="p-4 flex items-center gap-4 flex-wrap">
+                  <div
+                    className="w-10 h-10 rounded shrink-0 border border-zinc-700"
+                    style={{ backgroundColor: c.color || "#f97316" }}
+                    title={c.color || "no color"}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-white">{c.name}</span>
+                      <Badge className="bg-zinc-800 text-zinc-400 border-zinc-700 font-mono text-[10px]">
+                        /category/{c.slug}
+                      </Badge>
+                      <Badge
+                        className={
+                          c.postCount > 0
+                            ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
+                            : "bg-zinc-800 text-zinc-500 border-zinc-700"
+                        }
+                      >
+                        {c.postCount} post{c.postCount === 1 ? "" : "s"}
+                      </Badge>
+                    </div>
+                    {c.description && (
+                      <p className="text-zinc-400 text-sm mt-1 line-clamp-2">
+                        {c.description}
+                      </p>
+                    )}
+                  </div>
+                  {canManage && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openEdit(c)}
+                        className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 gap-1"
+                      >
+                        <Pencil className="w-3 h-3" /> Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDelete(c)}
+                        disabled={c.postCount > 0}
+                        title={
+                          c.postCount > 0
+                            ? "Reassign posts before deleting"
+                            : "Delete category"
+                        }
+                        className="border-zinc-700 text-red-400 hover:bg-red-500/10 hover:border-red-500/50 gap-1 disabled:opacity-30"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+            {!categories?.length && (
+              <p className="text-zinc-500 text-sm">No categories yet.</p>
+            )}
+            </div>
+          </>
+        )}
+      </main>
+
+      <Dialog open={creating || !!editing} onOpenChange={(open) => !open && closeAll()}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {creating ? "New Category" : `Edit: ${editing?.name}`}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <ErrorBanner message={error} />
+
+            <div className="space-y-2">
+              <Label>Name *</Label>
+              <Input
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="e.g. Quantum Computing"
+                className="bg-zinc-800 border-zinc-700"
+              />
+              {editing && form.name.trim() !== editing.name && editing.postCount > 0 && (
+                <p className="text-xs text-orange-400">
+                  Renaming will also update {editing.postCount} existing post
+                  {editing.postCount === 1 ? "" : "s"}.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>
+                URL slug{" "}
+                <span className="text-zinc-500 text-xs font-normal">
+                  (auto-generated from name if blank)
+                </span>
+              </Label>
+              <Input
+                value={form.slug}
+                onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                placeholder="quantum-computing"
+                className="bg-zinc-800 border-zinc-700 font-mono text-sm"
+              />
+              <p className="text-xs text-zinc-500">
+                Becomes <span className="font-mono">/category/{form.slug || "<slug>"}</span>
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                placeholder="Shown on the category page and in social previews."
+                rows={3}
+                className="bg-zinc-800 border-zinc-700 resize-none"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Accent color</Label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={form.color}
+                  onChange={(e) => setForm({ ...form, color: e.target.value })}
+                  className="w-12 h-10 rounded border border-zinc-700 bg-zinc-800 cursor-pointer"
+                />
+                <Input
+                  value={form.color}
+                  onChange={(e) => setForm({ ...form, color: e.target.value })}
+                  placeholder="#f97316"
+                  className="bg-zinc-800 border-zinc-700 font-mono text-sm flex-1"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={closeAll}
+              className="border-zinc-700 text-zinc-300"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={submit}
+              disabled={createMut.isPending || updateMut.isPending}
+              className="bg-orange-500 hover:bg-orange-600"
+            >
+              {createMut.isPending || updateMut.isPending
+                ? "Saving..."
+                : creating
+                  ? "Create Category"
+                  : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </AdminShell>
+  );
+}

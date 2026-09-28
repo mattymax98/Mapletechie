@@ -1,0 +1,2052 @@
+import express from "express";
+import sirv from "sirv";
+import path from "node:path";
+import http from "node:http";
+import https from "node:https";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { responsiveCoverProps, COVER_SIZES } from "./src/lib/responsiveImage";
+import { buildSeoTitle } from "./src/lib/seoTitle";
+import { ensureImgAlt } from "./src/lib/ensureImgAlt";
+import { GA4_MEASUREMENT_ID } from "./src/lib/ga4";
+import {
+  buildPersonJsonLd,
+  visibleProfileLinks,
+  type AuthorRichProfile,
+} from "./src/lib/personSchema";
+import {
+  buildArticleJsonLd,
+  buildBreadcrumbJsonLd,
+  buildCategoryBreadcrumbJsonLd,
+  buildAuthorBreadcrumbJsonLd,
+  buildTrailBreadcrumbJsonLd,
+} from "./src/lib/articleSchema";
+import {
+  extractSocialEmbeds,
+  type ParsedSocialEmbed,
+} from "./src/lib/socialEmbedProviders";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const PORT = Number(process.env.PORT);
+if (!Number.isFinite(PORT) || PORT <= 0) {
+  throw new Error(`Invalid or missing PORT env var: "${process.env.PORT}"`);
+}
+
+function canonicalProductionUrl(value: string): string {
+  const raw = value.trim();
+  try {
+    const url = new URL(raw);
+    if (url.hostname.toLowerCase() === "mapletechie.com") {
+      url.hostname = "www.mapletechie.com";
+    }
+    return url.toString().replace(/\/+$/, "");
+  } catch {
+    return raw.replace(/\/+$/, "");
+  }
+}
+
+const SITE_URL = canonicalProductionUrl(
+  process.env.SITE_URL || "https://www.mapletechie.com",
+);
+const API_BASE = canonicalProductionUrl(process.env.API_BASE || "http://localhost");
+const DEFAULT_OG_IMAGE = `${SITE_URL}/opengraph-v2.jpg`;
+const DEFAULT_DESCRIPTION =
+  "Mapletechie — Your go-to source for tech news, gadget reviews, software deep dives, and the latest in AI, EVs, and cybersecurity.";
+
+const distDir = path.resolve(__dirname, "public");
+const indexHtmlPath = path.join(distDir, "index.html");
+if (!existsSync(indexHtmlPath)) {
+  throw new Error(
+    `Missing built index.html at ${indexHtmlPath}. Did "vite build" run before starting the server?`,
+  );
+}
+const indexHtml = readFileSync(indexHtmlPath, "utf-8");
+if (!indexHtml.includes("</head>")) {
+  throw new Error("Built index.html has no head for the public Google tag.");
+}
+// Keep the base shell untagged for admin and signed-preview documents. All
+// normal public HTML responses use this single head installation instead.
+const publicIndexHtml = indexHtml.replace(
+  "</head>",
+  `    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=${GA4_MEASUREMENT_ID}"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', '${GA4_MEASUREMENT_ID}', { send_page_view: false });
+    </script>
+  </head>`,
+);
+
+// Discover the built CSS entry file at startup so we can emit a preload Link
+// header on every HTML response. The browser then starts fetching the
+// stylesheet in parallel with HTML parsing instead of waiting until the parser
+// finds the <link rel="stylesheet"> tag — eliminating the render-blocking
+// delay Lighthouse reports. server.ts only runs against a built /dist, so no
+// NODE_ENV guard is needed; we log a warning if the file can't be found.
+let cssPreloadLink = "";
+try {
+  const assetsDir = path.join(distDir, "assets");
+  const cssFile = readdirSync(assetsDir).find((f) =>
+    /^index-[^.]+\.css$/.test(f),
+  );
+  if (cssFile) {
+    cssPreloadLink = `</assets/${cssFile}>; rel=preload; as=style`;
+  } else {
+    console.warn(
+      "[tech-blog] CSS preload: no index-*.css found in /assets — preload header will be skipped",
+    );
+  }
+} catch {
+  console.warn(
+    "[tech-blog] CSS preload: could not scan assets dir — preload header will be skipped",
+  );
+}
+
+const SEO_BLOCK_RE = /<!-- SEO_HEAD_START -->[\s\S]*?<!-- SEO_HEAD_END -->/;
+const ROOT_RE = /<div id="root"><\/div>/;
+
+const CRAWLER_RE =
+  /facebookexternalhit|Facebot|LinkedInBot|Twitterbot|Slackbot|WhatsApp|TelegramBot|Discordbot|Pinterest|redditbot|Applebot|Googlebot|Google-InspectionTool|bingbot|DuckDuckBot|YandexBot|Baiduspider|SkypeUriPreview|vkShare|W3C_Validator|Embedly|Iframely|outbrain|quora link preview|showyoubot|Tumblr|XING-contenttabreceiver|Mediapartners-Google|AhrefsBot|AhrefsSiteAudit|SemrushBot|Sogou|GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-Web|anthropic-ai|PerplexityBot|Perplexity|cohere-ai|YouBot|Meta-ExternalAgent|Meta-ExternalFetcher|Diffbot|Bytespider|ia_archiver|CCBot|DataForSeoBot|PetalBot/i;
+
+function htmlEscape(s: unknown): string {
+  return String(s ?? "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  );
+}
+
+function absUrl(maybeRelative: string | null | undefined, fallback: string): string {
+  if (!maybeRelative) return fallback;
+  if (/^https?:\/\//i.test(maybeRelative)) return maybeRelative;
+  return `${SITE_URL}${maybeRelative.startsWith("/") ? "" : "/"}${maybeRelative}`;
+}
+
+interface SeoData {
+  title: string;
+  description: string;
+  image: string;
+  url: string;
+  type: "website" | "article";
+  publishedTime?: string | null;
+  modifiedTime?: string | null;
+  author?: string | null;
+  section?: string | null;
+  tags?: string[] | null;
+}
+
+function buildSeoBlock(data: SeoData): string {
+  const title = htmlEscape(data.title);
+  const description = htmlEscape(data.description);
+  const image = htmlEscape(data.image);
+  const url = htmlEscape(data.url);
+  const type = data.type === "article" ? "article" : "website";
+
+  const lines: string[] = [
+    "<!-- SEO_HEAD_START -->",
+    `    <title>${title}</title>`,
+    `    <meta name="description" content="${description}" />`,
+    `    <meta name="robots" content="max-image-preview:large" />`,
+    `    <link rel="canonical" href="${url}" />`,
+    `    <meta property="og:type" content="${type}" />`,
+    `    <meta property="og:site_name" content="Mapletechie" />`,
+    `    <meta property="og:locale" content="en_CA" />`,
+    `    <meta property="og:title" content="${title}" />`,
+    `    <meta property="og:description" content="${description}" />`,
+    `    <meta property="og:url" content="${url}" />`,
+    `    <meta property="og:image" content="${image}" />`,
+    ...(/\/api\/(?:storage\/img-social\/|og\/)/.test(data.image) || data.image === DEFAULT_OG_IMAGE
+      ? [`    <meta property="og:image:width" content="1200" />`,
+         `    <meta property="og:image:height" content="630" />`]
+      : []),
+    `    <meta name="twitter:card" content="summary_large_image" />`,
+    `    <meta name="twitter:site" content="@mapletechie" />`,
+    `    <meta name="twitter:title" content="${title}" />`,
+    `    <meta name="twitter:description" content="${description}" />`,
+    `    <meta name="twitter:image" content="${image}" />`,
+  ];
+
+  if (type === "article") {
+    if (data.publishedTime) {
+      lines.push(
+        `    <meta property="article:published_time" content="${htmlEscape(data.publishedTime)}" />`,
+      );
+    }
+    if (data.modifiedTime) {
+      lines.push(
+        `    <meta property="article:modified_time" content="${htmlEscape(data.modifiedTime)}" />`,
+      );
+    }
+    if (data.author) {
+      lines.push(
+        `    <meta property="article:author" content="${htmlEscape(data.author)}" />`,
+        `    <meta name="author" content="${htmlEscape(data.author)}" />`,
+      );
+    }
+    if (data.section) {
+      lines.push(
+        `    <meta property="article:section" content="${htmlEscape(data.section)}" />`,
+      );
+    }
+    if (data.tags?.length) {
+      for (const tag of data.tags.slice(0, 8)) {
+        lines.push(
+          `    <meta property="article:tag" content="${htmlEscape(tag)}" />`,
+        );
+      }
+    }
+  }
+
+  lines.push("    <!-- SEO_HEAD_END -->");
+  return lines.join("\n");
+}
+
+function renderHtml(seoBlock: string, bodyHtml?: string): string {
+  let html = publicIndexHtml.replace(SEO_BLOCK_RE, seoBlock);
+  if (bodyHtml) {
+    html = html.replace(ROOT_RE, `<div id="root">${bodyHtml}</div>`);
+  }
+  return html;
+}
+
+/** Strip HTML tags, collapse whitespace, and truncate for use in plain text. */
+function stripHtml(html: string | null | undefined, maxLen = 0): string {
+  if (!html) return "";
+  const text = html
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+  return maxLen > 0 && text.length > maxLen ? text.slice(0, maxLen) + "…" : text;
+}
+
+interface PostSummary {
+  slug: string;
+  title: string;
+  excerpt?: string | null;
+  publishedAt?: string | null;
+  author?: string | null;
+  category?: string | null;
+  clusterRole?: "pillar" | "supporting" | string | null;
+}
+
+function isPostSummaryArray(value: unknown): value is PostSummary[] {
+  return (
+    Array.isArray(value) &&
+    value.every((post) => {
+      if (!post || typeof post !== "object" || Array.isArray(post)) return false;
+      const record = post as Record<string, unknown>;
+      return (
+        typeof record.slug === "string" &&
+        record.slug.trim().length > 0 &&
+        typeof record.title === "string" &&
+        record.title.trim().length > 0 &&
+        ["excerpt", "publishedAt", "author", "category", "clusterRole"].every(
+          (key) =>
+            record[key] === undefined ||
+            record[key] === null ||
+            typeof record[key] === "string",
+        )
+      );
+    })
+  );
+}
+
+/** Build a <ul> post list for crawler-facing listing pages. */
+function renderPostList(posts: PostSummary[], siteUrl: string): string {
+  if (!posts.length) return "<p>No posts yet.</p>";
+  const items = posts
+    .slice(0, 20)
+    .map((p) => {
+      const date = p.publishedAt
+        ? new Date(p.publishedAt).toLocaleDateString("en-CA", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+        : "";
+      const meta = [p.author, date, p.category].filter(Boolean).join(" · ");
+      const excerpt = p.excerpt ? `<p>${htmlEscape(stripHtml(p.excerpt, 160))}</p>` : "";
+      return (
+        `<li style="margin-bottom:1.5em">` +
+        `<a href="${htmlEscape(`${siteUrl}/blog/${p.slug}`)}" style="font-size:1.1em;font-weight:600">${htmlEscape(p.title)}</a>` +
+        (meta ? `<br><small>${htmlEscape(meta)}</small>` : "") +
+        excerpt +
+        `</li>`
+      );
+    })
+    .join("\n");
+  return `<ul style="list-style:none;padding:0">${items}</ul>`;
+}
+
+/** Crawler-visible topic layout: the optional cornerstone first, then newest supporting stories. */
+function renderTopicArticles(posts: PostSummary[], siteUrl: string): string {
+  const pillar = posts.find((post) => post.clusterRole === "pillar");
+  const supporting = posts
+    .filter((post) => post.clusterRole !== "pillar")
+    .sort((a, b) => Date.parse(b.publishedAt ?? "") - Date.parse(a.publishedAt ?? ""))
+    .slice(0, 20);
+  const renderItem = (post: PostSummary, label?: string, prominent = false) => {
+    const date = post.publishedAt
+      ? new Date(post.publishedAt).toLocaleDateString("en-CA", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
+      : "";
+    const meta = [post.author, date, post.category].filter(Boolean).map(htmlEscape).join(" · ");
+    return `<li style="margin-bottom:1.5em">${label ? `<strong>${label}</strong><br>` : ""}<a href="${htmlEscape(`${siteUrl}/blog/${post.slug}`)}" style="font-size:${prominent ? "1.4em" : "1.1em"};font-weight:700">${htmlEscape(post.title)}</a>${meta ? `<br><small>${meta}</small>` : ""}${post.excerpt ? `<p>${htmlEscape(stripHtml(post.excerpt, 160))}</p>` : ""}</li>`;
+  };
+
+  return [
+    pillar
+      ? `<section aria-labelledby="topic-pillar" style="border:2px solid #777;padding:1.25em;margin-bottom:2em"><h3 id="topic-pillar">Pillar article</h3><ul style="list-style:none;padding:0">${renderItem(pillar, "Start with this guide", true)}</ul></section>`
+      : "",
+    `<section aria-labelledby="topic-supporting"><h3 id="topic-supporting">Recent supporting coverage</h3>${supporting.length ? `<ol style="padding-left:1.5em">${supporting.map((post) => renderItem(post)).join("\n")}</ol>` : "<p>No supporting articles yet.</p>"}</section>`,
+  ].filter(Boolean).join("\n");
+}
+
+function isCrawler(req: express.Request): boolean {
+  const ua = req.headers["user-agent"];
+  if (!ua) return false;
+  return CRAWLER_RE.test(ua);
+}
+
+/** Send a crawler-safe 404 page. Includes noindex so the URL is de-indexed
+ *  even if a bot cached the URL before this visit. Pass status 410 for
+ *  permanently-removed legacy URLs (tells Google to drop them faster). */
+function send404(
+  res: express.Response,
+  title = "Page Not Found",
+  status: 404 | 410 = 404,
+): void {
+  const seo = buildSeoBlock({
+    title: buildSeoTitle(title),
+    description: "The page you requested could not be found.",
+    image: DEFAULT_OG_IMAGE,
+    url: SITE_URL,
+    type: "website",
+  }).replace(
+    "<!-- SEO_HEAD_END -->",
+    `    <meta name="robots" content="noindex, nofollow" />\n    <!-- SEO_HEAD_END -->`,
+  );
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>${htmlEscape(title)}</h1>
+  <p>This page doesn't exist or has been removed.</p>
+  <p><a href="${htmlEscape(SITE_URL)}">Back to Mapletechie</a></p>
+</main>`;
+  res.status(status);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "no-store");
+  res.send(renderHtml(seo, body));
+}
+
+type FetchJsonResult<T> =
+  | { kind: "ok"; value: T; finalUrl: string }
+  | { kind: "not-found"; status: 404 | 410 }
+  | { kind: "temporary-failure"; status?: number };
+
+async function fetchJsonResult<T>(
+  url: string,
+  timeoutMs = 4000,
+): Promise<FetchJsonResult<T>> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { signal: ctrl.signal });
+    if (r.status === 404 || r.status === 410) {
+      return { kind: "not-found", status: r.status };
+    }
+    if (!r.ok) return { kind: "temporary-failure", status: r.status };
+    try {
+      return {
+        kind: "ok",
+        value: (await r.json()) as T,
+        finalUrl: r.url,
+      };
+    } catch {
+      return { kind: "temporary-failure", status: r.status };
+    }
+  } catch {
+    return { kind: "temporary-failure" };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchJson<T>(url: string, timeoutMs = 4000): Promise<T | null> {
+  const result = await fetchJsonResult<T>(url, timeoutMs);
+  return result.kind === "ok" ? result.value : null;
+}
+
+function sendSpaShell(
+  res: express.Response,
+  status = 200,
+  seoBlock?: string,
+  privateRoute = false,
+): void {
+  res.status(status);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.send(privateRoute ? indexHtml : seoBlock ? renderHtml(seoBlock) : publicIndexHtml);
+}
+
+function renderSignedPreviewShell(): string {
+  return indexHtml
+    .replace(
+      '<meta name="robots" content="index, follow, max-image-preview:large" />',
+      '<meta name="robots" content="noindex, nofollow, noarchive" />\n    <meta name="referrer" content="strict-origin-when-cross-origin" />',
+    );
+}
+
+function sendTemporaryFailure(res: express.Response, url: string): void {
+  const seo = buildSeoBlock({
+    title: buildSeoTitle("Temporarily Unavailable"),
+    description: "This page is temporarily unavailable. Please try again shortly.",
+    image: DEFAULT_OG_IMAGE,
+    url,
+    type: "website",
+  }).replace(
+    "<!-- SEO_HEAD_END -->",
+    `    <meta name="robots" content="noindex, follow" />\n    <!-- SEO_HEAD_END -->`,
+  );
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>Temporarily Unavailable</h1>
+  <p>This page could not be loaded right now. Please try again shortly.</p>
+</main>`;
+  res.status(503);
+  res.setHeader("Retry-After", "60");
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "no-store");
+  res.send(renderHtml(seo, body));
+}
+
+/** Minimal shape we read off /api/posts/featured for the homepage hero. */
+interface FeaturedPost {
+  coverImage?: string | null;
+}
+
+/**
+ * Build an LCP-priority `<link rel="preload" as="image">` for the homepage
+ * featured hero cover. Mirrors `responsiveCoverProps(..., COVER_SIZES.hero)` so
+ * the preloaded variant matches the <img> React renders (no duplicate/oversized
+ * download). Returns "" when there is no usable cover. The trailing newline keeps
+ * the injected head tidy.
+ */
+function buildHeroPreloadLink(coverImage: string | null | undefined): string {
+  const { src, srcSet, sizes } = responsiveCoverProps(
+    coverImage || "/images/hero-post.webp",
+    COVER_SIZES.hero,
+  );
+  if (!src) return "";
+  const attrs = [
+    'rel="preload"',
+    'as="image"',
+    `href="${htmlEscape(src)}"`,
+    srcSet ? `imagesrcset="${htmlEscape(srcSet)}"` : "",
+    srcSet && sizes ? `imagesizes="${htmlEscape(sizes)}"` : "",
+    'fetchpriority="high"',
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return `    <link ${attrs}>\n`;
+}
+
+/**
+ * Rewrite tweet embed placeholders in crawler-facing article HTML into
+ * Twitter/X's canonical `<blockquote class="twitter-tweet">` markup, which
+ * crawlers and link-preview bots recognize as an embedded tweet. All other
+ * providers keep their existing placeholder + fallback link unchanged.
+ */
+function tweetBlockquotesForCrawlers(html: string): string {
+  return html.replace(
+    /<div\b[^>]*\bdata-social-embed\b[^>]*>([\s\S]*?)<\/div>/gi,
+    (full) => {
+      // Attribute order isn't guaranteed, so test provider/url separately.
+      const openTag = full.match(/^<div\b[^>]*>/i)?.[0] ?? "";
+      if (!/\bdata-provider\s*=\s*"twitter"/i.test(openTag)) return full;
+      const urlAttr = openTag.match(/\bdata-url\s*=\s*"([^"]*)"/i);
+      if (!urlAttr) return full;
+      const url = urlAttr[1];
+      return `<blockquote class="twitter-tweet"><a href="${url}">${url}</a></blockquote>`;
+    },
+  );
+}
+
+const app = express();
+app.disable("x-powered-by");
+app.set("trust proxy", 1);
+
+// Tiny request log so prod issues are debuggable.
+app.use((req, _res, next) => {
+  if (process.env.NODE_ENV !== "production" || req.path.startsWith("/blog/")) {
+    // eslint-disable-next-line no-console
+    console.log(`[tech-blog] ${req.method} ${req.path} ua="${(req.headers["user-agent"] || "").slice(0, 80)}"`);
+  }
+  next();
+});
+
+// Emit a Link: rel=preload header for the main CSS bundle on every response.
+// Browsers begin fetching the stylesheet as soon as they receive the response
+// headers — before the HTML parser finds the <link rel="stylesheet"> tag —
+// eliminating most of the render-blocking delay. Safe to include on non-HTML
+// responses (browsers silently ignore mismatched preload hints).
+if (cssPreloadLink) {
+  app.use((_req, res, next) => {
+    res.setHeader("Link", cssPreloadLink);
+    next();
+  });
+}
+
+// API proxy: forward /api/* requests from the browser to the API server so
+// the React SPA can use plain relative /api/... URLs without knowing the
+// separate Railway API service domain.
+//
+// Implementation uses Node.js http/https streaming so the request body is
+// piped directly — nothing is buffered in this process. The API server enforces
+// its own body-size limits; the blog service stays a thin passthrough.
+app.use("/api", (req, res): void => {
+  const target = new URL(`${API_BASE}${req.originalUrl}`);
+  const isHttps = target.protocol === "https:";
+  const transport: typeof http | typeof https = isHttps ? https : http;
+
+  // Forward all headers except hop-by-hop ones. Replace Host so the API
+  // server sees its own hostname, not the blog's.
+  const proxyHeaders: http.OutgoingHttpHeaders = {};
+  for (const [key, value] of Object.entries(req.headers)) {
+    const lk = key.toLowerCase();
+    if (lk === "host" || lk === "connection" || lk === "transfer-encoding") continue;
+    proxyHeaders[key] = value;
+  }
+
+  const proxyReq = transport.request(
+    {
+      hostname: target.hostname,
+      port: target.port || (isHttps ? 443 : 80),
+      path: target.pathname + target.search,
+      method: req.method,
+      headers: proxyHeaders,
+    },
+    (proxyRes) => {
+      const outHeaders: Record<string, string | string[]> = {};
+      for (const [key, value] of Object.entries(proxyRes.headers)) {
+        const lk = key.toLowerCase();
+        if (lk === "connection" || lk === "keep-alive" || lk === "transfer-encoding")
+          continue;
+        if (value !== undefined) outHeaders[key] = value as string | string[];
+      }
+      res.writeHead(proxyRes.statusCode ?? 502, outHeaders);
+      proxyRes.pipe(res);
+    },
+  );
+
+  // Abort the upstream request after 30 s.
+  proxyReq.setTimeout(30_000, () => {
+    proxyReq.destroy(new Error("upstream timeout"));
+  });
+
+  proxyReq.on("error", (err) => {
+    console.error(
+      "[tech-blog] API proxy error:",
+      `${API_BASE}${req.originalUrl}`,
+      err.message,
+    );
+    if (!res.headersSent) {
+      res.writeHead(502, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "API service unavailable" }));
+    }
+  });
+
+  // Pipe the client request body (if any) straight through to the API server.
+  req.pipe(proxyReq);
+});
+
+// Legacy cover compatibility: the cover/hero/author images were migrated from
+// PNG to WebP. Any historical reference (old DB rows, cached HTML, external
+// links, bookmarks) to the now-deleted .png files is permanently redirected to
+// the .webp replacement so those images never 404.
+const LEGACY_PNG_RE = /^\/(?:covers\/.+|images\/.+|author-matthew)\.png$/i;
+app.get(LEGACY_PNG_RE, (req, res) => {
+  res.redirect(301, req.path.replace(/\.png$/i, ".webp"));
+});
+
+// robots.txt is generated dynamically (registered BEFORE the static middleware
+// so it can't be shadowed by a stale file in the build output, and BEFORE the
+// maintenance gate so crawlers can always read it). Use the same canonical
+// SITE_URL as page canonicals; SITE_DOMAIN is a legacy API-service setting and
+// an invalid value there once caused the root sitemap to advertise
+// "mapletechie/api/…" instead of an absolute URL.
+const ROBOTS_DOMAIN = SITE_URL;
+const robotsTxt = `User-agent: *
+Allow: /
+
+# Admin SPA — never index, never crawl
+Disallow: /admin
+Disallow: /admin/
+
+# Authenticated / non-public API endpoints — these intentionally return 401/403
+# to non-logged-in clients. Don't waste crawl budget on them and don't let
+# Google flag them as access-forbidden indexing errors.
+Disallow: /api/admin/
+Disallow: /api/auth/
+Disallow: /api/upload
+Disallow: /api/jobs/admin
+Disallow: /api/inbox
+Disallow: /api/audit
+Disallow: /api/analytics
+Disallow: /api/newsletter/admin
+
+# Removed in May 2026 — stop crawlers re-fetching dead URLs
+Disallow: /shop
+Disallow: /shop/
+Disallow: /reviews
+Disallow: /reviews/
+Disallow: /admin/products
+
+# Internal search results pages aren't useful to index either
+Disallow: /search?
+
+# /blog?category= now 301-redirects to /category/:slug; block the query-param
+# variants so crawlers never follow them in the first place
+Disallow: /blog?
+
+# Be nice to crawlers
+Crawl-delay: 1
+
+Sitemap: ${ROBOTS_DOMAIN}/api/sitemap.xml
+Sitemap: ${ROBOTS_DOMAIN}/api/news-sitemap.xml
+`;
+app.get("/robots.txt", (_req, res) => {
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=3600, s-maxage=3600");
+  res.send(robotsTxt);
+});
+
+// IndexNow domain-ownership verification file. Bing fetches this to confirm
+// that whoever submitted URLs via IndexNow actually controls this domain.
+// Registered here (before sirv and the maintenance gate) so it is always
+// reachable regardless of maintenance status, CDN caching, or build state.
+const INDEXNOW_KEY = (process.env.INDEXNOW_KEY || "").trim();
+if (INDEXNOW_KEY) {
+  app.get(`/${INDEXNOW_KEY}.txt`, (_req, res) => {
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400");
+    res.send(INDEXNOW_KEY);
+  });
+}
+
+// The sitemap index is generated dynamically for the same reason as
+// robots.txt: it must point at the SITE_DOMAIN the real sitemap uses, never a
+// stale hardcoded domain baked into a static file. Registered BEFORE sirv so a
+// leftover public/sitemap.xml in an old build output can't shadow it, and
+// BEFORE the maintenance gate so crawlers can always read it.
+const sitemapIndexXml = `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>${ROBOTS_DOMAIN}/api/sitemap.xml</loc>
+  </sitemap>
+  <sitemap>
+    <loc>${ROBOTS_DOMAIN}/api/news-sitemap.xml</loc>
+  </sitemap>
+</sitemapindex>
+`;
+app.get("/sitemap.xml", (_req, res) => {
+  res.setHeader("Content-Type", "application/xml; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=3600, s-maxage=3600");
+  res.send(sitemapIndexXml);
+});
+
+// Proxy /news-sitemap.xml → /api/news-sitemap.xml so Google can reach it at
+// the bare root path (no /api prefix). Registered before sirv and the
+// maintenance gate so crawlers can always read it.
+app.get("/news-sitemap.xml", async (_req, res): Promise<void> => {
+  try {
+    const upstream = await fetch(`${API_BASE}/api/news-sitemap.xml`);
+    const body = await upstream.text();
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=900, s-maxage=900");
+    res.status(upstream.status).send(body);
+  } catch {
+    res.status(502).send("<?xml version=\"1.0\" encoding=\"UTF-8\"?><error>upstream unavailable</error>");
+  }
+});
+
+// Serve static assets (CSS, JS, images, public/* files) from the Vite build.
+// `single: false` so unmatched paths fall through to our route handlers
+// instead of always returning index.html — we want SEO-aware routing first.
+//
+// Cache strategy:
+//  - Vite-hashed assets under /assets/  -> immutable, 1 year (filename changes on rebuild)
+//  - self-hosted fonts (/fonts/*.woff2) -> immutable, 1 year (stable filenames, swap if updated)
+//  - images (png/jpg/webp/svg/ico/gif)  -> 1 week
+//  - HTML (and everything else)         -> always revalidated
+const ONE_YEAR = 60 * 60 * 24 * 365;
+const ONE_WEEK = 60 * 60 * 24 * 7;
+const IMAGE_RE = /\.(?:png|jpe?g|webp|gif|svg|ico|avif)$/i;
+// Homepage SPA shell for human visitors — inject an LCP-priority preload hint for
+// the featured hero cover so the browser starts downloading it before React boots
+// and fetches /api/posts/featured. Registered BEFORE sirv because sirv would
+// otherwise serve the static index.html for `/` and shadow this. Crawlers fall
+// through to sirv (and the catch-all) and get the unmodified shell, unchanged.
+// In-process cache for the featured-post lookup (same pattern as the
+// maintenance-status cache below). Removes the API round-trip from the
+// homepage critical path: TTFB no longer waits up to 4s on /api/posts/featured
+// for every visitor. Successful results (including "no featured post") are
+// cached for FEATURED_TTL_MS; failures only briefly, so a transient API blip
+// doesn't suppress the hero preload for a full minute.
+let featuredCache: { value: FeaturedPost[] | null; at: number } | null = null;
+// Overridable via env so tests can exercise caching without long waits.
+const FEATURED_TTL_MS =
+  Number(process.env.FEATURED_TTL_MS) > 0 ? Number(process.env.FEATURED_TTL_MS) : 45_000;
+const FEATURED_FAIL_TTL_MS = Math.min(5_000, FEATURED_TTL_MS);
+
+async function getFeaturedPosts(): Promise<FeaturedPost[] | null> {
+  const now = Date.now();
+  if (featuredCache) {
+    const ttl = featuredCache.value === null ? FEATURED_FAIL_TTL_MS : FEATURED_TTL_MS;
+    if (now - featuredCache.at < ttl) return featuredCache.value;
+  }
+  const fresh = await fetchJson<FeaturedPost[]>(`${API_BASE}/api/posts/featured`);
+  featuredCache = { value: fresh, at: Date.now() };
+  return fresh;
+}
+
+app.get(/^\/?$/, async (req, res, next) => {
+  if (isCrawler(req)) return next();
+  // During maintenance, defer to the maintenance gate below so `/` answers
+  // 503 + Retry-After for browsers too, consistent with every other public page.
+  const maint = await getMaintenanceStatus();
+  if (maint.maintenance) return next();
+  const featured = await getFeaturedPosts();
+  const heroPost = featured?.[0];
+  const description =
+    "Mapletechie — Your go-to source for tech news, gadget reviews, software deep dives, and the latest in AI, EVs, and cybersecurity.";
+  let seo = buildSeoBlock({
+    title: "Mapletechie — Tech News & Reviews",
+    description,
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/`,
+    type: "website",
+  });
+  const preload = heroPost ? buildHeroPreloadLink(heroPost.coverImage) : "";
+  if (preload) {
+    seo = seo.replace("<!-- SEO_HEAD_END -->", `${preload}    <!-- SEO_HEAD_END -->`);
+  }
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=60, s-maxage=60");
+  res.send(renderHtml(seo));
+});
+
+const serveStatic = sirv(distDir, {
+  single: false,
+  dev: false,
+  etag: true,
+  setHeaders(res, pathname) {
+    if (pathname.startsWith("/assets/") || pathname.endsWith(".woff2")) {
+      res.setHeader("Cache-Control", `public, max-age=${ONE_YEAR}, immutable`);
+    } else if (IMAGE_RE.test(pathname)) {
+      res.setHeader("Cache-Control", `public, max-age=${ONE_WEEK}`);
+    } else if (pathname.endsWith(".html")) {
+      res.setHeader("Cache-Control", "no-cache");
+    }
+  },
+});
+
+// The homepage `/` is intentionally NOT served by sirv. sirv maps `/` to the
+// static index.html (the bare SPA shell), which would shadow BOTH the human
+// hero-preload handler registered above AND the crawler homepage prerender
+// route registered below (the maintenance gate and the `/` crawler route both
+// run after this point). Skipping `/` here lets those dedicated homepage
+// handlers own the root URL while every other static asset still falls through
+// to sirv normally.
+app.use((req, res, next) => {
+  if (req.path === "/") return next();
+  return serveStatic(req, res, next);
+});
+
+// Exact legacy replacements only. These redirects preserve old links when the
+// same article or category now has a different canonical URL. Do not add
+// broad/fuzzy redirects here: URLs that never represented published content
+// must remain genuine 404s.
+const LEGACY_PATH_REDIRECTS = new Map<string, string>([
+  ["/blog/best-laptops-2025-definitive-rankings", "/blog/best-laptops-2026-definitive-rankings"],
+  ["/category/software-apps", "/category/software"],
+  ["/blog/canada-openai-privacy-laws", "/blog/openai-canada-privacy-ruling"],
+  ["/openai-hugging-face-incident-ai-regulation-gaps", "/blog/openai-agent-hugging-face-security-test"],
+  ["/blog/canada-ai-strategy-adoption-before-rules", "/blog/canada-ai-strategy-rules-come-later"],
+  ["/blog/buy-used-phone-canada-checklist", "/blog/used-phone-buyer-checklist-canada"],
+  ["/blog/move-whatsapp-chats-iphone-android-safely", "/blog/move-whatsapp-iphone-android"],
+  ["/blog/imported-phone-canada-checklist", "/blog/check-imported-phone-canada"],
+  ["/blog/browser-password-manager-security", "/blog/browser-vs-password-manager"],
+]);
+
+app.all(/.*/, (req, res, next) => {
+  const replacement = LEGACY_PATH_REDIRECTS.get(normalizedPathname(req.path));
+  if (!replacement) {
+    next();
+    return;
+  }
+  const queryStart = req.originalUrl.indexOf("?");
+  const query = queryStart >= 0 ? req.originalUrl.slice(queryStart) : "";
+  res.redirect(301, `${replacement}${query}`);
+});
+
+// --- Permanently retired URLs ---------------------------------------------
+// These URLs are no longer part of the publication. Return a real 410 to
+// every client, including crawlers, so search engines stop treating them as
+// live pages. Keep the list exact so unrelated blog/category/career routes
+// continue to work normally.
+const PERMANENTLY_RETIRED_PATHS = new Set([
+  "/blog/kimi-k3-the-chinese-ai-model-silicon-valley-underestimated",
+  "/blog/york-university-tech-ambitions-hype-or-real-momentum",
+  "/blog/mapletechie.com",
+  "/careers/editor",
+  "/home",
+  "/author/mapletechie.com",
+  "/category/science-space",
+  "/category/ai-machine-learning",
+  "/team",
+  "/category/cybersecurity",
+]);
+
+function normalizedPathname(pathname: string): string {
+  const normalized = pathname.replace(/\/+$/, "");
+  return normalized || "/";
+}
+
+app.all(/.*/, (req, res, next) => {
+  if (PERMANENTLY_RETIRED_PATHS.has(normalizedPathname(req.path))) {
+    send404(res, "Page Permanently Removed", 410);
+    return;
+  }
+  next();
+});
+
+// --- Maintenance gate ---------------------------------------------------
+// When the site is in maintenance mode, public *page* requests must answer
+// with HTTP 503 (+ Retry-After) so crawlers treat the outage as temporary
+// rather than de-indexing real pages. Static assets (CSS/JS) are already
+// served above by sirv with 200, so the React app can still boot and render
+// the maintenance screen for human visitors. The /admin panel is exempt so
+// the site stays manageable while it's "down".
+interface MaintenanceStatus {
+  maintenance: boolean;
+  message: string | null;
+  eta: string | null;
+}
+
+let maintCache: { value: MaintenanceStatus; at: number } | null = null;
+// Overridable via env so tests can exercise cache expiry without a 10s wait.
+const MAINT_TTL_MS = Number(process.env.MAINT_TTL_MS) > 0
+  ? Number(process.env.MAINT_TTL_MS)
+  : 10_000;
+
+async function getMaintenanceStatus(): Promise<MaintenanceStatus> {
+  if (maintCache && Date.now() - maintCache.at < MAINT_TTL_MS) {
+    return maintCache.value;
+  }
+  const status = await fetchJson<MaintenanceStatus>(
+    `${API_BASE}/api/settings/status`,
+    2000,
+  );
+  // Fail open: if the status endpoint is unreachable, don't take pages down.
+  // Only cache successful reads so a transient blip recovers quickly.
+  if (status) {
+    maintCache = { value: status, at: Date.now() };
+    return status;
+  }
+  return { maintenance: false, message: null, eta: null };
+}
+
+app.use(async (req, res, next) => {
+  // The admin panel and all API routes must stay reachable while the public
+  // site is down. API requests are forwarded to the API server, which has its
+  // own maintenance gate with the correct exemptions (e.g. /api/settings/status
+  // is always available so the React app can poll maintenance state).
+  if (
+    req.path === "/admin" ||
+    req.path.startsWith("/admin/") ||
+    req.path.startsWith("/api/")
+  ) {
+    return next();
+  }
+  const status = await getMaintenanceStatus();
+  if (!status.maintenance) return next();
+
+  const seo = buildSeoBlock({
+    title: buildSeoTitle("We'll be right back"),
+    description:
+      status.message?.trim() ||
+      "Mapletechie is down for scheduled maintenance and will be back shortly.",
+    image: DEFAULT_OG_IMAGE,
+    url: SITE_URL,
+    type: "website",
+  });
+
+  res.status(503);
+  res.setHeader("Retry-After", "3600");
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
+  res.send(renderHtml(seo));
+});
+// -----------------------------------------------------------------------
+
+interface PostRecord {
+  id: number;
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  content?: string | null;
+  coverImage: string | null;
+  coverImageAlt?: string | null;
+  ogImage?: string | null;
+  category: string | null;
+  categorySlug?: string | null;
+  tags: string[] | null;
+  publishedAt: string | null;
+  contentModifiedAt?: string | null;
+  authorUsername?: string | null;
+  author: string | null;
+  authorId?: number | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  topicCluster?: {
+    slug: string;
+    name: string;
+    introduction?: string | null;
+  } | null;
+}
+
+app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
+  const slug = req.params[0];
+  if (!slug) return next();
+
+  const postResult = await fetchJsonResult<PostRecord>(
+    `${API_BASE}/api/posts/slug/${encodeURIComponent(slug)}`,
+  );
+  if (postResult.kind === "temporary-failure") {
+    return sendTemporaryFailure(res, `${SITE_URL}/blog/${encodeURIComponent(slug)}`);
+  }
+  if (postResult.kind === "not-found") {
+    return send404(res, "Article Not Found");
+  }
+  const post = postResult.value;
+
+  const url = `${SITE_URL}/blog/${post.slug}`;
+  const title = post.seoTitle?.trim() || post.title;
+  const description =
+    post.seoDescription?.trim() || post.excerpt?.trim() || DEFAULT_DESCRIPTION;
+  const ogStoragePath = post.ogImage?.startsWith("/api/storage/objects/")
+    ? post.ogImage : post.ogImage?.startsWith(`${SITE_URL}/api/storage/objects/`)
+      ? post.ogImage.slice(SITE_URL.length) : null;
+  const image = absUrl(
+    ogStoragePath?.replace("/api/storage/objects/", "/api/storage/img-social/objects/")
+      || post.ogImage || `/api/og/post/${encodeURIComponent(post.slug)}.png`,
+    DEFAULT_OG_IMAGE,
+  );
+
+  const seoTitleFull = buildSeoTitle(title);
+  const seo = buildSeoBlock({
+    title: seoTitleFull,
+    description,
+    image,
+    url,
+    type: "article",
+    publishedTime: post.publishedAt,
+    modifiedTime: post.contentModifiedAt ?? post.publishedAt,
+    author: post.author,
+    section: post.category,
+    tags: post.tags,
+  });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
+
+  // schema.org JSON-LD for Google rich results. react-helmet-async ALSO emits
+  // this client-side for human visitors, but Googlebot does not always render
+  // JS during indexing — emitting it server-side as well guarantees it lands
+  // in the initial HTML for crawlers.
+  const jsonLd = buildArticleJsonLd(post, { siteUrl: SITE_URL });
+  const breadcrumbLd = buildBreadcrumbJsonLd(post, { siteUrl: SITE_URL });
+
+  // Keep YouTube embeds available for social previews, but do not emit
+  // VideoObject JSON-LD on ordinary article pages. Google only treats a page
+  // as a video result when the video is the primary content; these articles
+  // are written as text-first pages and Search Console otherwise reports
+  // "Video isn't on a watch page".
+  const embeds = extractSocialEmbeds(post.content);
+  const youtubeEmbeds = [
+    ...new Map(
+      embeds.filter((e) => e.provider === "youtube").map((e) => [e.id, e]),
+    ).values(),
+  ].slice(0, 10);
+
+  // Build the Article JSON-LD with a "mentions" array for social embeds so
+  // search engines learn which social posts are referenced in this article.
+  // YouTube is excluded because its embed is retained as page content and OG
+  // metadata, not represented as a separate schema.org object on this page.
+  const socialMentions = embeds
+    .filter((e) => e.provider !== "youtube")
+    .map((e) => ({ "@type": "SocialMediaPosting", url: e.url }));
+  const jsonLdWithMentions: Record<string, unknown> = { ...jsonLd };
+  if (socialMentions.length > 0) {
+    jsonLdWithMentions.mentions = socialMentions;
+  }
+
+  // JSON.stringify escapes quotes; we additionally escape `<` so the JSON
+  // body cannot prematurely close the surrounding <script> tag.
+  const ldSafe = (obj: Record<string, unknown>) =>
+    JSON.stringify(obj).replace(/</g, "\\u003c");
+
+  // OG video tags for the first YouTube embed, so social crawlers (Facebook,
+  // LinkedIn, Slack, etc.) know there's a playable video in this article.
+  // Only the first video is announced via OG tags (one og:video per page).
+  let ogVideoTags = "";
+  if (youtubeEmbeds.length > 0) {
+    const firstVideo = youtubeEmbeds[0];
+    ogVideoTags =
+      `    <meta property="og:video" content="https://www.youtube.com/embed/${htmlEscape(firstVideo.id)}" />\n` +
+      `    <meta property="og:video:type" content="text/html" />\n` +
+      `    <meta property="og:video:width" content="1280" />\n` +
+      `    <meta property="og:video:height" content="720" />\n`;
+  }
+
+  const seoWithJsonLd = seo.replace(
+    "<!-- SEO_HEAD_END -->",
+    ogVideoTags +
+      `    <script type="application/ld+json">${ldSafe(jsonLdWithMentions)}</script>\n` +
+      `    <script type="application/ld+json">${ldSafe(breadcrumbLd)}</script>\n` +
+      `    <!-- SEO_HEAD_END -->`,
+  );
+
+  // Render the full article body for crawlers that don't execute JavaScript.
+  // The content field is HTML from the editor; we keep it as-is so AI crawlers
+  // can read the full article text, but strip inline scripts for safety.
+  // ensureImgAlt: older editor content saved images without an alt attribute,
+  // which Bing's Site Scan flags — inject a safe empty alt as a fallback.
+  const safeContent = ensureImgAlt(
+    tweetBlockquotesForCrawlers(
+      (post.content ?? "")
+        .replace(/<script[\s\S]*?<\/script>/gi, "")
+        .replace(/<style[\s\S]*?<\/style>/gi, ""),
+    ),
+  );
+  const publishedDate = post.publishedAt
+    ? new Date(post.publishedAt).toLocaleDateString("en-CA", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "";
+  const updatedDate = post.contentModifiedAt
+    ? new Date(post.contentModifiedAt).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" })
+    : "";
+  const metaParts = [post.author, publishedDate, post.category].filter(Boolean);
+  let authorHtml = post.author ? htmlEscape(post.author) : "";
+  if (post.author && post.authorUsername) {
+    authorHtml = `<a href="${htmlEscape(`${SITE_URL}/author/${encodeURIComponent(post.authorUsername)}`)}">${htmlEscape(post.author)}</a>`;
+  }
+  const metaHtml = [authorHtml, publishedDate && `Published ${htmlEscape(publishedDate)}`,
+    updatedDate && `Last updated ${htmlEscape(updatedDate)}`, post.category && htmlEscape(post.category)]
+    .filter(Boolean)
+    .join(" · ");
+  const tagsHtml =
+    post.tags?.length
+      ? `<p style="color:#666;font-size:.85em">Tags: ${post.tags.map(htmlEscape).join(", ")}</p>`
+      : "";
+
+  const coverImgHtml = post.coverImage
+    ? `<img src="${htmlEscape(post.coverImage)}" alt="${htmlEscape(post.coverImageAlt ?? "")}" style="width:100%;height:auto;display:block;margin-bottom:1em;" />`
+    : "";
+  const topicContextHtml = post.topicCluster?.slug
+    ? `<aside style="border:1px solid #888;padding:1em;margin:1em 0"><small>Part of a topic guide</small><br><a href="${htmlEscape(`${SITE_URL}/topics/${encodeURIComponent(post.topicCluster.slug)}`)}">${htmlEscape(post.topicCluster.name)}</a></aside>`
+    : "";
+  const articleBody = `
+<article style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>${htmlEscape(post.title)}</h1>
+  ${metaParts.length ? `<p style="color:#666;font-size:.9em">${metaHtml}</p>` : ""}
+  ${topicContextHtml}
+  ${coverImgHtml}
+  ${safeContent}
+  ${tagsHtml}
+  <p><a href="${htmlEscape(`${SITE_URL}/blog/${post.slug}`)}">Read on Mapletechie</a></p>
+</article>`;
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=300, s-maxage=300");
+  res.send(renderHtml(seoWithJsonLd, articleBody));
+});
+
+interface CategoryRecord {
+  id: number;
+  slug: string;
+  name: string;
+  description?: string | null;
+}
+
+app.get(/^\/category\/([^\/]+)\/?$/, async (req, res, next) => {
+  const slug = req.params[0];
+  if (!slug) return next();
+
+  const categoriesResult = await fetchJsonResult<CategoryRecord[]>(
+    `${API_BASE}/api/categories`,
+  );
+  if (categoriesResult.kind !== "ok") {
+    return sendTemporaryFailure(res, `${SITE_URL}/category/${encodeURIComponent(slug)}`);
+  }
+  const cat = categoriesResult.value.find((c) => c.slug === slug);
+  if (!cat) return send404(res, "Category Not Found");
+
+  const title = buildSeoTitle(`${cat.name} — News & Reviews`);
+  const description =
+    cat.description?.trim() ||
+    `The latest ${cat.name} stories, reviews, and analysis on Mapletechie.`;
+
+  const seo = buildSeoBlock({
+    title,
+    description,
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/category/${cat.slug}`,
+    type: "website",
+  });
+  const postsResult = await fetchJsonResult<PostSummary[]>(
+    `${API_BASE}/api/posts?category=${encodeURIComponent(slug)}&limit=20`,
+  );
+  if (postsResult.kind !== "ok") {
+    return sendTemporaryFailure(res, `${SITE_URL}/category/${cat.slug}`);
+  }
+  const posts = postsResult.value;
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
+
+  // BreadcrumbList (Home > Blog > Category) — emitted server-side so Google
+  // gets the trail without rendering JS; the SPA emits the same schema.
+  const breadcrumbLd = buildCategoryBreadcrumbJsonLd(cat, { siteUrl: SITE_URL });
+  const breadcrumbSafe = JSON.stringify(breadcrumbLd).replace(/</g, "\\u003c");
+  // Advertise this category's own RSS feed so feed readers can subscribe to
+  // just this topic (the site-wide feed stays advertised in the base <head>).
+  const feedLink = `    <link rel="alternate" type="application/rss+xml" title="${htmlEscape(`Mapletechie — ${cat.name} RSS`)}" href="${htmlEscape(`${SITE_URL}/api/category/${cat.slug}/feed.xml`)}" />\n`;
+  const seoWithJsonLd = seo.replace(
+    "<!-- SEO_HEAD_END -->",
+    feedLink +
+      `    <script type="application/ld+json">${breadcrumbSafe}</script>\n    <!-- SEO_HEAD_END -->`,
+  );
+
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>${htmlEscape(cat.name)} — News &amp; Reviews</h1>
+  <p>${htmlEscape(description)}</p>
+  ${renderPostList(posts, SITE_URL)}
+</main>`;
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=600, s-maxage=600");
+  res.send(renderHtml(seoWithJsonLd, body));
+});
+
+// --- Static evergreen routes ------------------------------------------------
+// These pages have fixed, well-known metadata AND a meaningful prerendered body
+// so AI crawlers and non-JS bots see actual content, not just a React shell.
+
+// Homepage prerender — serves meaningful HTML to AI crawlers and bots that
+// don't execute JavaScript. Human visitors always get the React SPA via the
+// catch-all handler below. The body includes the site h1, editorial tagline,
+// category links, and the latest published post list so crawlers can discover
+// internal links and understand the site's subject matter without JS rendering.
+app.get(/^\/?$/, async (req, res, next) => {
+  if (!isCrawler(req)) return next();
+  const description =
+    "Mapletechie — Your go-to source for tech news, gadget reviews, software deep dives, and the latest in AI, EVs, and cybersecurity.";
+  const seo = buildSeoBlock({
+    title: "Mapletechie — Tech News & Reviews",
+    description,
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/`,
+    type: "website",
+  });
+
+  // Organization + WebSite JSON-LD for the homepage entity signal.
+  const siteJsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": `${SITE_URL}/#website`,
+        name: "Mapletechie",
+        url: `${SITE_URL}/`,
+        description,
+        publisher: { "@id": `${SITE_URL}/#organization` },
+      },
+      {
+        "@type": "Organization",
+        "@id": `${SITE_URL}/#organization`,
+        name: "Mapletechie",
+        url: `${SITE_URL}/`,
+        logo: {
+          "@type": "ImageObject",
+          url: `${SITE_URL}/logo-favicon-v2.png`,
+          width: 512,
+          height: 512,
+        },
+        sameAs: ["https://x.com/mapletechie"],
+      },
+    ],
+  };
+  const siteJsonLdSafe = JSON.stringify(siteJsonLd).replace(/</g, "\\u003c");
+  const seoWithJsonLd = seo.replace(
+    "<!-- SEO_HEAD_END -->",
+    `    <script type="application/ld+json">${siteJsonLdSafe}</script>\n    <!-- SEO_HEAD_END -->`,
+  );
+
+  const postsResult = await fetchJsonResult<unknown>(
+    `${API_BASE}/api/posts?limit=10`,
+  );
+  if (postsResult.kind !== "ok" || !isPostSummaryArray(postsResult.value)) {
+    return sendTemporaryFailure(res, `${SITE_URL}/`);
+  }
+  const posts = postsResult.value;
+
+  // Build the category list from the live API — a hardcoded list once linked
+  // to categories that no longer exist, giving crawlers 404s. If the fetch
+  // fails or returns nothing, omit the section rather than emit dead links.
+  const categories = await fetchJson<{ slug: string; name: string }[]>(
+    `${API_BASE}/api/categories`,
+  );
+  const categoryLinksHtml = (categories ?? [])
+    .filter((c) => c && typeof c.slug === "string" && c.slug.length > 0)
+    .map(
+      (c) =>
+        `<li><a href="${htmlEscape(`${SITE_URL}/category/${c.slug}`)}">${htmlEscape(c.name)}</a></li>`,
+    )
+    .join("\n");
+  const categorySectionHtml = categoryLinksHtml
+    ? `  <h2>Explore by Category</h2>\n  <ul>\n${categoryLinksHtml}\n  </ul>\n`
+    : "";
+
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>Mapletechie — Tech, told straight.</h1>
+  <p>${htmlEscape(description)}</p>
+  <p>No press junkets. No hype cycles. Sharp opinion, real reviews, and the context the spec sheets leave out. Independent tech journalism built in Canada.</p>
+${categorySectionHtml}  <h2>Latest Articles</h2>
+  ${renderPostList(posts, SITE_URL)}
+  <h2>About Us</h2>
+  <p>Mapletechie is an independent tech publication covering artificial intelligence, gadgets, cybersecurity, electric vehicles, and software. We write from Toronto with a global lens. <a href="${htmlEscape(`${SITE_URL}/about`)}">Learn more about Mapletechie</a>.</p>
+  <p><a href="${htmlEscape(`${SITE_URL}/blog`)}">Read all articles</a> &middot; <a href="${htmlEscape(`${SITE_URL}/contact`)}">Contact us</a></p>
+</main>`;
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=300, s-maxage=300");
+  res.send(renderHtml(seoWithJsonLd, body));
+});
+
+// Permanently redirect /blog?category=slug → /category/slug for all visitors.
+// These query-param URLs were generated by old internal links and crawled by
+// Google; they serve thin/unfiltered content and caused soft 404s. A 301 tells
+// Google (and any external links) to update to the canonical category URL.
+app.get(/^\/blog\/?$/, (req, res, next) => {
+  const cat = typeof req.query.category === "string" ? req.query.category.trim() : "";
+  if (cat) {
+    // Sanitise: only allow the character set valid in a category slug.
+    const safeCat = cat.replace(/[^a-z0-9-]/gi, "");
+    if (safeCat) return res.redirect(301, `/category/${safeCat}`);
+  }
+  next();
+});
+
+app.get(/^\/blog\/?$/, async (req, res, next) => {
+  const description =
+    "The latest tech news, gadget reviews, AI coverage, and software deep dives from the Mapletechie team.";
+  const seo = buildSeoBlock({
+    title: buildSeoTitle("Blog — Tech News & Reviews"),
+    description,
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/blog`,
+    type: "website",
+  });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
+  const postsResult = await fetchJsonResult<unknown>(
+    `${API_BASE}/api/posts?limit=20`,
+  );
+  if (postsResult.kind !== "ok" || !isPostSummaryArray(postsResult.value)) {
+    return sendTemporaryFailure(res, `${SITE_URL}/blog`);
+  }
+  const posts = postsResult.value;
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>Blog — Tech News &amp; Reviews</h1>
+  <p>${htmlEscape(description)}</p>
+  ${renderPostList(posts, SITE_URL)}
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=300, s-maxage=300");
+  res.send(renderHtml(seo, body));
+});
+
+app.get(/^\/about\/?$/, (req, res, next) => {
+  const description =
+    "Mapletechie is an independent tech publication founded by Matthew Mbaka — covering AI, EVs, cybersecurity, and gadgets without the press-release filter.";
+  const seo = buildSeoBlock({
+    title: buildSeoTitle("About Mapletechie"),
+    description,
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/about`,
+    type: "website",
+  });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>About Mapletechie</h1>
+  <p>${htmlEscape(description)}</p>
+  <p>Mapletechie covers artificial intelligence, electric vehicles, cybersecurity, gadgets, and software — with opinionated, deeply reported journalism built on four principles: cover the story, not the press release; be clear about what we know and what we don't; explain the tech, not just the hype; and put readers first.</p>
+  <p>Founded by Matthew Mbaka. Independent. Canadian.</p>
+  <p><a href="${htmlEscape(SITE_URL)}">mapletechie.com</a></p>
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=3600, s-maxage=3600");
+  res.send(renderHtml(seo, body));
+});
+
+app.get(/^\/contact\/?$/, (req, res, next) => {
+  const description =
+    "Get in touch with the Mapletechie team. Send us your tips, stories, or advertising inquiries.";
+  const seo = buildSeoBlock({
+    title: buildSeoTitle("Contact Us"),
+    description,
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/contact`,
+    type: "website",
+  });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>Contact Mapletechie</h1>
+  <p>${htmlEscape(description)}</p>
+  <ul>
+    <li>Editorial tips &amp; story leads: <a href="mailto:tips@mapletechie.com">tips@mapletechie.com</a></li>
+    <li>Advertising &amp; sponsorships: <a href="mailto:ads@mapletechie.com">ads@mapletechie.com</a></li>
+  </ul>
+  <p>You can also use the contact form at <a href="${htmlEscape(`${SITE_URL}/contact`)}">mapletechie.com/contact</a>.</p>
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=3600, s-maxage=3600");
+  res.send(renderHtml(seo, body));
+});
+
+app.get(/^\/advertise\/?$/, (req, res, next) => {
+  const description =
+    "Sponsored posts and newsletter sponsorships on Mapletechie. Reach engaged tech readers through clearly labeled editorial partnerships.";
+  const seo = buildSeoBlock({
+    title: buildSeoTitle("Partner with Us"),
+    description,
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/advertise`,
+    type: "website",
+  });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>Partner with Mapletechie</h1>
+  <p>${htmlEscape(description)}</p>
+  <h2>Sponsorship options</h2>
+  <ul>
+    <li><strong>Sponsored posts</strong> — In-depth editorial content clearly labeled as sponsored.</li>
+    <li><strong>Newsletter sponsorships</strong> — Reach our subscriber list with a featured mention in the weekly digest.</li>
+  </ul>
+  <p>To discuss rates and availability, contact <a href="mailto:ads@mapletechie.com">ads@mapletechie.com</a> or fill out the inquiry form at <a href="${htmlEscape(`${SITE_URL}/advertise`)}">mapletechie.com/advertise</a>.</p>
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=3600, s-maxage=3600");
+  res.send(renderHtml(seo, body));
+});
+
+app.get(/^\/privacy\/?$/, (req, res, next) => {
+  const description =
+    "How Mapletechie collects, uses, and protects your information. Our privacy policy covers data, cookies, and your rights.";
+  const seo = buildSeoBlock({
+    title: buildSeoTitle("Privacy Policy"),
+    description,
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/privacy`,
+    type: "website",
+  });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>Privacy Policy</h1>
+  <p>${htmlEscape(description)}</p>
+   <p>Mapletechie collects information you submit through article comments, the general contact form, the Partner with us advertising and partnership form, newsletter signup, reader reviews, and job applications. New comments do not collect email addresses; approved comments may be displayed publicly after moderation. We also collect technical data for security and aggregate analytics. We currently use Google AdSense and may, at our discretion, display ads from other third-party advertising providers. Advertising providers may use cookies and similar technologies under their own privacy policies, but we do not give them the personal information you submit through our forms. We do not send user-provided personal information to Google Analytics, and we do not sell personal data. You may request access, correction, or deletion by contacting <a href="mailto:hello@mapletechie.com">hello@mapletechie.com</a>.</p>
+  <p>Full policy at <a href="${htmlEscape(`${SITE_URL}/privacy`)}">mapletechie.com/privacy</a>.</p>
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400");
+  res.send(renderHtml(seo, body));
+});
+
+app.get(/^\/terms\/?$/, (req, res, next) => {
+  const description =
+    "The rules for using mapletechie.com — including intellectual property rights, affiliate link disclosures, and usage terms.";
+  const seo = buildSeoBlock({
+    title: buildSeoTitle("Terms of Service"),
+    description,
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/terms`,
+    type: "website",
+  });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>Terms of Service</h1>
+  <p>${htmlEscape(description)}</p>
+   <p>By using mapletechie.com you agree to these terms. Article comments are reviewed before publication and may be rejected, edited, or removed; approved comments may be displayed publicly with the submitted name or “Anonymous.” The Site also accepts private contact, job, newsletter, advertising, and partnership submissions for their stated purposes. All content on this site is owned by Mapletechie unless otherwise attributed. Some links may be affiliate links — we disclose this where applicable. Reproduction of articles requires written permission.</p>
+  <p>Full terms at <a href="${htmlEscape(`${SITE_URL}/terms`)}">mapletechie.com/terms</a>.</p>
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400");
+  res.send(renderHtml(seo, body));
+});
+
+app.get(/^\/careers\/?$/, async (req, res, next) => {
+  const description =
+    "Join Mapletechie. Help us build a tech publication readers actually trust. See our open roles and apply today.";
+  const seo = buildSeoBlock({
+    title: buildSeoTitle("Careers"),
+    description,
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/careers`,
+    type: "website",
+  });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
+  const jobs = await fetchJson<JobRecord[]>(`${API_BASE}/api/jobs`);
+  const jobsHtml = jobs?.length
+    ? `<ul>${jobs.map((j) => {
+        const meta = [j.location, j.type].filter(Boolean).join(" · ");
+        return `<li><a href="${htmlEscape(`${SITE_URL}/careers/${j.slug}`)}">${htmlEscape(j.title)}</a>${meta ? ` — <small>${htmlEscape(meta)}</small>` : ""}</li>`;
+      }).join("\n")}</ul>`
+    : "<p>No open roles at this time. Check back soon.</p>";
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>Careers at Mapletechie</h1>
+  <p>${htmlEscape(description)}</p>
+  <h2>Open roles</h2>
+  ${jobsHtml}
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=600, s-maxage=600");
+  res.send(renderHtml(seo, body));
+});
+
+// --- Dynamic listing/archive routes -----------------------------------------
+
+interface JobRecord {
+  slug: string;
+  title: string;
+  location: string | null;
+  type: string | null;
+  employmentType: string | null;
+  compensation: string | null;
+  summary: string | null;
+  description: string | null;
+  createdAt: string | null;
+}
+
+app.get(/^\/careers\/([^/]+)\/?$/, async (req, res, next) => {
+  const slug = req.params[0];
+  if (!slug) return next();
+
+  const jobResult = await fetchJsonResult<JobRecord>(
+    `${API_BASE}/api/jobs/${encodeURIComponent(slug)}`,
+  );
+  if (jobResult.kind === "temporary-failure") {
+    return sendTemporaryFailure(res, `${SITE_URL}/careers/${encodeURIComponent(slug)}`);
+  }
+  if (jobResult.kind === "not-found") return send404(res, "Job Not Found");
+  const job = jobResult.value;
+
+  const locationStr = job.location ? ` · ${job.location}` : "";
+  const description =
+    stripHtml(job.description, 200) ||
+    `${job.title}${locationStr} — Apply at Mapletechie.`;
+
+  const safeJobDesc = (job.description ?? "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "");
+  const metaParts = [job.location, job.employmentType ?? job.type].filter(Boolean);
+
+  const seo = buildSeoBlock({
+    // Mirrors the client page's composition exactly (parity for JS crawlers).
+    title: buildSeoTitle(`${job.title} — Careers`),
+    description,
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/careers/${job.slug}`,
+    type: "website",
+  });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
+
+  const jobPostingLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "JobPosting",
+    title: job.title,
+    description: job.description ?? description,
+    hiringOrganization: {
+      "@type": "Organization",
+      name: "Mapletechie",
+      sameAs: "https://www.mapletechie.com",
+    },
+    jobLocation: {
+      "@type": "Place",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: job.location ?? "Remote",
+      },
+    },
+    identifier: {
+      "@type": "PropertyValue",
+      name: "Mapletechie",
+      value: job.slug,
+    },
+    url: `${SITE_URL}/careers/${job.slug}`,
+  };
+  if (job.employmentType ?? job.type) {
+    jobPostingLd.employmentType = job.employmentType ?? job.type;
+  }
+  if (job.compensation) {
+    jobPostingLd.baseSalary = {
+      "@type": "MonetaryAmount",
+      description: job.compensation,
+    };
+  }
+  if (job.createdAt) {
+    jobPostingLd.datePosted = job.createdAt.slice(0, 10);
+  }
+
+  const jsonLdSafe = JSON.stringify(jobPostingLd).replace(/</g, "\\u003c");
+  const seoWithJsonLd = seo.replace(
+    "<!-- SEO_HEAD_END -->",
+    `    <script type="application/ld+json">${jsonLdSafe}</script>\n    <!-- SEO_HEAD_END -->`,
+  );
+
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>${htmlEscape(job.title)}</h1>
+  ${metaParts.length ? `<p style="color:#666">${htmlEscape(metaParts.join(" · "))}</p>` : ""}
+  ${safeJobDesc}
+  <p><a href="${htmlEscape(`${SITE_URL}/careers/${job.slug}`)}">Apply on Mapletechie</a></p>
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=600, s-maxage=600");
+  res.send(renderHtml(seoWithJsonLd, body));
+});
+
+interface AuthorRecord extends AuthorRichProfile {
+  id: number;
+  username: string;
+  displayName: string | null;
+  bio: string | null;
+}
+
+app.get(/^\/author\/([^/]+)\/?$/, async (req, res, next) => {
+  const username = req.params[0];
+  if (!username) return next();
+
+  const authorResult = await fetchJsonResult<AuthorRecord>(
+    `${API_BASE}/api/authors/by-username/${encodeURIComponent(username)}`,
+  );
+  if (authorResult.kind === "temporary-failure") {
+    return sendTemporaryFailure(res, `${SITE_URL}/author/${encodeURIComponent(username)}`);
+  }
+  if (authorResult.kind === "not-found") return send404(res, "Author Not Found");
+  const author = authorResult.value;
+
+  // Renamed username: the API 301s old usernames to the current record (fetch
+  // follows the redirect), so the returned username differing from the
+  // requested one means this is an old link. Redirect the PAGE URL itself with
+  // a 301 so search engines transfer the old page's ranking to the new URL.
+  if (author.username && author.username !== username) {
+    res.redirect(301, `/author/${encodeURIComponent(author.username)}`);
+    return;
+  }
+
+  const displayName = author.displayName || author.username;
+  const description =
+    author.bio?.trim() ||
+    `Articles by ${displayName} on Mapletechie — tech news, reviews, and analysis.`;
+  const ogImage = `${SITE_URL}/api/og/author/${encodeURIComponent(author.username)}.png`;
+
+  const seo = buildSeoBlock({
+    title: buildSeoTitle(`${displayName} — Author`),
+    description,
+    image: ogImage,
+    url: `${SITE_URL}/author/${author.username}`,
+    type: "website",
+  });
+  const postsResult = await fetchJsonResult<PostSummary[]>(
+    `${API_BASE}/api/authors/${author.id}/posts`,
+  );
+  if (postsResult.kind !== "ok") {
+    return sendTemporaryFailure(res, `${SITE_URL}/author/${author.username}`);
+  }
+  const posts = postsResult.value;
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
+
+  // Person structured data + visible reference links, generated from the
+  // structured profile fields the editor filled in (if any).
+  let seoFinal = seo;
+  let profileLinksHtml = "";
+  const jsonLd = buildPersonJsonLd(author, { siteUrl: SITE_URL });
+  if (jsonLd) {
+    // JSON.stringify escapes quotes; additionally escape `<` so the JSON body
+    // cannot prematurely close the surrounding <script> tag.
+    const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
+    seoFinal = seoFinal.replace(
+      "<!-- SEO_HEAD_END -->",
+      `    <script type="application/ld+json">${jsonLdSafe}</script>\n    <!-- SEO_HEAD_END -->`,
+    );
+  }
+  // BreadcrumbList (Home > Author) — always emitted, even for authors
+  // with no structured profile fields; the SPA emits the same schema.
+  const authorBreadcrumbLd = buildAuthorBreadcrumbJsonLd(author, {
+    siteUrl: SITE_URL,
+  });
+  const authorBreadcrumbSafe = JSON.stringify(authorBreadcrumbLd).replace(
+    /</g,
+    "\\u003c",
+  );
+  seoFinal = seoFinal.replace(
+    "<!-- SEO_HEAD_END -->",
+    `    <script type="application/ld+json">${authorBreadcrumbSafe}</script>\n    <!-- SEO_HEAD_END -->`,
+  );
+  const links = visibleProfileLinks(author);
+  if (links.length) {
+    profileLinksHtml = `<ul>${links
+      .map(
+        (l) =>
+          `<li><a href="${htmlEscape(l.url)}" rel="me noopener">${htmlEscape(l.label)}</a></li>`,
+      )
+      .join("")}</ul>`;
+  }
+
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>${htmlEscape(displayName)}</h1>
+  ${author.bio ? `<p>${htmlEscape(author.bio)}</p>` : ""}
+  ${profileLinksHtml}
+  <h2>Articles by ${htmlEscape(displayName)}</h2>
+  ${renderPostList(posts, SITE_URL)}
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=600, s-maxage=600");
+  res.send(renderHtml(seoFinal, body));
+});
+
+app.get(/^\/tag\/([^/]+)\/?$/, async (req, res, next) => {
+  const rawTag = req.params[0];
+  if (!rawTag) return next();
+
+  let tag: string;
+  try {
+    tag = decodeURIComponent(rawTag);
+  } catch {
+    tag = rawTag;
+  }
+
+  const postsResult = await fetchJsonResult<PostSummary[]>(
+    `${API_BASE}/api/tags/${encodeURIComponent(tag)}/posts`,
+  );
+  if (postsResult.kind === "temporary-failure") {
+    return sendTemporaryFailure(res, `${SITE_URL}/tag/${encodeURIComponent(tag)}`);
+  }
+  // A tag with no posts is effectively non-existent — return 404 so crawlers
+  // don't index empty or misspelled tag archives.
+  if (postsResult.kind === "not-found" || postsResult.value.length === 0) {
+    return send404(res, "Tag Not Found");
+  }
+  const posts = postsResult.value;
+
+  const ogImage = `${SITE_URL}/api/og/tag/${encodeURIComponent(tag)}.png`;
+  const description = `Every Mapletechie story tagged "${tag}" — tech news, reviews, and analysis.`;
+
+  const seo = buildSeoBlock({
+    title: buildSeoTitle(`#${tag} — Tag archive`),
+    description,
+    image: ogImage,
+    url: `${SITE_URL}/tag/${encodeURIComponent(tag)}`,
+    type: "website",
+  });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
+
+  // BreadcrumbList (Home > Blog > #tag) — emitted server-side so Google
+  // gets the trail without rendering JS; the SPA emits the same schema.
+  const breadcrumbLd = buildTrailBreadcrumbJsonLd([
+    { name: "Home", item: SITE_URL },
+    { name: "Blog", item: `${SITE_URL}/blog` },
+    { name: `#${tag}`, item: `${SITE_URL}/tag/${encodeURIComponent(tag)}` },
+  ]);
+  const breadcrumbSafe = JSON.stringify(breadcrumbLd).replace(/</g, "\\u003c");
+  const seoWithJsonLd = seo.replace(
+    "<!-- SEO_HEAD_END -->",
+    `    <script type="application/ld+json">${breadcrumbSafe}</script>\n    <!-- SEO_HEAD_END -->`,
+  );
+
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>#${htmlEscape(tag)}</h1>
+  <p>${htmlEscape(description)}</p>
+  ${renderPostList(posts ?? [], SITE_URL)}
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=600, s-maxage=600");
+  res.send(renderHtml(seoWithJsonLd, body));
+});
+
+interface SeriesRecord {
+  slug: string;
+  title: string;
+  description: string | null;
+  coverImage: string | null;
+}
+
+interface TopicRecord {
+  slug: string;
+  title?: string | null;
+  name?: string | null;
+  description?: string | null;
+  introduction?: string | null;
+  coverImage?: string | null;
+}
+
+app.get(/^\/topics\/?$/, async (req, res) => {
+  const topicsResult = await fetchJsonResult<TopicRecord[]>(`${API_BASE}/api/topics`);
+  if (topicsResult.kind === "temporary-failure") {
+    return sendTemporaryFailure(res, `${SITE_URL}/topics`);
+  }
+  if (topicsResult.kind === "not-found" || !topicsResult.value.length) {
+    return send404(res, "Topics Not Found");
+  }
+
+  const topics = topicsResult.value;
+  const seo = buildSeoBlock({
+    title: buildSeoTitle("Explore Topics"),
+    description: "Explore Mapletechie topic guides and follow connected articles across technology, gadgets, AI, software, and more.",
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/topics`,
+    type: "website",
+  });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
+
+  const breadcrumbLd = buildTrailBreadcrumbJsonLd([
+    { name: "Home", item: SITE_URL },
+    { name: "Topics", item: `${SITE_URL}/topics` },
+  ]);
+  const breadcrumbSafe = JSON.stringify(breadcrumbLd).replace(/</g, "\\u003c");
+  const seoWithJsonLd = seo.replace(
+    "<!-- SEO_HEAD_END -->",
+    `    <script type="application/ld+json">${breadcrumbSafe}</script>\n    <!-- SEO_HEAD_END -->`,
+  );
+  const topicLinks = topics.map((topic) => {
+    const title = topic.title?.trim() || topic.name?.trim() || topic.slug.replace(/-/g, " ");
+    const href = `${SITE_URL}/topics/${encodeURIComponent(topic.slug)}`;
+    const description = topic.description?.trim() || topic.introduction?.trim();
+    return `<li style="margin-bottom:1.5em"><a href="${htmlEscape(href)}" style="font-size:1.1em;font-weight:600">${htmlEscape(title)}</a>${description ? `<p>${htmlEscape(description)}</p>` : ""}</li>`;
+  }).join("\n");
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <nav aria-label="Breadcrumb"><a href="${SITE_URL}/">Home</a> › Topics</nav>
+  <h1>Topics</h1>
+  <p>Follow a subject across Mapletechie guides, analysis, and reporting.</p>
+  <ul style="list-style:none;padding:0">${topicLinks}</ul>
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=600, s-maxage=600");
+  res.send(renderHtml(seoWithJsonLd, body));
+});
+
+app.get(/^\/topics\/([^/]+)\/?$/, async (req, res, next) => {
+  const slug = req.params[0];
+  if (!slug) return next();
+
+  const topicResult = await fetchJsonResult<{
+    cluster: TopicRecord;
+    posts: PostSummary[];
+  }>(`${API_BASE}/api/topics/${encodeURIComponent(slug)}`);
+  if (topicResult.kind === "temporary-failure") {
+    return sendTemporaryFailure(res, `${SITE_URL}/topics/${encodeURIComponent(slug)}`);
+  }
+  if (topicResult.kind === "not-found" || !topicResult.value.cluster) {
+    return send404(res, "Topic Not Found");
+  }
+
+  const { cluster, posts = [] } = topicResult.value;
+  const title = cluster.title?.trim() || cluster.name?.trim() || cluster.slug.replace(/-/g, " ");
+  const description =
+    cluster.description?.trim() || cluster.introduction?.trim() ||
+    `Explore Mapletechie articles about ${title}.`;
+  const url = `${SITE_URL}/topics/${cluster.slug}`;
+  const seo = buildSeoBlock({
+    title: buildSeoTitle(`${title} — Topic Guide`),
+    description,
+    image: absUrl(cluster.coverImage, DEFAULT_OG_IMAGE),
+    url,
+    type: "website",
+  });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
+
+  const breadcrumbLd = buildTrailBreadcrumbJsonLd([
+    { name: "Home", item: SITE_URL },
+    { name: "Topics", item: `${SITE_URL}/topics` },
+    { name: title, item: url },
+  ]);
+  const breadcrumbSafe = JSON.stringify(breadcrumbLd).replace(/</g, "\\u003c");
+  const seoWithJsonLd = seo.replace(
+    "<!-- SEO_HEAD_END -->",
+    `    <script type="application/ld+json">${breadcrumbSafe}</script>\n    <!-- SEO_HEAD_END -->`,
+  );
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <nav aria-label="Breadcrumb"><a href="${SITE_URL}/">Home</a> › <a href="${SITE_URL}/topics">Topics</a> › ${htmlEscape(title)}</nav>
+  <h1>${htmlEscape(title)}</h1>
+  ${cluster.description || cluster.introduction ? `<p>${htmlEscape(cluster.description || cluster.introduction)}</p>` : ""}
+  <h2>Articles in this topic</h2>
+  ${renderTopicArticles(posts ?? [], SITE_URL)}
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=600, s-maxage=600");
+  res.send(renderHtml(seoWithJsonLd, body));
+});
+
+app.get(/^\/series\/([^/]+)\/?$/, async (req, res, next) => {
+  const slug = req.params[0];
+  if (!slug) return next();
+
+  const seriesResult = await fetchJsonResult<{
+    series: SeriesRecord;
+    posts: PostSummary[];
+  }>(
+    `${API_BASE}/api/series/${encodeURIComponent(slug)}`,
+  );
+  if (seriesResult.kind === "temporary-failure") {
+    return sendTemporaryFailure(res, `${SITE_URL}/series/${encodeURIComponent(slug)}`);
+  }
+  if (seriesResult.kind === "not-found" || !seriesResult.value.series) {
+    return send404(res, "Series Not Found");
+  }
+  const data = seriesResult.value;
+
+  const s = data.series;
+  const description =
+    s.description?.trim() ||
+    `A multi-part series on Mapletechie: ${s.title}.`;
+  const ogImage = s.coverImage
+    ? absUrl(s.coverImage, `${SITE_URL}/api/og/series/${encodeURIComponent(s.slug)}.png`)
+    : `${SITE_URL}/api/og/series/${encodeURIComponent(s.slug)}.png`;
+
+  const seo = buildSeoBlock({
+    title: buildSeoTitle(`${s.title} — Series`),
+    description,
+    image: ogImage,
+    url: `${SITE_URL}/series/${s.slug}`,
+    type: "website",
+  });
+  if (!isCrawler(req)) {
+    sendSpaShell(res, 200, seo);
+    return;
+  }
+
+  // BreadcrumbList (Home > Blog > Series) — emitted server-side so Google
+  // gets the trail without rendering JS; the SPA emits the same schema.
+  const seriesBreadcrumbLd = buildTrailBreadcrumbJsonLd([
+    { name: "Home", item: SITE_URL },
+    { name: "Blog", item: `${SITE_URL}/blog` },
+    { name: s.title, item: `${SITE_URL}/series/${s.slug}` },
+  ]);
+  const seriesBreadcrumbSafe = JSON.stringify(seriesBreadcrumbLd).replace(
+    /</g,
+    "\\u003c",
+  );
+  const seoWithJsonLd = seo.replace(
+    "<!-- SEO_HEAD_END -->",
+    `    <script type="application/ld+json">${seriesBreadcrumbSafe}</script>\n    <!-- SEO_HEAD_END -->`,
+  );
+
+  const body = `
+<main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
+  <h1>${htmlEscape(s.title)}</h1>
+  ${s.description ? `<p>${htmlEscape(s.description)}</p>` : ""}
+  <h2>Articles in this series</h2>
+  ${renderPostList(data.posts ?? [], SITE_URL)}
+</main>`;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "public, max-age=600, s-maxage=600");
+  res.send(renderHtml(seoWithJsonLd, body));
+});
+
+// /search is intentionally excluded from crawler prerendering — the client
+// sets noindex and the content is always query-dependent. Return the default
+// SPA shell with a noindex meta override to make intent explicit.
+app.get(/^\/search\/?$/, (req, res, next) => {
+  if (!isCrawler(req)) return next();
+  const seo = buildSeoBlock({
+    title: buildSeoTitle("Search"),
+    description: "Search articles on Mapletechie.",
+    image: DEFAULT_OG_IMAGE,
+    url: `${SITE_URL}/search`,
+    type: "website",
+  }).replace(
+    "<!-- SEO_HEAD_END -->",
+    `    <meta name="robots" content="noindex, follow" />\n    <!-- SEO_HEAD_END -->`,
+  );
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.setHeader("Cache-Control", "no-store");
+  res.send(renderHtml(seo));
+});
+
+// Routes the SPA actually handles that are valid WITHOUT a database existence
+// check. Paths whose validity depends on a slug being present in the database
+// (/blog/:slug, /category/:slug, /author/:slug, /tag/:tag, /series/:slug,
+// /topics/:slug,
+// /careers/:slug) are intentionally excluded. Requests to those patterns that
+// fall through from the crawler handlers above (non-crawler UAs, unrecognised
+// bots) reach the catch-all and receive HTTP 404 + SPA shell so the React app
+// can still mount and show the NotFound page for human visitors, while any
+// bot that didn't match CRAWLER_RE also gets the correct 404 status code.
+const KNOWN_SPA_ROUTES: RegExp[] = [
+  /^\/$/,
+  /^\/blog\/?$/,
+  /^\/topics\/?$/,
+  /^\/careers\/?$/,
+  /^\/(about|contact|advertise|search|privacy|terms)\/?$/,
+  /^\/admin(\/.*)?$/,
+];
+
+function isKnownSpaRoute(pathname: string): boolean {
+  return KNOWN_SPA_ROUTES.some((re) => re.test(pathname));
+}
+
+// Signed post previews need document-level protections before React hydrates.
+// The credential is carried in the URL fragment, which is never sent here.
+app.get(/^\/preview\/posts\/\d+\/?$/, (_req, res) => {
+  res.setHeader("Cache-Control", "private, no-store");
+  res.setHeader("X-Robots-Tag", "noindex, nofollow, noarchive");
+  // YouTube requires an origin-level referrer to accept embedded playback.
+  // The fragment credential has already been removed before embeds mount, and
+  // this policy reveals neither the preview path nor its former fragment.
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.status(200);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Vary", "User-Agent");
+  res.send(renderSignedPreviewShell());
+});
+
+// Legacy WordPress paths from the pre-migration site (wp-content, wp-admin,
+// xmlrpc.php, PHP files, feeds). These will never exist again — return
+// 410 Gone (with noindex) to every client so search engines drop them from
+// the index quickly instead of retrying a soft-404 shell indefinitely.
+// Segment-bounded so real routes can never be falsely matched (e.g.
+// /wp-administer or /blog/history-of-php.php stay normal 404s).
+const LEGACY_WP_RE =
+  /^\/(?:wp-(?:admin|content|includes|json)(?:\/.*)?|wp-login\.php|xmlrpc\.php|feed\/?|[^/]+\.php)$/i;
+
+app.all(/.*/, (req, res, next) => {
+  if (LEGACY_WP_RE.test(req.path)) {
+    send404(res, "Page Permanently Removed", 410);
+    return;
+  }
+  next();
+});
+
+// SPA fallback — every other GET returns the unmodified index.html so React Router takes over.
+// Vary: User-Agent because /blog/* and /category/* above branch on UA, so any shared
+// cache MUST key by UA to avoid serving a crawler-rendered HTML to a real browser (or vice versa).
+app.get(/^(?!\/api\/).*/, (req, res) => {
+  const pathname = req.path.toLowerCase();
+  const privateRoute = pathname === "/admin" || pathname.startsWith("/admin/") ||
+    pathname === "/preview" || pathname.startsWith("/preview/");
+  if (!isKnownSpaRoute(req.path)) {
+    if (isCrawler(req)) {
+      send404(res, "Page Not Found");
+    } else {
+      sendSpaShell(res, 404, undefined, privateRoute);
+    }
+    return;
+  }
+  sendSpaShell(res, 200, undefined, privateRoute);
+});
+
+app.listen(PORT, "0.0.0.0", () => {
+  // eslint-disable-next-line no-console
+  console.log(
+    `[tech-blog] crawler-aware server listening on :${PORT} (API_BASE=${API_BASE}, SITE_URL=${SITE_URL})`,
+  );
+});

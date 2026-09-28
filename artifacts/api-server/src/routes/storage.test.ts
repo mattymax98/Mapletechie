@@ -1,0 +1,330 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import express from "express";
+import { createServer } from "node:http";
+import sharp from "sharp";
+
+// ─── Mocks ──────────────────────────────────────────────────────────────────
+
+const ADMIN_USER = { id: 1, role: "admin", username: "matthew" };
+let authUser: Record<string, unknown> | null = ADMIN_USER;
+
+const mockGetUserBySession = vi.fn(async (token: string) =>
+  token === "valid-session" ? authUser : null,
+);
+vi.mock("../lib/auth", () => ({
+  getUserBySession: mockGetUserBySession,
+}));
+
+vi.mock("../lib/logger", () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
+
+// Mock objectAcl so downloadObject doesn't try real auth
+vi.mock("../lib/objectAcl", () => ({
+  getObjectAclPolicy: vi.fn(async () => ({ visibility: "public" })),
+  setObjectAclPolicy: vi.fn(async () => undefined),
+  canAccessObject: vi.fn(async () => true),
+  ObjectAclPolicy: {},
+  ObjectPermission: { READ: "READ", WRITE: "WRITE" },
+}));
+
+// ─── ObjectStorageService mock ───────────────────────────────────────────────
+
+const mockPutObjectEntity = vi.fn<
+  (body: Buffer, contentType: string) => Promise<string>
+>();
+const mockGetObjectEntityUploadURL = vi.fn<() => Promise<string>>();
+const mockGetObjectEntityFile = vi.fn();
+const mockNormalizeObjectEntityPath = vi.fn((p: string) => p);
+const mockDownloadObject = vi.fn();
+const mockSearchPublicObject = vi.fn();
+type FetchBody = NonNullable<Parameters<typeof fetch>[1]>["body"];
+
+vi.mock("../lib/objectStorage", () => {
+  class MockObjectStorageService {
+    putObjectEntity = mockPutObjectEntity;
+    getObjectEntityUploadURL = mockGetObjectEntityUploadURL;
+    getObjectEntityFile = mockGetObjectEntityFile;
+    normalizeObjectEntityPath = mockNormalizeObjectEntityPath;
+    downloadObject = mockDownloadObject;
+    searchPublicObject = mockSearchPublicObject;
+  }
+  class ObjectNotFoundError extends Error {
+    constructor() {
+      super("Object not found");
+      this.name = "ObjectNotFoundError";
+    }
+  }
+  return { ObjectStorageService: MockObjectStorageService, ObjectNotFoundError };
+});
+
+vi.mock("@workspace/api-zod", () => ({
+  RequestUploadUrlBody: {
+    safeParse: (body: unknown) => {
+      const b = body as Record<string, unknown>;
+      if (b?.name && b?.size && b?.contentType) {
+        return { success: true, data: b };
+      }
+      return { success: false };
+    },
+  },
+  RequestUploadUrlResponse: {
+    parse: (v: unknown) => v,
+  },
+}));
+
+// ─── App factory ─────────────────────────────────────────────────────────────
+
+const storageRouter = (await import("./storage")).default;
+
+function makeApp() {
+  const app = express();
+  // pino-http accesses req.log — stub it
+  app.use((req, _res, next) => {
+    (req as any).log = { error: vi.fn(), warn: vi.fn(), info: vi.fn() };
+    next();
+  });
+  app.use(express.json());
+  app.use(storageRouter);
+  return app;
+}
+
+async function request(
+  method: "get" | "post",
+  path: string,
+  opts: {
+    body?: Buffer | Record<string, unknown>;
+    headers?: Record<string, string>;
+  } = {},
+): Promise<{ status: number; body: any; headers: Record<string, string> }> {
+  const app = makeApp();
+  const server = createServer(app);
+  await new Promise<void>((r) => server.listen(0, r));
+  const addr = server.address();
+  const port = typeof addr === "object" && addr ? addr.port : 0;
+  try {
+    const isBuffer = Buffer.isBuffer(opts.body);
+    const res = await fetch(`http://127.0.0.1:${port}${path}`, {
+      method: method.toUpperCase(),
+      headers: {
+        ...(isBuffer ? {} : { "Content-Type": "application/json" }),
+        Authorization: "Bearer valid-session",
+        ...opts.headers,
+      },
+      body: isBuffer
+        ? (opts.body as Buffer as unknown as FetchBody)
+        : opts.body
+          ? JSON.stringify(opts.body)
+          : undefined,
+    });
+    const text = await res.text();
+    let body: any;
+    try { body = JSON.parse(text); } catch { body = text; }
+    const headers: Record<string, string> = {};
+    res.headers.forEach((v, k) => { headers[k] = v; });
+    return { status: res.status, body, headers };
+  } finally {
+    await new Promise<void>((r) => server.close(() => r()));
+  }
+}
+
+// ─── Tests ───────────────────────────────────────────────────────────────────
+
+beforeEach(() => {
+  authUser = ADMIN_USER;
+  vi.clearAllMocks();
+});
+
+// ── POST /storage/uploads (server-side proxy upload) ─────────────────────────
+
+describe("POST /storage/uploads", () => {
+  const PNG = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwADhQGAWjR9awAAAABJRU5ErkJggg==",
+    "base64",
+  );
+
+  it("returns 401 when no session token", async () => {
+    authUser = null;
+    const res = await request("post", "/storage/uploads", {
+      body: PNG,
+      headers: { "Content-Type": "image/png", Authorization: "" },
+    });
+    expect(res.status).toBe(401);
+    expect(mockPutObjectEntity).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for unsupported content type", async () => {
+    const res = await request("post", "/storage/uploads", {
+      body: Buffer.from("not an image"),
+      headers: { "Content-Type": "text/plain" },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/unsupported content type/i);
+  });
+
+  it("returns 400 for empty body", async () => {
+    const res = await request("post", "/storage/uploads", {
+      body: Buffer.alloc(0),
+      headers: { "Content-Type": "image/png" },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/empty/i);
+  });
+
+  it("uploads successfully and returns url + objectPath", async () => {
+    mockPutObjectEntity.mockResolvedValue("/objects/uploads/test-uuid");
+
+    const res = await request("post", "/storage/uploads", {
+      body: PNG,
+      headers: { "Content-Type": "image/png" },
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.objectPath).toBe("/objects/uploads/test-uuid");
+    expect(res.body.url).toBe("/api/storage/objects/uploads/test-uuid");
+    expect(mockPutObjectEntity).toHaveBeenCalledWith(
+      PNG,
+      "image/png",
+    );
+  });
+
+  it("returns 500 when storage write fails", async () => {
+    mockPutObjectEntity.mockRejectedValue(new Error("R2 write error"));
+
+    const res = await request("post", "/storage/uploads", {
+      body: PNG,
+      headers: { "Content-Type": "image/png" },
+    });
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toMatch(/upload failed/i);
+  });
+
+  it.each(["image/jpeg", "image/png", "image/webp", "image/gif"] as const)(
+    "accepts content-type %s",
+    async (ct) => {
+      mockPutObjectEntity.mockResolvedValue("/objects/uploads/uuid");
+      const format = ct.split("/")[1] === "jpeg" ? "jpeg" : ct.split("/")[1] as "png" | "webp" | "gif";
+      const image = await sharp({ create: { width: 2, height: 2, channels: 3, background: "#e66625" } })
+        .toFormat(format).toBuffer();
+      const res = await request("post", "/storage/uploads", {
+        body: image,
+        headers: { "Content-Type": ct },
+      });
+      expect(res.status).toBe(200);
+    },
+  );
+
+  it("rejects a mislabeled image before it reaches storage", async () => {
+    const res = await request("post", "/storage/uploads", {
+      body: PNG,
+      headers: { "Content-Type": "image/jpeg" },
+    });
+    expect(res.status).toBe(400);
+    expect(mockPutObjectEntity).not.toHaveBeenCalled();
+  });
+
+  it("rejects active SVG bytes disguised as a PNG without persisting them", async () => {
+    const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><script>alert(1)</script><rect width="200" height="200"/></svg>');
+    const res = await request("post", "/storage/uploads", {
+      body: svg,
+      headers: { "Content-Type": "image/png" },
+    });
+    expect(res.status).toBe(400);
+    expect(mockPutObjectEntity).not.toHaveBeenCalled();
+  });
+
+  it("rejects a compressed image whose decoded dimensions exceed the pixel limit", async () => {
+    const bomb = await sharp({
+      create: { width: 6000, height: 6000, channels: 3, background: "#ffffff" },
+    }).png().toBuffer();
+    expect(bomb.length).toBeLessThan(1024 * 1024);
+    const res = await request("post", "/storage/uploads", {
+      body: bomb,
+      headers: { "Content-Type": "image/png" },
+    });
+    expect(res.status).toBe(400);
+    expect(mockPutObjectEntity).not.toHaveBeenCalled();
+  });
+
+  it("rejects a raw body over 25 MB before writing to storage", async () => {
+    const res = await request("post", "/storage/uploads", {
+      body: Buffer.alloc(25 * 1024 * 1024 + 1),
+      headers: { "Content-Type": "image/png" },
+    });
+    expect(res.status).toBe(413);
+    expect(mockPutObjectEntity).not.toHaveBeenCalled();
+  });
+});
+
+// ── POST /storage/uploads/request-url ────────────────────────────────────────
+
+describe("POST /storage/uploads/request-url", () => {
+  it("rejects missing authentication before validating input or signing a URL", async () => {
+    const res = await request("post", "/storage/uploads/request-url", {
+      body: { name: "test.png" },
+      headers: { Authorization: "" },
+    });
+    expect(res.status).toBe(401);
+    expect(mockGetUserBySession).not.toHaveBeenCalled();
+    expect(mockGetObjectEntityUploadURL).not.toHaveBeenCalled();
+  });
+
+  it("rejects an expired or invalid session without signing a URL", async () => {
+    const res = await request("post", "/storage/uploads/request-url", {
+      body: { name: "test.png", size: 1024, contentType: "image/png" },
+      headers: { Authorization: "Bearer invalid-session" },
+    });
+    expect(res.status).toBe(401);
+    expect(mockGetUserBySession).toHaveBeenCalledWith("invalid-session");
+    expect(mockGetObjectEntityUploadURL).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for missing fields", async () => {
+    const res = await request("post", "/storage/uploads/request-url", {
+      body: { name: "test.png" }, // missing size and contentType
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("returns presigned URL and objectPath on success", async () => {
+    mockGetObjectEntityUploadURL.mockResolvedValue(
+      "https://r2.example.com/bucket/key?sig=abc",
+    );
+    mockNormalizeObjectEntityPath.mockReturnValue("/objects/uploads/uuid");
+
+    const res = await request("post", "/storage/uploads/request-url", {
+      body: { name: "photo.jpg", size: 5000, contentType: "image/jpeg" },
+    });
+
+    expect(res.status).toBe(200);
+    expect(mockGetUserBySession).toHaveBeenCalledWith("valid-session");
+    expect(res.body.uploadURL).toBe("https://r2.example.com/bucket/key?sig=abc");
+    expect(res.body.objectPath).toBe("/objects/uploads/uuid");
+  });
+});
+
+describe("GET /storage object serving", () => {
+  it("returns a cache-safe 404 when a public object does not exist", async () => {
+    mockSearchPublicObject.mockResolvedValue(null);
+
+    const res = await request("get", "/storage/public-objects/missing.webp");
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "File not found" });
+    expect(res.headers["cache-control"]).toBe("no-store");
+  });
+
+  it("maps an R2 no-such-key response to a cache-safe 404", async () => {
+    mockGetObjectEntityFile.mockRejectedValue({
+      name: "NoSuchKey",
+      $metadata: { httpStatusCode: 404 },
+    });
+
+    const res = await request("get", "/storage/objects/uploads/deleted-object");
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "Object not found" });
+    expect(res.headers["cache-control"]).toBe("no-store");
+  });
+});

@@ -5,10 +5,21 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
+    "copy-posts-dev-to-prod": "tsx ./src/copy-posts-dev-to-prod.ts",
+    "fix-laptops-cover": "tsx ./src/fix-laptops-cover.ts",
+    "verify-canonical-host": "tsx ./src/verify-canonical-host.ts",
+    "migrate:railway": "tsx ./src/migrate-railway.ts",
+    "schema:railway": "tsx ./src/railwaySchemaCompatibility.ts",
+    "smoke:production": "tsx ./src/productionSmoke.ts",
+    "test": "tsx --test ./src/railwayMigrationGuard.test.ts ./src/railwaySchemaCompatibility.test.ts ./src/productionSmoke.test.ts ./no-direct-ai-generation.test.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
     "@types/node": "catalog:",
     "tsx": "catalog:"
+  },
+  "dependencies": {
+    "@types/pg": "^8.18.0",
+    "pg": "^8.20.0"
   }
 }

@@ -3,20 +3,32 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: API specification for Tech Blog
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: posts
+    description: Blog post operations
+  - name: categories
+    description: Category operations
+  - name: products
+    description: Affiliate product operations
+  - name: contact
+    description: Contact form operations
+  - name: featured
+    description: Featured content operations
+  - name: Storage
+    description: Object storage upload and serving endpoints
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,8 +36,1466 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /posts:
+    get:
+      operationId: listPosts
+      tags: [posts]
+      summary: List all blog posts
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Post"
+    post:
+      operationId: createPost
+      tags: [posts]
+      summary: Create a new post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewPostInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+
+  /posts/{id}:
+    get:
+      operationId: getPost
+      tags: [posts]
+      summary: Get a single post for editing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "404":
+          description: Not found
+        "403":
+          description: Not permitted to edit this post
+    put:
+      operationId: updatePost
+      tags: [posts]
+      summary: Update a blog post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePostInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "404":
+          description: Not found
+    delete:
+      operationId: deletePost
+      tags: [posts]
+      summary: Delete a blog post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /posts/slug/{slug}:
+    get:
+      operationId: getPostBySlug
+      tags: [posts]
+      summary: Get a post by slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "404":
+          description: Not found
+
+  /posts/slug/{slug}/update-history:
+    get:
+      operationId: getPostUpdateHistory
+      tags: [posts]
+      summary: Get reader-safe approved update history for a published article
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Most recent substantive post-publication updates, newest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicUpdateHistory"
+        "404":
+          description: Article not found
+
+  /posts/featured:
+    get:
+      operationId: getFeaturedPosts
+      tags: [featured]
+      summary: Get featured/hero posts for homepage
+      responses:
+        "200":
+          description: Featured posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Post"
+
+  /posts/latest:
+    get:
+      operationId: getLatestPosts
+      tags: [posts]
+      summary: Get the latest posts
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 6
+      responses:
+        "200":
+          description: Latest posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Post"
+
+  /posts/trending:
+    get:
+      operationId: getTrendingPosts
+      tags: [posts]
+      summary: Get trending posts by view count
+      responses:
+        "200":
+          description: Trending posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Post"
+
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [categories]
+      summary: List all categories with post counts
+      responses:
+        "200":
+          description: Categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+
+  /admin/categories:
+    post:
+      operationId: createCategory
+      tags: [categories]
+      summary: Create a new category (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+
+  /admin/categories/reassign-posts:
+    post:
+      operationId: reassignCategoryPosts
+      tags: [categories]
+      summary: Bulk-move every post from one category name to another (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryReassignInput"
+      responses:
+        "200":
+          description: Reassignment result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  movedCount:
+                    type: integer
+                required: [movedCount]
+
+  /admin/categories/{id}:
+    put:
+      operationId: updateCategory
+      tags: [categories]
+      summary: Update a category (admin only).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+    delete:
+      operationId: deleteCategory
+      tags: [categories]
+      summary: Delete a category (admin only). Blocked when posts still use it.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "409":
+          description: In use by posts
+
+  /products:
+    get:
+      operationId: listProducts
+      tags: [products]
+      summary: List affiliate products
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: featured
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+
+  /products/{id}:
+    get:
+      operationId: getProduct
+      tags: [products]
+      summary: Get a single product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+
+  /products/featured:
+    get:
+      operationId: getFeaturedProducts
+      tags: [products]
+      summary: Get featured affiliate products for homepage
+      responses:
+        "200":
+          description: Featured products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+
+  /contact:
+    post:
+      operationId: submitContact
+      tags: [contact]
+      summary: Submit contact form
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactFormBody"
+      responses:
+        "200":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactResponse"
+
+  /stats/summary:
+    get:
+      operationId: getSiteSummary
+      tags: [featured]
+      summary: Get site stats summary for homepage
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteSummary"
+
+  /admin/verify:
+    post:
+      operationId: adminVerify
+      tags: [admin]
+      summary: Verify admin password (legacy)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyAdminBody"
+      responses:
+        "200":
+          description: Verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifyAdminResponse"
+        "401":
+          description: Unauthorized
+
+  /admin/login:
+    post:
+      operationId: adminLogin
+      tags: [admin]
+      summary: Login with username + password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Invalid credentials
+
+  /admin/logout:
+    post:
+      operationId: adminLogout
+      tags: [admin]
+      summary: Log out (deletes session)
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  /admin/me:
+    get:
+      operationId: getCurrentUser
+      tags: [admin]
+      summary: Get the currently logged-in user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicUser"
+    put:
+      operationId: updateCurrentUser
+      tags: [admin]
+      summary: Update the current user's own profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMeInput"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicUser"
+
+  /admin/users:
+    get:
+      operationId: listUsers
+      tags: [admin]
+      summary: List all users (admin only)
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PublicUser"
+    post:
+      operationId: createUser
+      tags: [admin]
+      summary: Create a new user (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewUserInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicUser"
+
+  /admin/users/{id}:
+    put:
+      operationId: updateUser
+      tags: [admin]
+      summary: Update a user (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicUser"
+    delete:
+      operationId: deleteUser
+      tags: [admin]
+      summary: Delete a user (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /admin/posts:
+    get:
+      operationId: listAdminPosts
+      tags: [admin]
+      summary: List posts visible to current user (own for editors; all for admins and editors who can edit others' posts)
+      responses:
+        "200":
+          description: Posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Post"
+
+  /admin/series:
+    get:
+      operationId: listEditorSeries
+      tags: [admin]
+      summary: List all series and occupied part numbers for authenticated editors
+      responses:
+        "200":
+          description: Series available to the editor, including unpublished series
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, slug, title, occupiedPositions]
+                  properties:
+                    id:
+                      type: integer
+                    slug:
+                      type: string
+                    title:
+                      type: string
+                    occupiedPositions:
+                      type: array
+                      items:
+                        type: object
+                        required: [postId, position]
+                        properties:
+                          postId:
+                            type: integer
+                          position:
+                            type: integer
+
+  /admin/posts/{id}/restore:
+    post:
+      operationId: restorePost
+      tags: [admin]
+      summary: Restore a deleted post from its latest audit-log snapshot (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Restored post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+
+  /admin/posts/bulk-reassign:
+    post:
+      operationId: bulkReassignPosts
+      tags: [admin]
+      summary: Move a set of posts to another category in one call (editors limited to own posts)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkReassignInput"
+      responses:
+        "200":
+          description: Reassignment result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  movedCount:
+                    type: integer
+                required: [movedCount]
+
+  /authors/{id}:
+    get:
+      operationId: getAuthor
+      tags: [posts]
+      summary: Get a public author profile by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Author profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorProfile"
+        "404":
+          description: Not found
+
+  /editors:
+    get:
+      operationId: listEditors
+      tags: [posts]
+      summary: List all active editors (public)
+      responses:
+        "200":
+          description: Editors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuthorProfile"
+
+  /newsletter/subscribe:
+    post:
+      operationId: subscribeNewsletter
+      tags: [newsletter]
+      summary: Subscribe to the weekly newsletter (sends confirm email)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewsletterSubscribeBody"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewsletterSubscribeResponse"
+
+  /admin/subscribers:
+    get:
+      operationId: listSubscribers
+      tags: [newsletter]
+      summary: List all newsletter subscribers (admin only)
+      responses:
+        "200":
+          description: Subscribers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Subscriber"
+
+  /admin/subscribers/{id}:
+    delete:
+      operationId: deleteSubscriber
+      tags: [newsletter]
+      summary: Delete a subscriber (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /admin/newsletter/test:
+    post:
+      operationId: sendTestNewsletter
+      tags: [newsletter]
+      summary: Send a test digest to a single email (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewsletterTestBody"
+      responses:
+        "200":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewsletterActionResponse"
+
+  /admin/newsletter/send-now:
+    post:
+      operationId: sendNewsletterNow
+      tags: [newsletter]
+      summary: Send the editor-composed digest immediately (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewsletterSendNowBody"
+      responses:
+        "200":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewsletterActionResponse"
+
+  /admin/newsletter/preview:
+    get:
+      operationId: getNewsletterPreview
+      tags: [newsletter]
+      summary: Get this week's posts that will be appended to the digest (admin only)
+      responses:
+        "200":
+          description: Preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewsletterPreview"
+
+  /admin/media:
+    get:
+      operationId: listMedia
+      tags: [admin]
+      summary: List all media library items (admin/editor)
+      responses:
+        "200":
+          description: Media items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MediaItem"
+    post:
+      operationId: addMedia
+      tags: [admin]
+      summary: Add an image to the media library
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewMediaInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaItem"
+
+  /admin/media/{id}:
+    delete:
+      operationId: deleteMedia
+      tags: [admin]
+      summary: Remove an item from the media library (does not delete from storage)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /admin/send-email:
+    post:
+      operationId: adminSendOneOffEmail
+      tags: [admin]
+      summary: Send a one-off email (rate-limited to 50/day per editor)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminEmailRequest"
+      responses:
+        "200":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminEmailResult"
+
+  /editors/featured:
+    get:
+      operationId: getFeaturedEditor
+      tags: [posts]
+      summary: Get the founding/featured editor (public)
+      responses:
+        "200":
+          description: Featured editor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorProfile"
+        "404":
+          description: Not found
+
+  /storage/uploads/request-url:
+    post:
+      tags: [Storage]
+      operationId: requestUploadUrl
+      summary: Request a presigned URL for file upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadUrlRequest'
+      responses:
+        '200':
+          description: Presigned upload URL generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadUrlResponse'
+        '400':
+          description: Invalid request.
+        '500':
+          description: Failed to generate upload URL.
+
+  /storage/public-objects/{filePath}:
+    get:
+      tags: [Storage]
+      operationId: getPublicObject
+      summary: Serve a public asset
+      parameters:
+        - name: filePath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Object content
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Not found
+
+  /storage/objects/{objectPath}:
+    get:
+      tags: [Storage]
+      operationId: getStorageObject
+      summary: Serve an object entity
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Object content
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Not found
+
+  /jobs:
+    get:
+      operationId: listJobs
+      tags: [careers]
+      summary: List active job postings
+      responses:
+        "200":
+          description: Jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Job"
+
+  /jobs/{slug}:
+    get:
+      operationId: getJobBySlug
+      tags: [careers]
+      summary: Get a single job posting by slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "404":
+          description: Not found
+
+  /jobs/{slug}/apply:
+    post:
+      operationId: submitApplication
+      tags: [careers]
+      summary: Submit an application for a job
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationBody"
+      responses:
+        "200":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmissionResponse"
+
+  /reviews:
+    get:
+      operationId: listReviews
+      tags: [reviews]
+      summary: List approved reviews
+      responses:
+        "200":
+          description: Reviews
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Review"
+    post:
+      operationId: submitReview
+      tags: [reviews]
+      summary: Submit a reader review
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewBody"
+      responses:
+        "200":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmissionResponse"
+
+  /advertise:
+    post:
+      operationId: submitAdInquiry
+      tags: [advertise]
+      summary: Submit an advertising inquiry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdInquiryBody"
+      responses:
+        "200":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmissionResponse"
+
+  /comments:
+    get:
+      operationId: listComments
+      tags: [comments]
+      summary: List approved comments for a post
+      parameters:
+        - name: postSlug
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Comment"
+    post:
+      operationId: submitComment
+      tags: [comments]
+      summary: Submit a comment for moderation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewCommentInput"
+      responses:
+        "200":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmissionResponse"
+
+  /admin/comments:
+    get:
+      operationId: adminListComments
+      tags: [admin]
+      summary: List all comments (admin)
+      responses:
+        "200":
+          description: Comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Comment"
+
+  /admin/comments/{id}:
+    patch:
+      operationId: adminUpdateCommentStatus
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommentStatusUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+    delete:
+      operationId: adminDeleteComment
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  /admin/audit-logs:
+    get:
+      operationId: adminListAuditLogs
+      tags: [admin]
+      summary: List recent audit log entries
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Audit logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLog"
+
+  /admin/jobs:
+    get:
+      operationId: adminListJobs
+      tags: [admin]
+      summary: List all jobs (admin)
+      responses:
+        "200":
+          description: Jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Job"
+    post:
+      operationId: adminCreateJob
+      tags: [admin]
+      summary: Create job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+  /admin/jobs/{id}:
+    put:
+      operationId: adminUpdateJob
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+    delete:
+      operationId: adminDeleteJob
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  /admin/applications:
+    get:
+      operationId: adminListApplications
+      tags: [admin]
+      responses:
+        "200":
+          description: Applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Application"
+
+  /admin/applications/{id}:
+    delete:
+      operationId: adminDeleteApplication
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  /admin/applications/{id}/reply:
+    post:
+      operationId: adminReplyToApplication
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationReplyBody"
+      responses:
+        "200":
+          description: Reply sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                required: [success]
+
+  /admin/reviews:
+    get:
+      operationId: adminListReviews
+      tags: [admin]
+      responses:
+        "200":
+          description: Reviews
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Review"
+
+  /admin/reviews/{id}:
+    patch:
+      operationId: adminUpdateReviewStatus
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewStatusUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+    delete:
+      operationId: adminDeleteReview
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  /admin/ad-inquiries:
+    get:
+      operationId: adminListAdInquiries
+      tags: [admin]
+      responses:
+        "200":
+          description: Ad inquiries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdInquiry"
+
+  /admin/ad-inquiries/{id}:
+    delete:
+      operationId: adminDeleteAdInquiry
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  /admin/inbox-counts:
+    get:
+      operationId: adminGetInboxCounts
+      tags: [admin]
+      summary: Counts of new submissions across inbox types
+      responses:
+        "200":
+          description: Counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxCounts"
+
+  /settings/status:
+    get:
+      operationId: getMaintenanceStatus
+      tags: [settings]
+      summary: Public maintenance status (always available, never gated)
+      responses:
+        "200":
+          description: Maintenance status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceStatus"
+
+  /admin/settings:
+    get:
+      operationId: getSiteSettings
+      tags: [settings]
+      summary: Get site settings (admin only)
+      responses:
+        "200":
+          description: Site settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteSettings"
+    put:
+      operationId: updateSiteSettings
+      tags: [settings]
+      summary: Update site settings (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSiteSettingsInput"
+      responses:
+        "200":
+          description: Updated site settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteSettings"
+
 components:
   schemas:
+    MaintenanceStatus:
+      type: object
+      properties:
+        maintenance: { type: boolean }
+        message: { type: string, nullable: true }
+        eta: { type: string, nullable: true }
+        startsAt: { type: string, format: date-time, nullable: true }
+        endsAt: { type: string, format: date-time, nullable: true }
+        severity: { type: string, enum: [full, banner] }
+      required: [maintenance]
+    SiteSettings:
+      type: object
+      properties:
+        maintenanceMode: { type: boolean }
+        maintenanceMessage: { type: string, nullable: true }
+        maintenanceEta: { type: string, nullable: true }
+        maintenanceStartsAt: { type: string, format: date-time, nullable: true }
+        maintenanceEndsAt: { type: string, format: date-time, nullable: true }
+        maintenanceSeverity: { type: string, enum: [full, banner] }
+        updatedAt: { type: string, format: date-time }
+        updatedBy: { type: string, nullable: true }
+        envForced: { type: boolean }
+        effectiveMaintenance: { type: boolean }
+        notificationEmail: { type: string, nullable: true }
+        newsletterFromName: { type: string, nullable: true }
+        newsletterFromAddress: { type: string, nullable: true }
+        newsletterReplyTo: { type: string, nullable: true }
+      required: [maintenanceMode, envForced, effectiveMaintenance]
+    UpdateSiteSettingsInput:
+      type: object
+      properties:
+        maintenanceMode: { type: boolean }
+        maintenanceMessage: { type: string, nullable: true }
+        maintenanceEta: { type: string, nullable: true }
+        maintenanceStartsAt: { type: string, format: date-time, nullable: true }
+        maintenanceEndsAt: { type: string, format: date-time, nullable: true }
+        maintenanceSeverity: { type: string, enum: [full, banner], nullable: true }
+        notificationEmail: { type: string, nullable: true }
+        newsletterFromName: { type: string, nullable: true }
+        newsletterFromAddress: { type: string, nullable: true }
+        newsletterReplyTo: { type: string, nullable: true }
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        size:
+          type: integer
+          minimum: 1
+        contentType:
+          type: string
+          minLength: 1
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL:
+          type: string
+        objectPath:
+          type: string
+        metadata:
+          $ref: '#/components/schemas/UploadUrlRequest'
     HealthStatus:
       type: object
       properties:
@@ -34,3 +1504,1159 @@ components:
       required:
         - status
 
+    Post:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        slug:
+          type: string
+        excerpt:
+          type: string
+        content:
+          type: string
+        coverImage:
+          type: string
+        category:
+          type: string
+          description: Name of the PRIMARY category (legacy single-category field).
+        categorySlug:
+          type: string
+          description: Slug of the PRIMARY category (legacy single-category field).
+        categories:
+          type: array
+          description: All categories this post belongs to, primary first.
+          items:
+            $ref: "#/components/schemas/CategoryRef"
+        tags:
+          type: array
+          items:
+            type: string
+        author:
+          type: string
+        authorAvatar:
+          type: string
+        authorId:
+          type: integer
+        status:
+          type: string
+          enum: [draft, scheduled, published]
+        scheduledFor:
+          type: string
+          format: date-time
+          nullable: true
+        seoTitle:
+          type: string
+        seoDescription:
+          type: string
+        seoKeywords:
+          type: array
+          items:
+            type: string
+        ogImage:
+          type: string
+        readTime:
+          type: integer
+        viewCount:
+          type: integer
+        isFeatured:
+          type: boolean
+        rating:
+          type: number
+          nullable: true
+        pros:
+          type: array
+          items:
+            type: string
+        cons:
+          type: array
+          items:
+            type: string
+        verdict:
+          type: string
+          nullable: true
+        publishedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        imageWarnings:
+          type: array
+          description: >-
+            Only present on create/update responses. Non-fatal warnings when an
+            externally-hosted image could not be copied to our own storage and
+            the saved post still depends on a third-party image host.
+          items:
+            type: string
+      required:
+        - id
+        - title
+        - slug
+        - excerpt
+        - content
+        - category
+        - author
+        - status
+        - readTime
+        - viewCount
+        - isFeatured
+        - publishedAt
+        - createdAt
+    PublicUpdateHistory:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicUpdate"
+    PublicUpdate:
+      type: object
+      required: [date, summary]
+      properties:
+        date:
+          type: string
+          format: date-time
+        summary:
+          type: string
+          description: Approved plain-text public summary, or neutral legacy wording.
+
+    CategoryRef:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+      required:
+        - id
+        - name
+        - slug
+
+    NewPostInput:
+      type: object
+      properties:
+        title:
+          type: string
+        slug:
+          type: string
+        excerpt:
+          type: string
+        content:
+          type: string
+        coverImage:
+          type: string
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        author:
+          type: string
+        authorAvatar:
+          type: string
+        authorId:
+          type: integer
+        readTime:
+          type: integer
+        isFeatured:
+          type: boolean
+        status:
+          type: string
+          enum: [draft, scheduled, published]
+        scheduledFor:
+          type: string
+          format: date-time
+          nullable: true
+        seoTitle:
+          type: string
+        seoDescription:
+          type: string
+        seoKeywords:
+          type: array
+          items:
+            type: string
+        ogImage:
+          type: string
+        rating:
+          type: number
+          nullable: true
+        pros:
+          type: array
+          items:
+            type: string
+        cons:
+          type: array
+          items:
+            type: string
+        verdict:
+          type: string
+          nullable: true
+        categories:
+          type: array
+          description: All categories for the post (ids, slugs, or names). First entry is primary unless primaryCategory is set. Provide this OR the single `category`.
+          items:
+            type: string
+        primaryCategory:
+          type: string
+          description: Which of `categories` is primary (id, slug, or name). Defaults to the first entry.
+      required:
+        - title
+        - slug
+        - content
+
+    UpdatePostInput:
+      type: object
+      properties:
+        title:
+          type: string
+        slug:
+          type: string
+        excerpt:
+          type: string
+        content:
+          type: string
+        coverImage:
+          type: string
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        author:
+          type: string
+        authorAvatar:
+          type: string
+        authorId:
+          type: integer
+        readTime:
+          type: integer
+        isFeatured:
+          type: boolean
+        status:
+          type: string
+          enum: [draft, scheduled, published]
+        scheduledFor:
+          type: string
+          format: date-time
+          nullable: true
+        seoTitle:
+          type: string
+        seoDescription:
+          type: string
+        seoKeywords:
+          type: array
+          items:
+            type: string
+        ogImage:
+          type: string
+        rating:
+          type: number
+          nullable: true
+        pros:
+          type: array
+          items:
+            type: string
+        cons:
+          type: array
+          items:
+            type: string
+        verdict:
+          type: string
+          nullable: true
+        publishedAt:
+          type: string
+          format: date-time
+        categories:
+          type: array
+          description: Full replacement list of categories (ids, slugs, or names). First entry is primary unless primaryCategory is set.
+          items:
+            type: string
+        primaryCategory:
+          type: string
+          description: Which category is primary (id, slug, or name). Alone, re-picks the primary among the post's current categories.
+
+    LoginBody:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required:
+        - username
+        - password
+
+    PublicUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        displayName:
+          type: string
+        email:
+          type: string
+        bio:
+          type: string
+        avatarUrl:
+          type: string
+        twitterUrl:
+          type: string
+        linkedinUrl:
+          type: string
+        instagramUrl:
+          type: string
+        githubUrl:
+          type: string
+        websiteUrl:
+          type: string
+        role:
+          type: string
+        canPublishDirectly:
+          type: boolean
+        canManageShop:
+          type: boolean
+        canManageJobs:
+          type: boolean
+        canViewInbox:
+          type: boolean
+        canManageEditors:
+          type: boolean
+        canSendEmail:
+          type: boolean
+        canManageCategories:
+          type: boolean
+        canEditOthersPosts:
+          type: boolean
+        isActive:
+          type: boolean
+        showOnTeam:
+          type: boolean
+      required:
+        - id
+        - username
+        - displayName
+        - role
+        - canPublishDirectly
+        - isActive
+
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/PublicUser"
+      required:
+        - success
+        - token
+        - user
+
+    NewUserInput:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        displayName:
+          type: string
+        email:
+          type: string
+        bio:
+          type: string
+        avatarUrl:
+          type: string
+        twitterUrl:
+          type: string
+        linkedinUrl:
+          type: string
+        instagramUrl:
+          type: string
+        githubUrl:
+          type: string
+        websiteUrl:
+          type: string
+        role:
+          type: string
+        canPublishDirectly:
+          type: boolean
+        canManageShop:
+          type: boolean
+        canManageJobs:
+          type: boolean
+        canViewInbox:
+          type: boolean
+        canManageEditors:
+          type: boolean
+        canSendEmail:
+          type: boolean
+        canManageCategories:
+          type: boolean
+        canEditOthersPosts:
+          type: boolean
+        showOnTeam:
+          type: boolean
+      required:
+        - username
+        - password
+        - displayName
+
+    ProfileOrganization:
+      type: object
+      properties:
+        name:
+          type: string
+        url:
+          type: string
+      required:
+        - name
+
+    ProfileMembership:
+      type: object
+      properties:
+        name:
+          type: string
+        parentOrganization:
+          type: string
+      required:
+        - name
+
+    ProfileLink:
+      type: object
+      properties:
+        label:
+          type: string
+        url:
+          type: string
+      required:
+        - label
+        - url
+
+    RichProfileFields:
+      type: object
+      properties:
+        alternateName:
+          type: string
+          nullable: true
+        jobTitle:
+          type: string
+          nullable: true
+        locationCity:
+          type: string
+          nullable: true
+        locationRegion:
+          type: string
+          nullable: true
+        locationCountry:
+          type: string
+          nullable: true
+        education:
+          type: array
+          nullable: true
+          items:
+            type: string
+        knowsAbout:
+          type: array
+          nullable: true
+          items:
+            type: string
+        organizations:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/ProfileOrganization"
+        memberships:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/ProfileMembership"
+        profileLinks:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/ProfileLink"
+
+    UpdateUserInput:
+      allOf:
+        - $ref: "#/components/schemas/RichProfileFields"
+      type: object
+      properties:
+        username:
+          type: string
+          description: Founding admin only. Changing it re-derives the email as username@mapletechie.com.
+        password:
+          type: string
+        displayName:
+          type: string
+        email:
+          type: string
+          description: Not editable — always derived server-side as username@mapletechie.com. Sending a different value is rejected.
+        bio:
+          type: string
+        avatarUrl:
+          type: string
+        twitterUrl:
+          type: string
+        linkedinUrl:
+          type: string
+        instagramUrl:
+          type: string
+        githubUrl:
+          type: string
+        websiteUrl:
+          type: string
+        role:
+          type: string
+        canPublishDirectly:
+          type: boolean
+        canManageShop:
+          type: boolean
+        canManageJobs:
+          type: boolean
+        canViewInbox:
+          type: boolean
+        canManageEditors:
+          type: boolean
+        canSendEmail:
+          type: boolean
+        canManageCategories:
+          type: boolean
+        canEditOthersPosts:
+          type: boolean
+        isActive:
+          type: boolean
+        showOnTeam:
+          type: boolean
+
+    UpdateMeInput:
+      allOf:
+        - $ref: "#/components/schemas/RichProfileFields"
+      type: object
+      properties:
+        password:
+          type: string
+        displayName:
+          type: string
+        email:
+          type: string
+        bio:
+          type: string
+        avatarUrl:
+          type: string
+        twitterUrl:
+          type: string
+        linkedinUrl:
+          type: string
+        instagramUrl:
+          type: string
+        githubUrl:
+          type: string
+        websiteUrl:
+          type: string
+
+    AuthorProfile:
+      allOf:
+        - $ref: "#/components/schemas/RichProfileFields"
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        displayName:
+          type: string
+        role:
+          type: string
+        postCount:
+          type: integer
+        bio:
+          type: string
+        avatarUrl:
+          type: string
+        twitterUrl:
+          type: string
+        linkedinUrl:
+          type: string
+        instagramUrl:
+          type: string
+        githubUrl:
+          type: string
+        websiteUrl:
+          type: string
+        showOnTeam:
+          type: boolean
+      required:
+        - id
+        - displayName
+
+    NewsletterSubscribeBody:
+      type: object
+      properties:
+        email:
+          type: string
+        source:
+          type: string
+      required:
+        - email
+
+    NewsletterSubscribeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+        - message
+
+    NewsletterTestBody:
+      type: object
+      properties:
+        to:
+          type: string
+        subject:
+          type: string
+        editorNote:
+          type: string
+      required:
+        - to
+        - subject
+
+    NewsletterSendNowBody:
+      type: object
+      properties:
+        subject:
+          type: string
+        editorNote:
+          type: string
+      required:
+        - subject
+
+    NewsletterActionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        sent:
+          type: integer
+        failed:
+          type: integer
+        skipped:
+          type: integer
+        posts:
+          type: integer
+        postCount:
+          type: integer
+        message:
+          type: string
+      required:
+        - success
+
+    NewsletterPreview:
+      type: object
+      properties:
+        weekLabel:
+          type: string
+        posts:
+          type: array
+          items:
+            $ref: "#/components/schemas/NewsletterPreviewPost"
+      required:
+        - weekLabel
+        - posts
+
+    NewsletterPreviewPost:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        title:
+          type: string
+        excerpt:
+          type: string
+        category:
+          type: string
+        publishedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - slug
+        - title
+        - excerpt
+        - category
+        - publishedAt
+
+    MediaItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        url:
+          type: string
+        filename:
+          type: string
+        mimeType:
+          type: string
+          nullable: true
+        size:
+          type: integer
+          nullable: true
+        uploaderId:
+          type: integer
+          nullable: true
+        uploaderName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - url
+        - filename
+        - createdAt
+
+    NewMediaInput:
+      type: object
+      properties:
+        url:
+          type: string
+        filename:
+          type: string
+        mimeType:
+          type: string
+        size:
+          type: integer
+      required:
+        - url
+        - filename
+
+    AdminEmailRequest:
+      type: object
+      properties:
+        to:
+          type: string
+        subject:
+          type: string
+        body:
+          type: string
+        replyTo:
+          type: string
+      required:
+        - to
+        - subject
+        - body
+
+    AdminEmailResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        id:
+          type: string
+      required:
+        - success
+
+    Subscriber:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        status:
+          type: string
+        source:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        confirmedAt:
+          type: string
+          format: date-time
+        unsubscribedAt:
+          type: string
+          format: date-time
+        lastSentAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - email
+        - status
+
+    VerifyAdminBody:
+      type: object
+      properties:
+        password:
+          type: string
+      required:
+        - password
+
+    VerifyAdminResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+        - message
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        postCount:
+          type: integer
+        color:
+          type: string
+      required:
+        - id
+        - name
+        - slug
+        - postCount
+
+    BulkReassignInput:
+      type: object
+      required: [postIds, category]
+      properties:
+        postIds:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            type: integer
+        category:
+          type: string
+          description: Destination category slug, name, or id
+
+    CategoryReassignInput:
+      type: object
+      required: [fromName, toName]
+      properties:
+        fromName:
+          type: string
+          description: Existing category name to move posts away from
+        toName:
+          type: string
+          description: Destination category name (must already exist in categories)
+
+    CategoryInput:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+          nullable: true
+        color:
+          type: string
+          nullable: true
+          description: 6-digit hex color like #f97316
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        originalPrice:
+          type: number
+        currency:
+          type: string
+          description: ISO 4217 currency code (defaults to CAD)
+        affiliateUrl:
+          type: string
+        imageUrl:
+          type: string
+        category:
+          type: string
+        rating:
+          type: number
+        reviewCount:
+          type: integer
+        badge:
+          type: string
+        isFeatured:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - description
+        - price
+        - affiliateUrl
+        - category
+        - rating
+        - reviewCount
+        - isFeatured
+        - createdAt
+
+    ContactFormBody:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        subject:
+          type: string
+        message:
+          type: string
+      required:
+        - name
+        - email
+        - subject
+        - message
+
+    ContactResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+        - message
+
+    SiteSummary:
+      type: object
+      properties:
+        totalPosts:
+          type: integer
+        totalCategories:
+          type: integer
+        totalProducts:
+          type: integer
+        totalViews:
+          type: integer
+      required:
+        - totalPosts
+        - totalCategories
+        - totalProducts
+        - totalViews
+
+    Job:
+      type: object
+      properties:
+        id: { type: integer }
+        slug: { type: string }
+        title: { type: string }
+        department: { type: string }
+        location: { type: string }
+        employmentType: { type: string }
+        compensation: { type: string, nullable: true }
+        summary: { type: string }
+        description: { type: string }
+        responsibilities: { type: string }
+        requirements: { type: string }
+        niceToHaves: { type: string, nullable: true }
+        applyEmail: { type: string, nullable: true }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, slug, title, department, location, employmentType, summary, description, responsibilities, requirements, isActive, createdAt, updatedAt]
+
+    JobInput:
+      type: object
+      properties:
+        slug: { type: string }
+        title: { type: string }
+        department: { type: string }
+        location: { type: string }
+        employmentType: { type: string }
+        compensation: { type: string, nullable: true }
+        summary: { type: string }
+        description: { type: string }
+        responsibilities: { type: string }
+        requirements: { type: string }
+        niceToHaves: { type: string, nullable: true }
+        applyEmail: { type: string, nullable: true }
+        isActive: { type: boolean }
+      required: [slug, title, department, location, employmentType, summary, description, responsibilities, requirements]
+
+    Application:
+      type: object
+      properties:
+        id: { type: integer }
+        jobId: { type: integer }
+        name: { type: string }
+        email: { type: string }
+        phone: { type: string, nullable: true }
+        resumeUrl: { type: string, nullable: true }
+        portfolioUrl: { type: string, nullable: true }
+        coverLetter: { type: string }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, jobId, name, email, coverLetter, status, createdAt]
+
+    ApplicationBody:
+      type: object
+      properties:
+        name: { type: string }
+        email: { type: string }
+        phone: { type: string, nullable: true }
+        resumeUrl: { type: string, nullable: true }
+        portfolioUrl: { type: string, nullable: true }
+        coverLetter: { type: string }
+      required: [name, email, coverLetter]
+
+    ApplicationReplyBody:
+      type: object
+      properties:
+        subject: { type: string, minLength: 1, maxLength: 200 }
+        message: { type: string, minLength: 1, maxLength: 10000 }
+      required: [subject, message]
+
+    Review:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        email: { type: string }
+        rating: { type: integer }
+        title: { type: string, nullable: true }
+        body: { type: string }
+        postSlug: { type: string, nullable: true }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, name, email, rating, body, status, createdAt]
+
+    ReviewBody:
+      type: object
+      properties:
+        name: { type: string }
+        email: { type: string }
+        rating: { type: integer }
+        title: { type: string, nullable: true }
+        body: { type: string }
+        postSlug: { type: string, nullable: true }
+      required: [name, email, rating, body]
+
+    AdInquiry:
+      type: object
+      properties:
+        id: { type: integer }
+        companyName: { type: string }
+        contactName: { type: string }
+        email: { type: string }
+        website: { type: string, nullable: true }
+        adType: { type: string }
+        budget: { type: string, nullable: true }
+        message: { type: string }
+        creativeUrl: { type: string, nullable: true }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, companyName, contactName, email, adType, message, status, createdAt]
+
+    AdInquiryBody:
+      type: object
+      properties:
+        companyName: { type: string }
+        contactName: { type: string }
+        email: { type: string }
+        website: { type: string, nullable: true }
+        adType: { type: string }
+        budget: { type: string, nullable: true }
+        message: { type: string }
+        creativeUrl: { type: string, nullable: true }
+      required: [companyName, contactName, email, adType, message]
+
+    SubmissionResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+      required: [success, message]
+
+    InboxCounts:
+      type: object
+      properties:
+        applications: { type: integer }
+        reviews: { type: integer }
+        adInquiries: { type: integer }
+        contacts: { type: integer }
+        comments: { type: integer }
+      required: [applications, reviews, adInquiries, contacts, comments]
+
+    Comment:
+      type: object
+      properties:
+        id: { type: integer }
+        postSlug: { type: string }
+        name: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+        body: { type: string }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, postSlug, body, status, createdAt]
+
+    NewCommentInput:
+      type: object
+      properties:
+        postSlug: { type: string }
+        name: { type: string, nullable: true }
+        body: { type: string }
+      required: [postSlug, body]
+
+    CommentStatusUpdate:
+      type: object
+      properties:
+        status: { type: string, enum: [approved, rejected, pending] }
+      required: [status]
+
+    AuditLog:
+      type: object
+      properties:
+        id: { type: integer }
+        userId: { type: integer, nullable: true }
+        username: { type: string, nullable: true }
+        action: { type: string }
+        entityType: { type: string, nullable: true }
+        entityId: { type: string, nullable: true }
+        summary: { type: string, nullable: true }
+        ip: { type: string, nullable: true }
+        userAgent: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+      required: [id, action, createdAt]
+
+    ReviewStatusUpdate:
+      type: object
+      properties:
+        status: { type: string }
+      required: [status]

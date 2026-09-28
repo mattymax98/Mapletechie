@@ -1,0 +1,482 @@
+import { Router } from "express";
+import { db, usersTable, postsTable, usernameRenamesTable, type User } from "@workspace/db";
+import { and, eq, count } from "drizzle-orm";
+import {
+  hashPassword,
+  verifyPassword,
+  createSession,
+  deleteSession,
+  sanitizeUser,
+} from "../lib/auth";
+import { adminAuth, requirePermission } from "../middlewares/adminAuth";
+import { writeAuditLog, writeAuditLogForUser } from "../lib/audit";
+import { loginLimiter } from "../middlewares/rateLimit";
+import { sanitizeRichProfile, RichProfileError } from "../lib/richProfile";
+
+const router = Router();
+
+// ---- Auth ----
+
+router.post("/admin/login", loginLimiter, async (req, res): Promise<void> => {
+  const { username, password } = req.body ?? {};
+  if (typeof username !== "string" || typeof password !== "string") {
+    res.status(400).json({ success: false, message: "Username and password required" });
+    return;
+  }
+
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.username, username.trim().toLowerCase()));
+
+  if (!user || !user.isActive) {
+    await writeAuditLogForUser(req, null, {
+      action: "auth.login.fail",
+      summary: `Failed login attempt for "${username.trim().toLowerCase()}" (no such user or inactive)`,
+    });
+    res.status(401).json({ success: false, message: "Invalid credentials" });
+    return;
+  }
+
+  const ok = await verifyPassword(password, user.passwordHash);
+  if (!ok) {
+    await writeAuditLogForUser(req, { id: user.id, username: user.username }, {
+      action: "auth.login.fail",
+      summary: `Wrong password for ${user.username}`,
+    });
+    res.status(401).json({ success: false, message: "Invalid credentials" });
+    return;
+  }
+
+  const token = await createSession(user.id);
+  await writeAuditLogForUser(req, { id: user.id, username: user.username }, {
+    action: "auth.login",
+    summary: `${user.displayName} signed in`,
+  });
+  res.json({ success: true, token, user: sanitizeUser(user) });
+});
+
+// Removed: /admin/verify (legacy ADMIN_PASSWORD endpoint).
+// Use POST /admin/login + session token instead.
+
+router.post("/admin/logout", adminAuth, async (req, res): Promise<void> => {
+  const token = req.headers.authorization?.slice(7);
+  if (token) await deleteSession(token);
+  await writeAuditLog(req, { action: "auth.logout", summary: `${req.user?.displayName ?? "User"} signed out` });
+  res.json({ success: true });
+});
+
+router.get("/admin/me", adminAuth, async (req, res): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  res.json(sanitizeUser(req.user));
+});
+
+router.put("/admin/me", adminAuth, async (req, res): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  if ("displayName" in req.body && (typeof req.body.displayName !== "string" || !req.body.displayName.trim())) {
+    res.status(400).json({ error: "Display name is required." });
+    return;
+  }
+
+  // Same rule as PUT /admin/users/:id — email is derived from username and
+  // cannot be edited from the profile page.
+  const allowed = [
+    "displayName",
+    "bio",
+    "avatarUrl",
+    "twitterUrl",
+    "linkedinUrl",
+    "instagramUrl",
+    "githubUrl",
+    "websiteUrl",
+  ] as const;
+
+  const update: Partial<User> = {};
+  for (const k of allowed) {
+    if (k in req.body) (update as Record<string, unknown>)[k] = req.body[k];
+  }
+  if ("displayName" in update) update.displayName = (update.displayName as string).trim();
+
+  try {
+    Object.assign(update, sanitizeRichProfile(req.body));
+  } catch (err) {
+    if (err instanceof RichProfileError) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    throw err;
+  }
+
+  if (typeof req.body.password === "string" && req.body.password.length >= 6) {
+    update.passwordHash = await hashPassword(req.body.password);
+  }
+
+  const updated = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(usersTable)
+      .set(update)
+      .where(eq(usersTable.id, req.user!.id))
+      .returning();
+    if (row && row.displayName !== req.user!.displayName) {
+      await tx.update(postsTable).set({ author: row.displayName }).where(eq(postsTable.authorId, row.id));
+    }
+    return row;
+  });
+
+  if (!updated) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  res.json(sanitizeUser(updated));
+});
+
+// ---- User management (admin only) ----
+
+router.get("/admin/users", adminAuth, requirePermission("editors"), async (req, res): Promise<void> => {
+  const users = await db.select().from(usersTable).orderBy(usersTable.id);
+  // Non-admins (e.g. editors with canManageEditors) cannot see the founding admin's account.
+  const filtered = req.user?.role === "admin" ? users : users.filter((u) => u.role !== "admin");
+  res.json(filtered.map(sanitizeUser));
+});
+
+router.post("/admin/users", adminAuth, requirePermission("editors"), async (req, res): Promise<void> => {
+  const callerIsAdmin = req.user?.role === "admin";
+  const {
+    username,
+    password,
+    displayName,
+    bio,
+    avatarUrl,
+    twitterUrl,
+    linkedinUrl,
+    instagramUrl,
+    githubUrl,
+    websiteUrl,
+    role,
+    canPublishDirectly,
+    canManageShop,
+    canManageJobs,
+    canViewInbox,
+    canManageEditors,
+    canSendEmail,
+    canManageCategories,
+    canEditOthersPosts,
+  } = req.body ?? {};
+
+  if (typeof username !== "string" || username.trim().length < 2) {
+    res.status(400).json({ error: "Username required (min 2 chars)" });
+    return;
+  }
+  if (typeof password !== "string" || password.length < 6) {
+    res.status(400).json({ error: "Password required (min 6 chars)" });
+    return;
+  }
+  if (typeof displayName !== "string" || displayName.trim().length < 1) {
+    res.status(400).json({ error: "Display name required" });
+    return;
+  }
+
+  const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
+  if (cleanUsername.length < 2) {
+    res.status(400).json({ error: "Username must contain only letters, numbers, dots, dashes, or underscores" });
+    return;
+  }
+  const [existing] = await db.select().from(usersTable).where(eq(usersTable.username, cleanUsername));
+  if (existing) {
+    res.status(409).json({ error: "Username already taken" });
+    return;
+  }
+
+  const passwordHash = await hashPassword(password);
+  // Editor email is *always* derived from the username so the Resend From:
+  // header passes domain verification. Bodies cannot override it.
+  const derivedEmail = `${cleanUsername}@mapletechie.com`;
+
+  const [user] = await db
+    .insert(usersTable)
+    .values({
+      username: cleanUsername,
+      passwordHash,
+      displayName: displayName.trim(),
+      email: derivedEmail,
+      bio: bio ?? null,
+      avatarUrl: avatarUrl ?? null,
+      twitterUrl: twitterUrl ?? null,
+      linkedinUrl: linkedinUrl ?? null,
+      instagramUrl: instagramUrl ?? null,
+      githubUrl: githubUrl ?? null,
+      websiteUrl: websiteUrl ?? null,
+      role: callerIsAdmin && role === "admin" ? "admin" : "editor",
+      canPublishDirectly: callerIsAdmin ? !!canPublishDirectly : false,
+      canManageShop: callerIsAdmin ? !!canManageShop : false,
+      canManageJobs: callerIsAdmin ? !!canManageJobs : false,
+      canViewInbox: callerIsAdmin ? !!canViewInbox : false,
+      canManageEditors: callerIsAdmin ? !!canManageEditors : false,
+      canSendEmail: callerIsAdmin ? !!canSendEmail : false,
+      canManageCategories: callerIsAdmin ? !!canManageCategories : false,
+      canEditOthersPosts: callerIsAdmin ? !!canEditOthersPosts : false,
+      isActive: true,
+      showOnTeam: req.body?.showOnTeam == null ? true : !!req.body.showOnTeam,
+    })
+    .returning();
+
+  res.status(201).json(sanitizeUser(user));
+});
+
+router.put("/admin/users/:id", adminAuth, requirePermission("editors"), async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (Number.isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+
+  const callerIsAdmin = req.user?.role === "admin";
+  const [target] = await db.select().from(usersTable).where(eq(usersTable.id, id));
+  if (!target) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  if (!callerIsAdmin && target.role === "admin") {
+    res.status(403).json({ error: "Only the founding admin can modify the admin account." });
+    return;
+  }
+  if ("displayName" in req.body && (typeof req.body.displayName !== "string" || !req.body.displayName.trim())) {
+    res.status(400).json({ error: "Display name is required." });
+    return;
+  }
+
+  // NOTE: `email` deliberately omitted — emails are always derived from the
+  // username and never directly editable. Only the founding admin may change
+  // a username; the email is re-derived in the same update so the Resend
+  // From: header keeps passing domain verification.
+  const update: Partial<User> = {};
+  if ("username" in req.body && req.body.username != null) {
+    const requested = String(req.body.username);
+    const cleanUsername = requested.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
+    if (cleanUsername !== target.username) {
+      if (!callerIsAdmin) {
+        res.status(403).json({ error: "Only the founding admin can change usernames." });
+        return;
+      }
+      if (cleanUsername.length < 2) {
+        res.status(400).json({ error: "Username must contain only letters, numbers, dots, dashes, or underscores" });
+        return;
+      }
+      const [existing] = await db.select().from(usersTable).where(eq(usersTable.username, cleanUsername));
+      if (existing && existing.id !== id) {
+        res.status(409).json({ error: "Username already taken" });
+        return;
+      }
+      update.username = cleanUsername;
+      update.email = `${cleanUsername}@mapletechie.com`;
+    }
+  }
+  if ("email" in req.body) {
+    const requestedEmail = req.body.email;
+    const derived = `${update.username ?? target.username}@mapletechie.com`;
+    if (typeof requestedEmail === "string" && requestedEmail.trim() && requestedEmail.trim().toLowerCase() !== derived && requestedEmail.trim().toLowerCase() !== (target.email ?? "").toLowerCase()) {
+      res.status(400).json({ error: "Email cannot be edited directly — it is always username@mapletechie.com." });
+      return;
+    }
+  }
+
+  const baseAllowed = [
+    "displayName",
+    "bio",
+    "avatarUrl",
+    "twitterUrl",
+    "linkedinUrl",
+    "instagramUrl",
+    "githubUrl",
+    "websiteUrl",
+    "isActive",
+    "showOnTeam",
+  ] as const;
+  const adminOnly = [
+    "role",
+    "canPublishDirectly",
+    "canManageShop",
+    "canManageJobs",
+    "canViewInbox",
+    "canManageEditors",
+    "canSendEmail",
+    "canManageCategories",
+    "canEditOthersPosts",
+  ] as const;
+
+  for (const k of baseAllowed) {
+    if (k in req.body) (update as Record<string, unknown>)[k] = req.body[k];
+  }
+  if ("displayName" in update) update.displayName = (update.displayName as string).trim();
+  try {
+    Object.assign(update, sanitizeRichProfile(req.body));
+  } catch (err) {
+    if (err instanceof RichProfileError) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    throw err;
+  }
+  if (callerIsAdmin) {
+    for (const k of adminOnly) {
+      if (k in req.body) (update as Record<string, unknown>)[k] = req.body[k];
+    }
+  }
+
+  if (typeof req.body.password === "string" && req.body.password.length >= 6) {
+    update.passwordHash = await hashPassword(req.body.password);
+  }
+
+  const updated = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(usersTable)
+      .set(update)
+      .where(eq(usersTable.id, id))
+      .returning();
+    if (row && row.displayName !== target.displayName) {
+      await tx.update(postsTable).set({ author: row.displayName }).where(eq(postsTable.authorId, id));
+    }
+    if (row && update.username && update.username !== target.username) {
+      // Record the previous username so old /author/<username> links can
+      // 301-redirect to the current author page.
+      await tx
+        .insert(usernameRenamesTable)
+        .values({ oldUsername: target.username, userId: id })
+        .onConflictDoUpdate({
+          target: usernameRenamesTable.oldUsername,
+          set: { userId: id, createdAt: new Date() },
+        });
+      // If the user reclaimed a username they (or someone) previously held,
+      // that mapping is now stale — a live user owns it again.
+      await tx
+        .delete(usernameRenamesTable)
+        .where(eq(usernameRenamesTable.oldUsername, update.username));
+    }
+    return row;
+  });
+
+  if (!updated) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  res.json(sanitizeUser(updated));
+});
+
+router.delete("/admin/users/:id", adminAuth, requirePermission("editors"), async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (Number.isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  if (req.user?.id === id) {
+    res.status(400).json({ error: "Cannot delete your own account" });
+    return;
+  }
+  const [target] = await db.select().from(usersTable).where(eq(usersTable.id, id));
+  if (!target) {
+    res.status(204).send();
+    return;
+  }
+  if (target.role === "admin" && req.user?.role !== "admin") {
+    res.status(403).json({ error: "Only the founding admin can remove the admin account." });
+    return;
+  }
+  await db.delete(usersTable).where(eq(usersTable.id, id));
+  res.status(204).send();
+});
+
+// Public list of editors (used to populate the Author dropdown when writing posts)
+router.get("/editors", async (_req, res): Promise<void> => {
+  const users = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.isActive, true))
+    .orderBy(usersTable.id);
+  const counts = await db
+    .select({ authorId: postsTable.authorId, n: count() })
+    .from(postsTable)
+    .where(eq(postsTable.status, "published"))
+    .groupBy(postsTable.authorId);
+  const countMap = new Map<number, number>();
+  for (const c of counts) {
+    if (c.authorId != null) countMap.set(c.authorId, Number(c.n));
+  }
+  res.json(
+    users.map((u) => ({
+      id: u.id,
+      username: u.username,
+      displayName: u.displayName,
+      role: u.role,
+      bio: u.bio,
+      avatarUrl: u.avatarUrl,
+      twitterUrl: u.twitterUrl,
+      linkedinUrl: u.linkedinUrl,
+      instagramUrl: u.instagramUrl,
+      githubUrl: u.githubUrl,
+      websiteUrl: u.websiteUrl,
+      showOnTeam: u.showOnTeam,
+      postCount: countMap.get(u.id) ?? 0,
+    }))
+  );
+});
+
+// Public: founding/featured editor (first active admin)
+router.get("/editors/featured", async (_req, res): Promise<void> => {
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(and(eq(usersTable.isActive, true), eq(usersTable.role, "admin")))
+    .orderBy(usersTable.id)
+    .limit(1);
+  if (!user) {
+    res.status(404).json({ error: "No editor found" });
+    return;
+  }
+  res.json({
+    id: user.id,
+    displayName: user.displayName,
+    bio: user.bio,
+    avatarUrl: user.avatarUrl,
+    twitterUrl: user.twitterUrl,
+    linkedinUrl: user.linkedinUrl,
+    instagramUrl: user.instagramUrl,
+    githubUrl: user.githubUrl,
+    websiteUrl: user.websiteUrl,
+  });
+});
+
+// Public author endpoint (used by blog post page to show real author bio)
+router.get("/authors/:id", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (Number.isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
+  if (!user || !user.isActive) {
+    res.status(404).json({ error: "Author not found" });
+    return;
+  }
+  // Return only public-safe fields
+  res.json({
+    id: user.id,
+    username: user.username,
+    displayName: user.displayName,
+    jobTitle: user.jobTitle,
+    bio: user.bio,
+    avatarUrl: user.avatarUrl,
+    twitterUrl: user.twitterUrl,
+    linkedinUrl: user.linkedinUrl,
+    instagramUrl: user.instagramUrl,
+    githubUrl: user.githubUrl,
+    websiteUrl: user.websiteUrl,
+  });
+});
+
+export default router;

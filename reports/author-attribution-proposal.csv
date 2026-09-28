@@ -1,0 +1,360 @@
+id,slug,title,status,author_id,saved_byline_before,linked_user_id,live_display_name,link_state,proposed_saved_byline_after,proposed_link_change
+10,top-ontario-tech-universities-worth-considering,Top Ontario Tech Universities Worth Considering in 2025,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+11,york-universitys-tech-ambitions-hype-or-real-momentum,York University's Tech Ambitions: Hype or Real Momentum?,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+12,openai-gpt5-what-you-need-to-know,OpenAI's GPT-5 Is Here: What You Need to Know,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+13,best-laptops-2026-definitive-rankings,The Best Laptops of 2026: Our Definitive Rankings,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+14,android-16-review-google-gets-it-right,Android 16 Review: Google Finally Gets It Right,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+15,tesla-fsd-10-billion-miles,Tesla's Full Self-Driving Passes 10 Billion Miles,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+16,biggest-data-breach-2025,The Biggest Data Breach of 2025 (So Far),published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+17,nasa-artemis-iii-moon-return,NASA's Artemis III: Everything We Know About the Moon Return,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+18,where-does-claude-ai-draw-the-line,Where Does Claude AI Draw the Line?,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+19,kimi-k3-china-ai-new-normal,Kimi K3: The Chinese AI Model Silicon Valley Underestimated,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+20,grok-4-5-speed-price-ai-race,Grok 4.5 Review: Why Its Speed and Price Matter,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+21,canada-telecom-fees-bell-rogers-telus,"Canada Banned Telecom Fees. Bell, Rogers and Telus Found New Ones",published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+22,xbox-game-pass-layoffs-workers-paying,Xbox Layoffs: Are Workers Paying for the Game Pass Gamble?,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+23,playstation-ending-physical-games,PlayStation Is Killing Physical Games. Gamers Should Be Furious.,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+24,ai-note-takers-workplace-privacy,AI Note-Takers Are Recording Work. Should Employees Be Worried?,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+25,canada-social-media-ban-age-verification,Canada's Social Media Ban Could Require Age Verification For Everyone.,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+26,galaxy-z-fold-8-worth-the-price,"Galaxy Z Fold 8: Better Design, but Is It Worth the Price?",published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+27,ai-browsers-kill-the-open-web,AI Browsers Are Convenient—but Could They Kill the Open Web?,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+28,canada-ai-strategy-rules-come-later,Canada’s AI Strategy Pushes Adoption Before Clear Rules,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+29,how-to-choose-the-best-gaming-monitor,How to Choose the Best Gaming Monitor Without Wasting Money,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+30,canadian-submarine-sinks-us-warship-rimpac-2026,Canada’s Submarine Sank a U.S. Warship. Here Is What Actually Happened.,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+31,playstation-network-outage-digital-only-gaming,PlayStation Network Went Down Again. This Is Why Digital-Only Gaming Should Worry You.,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+32,claude-opus-5-ai-model-obsolescence,Claude Opus 5 Proves the Best AI Model Always Becomes the Old One,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+33,gordie-howe-bridge-canada-toll-revenue-deal,Canada Paid for the Gordie Howe Bridge. Now Everyone Is Fighting Over the Money.,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+34,galaxy-z-fold-8-vs-fold-8-ultra,"Samsung Fixed the Fold, Then Made Buyers Choose",published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+35,meta-alberta-data-centre-power-jobs,Meta’s Alberta Data Centre Has a Power Problem,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+36,openai-canada-privacy-ruling,Canada Says OpenAI Broke Privacy Law. Now What?,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+37,xbox-exclusives-multiplatform-strategy,Xbox Brought Back Exclusives. What Was the Point?,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+42,jensen-huang-first-x-post-open-weight-ai,Jensen Huang’s First X Post Defends Open-Weight AI,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+43,openai-agent-hugging-face-security-test,OpenAI Agent Hacked Hugging Face During a Test,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+44,canada-defence-drone-initiative,Canada Opens a Faster Pipeline for Defence Drones,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+45,anthropic-canada-ai-research-investment,Anthropic’s $10M Canada Bet Is Smaller Than It Looks,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+46,nvidia-open-ai-security-alliance,Nvidia Launches Open Alliance for AI Security,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+47,nvidia-sk-group-ai-deal-asterisk,The $500 Billion AI Chip Deal Needs an Asterisk,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+48,apple-maps-ford-dashboard,Apple Maps Is Moving Into Ford’s Dashboard,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+49,android-17-iphone-transfer,Android 17 Makes Leaving iPhone Much Easier,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+50,openai-dublin-office-expansion,OpenAI’s Dublin Office Is About to Triple in Size,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+51,mississauga-ai-data-centre-pause,Mississauga Could Pause New AI Data Centres,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+52,meta-teen-harm-research-trial,Meta’s Teen-Harm Research Is Now on Trial,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+53,us-china-ai-trade-battle-kimi-k3,The US-China AI Fight Is Becoming a Trade Battle,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+54,peacock-inside-youtube-premium,Peacock Is Moving Inside YouTube Premium,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+55,cxmt-466-percent-shanghai-debut,CXMT’s 466% Debut Shows China’s Chip Appetite,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+56,fanatics-prediction-market-exchange-deal,Fanatics Buys Its Way Into Prediction Markets,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+57,xbox-free-cloud-gaming-ads-test,Xbox Tests Free Cloud Gaming With Ads and Limits,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+58,canada-german-submarine-choice-korea,Canada’s German Submarine Choice Cannot Sideline Korea,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+59,uk-grok-lawsuit-canada-privacy-gap,A UK Grok Lawsuit Exposes Canada’s Privacy Gap,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+60,google-eu-fine-canada-competition-case,Europe Can Fine Google. Canada Is Still in Court,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+61,canadian-isps-botnet-traffic-blocking,Canadian ISPs Can Now Block Botnet Traffic,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+62,ssd-prices-canada-buying-guide,SSD Prices Are Rising. Canadians Should Not Panic-Buy,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+63,apple-upgrade-lease-skips-canada,Apple’s New Hardware Lease Skips Canada—for Now,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+64,crtc-broadband-fund-overpayment,"CRTC Finds $701,422 Broadband Fund Overpayment",published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+65,apple-device-leasing-skips-canada,Apple’s Device-Leasing Plan Skips Canada—for Now,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+66,protect-phone-before-theft,Protect Your Phone Before It Is Lost or Stolen,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+67,free-iphone-storage-keep-photos,Free Up iPhone Storage Without Deleting Your Photos,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+68,browser-vs-password-manager,Browser Passwords vs Password Managers: Which Is Safer?,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+69,openai-agent-security-test-escape,An OpenAI Agent Escaped Its Test and Hacked Real Systems,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+70,microsoft-ai-spending-accounting,Microsoft’s AI Spending “Cut” Is Mostly Accounting,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+71,used-phone-buyer-checklist-canada,Check a Used Phone Before You Hand Over the Money,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+72,secure-home-wifi-router-settings,Secure Your Home Wi-Fi Without Buying a New Router,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+73,vpn-vs-icloud-private-relay,VPN vs iCloud Private Relay: Which One Do You Need?,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+74,thomson-reuters-ice-deal-canada,Thomson Reuters’ ICE Deal Is Canada’s Problem Too,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+75,europe-ai-gigafactories-canada,Europe’s AI Factories Show Canada What Scale Looks Like,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+76,stop-scam-calls-texts-canada,Stop Scam Calls Without Missing the Ones That Matter,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+77,satellite-phone-features-canada,Satellite Phone Features in Canada: What Actually Works,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+78,speed-up-slow-windows-11-laptop,Speed Up a Slow Windows 11 Laptop Without Cleaner Apps,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+79,gta-vice-city-cheats-all-platforms,"GTA Vice City Cheats for PS5, PC, Xbox and Mobile",published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+80,gta-san-andreas-cheats-all-platforms,"GTA San Andreas Cheats for PS5, PC, Xbox and Mobile",published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+81,gta-5-cheats-ps5-xbox-pc,"GTA 5 Cheats for PS5, Xbox and PC That Still Work",published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+87,google-earth-ai-images-rollback,Google Earth’s AI Images Lasted One Day,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+88,canada-ai-transparency-consultation,Canada Is Asking the Right AI Transparency Questions,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+89,choose-safe-fast-usb-c-charger,Choose a USB-C Charger That Is Safe and Fast,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+90,backup-plan-cloud-external-drive,Build a Backup Plan That Survives Ransomware,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+91,wifi-extender-vs-mesh,Wi-Fi Extender or Mesh: Buy the Right Fix,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+92,xbox-price-hike-canada,Xbox Prices Just Rose. Canadians Should Wait,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+94,fake-package-fee-texts,That Package-Fee Text Is Probably a Scam,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+97,canada-streamer-cost-shift,Ottawa’s Streamer Reversal Moves the Cost to Taxpayers,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+98,erase-phone-before-resale,How to Wipe Your Phone Before You Sell It,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+99,passkeys-security-guide,Passkeys vs Passwords: What You Should Use Now,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+100,eu-ai-act-canadian-companies,The EU AI Act Is Now Canada’s Business Too,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+101,suno-germany-ruling-canada,Suno Lost in Germany. Canada Still Needs Its Own Rules,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+102,power-bank-air-travel-canada,Fly With a Power Bank Without Losing It at Security,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+103,move-iphone-photos-windows,Move iPhone Photos to Windows Without iCloud,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+104,digital-legacy-online-accounts,What Happens to Your Online Accounts When You Die?,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+105,tesla-fsd-supervision-gap,A Tesla FSD Crash Exposes the Supervision Problem,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+106,pc-optimum-data-deletion,Deleting PC Optimum May Not Delete Your Shopping Data,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+107,windows-11-24h2-support-deadline,Windows 11 24H2 Support Ends Soon. Check Your PC,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+108,school-laptop-buying-guide,How to Buy a School Laptop Without Wasting Money,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+109,wildfire-smoke-clean-air-room,Wildfire Smoke: Build a Cleaner-Air Room at Home,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+110,travel-esim-or-roaming,Travel eSIM vs Roaming: What Costs Canadians Less?,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+111,canada-frontier-ai-safety-tests,Canada Needs Public Tests for Frontier AI,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+112,apple-openai-next-device-lawsuit,Apple and OpenAI Are Fighting Over the Next Device,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+113,make-laptop-battery-last-longer,Make Your Laptop Battery Last Longer Without Myths,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+114,phone-hotspot-save-mobile-data,Use Your Phone Hotspot Without Wasting Mobile Data,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+115,personalized-online-pricing-canada,Why Two Canadians May See Different Online Prices,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+117,data-centre-water-disclosure-canada,Canada Needs Better Data-Centre Water Disclosure,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+118,meta-muse-code-data-trade,Meta’s Cheap Coding AI Comes With a Data Trade,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+119,recover-hacked-facebook-account,Recover a Hacked Facebook Account Without Getting Scammed,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+120,protect-laptop-before-lost-stolen,Protect Your Laptop Before It Is Lost or Stolen,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+121,cloud-link-vs-email-attachment,Cloud Link or Email Attachment: Share Files Safely,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+122,crtc-carrier-fee-fight,"Bell, Rogers and Telus Face a Test Over New Fees",published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+123,pixel-11-preorder-canada,Pixel 11 Preorders Open August 12. Do Not Rush,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+124,power-bank-flight-rules-canada,Can You Bring a Power Bank on a Canadian Flight?,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+125,find-unwanted-tracker,How to Find an AirTag That Is Tracking You,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+126,meta-alberta-data-centre,Meta's Alberta Data Centre Needs More Answers,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+127,ai-search-joke-feedback-loop,Google’s Flock Camera Error Exposes AI Search’s Weak Spot,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+128,eu-ai-act-canadian-firms,EU AI Act Rules Now Reach Canadian AI Businesses,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+129,spot-fake-online-store,How to Spot a Fake Online Store Before You Pay,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+130,lost-stolen-phone-canada,Your Phone Is Gone: What Canadians Should Do First,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+131,5g-lte-battery-canada,5G vs LTE: Which Setting Saves More Phone Battery?,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+132,bc-subscription-renewal-rules,B.C.’s New Auto-Renewal Rules Put Subscriptions on Notice,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+133,office-windows-10-feature-cutoff,Microsoft 365 Features Stop Here for Windows 10,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+134,check-email-data-breach,How to Check If Your Email Was Exposed in a Breach,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+135,stop-spam-calls-canada,How to Stop Spam Calls in Canada Without Missing Real Calls,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+136,satellite-sos-phones-canada,Satellite SOS in Canada: Which Phones Work in 2026?,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+137,meta-child-safety-judgment-canada,Meta’s Child-Safety Judgment Is a Warning for Canada,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+138,apple-qwen-siri-regional-ai,Apple’s China AI Deal Splits Siri by Geography,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+139,fix-iphone-idle-battery-drain,Fix an iPhone That Drains Battery While Sitting Idle,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+140,clear-google-storage-safely,Clear Google Storage Without Deleting the Wrong Files,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+141,meta-muse-glimmer-local-ai,Meta’s One-GPU AI Could Matter More Than Benchmarks,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+142,north-korea-ai-cyber-operations,North Korea Is Building AI Into Cyber Operations,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+143,fix-connected-no-internet-windows-11,"Fix “Connected, No Internet” on Windows 11",published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+144,move-whatsapp-iphone-android,Move WhatsApp Chats Between iPhone and Android,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+145,wifi-7-slow-internet-bottlenecks,Wi-Fi 7 Won’t Fix Every Slow Internet Problem,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+151,crtc-one-telecom-code-canada,CRTC’s One Telecom Code Could Simplify Your Rights,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+152,canada-do-not-call-list-review,Canada Is Rethinking the Do Not Call List,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+153,canada-ai-transparency-plan-labels,Canada’s AI Transparency Plan Needs More Than Labels,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+154,switch-cellphone-plans-canada-keep-number,Switch Cellphone Plans in Canada Without Losing Your Number,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+155,fix-iphone-battery-drain,Fix iPhone Battery Drain Before Replacing the Battery,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+156,canada-activation-fee-ban-explained,Canada Banned Activation Fees. Here’s What Can Still Cost,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+157,coreweave-spending-canada-ai-sovereignty,CoreWeave’s Spending Tests Canada’s AI Sovereignty,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+158,canada-cybersecurity-law-suppliers,Canada’s Cybersecurity Law Will Reach Suppliers Too,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+159,check-imported-phone-canada,Check an Imported Phone Before Using It in Canada,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+160,fix-one-airpod-not-working,Fix One AirPod When It Suddenly Goes Silent,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+161,wifi-calling-canada-cost-911,Use Wi-Fi Calling in Canada Without Billing Surprises,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+162,ai-voice-call-rules-canada,Canada May Make AI Sales Calls Admit They Are Robots,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+163,canada-eclipse-perseids-august-12,August 12 Eclipse and Perseids: What Canada Will See,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+164,check-used-phone-canada,How to Check a Used Phone Before Buying It in Canada,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+165,phone-hotspot-save-data,How to Use a Phone Hotspot Without Burning Your Data,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+166,wifi-7-vs-wifi-6e,Wi-Fi 7 vs Wi-Fi 6E: Is the Upgrade Worth It?,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+167,australia-teen-ban-measurement-canada,Australia’s Teen Ban Has a Measurement Problem,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+168,lenovo-memory-shortage-pc-prices-canada,Lenovo’s Record Quarter Warns of Pricier PCs,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+169,erase-windows-pc-before-selling,Erase a Windows PC Safely Before Selling It,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+170,check-usb-c-charger-safety-canada,Check a USB-C Charger Before You Plug It In,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+171,microsoft-entra-sms-passkey-deadline,Microsoft’s SMS Login Deadline Needs a Plan,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+172,clop-windchill-supplier-audit,Cl0p’s Windchill Attacks Demand a Supplier Audit,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+173,deepseek-v4-pricing-peak-offpeak,DeepSeek V4 Pricing Rewards Workloads That Can Wait,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+174,cancel-app-subscriptions-refunds-canada,Cancel App Subscriptions Before the Next Charge,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+175,password-manager-emergency-kit,Build a Password Manager Emergency Kit Before Lockout,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+176,remove-bad-browser-extension,Remove a Bad Browser Extension and Recover Safely,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+177,online-passport-renewal-canada,Renew Canadian Passport Online: What You Need,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+178,windows-11-august-update,Windows 11’s August Update: Install It or Wait?,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+179,remove-photo-location-data,How to Remove Location Data Before Sharing Photos,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+180,choose-usb-c-charger-canada,How to Choose One USB-C Charger for All Your Devices,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+181,cloud-backup-vs-external-drive,Cloud Backup vs External Drive: Which One Do You Need?,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+182,canada-ai-transparency-rules,Canada Wants Better AI Labels. Here Is What Is Missing,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+183,made-by-google-2026-canada,Made by Google 2026: What Matters for Canadians,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+184,offline-maps-iphone-android-canada,How to Download Offline Maps Before You Lose Service,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+185,check-laptop-battery-health,How to Check Your Laptop Battery Health Before It Fails,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+186,wifi-extender-mesh-buying-guide,Wi-Fi Extender vs Mesh: Which One Should You Buy?,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+187,us-ai-bloc-pressure-canada,U.S. AI Bloc Pressure Puts Canada in a Bind,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+188,cogeco-fibre-competition-gap,Cogeco Fibre Decision Exposes a Competition Gap,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+189,make-emergency-alerts-work-phone-canada,Make Sure Emergency Alerts Work on Your Phone,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+190,find-app-using-camera-microphone,Find the App Using Your Phone's Camera or Microphone,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+191,qr-code-phishing-canada,QR Codes Can Hide Convincing Phishing Sites,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+192,anthropic-ipo-2028-revenue-math,Anthropic's IPO Math Needs an Extraordinary 2028,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+193,canadian-ai-projects-financing-proof,Canadian AI Megaprojects Need Financing Proof,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+194,move-authenticator-app-new-phone,Move Your Authenticator App Before Replacing Your Phone,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+195,move-esim-new-phone-canada,Move an eSIM to a New Phone Without Losing Service,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+196,cloud-gaming-data-use-canada,Cloud Gaming Can Burn Through a Data Cap Fast,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+230,ontario-data-centre-power-rules,Ontario Wants Data Centres to Pay Their Full Power Cost,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+231,apple-spyware-alert-canada,Apple Spyware Alert: What to Do If One Appears,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+234,open-box-vs-refurbished-tech,Open Box vs Refurbished Tech: Which Is the Better Buy?,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+235,canada-phone-locking-two-day-rule,Locked Phones Are Back in Canada—For Two Days,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+236,crtc-carrier-setup-fees-test,Carrier Setup Fees Face a Real CRTC Test,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+237,canada-open-banking-rules-trust-test,Canada’s Open Banking Rules Need a Trust Test,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+238,fix-sos-only-no-service-phone,Fix SOS Only or No Service on Your Phone,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+239,protect-phone-data-before-repair,Protect Your Phone Before Sending It for Repair,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+240,north-korean-remote-worker-risk,Canada Warns Companies About Fake North Korean IT Workers,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+241,chrome-https-warnings-october,Chrome Will Warn Before Opening Insecure Public Websites,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+242,secure-home-router-check,How to Check Whether Your Wi-Fi Router Is Still Secure,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+243,audit-app-permissions-phone,How to Audit App Permissions on iPhone and Android,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+244,flash-drive-vs-portable-ssd,USB Flash Drive vs Portable SSD: Which Should You Buy?,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+245,meta-youth-safety-trial-canada,Meta’s Youth-Safety Trial Is a Test Canada Needs,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+246,apple-tracking-prompt-competition,Apple’s Tracking Prompt Is Becoming a Competition Issue,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+247,find-unknown-bluetooth-tracker,Find an Unknown Bluetooth Tracker Following You,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+248,stop-phone-location-sharing,Stop Sharing Your Phone’s Location With Old Contacts,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+249,canada-imei-check-used-phone,What a Canadian IMEI Check Can—and Cannot—Prove,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+250,chatgpt-for-teens-canada,ChatGPT for Teens Needs More Than Parental Controls,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+251,apple-eu-app-fees-canada,Apple’s EU App Fees Show What Canada Still Lacks,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+252,recover-deleted-photos-iphone-android,Recover Deleted Photos Before the Trash Empties,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+253,create-windows-recovery-drive,Create a Windows Recovery Drive Before the PC Fails,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+254,end-to-end-encryption-limits,What End-to-End Encryption Still Leaves Exposed,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+255,crtc-ztar-number-porting-decision,CRTC Leaves Disconnected Mobile Numbers in Limbo,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+256,personalized-pricing-disclosure-canada,Personalized Pricing Needs a Canadian Disclosure Rule,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+257,used-laptop-buying-checklist-canada,Check a Used Laptop Before You Pay for It,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+258,stop-smart-tv-viewing-tracking,Stop Your Smart TV From Tracking What You Watch,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+259,cancel-cloud-storage-without-losing-files,Cancel Cloud Storage Without Losing Your Files,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+260,brazil-ai-split-canada-sovereignty-test,Brazil’s AI Split Offers Canada a Sovereignty Test,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+261,micron-10b-lab-canada-memory-gap,Micron’s $10B Lab Exposes Canada’s Memory Gap,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+262,fix-laptop-wont-charge-usb-c,Fix a Laptop That Won’t Charge Over USB-C,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+263,erase-smartwatch-before-selling,Erase a Smartwatch Safely Before Selling It,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+264,unlimited-mobile-data-canada-explained,What Unlimited Mobile Data Really Buys in Canada,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+266,openai-leaving-cursor-spacex,OpenAI Is Leaving Cursor After the SpaceX Deal,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+267,canada-xanadu-quantum-manufacturing,Canada Bets $195M on Xanadu’s Quantum Supply Chain,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+268,apple-maps-ads-canada,Apple Maps Ads Are Now Rolling Out in Canada,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+269,m6-mac-mini-canada-price,"Apple’s M6 Mac mini Starts at $1,249 in Canada",published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+270,nvidia-ai-server-price-hike-memory,Nvidia’s Reported 15% Server Hike Exposes AI’s Memory Problem,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+271,amazon-hardware-price-hikes-memory-shortage,Amazon’s Hardware Price Hikes Show AI’s Consumer Cost,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+272,xbox-disc-to-digital-explained,Xbox Can Turn Your Physical Discs Into Digital Games,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+273,nvidia-q2-2027-ai-spending,Nvidia’s $96.2B Quarter Says the AI Buildout Isn’t Slowing,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+274,ai-cyber-defence-open-letter,AI Giants Say the Cyber Defence Window Is Closing,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+275,pentagon-anthropic-blacklist-ruling,Judge Blocks Pentagon’s Anthropic Blacklist,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+276,meta-glasses-recording-light-privacy-fix,Meta’s Smart Glasses Now Stop Recording if You Cover the Light,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+277,gta-6-30-fps-console-performance,GTA 6 Is Running at 30 FPS on Consoles. Don’t Assume 60 Yet,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+278,alibaba-10-billion-ai-funding,Alibaba Is Raising $10.2B to Fund Its Full AI Stack,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+279,iran-hackers-uk-power-generator,Iran-Linked Hackers Shut a UK Power Generator for Four Days,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+280,nvidia-hugging-face-acquisition-reports,Nvidia Is Reportedly Closing In on Hugging Face,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+281,cxmt-xiaomi-lpddr6-memory,China’s CXMT Lands Xiaomi LPDDR6 Deal as Memory Race Tightens,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+282,ai-data-centre-backlash,AI Data Centres Are Losing the Public Before They Win the Grid,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+283,openai-california-ai-safety-law,OpenAI Wants California to Toughen Its AI Safety Law,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+284,ai-labs-rogue-model-containment,AI Labs Still Don’t Show How They’d Contain a Rogue Model,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+285,canada-us-tariffs-electronics,Canada’s Tariff Fight Is Coming for Electronics Next,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+286,pixel-11-pro-canada-value,"Pixel 11 Pro Starts at $1,499 in Canada. Is It Worth It?",published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+287,openai-pauses-frontier-model-training,OpenAI Paused Frontier Model Training Over Cyber Safety,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+288,flock-camera-surveillance-backlash,Flock’s Camera Backlash Is Becoming a Bipartisan Tech Problem,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+289,spacex-second-starbase-louisiana,SpaceX Is Building a $100B Second Starbase in Louisiana,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+290,claude-chat-cowork-shared-memory,Claude Now Shares Memory Between Chat and Cowork,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+291,gta-6-fake-demo-malware,That GTA 6 Demo Is Malware. There Is No Playable Demo,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+292,gm-ev-brake-problems-investigation,GM EV Brake Problems Escalate Toward a Possible Recall,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+293,alabama-openai-hugging-face-investigation,Alabama Is Investigating OpenAI Over the Hugging Face Hack,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+294,zillow-redfin-ftc-rental-settlement,Zillow and Redfin Settlement Forces Rental Competition Back,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+295,crtc-videotron-low-cost-internet-tiers,CRTC Keeps Videotron’s Cheapest Internet Tiers Alive,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+296,nvidia-agi-claim-meaning,Nvidia Says AGI Is Here. The Label Still Tells Us Little,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+297,android-to-iphone-esim-transfer-canada,Move an Android eSIM to iPhone in Canada With iOS 26,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+298,canada-cellphone-internet-fees-banned,Which Cellphone and Internet Fees Are Banned in Canada?,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+299,quantum-safe-encryption-canada,Quantum-Safe Encryption in Canada: What Changes First,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+300,frontier-ai-financial-system-cyber-risk,Frontier AI Is Now a Financial-System Cyber Risk,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+301,account-recovery-kit-lost-phone,Build an Account Recovery Kit Before You Lose Your Phone,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+302,switch-internet-providers-avoid-double-billing,Switch Internet Providers Without Paying for Two Services,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+303,store-backup-codes-safely,Your Backup Codes Should Not Live on Your Phone,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+304,canada-banks-ai-outage-plan,"Canada’s Banks Need an AI Outage Plan, Not Just an AI Policy",published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+305,amazon-ad-auction-ftc-lawsuit,Amazon’s Ad Auction Is Now a Trust Problem,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+306,tims-triangle-rewards-link-accounts,Tims and Triangle Rewards Now Stack. Read the Fine Print,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+307,transfer-google-photos-to-icloud-directly,Move Google Photos to iCloud Without Downloading It All,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+308,signal-secure-backups-recovery-guide,Back Up Signal Before a Lost Phone Erases Your Chats,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+309,hdmi-cable-4k-120hz-certification,The HDMI Cable Label That Matters for 4K at 120 Hz,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+310,android-september-2026-features-availability,"Android’s September Drop Is Five Features, Not One Update",published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+311,gemini-38-flash-pricing-task-cost,"Gemini 3.8 Flash Keeps Token Prices Flat, Not Task Costs",published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+312,stop-onedrive-desktop-backup-keep-files,Stop OneDrive Desktop Backup Without Losing Local Files,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+313,internet-down-router-isp-dns-diagnosis,"Find Out Whether Your Internet, Router or Device Is Down",published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+314,move-smart-home-devices-new-wifi,Move Smart-Home Devices to New Wi-Fi Without Starting Over,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+315,gpt-6-astra-arc-agi-3-benchmark,GPT-6 Astra's 99.9% Benchmark Needs an Asterisk,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+316,check-refurbished-phone-battery-health,Check a Refurbished Phone's Battery Before You Keep It,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+317,nvidia-pair-local-ai-router-explained,Nvidia PAIR Makes Spare PCs Useful for Local AI,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+318,share-files-across-devices-localsend,Share Files Across Every Device Without Using the Cloud,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+319,security-key-backup-lockout-plan,Set Up Security Keys Without Creating a Lockout,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+320,eu-dsa-chatgpt-reddit-roblox-rules,"EU Puts ChatGPT, Reddit and Roblox Under Stricter Rules",published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+321,turn-off-ad-tracking-location-privacy,Turning Off Ad Tracking Will Not Hide Your Phone's Location,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+322,move-whatsapp-chats-iphone-android,Move WhatsApp Chats Between iPhone and Android Safely,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+323,free-phone-storage-keep-photos,Free Phone Storage Without Accidentally Deleting Your Photos,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+324,usb-c-cable-power-data-video-guide,The USB-C Plug Does Not Tell You What the Cable Can Do,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+325,move-passwords-new-manager-safely,Move Passwords to a New Manager Without Exposing Them,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+326,scan-paper-documents-phone-pdf,Scan Paper Documents to PDF With the Phone You Own,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+327,ontario-court-data-breach-what-to-do,Ontario Court Data Was Exposed in a Vendor Breach,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+328,mikrotik-routeros-security-update-flagged-check,"Update MikroTik RouterOS, Then Check for a Flagged Router",published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+329,stop-fake-virus-alert-browser-notifications,Stop Fake Virus Alerts Coming From Your Browser,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+330,cancel-app-subscriptions-iphone-android,Cancel App Subscriptions Before the Next Charge Lands,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+331,share-wifi-password-iphone-android,Share a Wi-Fi Password Without Saying or Typing It,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+332,canada-via-rail-alstom-passenger-cars,Canada's $4.7B VIA Rail Deal Is an Industrial-Tech Bet,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+333,merge-duplicate-contacts-iphone-android,Merge Duplicate Contacts Without Losing the Better Copy,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+334,liquid-network-bitcoin-withdrawal-incident,Liquid Network's $320M Incident Tests Federated Bitcoin,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+335,high-na-euv-larger-masks-ai-chips,High-NA EUV Needs a Bigger Window for Bigger AI Chips,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+336,boston-scientific-cyberattack-supply-recovery,Boston Scientific's Cyberattack Became a Supply Problem,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+337,use-phone-as-webcam-mac-windows,Use Your Phone as a Webcam Without Buying Another Camera,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+338,recover-unsaved-word-excel-powerpoint-file,Recover an Unsaved Office File Before You Start Over,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+339,stop-apps-opening-startup-windows-mac,Stop Apps Opening Every Time Windows or macOS Starts,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+340,meta-muse-ai-agent-permissions-security,Meta Muse Can Act for You. Its Permissions Need Limits,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+341,ai-distillation-model-extraction-warning,AI Distillation Is Normal. Covert Extraction Is Different,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+342,check-hidden-email-forwarding-rules-hacked-account,Check Hidden Email Forwarding After an Account Break-In,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+343,remove-hidden-data-office-files-before-sharing,Remove Hidden Data From Office Files Before Sharing,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+344,find-large-files-windows-mac-safe-cleanup,Find What Is Filling Your PC or Mac Before Deleting Files,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+345,iphone-duo-canada-price-first-generation-buying-guide,"The $2,999 iPhone Duo Is a First-Generation Bet",published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+346,nasa-ibm-lunar-foundation-model-open-ai-moon,NASA’s Open Lunar AI Maps More Than Moon Craters,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+347,remove-calendar-spam-iphone-google-calendar,Remove Calendar Spam Without Making It Worse,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+348,find-stop-sharing-google-drive-onedrive-files,Find Cloud Files You Forgot You Shared,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+349,lend-computer-separate-user-account-windows-mac,Lend Someone Your Computer Without Sharing Your Files,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+350,chatgpt-financial-services-canada-controls,ChatGPT for Finance Still Needs a Human Approval Layer,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+351,uae-5gw-ai-campus-concentration-resilience,The UAE’s 5GW AI Campus Is Learning the Cost of Concentration,published,1,Matthew Leo,1,Matthew Leo,valid,Matthew Leo,none
+352,clear-browser-cache-without-deleting-passwords,Clear Your Browser Cache Without Deleting Passwords,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+353,check-remote-job-offer-scam-canada,Check a Remote Job Offer Before Sending ID or Money,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+354,bluetooth-headphones-connected-no-sound-fix,Fix Bluetooth Headphones That Connect but Play No Sound,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+355,fake-dating-apps-ai-video-call-fraud,Fake Dating Apps Show Why a Video Call Is Not Proof,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+356,find-bitlocker-recovery-key-before-reset,Find Your BitLocker Key Before Resetting a Locked PC,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+357,refund-recovery-scam-canada-check,A Refund Recovery Offer Can Be the Second Scam,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+358,offline-printer-windows-mac-fix,Fix an Offline Printer Without Resetting Everything,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+359,clear-windows-clipboard-history-pinned-items,"Clear Windows Clipboard History, Including Pinned Items",published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+360,anthropic-ai-slowdown-plan-verifiable-gates,Anthropic's AI Slowdown Plan Needs Verifiable Gates,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+361,south-korea-espionage-law-chip-secrets,South Korea's New Spy Law Puts Chip Secrets on Alert,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+362,turn-on-iphone-stolen-device-protection,Turn On Stolen Device Protection Before Your iPhone Is Gone,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+363,remove-photo-location-before-sharing-iphone,Remove a Photo's Location Before You Share It,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+364,canada-do-not-call-list-spoofed-scam-calls,Canada's Do Not Call List Cannot Stop a Spoofed Scam,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+365,microsoft-mai-code-human-control-rules,Microsoft Says Its AI Must Always Let Humans Take Control,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+366,microsoft-school-ai-privacy-rules-canada,Microsoft's School AI Deal Has Rules Canada Could Borrow,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+367,remove-old-devices-apple-google-account,Remove Old Devices From Your Apple or Google Account,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+368,emergency-medical-info-phone-lock-screen,Put Emergency Medical Details on Your Phone's Lock Screen,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+369,private-browsing-incognito-what-it-hides,Private Browsing Hides Less Than Most People Think,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+370,ai-data-retention-no-training-promise,Your Company's AI Data Needs More Than a No-Training Promise,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+371,canada-ai-transparency-consultation-2026,Canada Wants Your Say on What AI Must Disclose,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+372,find-unknown-bluetooth-tracker-moving-with-you,Find an Unknown Bluetooth Tracker Moving With You,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+373,recover-deleted-phone-photos-before-trash-empties,Recover Deleted Phone Photos Before the Trash Empties,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+374,block-stolen-phone-imei-canada,Block a Stolen Phone's IMEI on Canadian Networks,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+375,canada-record-ai-fund-startup-scale-up-gap,Canada's Record AI Fund Won't Keep Every Startup Home,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+376,alberta-broadband-push-last-mile-test,Alberta's $24.8M Broadband Push Faces a Last-Mile Test,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+377,remove-old-app-access-google-apple-account,Cut Off Old Apps That Still Have Account Access,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+378,external-drive-mac-windows-exfat,Set Up One External Drive for Both Mac and Windows,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+379,fix-external-monitor-no-signal,Fix an External Monitor That Shows No Signal,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+380,canada-europe-digital-trade-details,Canada and Europe Want Seamless Digital Trade. Details Matter,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+381,claude-docs-slides-export-check,Claude's New Docs and Slides Need an Export Check,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+382,prepare-phone-for-repair-protect-data,Prepare Your Phone for Repair Without Sharing Your Passcode,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+383,phone-charging-slowly-cable-charger-port,Find Out Why Your Phone Is Charging Slowly,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+384,check-app-camera-microphone-permissions,Check Which Apps Can Use Your Camera and Microphone,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+385,smart-glasses-consent-privacy-canada,Smart Glasses Have a Consent Problem Canada Can't Ignore,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+386,mantic-ai-forecasting-win-not-an-oracle,Mantic Beat Human Forecasters. It Still Isn't an Oracle,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+387,fix-phone-hotspot-device-cannot-connect,Fix a Phone Hotspot That Other Devices Can't Join,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+388,audit-remove-browser-extensions-permissions,Audit Browser Extensions Before One Turns Risky,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+389,hide-sensitive-lock-screen-notifications-phone,Hide Sensitive Notifications on Your Phone's Lock Screen,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+390,iran-war-changing-us-military-technology,The Iran War Is Rewriting America’s War-Tech Shopping List,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+391,openai-hugging-face-incident-ai-regulation-gaps,OpenAI’s Hugging Face Incident Falls Between AI Rules,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+392,canada-eu-associate-membership-internet-rules,EU ‘Associate Membership’ Wouldn’t Import Its Internet Laws,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+393,saudi-arabia-f35-deal-security-trust-911,The Saudi F-35 Deal Reopens an Old American Trust Debate,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+394,verly-canadian-bible-app-testers-2026,Verly Is a Canadian Bible App Built to Make Scrolling Meaningful,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+395,gemini-cyber-test-reached-real-companies,Gemini’s Cyber Test Reached Three Real Companies,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+396,eu-kids-act-age-checks-privacy,Europe Wants Age Checks Without an Identity Database,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+397,hackers-changed-water-pump-settings-small-utilities,Hackers Changed Water-Pump Settings at Two Small Utilities,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+398,millisecond-software-bug-uk-airspace-disruption,A Millisecond Software Bug Disrupted UK Airspace for Days,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+399,anthropic-accenture-ai-evaluator-independence,Anthropic’s New AI Evaluator Will Be Paid by Anthropic,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+400,nscale-ipo-deals-revenue-data-centres,Nscale’s IPO Filing Shows the Gap Between Deals and Revenue,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+401,cxmt-fifth-generation-dram-mass-production,China Says Its New DRAM Process Is in Mass Production,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+402,canada-india-trade-critical-minerals-nuclear,Canada's India Trade Talks Are About More Than Tariffs,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+403,ukraine-moscow-drone-wave-air-defence-cost,Ukraine's Moscow Drone Wave Tests the Cost of Air Defence,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+404,move-authenticator-codes-new-phone,Move Your Authenticator Codes Before Replacing Your Phone,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+405,download-offline-maps-before-trip,Download Offline Maps Before You Lose Mobile Service,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+406,us-china-ai-incident-notification-proposal,The US Wants China to Report Dangerous AI Incidents,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+407,canada-france-space-communications-infrastructure,Canada and France Plan Shared Space Infrastructure,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+408,ai-memory-shortage-phone-laptop-prices-canada,AI's Memory Appetite Is Raising Device Prices,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+409,transfer-esim-before-erasing-old-phone,Transfer Your eSIM Before Erasing Your Old Phone,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+410,erase-pc-mac-before-selling-giving-away,Erase a PC or Mac Before You Sell or Give It Away,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+411,humanoid-robot-sales-2025-hype-reality,Humanoid Robot Sales Are Still Tiny Beside the Hype,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+412,trump-tv-white-house-24-7-stream,Trump TV Isn’t News. That’s the Point.,published,1,Matthew Mbaka,1,Matthew Leo,valid,Matthew Leo,none
+414,googlebook-canada-release-date-what-to-check,Googlebook Arrives in Canada on October 5,published,1,Matthew Leo,1,Matthew Leo,valid,Matthew Leo,none
+415,alberta-data-centres-power-grid-cost-rules,Alberta’s Data-Centre Boom Needs Clear Power Rules,published,1,Matthew Leo,1,Matthew Leo,valid,Matthew Leo,none
+416,ai-shopping-agents-fraud-payment-risks,Banks Warn AI Shopping Agents Can Complicate Fraud Claims,published,1,Matthew Leo,1,Matthew Leo,valid,Matthew Leo,none
+417,stop-apps-using-precise-location-iphone-android,Stop Apps From Using Your Precise Location,published,1,Matthew Leo,1,Matthew Leo,valid,Matthew Leo,none
+418,set-up-passkeys-with-recovery-backup,Set Up Passkeys Without Locking Yourself Out,published,1,Matthew Leo,1,Matthew Leo,valid,Matthew Leo,none
+419,activision-next-halo-xbox-cuts-268-jobs,Activision Will Build the Next Halo as Xbox Cuts 268 Jobs,published,1,Matthew Leo,1,Matthew Leo,valid,Matthew Leo,none
+420,us-australia-online-safety-bill-censorship,The US Calls Australia’s Online-Safety Bill Censorship,published,1,Matthew Leo,1,Matthew Leo,valid,Matthew Leo,none
+421,claude-opus-5-5-pricing-safety-routing,Claude Opus 5.5 Lowers Prices and Adds Safety Routing,published,1,Matthew Leo,1,Matthew Leo,valid,Matthew Leo,none
+422,check-canadian-credit-reports-unknown-accounts,Check Your Canadian Credit Reports for Accounts You Don’t Know,published,1,Matthew Leo,1,Matthew Leo,valid,Matthew Leo,none
+423,report-scam-text-canada-7726,Report a Scam Text in Canada Without Opening Its Link,published,1,Matthew Leo,1,Matthew Leo,valid,Matthew Leo,none

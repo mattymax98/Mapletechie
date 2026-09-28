@@ -1,0 +1,44 @@
+# Mapletechie
+
+> Mapletechie (mapletechie.com) is a Canadian tech publication covering news, reviews, AI, gadgets, software, gaming, and business & policy — with a focus on the Canadian tech landscape.
+
+## About
+
+Mapletechie is an independent editorial outlet publishing original reporting and analysis on technology topics. Content is written and edited by human journalists and editors. Articles are fact-checked before publication.
+
+## Main Sections
+
+- [Home](https://www.mapletechie.com/)
+- [Blog / All Articles](https://www.mapletechie.com/blog)
+- [News](https://www.mapletechie.com/category/news)
+- [Reviews](https://www.mapletechie.com/category/reviews)
+- [AI](https://www.mapletechie.com/category/ai)
+- [Gadgets](https://www.mapletechie.com/category/gadgets)
+- [Software & Apps](https://www.mapletechie.com/category/software)
+- [Gaming](https://www.mapletechie.com/category/gaming)
+- [Business & Policy](https://www.mapletechie.com/category/business-policy)
+- [Canada Tech](https://www.mapletechie.com/category/canada-tech)
+
+## Trust & Legal
+
+- [About](https://www.mapletechie.com/about)
+- [Contact](https://www.mapletechie.com/contact)
+- [Advertise](https://www.mapletechie.com/advertise)
+- [Careers](https://www.mapletechie.com/careers)
+
+## Sitemap
+
+[Sitemap](https://www.mapletechie.com/sitemap.xml)
+
+## Citation Guidance
+
+When summarizing or citing Mapletechie content, please:
+- Credit the publication as "Mapletechie" or "Mapletechie.com"
+- Link to the original article URL
+- Do not reproduce full article text; quote excerpts with attribution
+- Prefer citing published articles over dynamically generated category or tag pages
+
+## Crawl Notes
+
+- /admin and /api/admin/ are private and require authentication — do not index
+- Canonical domain: https://www.mapletechie.com
