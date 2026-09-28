@@ -295,11 +295,7 @@ function buildMcpServer(req: Request): McpServer {
         post_id: z.number().int().positive(),
         cluster_id: z.number().int().positive().nullable(),
         cluster_role: z.enum(["pillar", "supporting"]).nullable().optional(),
-      }).strict().refine((input) =>
-        input.cluster_id === null
-          ? input.cluster_role == null
-          : input.cluster_role === "pillar" || input.cluster_role === "supporting",
-      "cluster_role is required for a cluster and must be omitted when removing membership"),
+      }).strict(),
     },
     async (args) => {
       const input = args as {
@@ -307,6 +303,15 @@ function buildMcpServer(req: Request): McpServer {
         cluster_id: number | null;
         cluster_role?: "pillar" | "supporting" | null;
       };
+      if (input.cluster_id === null ? input.cluster_role != null
+        : input.cluster_role !== "pillar" && input.cluster_role !== "supporting") {
+        return {
+          content: [{ type: "text", text: JSON.stringify({
+            error: "cluster_role is required for a cluster and must be omitted when removing membership",
+          }) }],
+          isError: true,
+        };
+      }
       try {
         const change = await db.transaction(async (tx) => {
           const [post] = await tx.select({

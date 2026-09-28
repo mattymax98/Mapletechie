@@ -405,6 +405,10 @@ describe("POST /mcp — tools", () => {
     const manageCluster = tools.find((t: any) => t.name === "manage_mapletechie_post_cluster");
     expect(manageCluster.description).toMatch(/both.*private/i);
     expect(manageCluster.description).toMatch(/public-cluster membership.*human/i);
+    expect(Object.keys(manageCluster.inputSchema.properties)).toEqual(
+      expect.arrayContaining(["post_id", "cluster_id", "cluster_role"]),
+    );
+    expect(manageCluster.inputSchema.required).toEqual(expect.arrayContaining(["post_id", "cluster_id"]));
     expect(draft.inputSchema.properties.content.description).toMatch(/reddit\|twitter\|youtube|youtube\|twitter\|reddit/i);
     const backfill = tools.find((t: any) => t.name === "backfill_mapletechie_images");
     expect(backfill.description).toMatch(/draft only/i);
