@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { responsiveCoverProps, COVER_SIZES } from "./src/lib/responsiveImage";
 import { buildSeoTitle } from "./src/lib/seoTitle";
 import { ensureImgAlt } from "./src/lib/ensureImgAlt";
+import { GA4_MEASUREMENT_ID } from "./src/lib/ga4";
 import {
   buildPersonJsonLd,
   visibleProfileLinks,
@@ -61,6 +62,23 @@ if (!existsSync(indexHtmlPath)) {
   );
 }
 const indexHtml = readFileSync(indexHtmlPath, "utf-8");
+if (!indexHtml.includes("</head>")) {
+  throw new Error("Built index.html has no head for the public Google tag.");
+}
+// Keep the base shell untagged for admin and signed-preview documents. All
+// normal public HTML responses use this single head installation instead.
+const publicIndexHtml = indexHtml.replace(
+  "</head>",
+  `    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=${GA4_MEASUREMENT_ID}"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', '${GA4_MEASUREMENT_ID}', { send_page_view: false });
+    </script>
+  </head>`,
+);
 
 // Discover the built CSS entry file at startup so we can emit a preload Link
 // header on every HTML response. The browser then starts fetching the
@@ -187,7 +205,7 @@ function buildSeoBlock(data: SeoData): string {
 }
 
 function renderHtml(seoBlock: string, bodyHtml?: string): string {
-  let html = indexHtml.replace(SEO_BLOCK_RE, seoBlock);
+  let html = publicIndexHtml.replace(SEO_BLOCK_RE, seoBlock);
   if (bodyHtml) {
     html = html.replace(ROOT_RE, `<div id="root">${bodyHtml}</div>`);
   }
@@ -377,11 +395,12 @@ function sendSpaShell(
   res: express.Response,
   status = 200,
   seoBlock?: string,
+  privateRoute = false,
 ): void {
   res.status(status);
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Vary", "User-Agent");
-  res.send(seoBlock ? renderHtml(seoBlock) : indexHtml);
+  res.send(privateRoute ? indexHtml : seoBlock ? renderHtml(seoBlock) : publicIndexHtml);
 }
 
 function renderSignedPreviewShell(): string {
@@ -2013,15 +2032,18 @@ app.all(/.*/, (req, res, next) => {
 // Vary: User-Agent because /blog/* and /category/* above branch on UA, so any shared
 // cache MUST key by UA to avoid serving a crawler-rendered HTML to a real browser (or vice versa).
 app.get(/^(?!\/api\/).*/, (req, res) => {
+  const pathname = req.path.toLowerCase();
+  const privateRoute = pathname === "/admin" || pathname.startsWith("/admin/") ||
+    pathname === "/preview" || pathname.startsWith("/preview/");
   if (!isKnownSpaRoute(req.path)) {
     if (isCrawler(req)) {
       send404(res, "Page Not Found");
     } else {
-      sendSpaShell(res, 404);
+      sendSpaShell(res, 404, undefined, privateRoute);
     }
     return;
   }
-  sendSpaShell(res);
+  sendSpaShell(res, 200, undefined, privateRoute);
 });
 
 app.listen(PORT, "0.0.0.0", () => {

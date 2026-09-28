@@ -153,6 +153,7 @@ describe("GET /sitemap.xml — SITE_DOMAIN protocol normalisation", () => {
           ? [
               { slug: "artificial-intelligence", isPublic: true, publishedCount: 3 },
               { slug: "too-few-posts", isPublic: true, publishedCount: 2 },
+              { slug: "private-topic", isPublic: false, publishedCount: 4 },
               { slug: "bad.topic", isPublic: true, publishedCount: 4 },
             ]
           : [],
@@ -164,6 +165,7 @@ describe("GET /sitemap.xml — SITE_DOMAIN protocol normalisation", () => {
     expect(body).toContain("<loc>https://www.mapletechie.com/topics/artificial-intelligence</loc>");
     expect(body).toContain("<loc>https://www.mapletechie.com/topics</loc>");
     expect(body).not.toContain("/topics/too-few-posts");
+    expect(body).not.toContain("/topics/private-topic");
     expect(body).not.toContain("/topics/bad.topic");
   });
 

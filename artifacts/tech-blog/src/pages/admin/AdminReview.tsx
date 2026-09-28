@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { AlertCircle, ArrowLeft, ArrowRight, Clock3, RefreshCw, Search, X } from "lucide-react";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ type RevisionItem = {
   publishedAt?: string | null; scheduledFor?: string | null; source: string; createdAt: string;
   fields: string[]; stale?: boolean; proposedByName?: string | null; reviewedByName?: string | null;
   reviewedAt?: string | null; status?: string; updateNote?: string | null;
+  supersededByRevisionId?: number | null; supersededByName?: string | null;
 };
 type QueueResponse = { items: RevisionItem[]; total: number; pendingCount: number; page: number; pageSize: number };
 type HistoryResponse = { items: RevisionItem[]; total: number; page: number; pageSize: number };
@@ -40,15 +41,13 @@ function ComparisonValue({ field, value }: { field: string; value: string | null
 }
 
 export default function AdminReview() {
-  const [location, setLocation] = useLocation();
-  const searchPart = typeof window !== "undefined" && window.location.search
-    ? window.location.search.slice(1)
-    : location.includes("?") ? location.slice(location.indexOf("?") + 1).split("#")[0] : "";
+  const [, setLocation] = useLocation();
+  const searchPart = useSearch();
   const params = new URLSearchParams(searchPart);
   const activeTab = params.get("tab") === "history" ? "history" : "pending";
   const selectedRevision = params.get("revision");
   const [page, setPage] = useState(1);
-  const [status, setStatus] = useState<"all" | "approved" | "rejected">("all");
+  const [status, setStatus] = useState<"all" | "approved" | "rejected" | "superseded">("all");
   const [search, setSearch] = useState("");
   const [data, setData] = useState<QueueResponse | null>(null);
   const [history, setHistory] = useState<HistoryResponse | null>(null);
@@ -105,7 +104,7 @@ export default function AdminReview() {
     setPage(1);
     setLocation(tab === "history" ? "/admin/review?tab=history" : "/admin/review");
   };
-  const setHistoryFilter = (nextStatus: "all" | "approved" | "rejected", nextSearch = search) => {
+  const setHistoryFilter = (nextStatus: "all" | "approved" | "rejected" | "superseded", nextSearch = search) => {
     setPage(1); setStatus(nextStatus); setSearch(nextSearch);
   };
   const backToHistory = () => setLocation("/admin/review?tab=history");
@@ -139,7 +138,9 @@ export default function AdminReview() {
                 <p className="mt-1 text-xs text-zinc-500">Post #{detail.postId} · Submitted by {detail.proposedByName || "Unknown editor"} · {dateTime(detail.createdAt)}</p>
                 <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-zinc-400">
                   <span>Status: <strong className="capitalize text-zinc-200">{statusLabel(detail)}</strong></span>
-                  {detail.reviewedAt && <span>Reviewed {dateTime(detail.reviewedAt)} by {detail.reviewedByName || "Unknown reviewer"}</span>}
+                   {statusLabel(detail) === "superseded"
+                     ? <span>Automatically superseded after Revision #{detail.supersededByRevisionId ?? "unknown"} was approved{detail.supersededByName ? ` by ${detail.supersededByName}` : ""} · {dateTime(detail.reviewedAt)}</span>
+                     : detail.reviewedAt && <span>Reviewed {dateTime(detail.reviewedAt)} by {detail.reviewedByName || "Unknown reviewer"}</span>}
                   {detail.updateNote && <span>Update note: {detail.updateNote}</span>}
                 </div>
                 {(detail.postStatus === "deleted" || detail.currentStatus === "deleted") && <p className="mt-3 border border-amber-900/70 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">The current article has been deleted. This revision is retained for the record.</p>}
@@ -150,7 +151,7 @@ export default function AdminReview() {
                   const before = detail.before ?? emptyMap;
                   const proposed = detail.proposed ?? emptyMap;
                   const finalValues = detail.final ?? detail.applied ?? emptyMap;
-                  const isRejected = statusLabel(detail) === "rejected";
+                   const isRejected = statusLabel(detail) !== "approved";
                   const hasBefore = Object.prototype.hasOwnProperty.call(before, field);
                   const hasProposed = Object.prototype.hasOwnProperty.call(proposed, field);
                   const finalKnown = Object.prototype.hasOwnProperty.call(finalValues, field);
@@ -161,10 +162,10 @@ export default function AdminReview() {
                       {[
                         { label: "Before", value: before[field], known: hasBefore },
                         { label: "Proposed", value: proposed[field], known: hasProposed },
-                        { label: isRejected ? "Rejected" : "Final approved", value: finalValues[field], known: finalKnown },
+                         { label: isRejected ? "Not applied" : "Final approved", value: finalValues[field], known: finalKnown },
                       ].map((column, i) => <div key={column.label} className={`min-w-0 p-4 ${i > 0 ? "border-t border-zinc-800 md:border-l md:border-t-0" : ""}`}>
                         <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-500">{column.label}</p>
-                        {column.known ? <ComparisonValue field={field} value={column.value} /> : <p className="mt-3 text-xs italic text-zinc-500">{column.label === "Before" || column.label === "Proposed" ? "Unknown — not recorded in this legacy revision." : isRejected ? "No final value — proposal was rejected." : "Final value not recorded."}</p>}
+                         {column.known ? <ComparisonValue field={field} value={column.value} /> : <p className="mt-3 text-xs italic text-zinc-500">{column.label === "Before" || column.label === "Proposed" ? "Unknown — not recorded in this legacy revision." : isRejected ? "No final value — proposal was not applied." : "Final value not recorded."}</p>}
                       </div>)}
                     </div>
                     {edited.map((edit, index) => <div key={`${edit.reviewedAt}-${index}`} className="border-t border-zinc-800 bg-amber-950/10 px-4 py-3">
@@ -181,7 +182,7 @@ export default function AdminReview() {
           <>
             <div className="mb-4 flex flex-col gap-3 border border-zinc-800 bg-zinc-950/40 p-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex gap-1" role="group" aria-label="History status filter">
-                {(["all", "approved", "rejected"] as const).map((value) => <button key={value} type="button" data-testid={`filter-${value}`} aria-pressed={status === value} onClick={() => setHistoryFilter(value)} className={`px-3 py-1.5 text-xs capitalize ${status === value ? "bg-zinc-800 text-zinc-100" : "text-zinc-500 hover:text-zinc-200"}`}>{value}</button>)}
+                 {(["all", "approved", "rejected", "superseded"] as const).map((value) => <button key={value} type="button" data-testid={`filter-${value}`} aria-pressed={status === value} onClick={() => setHistoryFilter(value)} className={`px-3 py-1.5 text-xs capitalize ${status === value ? "bg-zinc-800 text-zinc-100" : "text-zinc-500 hover:text-zinc-200"}`}>{value}</button>)}
               </div>
               <label className="relative block w-full sm:max-w-sm"><Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-zinc-600" /><input data-testid="history-search" value={search} onChange={(event) => setHistoryFilter(status, event.target.value)} placeholder="Search title or post ID" className="h-9 w-full border border-zinc-700 bg-zinc-950 pl-9 pr-9 text-sm text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-orange-500" />{search && <button type="button" aria-label="Clear search" onClick={() => setHistoryFilter(status, "")} className="absolute right-2 top-2 p-1 text-zinc-500 hover:text-zinc-200"><X className="h-3.5 w-3.5" /></button>}</label>
             </div>
@@ -189,7 +190,7 @@ export default function AdminReview() {
             {!loading && error && <div role="alert" className="flex items-center gap-3 border border-red-900/70 bg-red-950/30 p-4 text-sm text-red-300"><AlertCircle className="h-4 w-4 shrink-0" /><span className="flex-1">{error}</span><Button variant="outline" size="sm" onClick={loadHistory}>Retry</Button></div>}
             {!loading && !error && history?.items.length === 0 && <div className="border border-dashed border-zinc-800 bg-zinc-900/20 px-6 py-14 text-center"><div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center border border-zinc-800 bg-zinc-900 text-zinc-500"><Clock3 className="h-4 w-4" /></div><h3 className="text-sm font-semibold text-zinc-200">No revisions in this view.</h3><p className="mt-1 text-xs text-zinc-500">Try another status or search term. The record remains unchanged.</p></div>}
             {!loading && !error && !!history?.items.length && <div className="overflow-hidden border border-zinc-800">
-              <div className="hidden grid-cols-[minmax(0,1fr)_170px_190px_90px] gap-4 border-b border-zinc-800 bg-zinc-900/70 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 md:grid"><span>Article / changed fields</span><span>Submitted</span><span>Reviewed by</span><span /></div>
+               <div className="hidden grid-cols-[minmax(0,1fr)_170px_190px_90px] gap-4 border-b border-zinc-800 bg-zinc-900/70 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 md:grid"><span>Article / changed fields</span><span>Submitted</span><span>Decision</span><span /></div>
               {history.items.map((item) => <article key={item.id} data-testid={`history-row-${item.id}`} className="grid gap-3 border-b border-zinc-800 bg-zinc-950/40 px-4 py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_170px_190px_90px] md:items-center md:gap-4">
                 <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="truncate text-sm font-semibold text-zinc-100">{item.title || `Article #${item.postId}`}</h3><span className={`border px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${statusLabel(item) === "approved" ? "border-emerald-900 bg-emerald-950/30 text-emerald-300" : "border-rose-900 bg-rose-950/30 text-rose-300"}`}>{statusLabel(item)}</span></div>
                   <p className="mt-1 text-[11px] text-zinc-500">Post #{item.postId} · Revision #{item.id} · {item.source}</p>
@@ -200,7 +201,7 @@ export default function AdminReview() {
                   {item.updateNote && <p className="mt-2 border-l border-zinc-700 pl-2 text-xs text-zinc-400"><span className="text-zinc-600">Update note: </span>{item.updateNote}</p>}
                 </div>
                 <div className="text-[11px]"><p className="text-zinc-400">{dateTime(item.createdAt)}</p><p className="mt-1 text-zinc-600">by {item.proposedByName || "Unknown editor"}</p></div>
-                <div className="text-[11px]"><p className="text-zinc-300">{item.reviewedByName || "Unknown reviewer"}</p><p className="mt-1 text-zinc-600">{dateTime(item.reviewedAt)}</p></div>
+                 <div className="text-[11px]"><p className="text-zinc-300">{statusLabel(item) === "superseded" ? `Automatically superseded after Revision #${item.supersededByRevisionId ?? "unknown"} was approved` : item.reviewedByName || "Unknown reviewer"}</p><p className="mt-1 text-zinc-600">{dateTime(item.reviewedAt)}</p></div>
                 <Link data-testid={`view-changes-${item.id}`} href={`/admin/review?tab=history&revision=${item.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-orange-400 hover:text-orange-300">View changes <ArrowRight className="h-3.5 w-3.5" /></Link>
               </article>)}
             </div>}
@@ -215,7 +216,7 @@ export default function AdminReview() {
               <div className="hidden grid-cols-[minmax(0,1fr)_170px_190px] gap-4 border-b border-zinc-800 bg-zinc-900/70 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 md:grid"><span>Article / proposed fields</span><span>Article timeline</span><span>Proposal</span></div>
               {data.items.map((item) => <article key={item.id} className="grid gap-3 border-b border-zinc-800 bg-zinc-950/40 px-4 py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_170px_190px] md:items-center md:gap-4">
                 <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><Link href={`/admin/posts/${item.postId}/edit#editorial-corrections`} className="truncate text-sm font-semibold text-zinc-100 hover:text-orange-300">{item.title || `Article #${item.postId}`}</Link><span className="border border-zinc-700 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-400">{item.postStatus}</span>{item.stale && <span className="border border-amber-800 bg-amber-950/40 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">Re-review required</span>}</div><p className="mt-1 text-[11px] text-zinc-500">Post #{item.postId} · Proposal #{item.id}</p><div className="mt-2 flex flex-wrap gap-1.5">{item.fields.map((field) => <span key={field} className="border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 text-[10px] text-zinc-400">{fieldNames[field] ?? field}</span>)}</div></div>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] md:block md:space-y-1.5">{item.postStatus === "published" ? <p><span className="text-zinc-600">Published</span><span className="ml-2 text-zinc-400">{dateTime(item.publishedAt)}</span></p> : <p><span className="text-zinc-600">Scheduled for</span><span className="ml-2 text-zinc-400">{dateTime(item.scheduledFor)}</span></p>}</div>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] md:block md:space-y-1.5">{item.postStatus === "published" ? <p><span className="text-zinc-600">Published</span><span className="ml-2 text-zinc-400">{dateTime(item.publishedAt)}</span></p> : item.postStatus === "scheduled" ? <p><span className="text-zinc-600">Scheduled for</span><span className="ml-2 text-zinc-400">{dateTime(item.scheduledFor)}</span></p> : <p><span className="text-zinc-600">Previously published</span><span className="ml-2 text-zinc-400">{dateTime(item.publishedAt)}</span></p>}</div>
                 <div className="flex items-center justify-between gap-2 border-t border-zinc-800/70 pt-2 md:border-0 md:pt-0"><div className="min-w-0 text-[11px]"><p className="text-zinc-300">{item.source}</p><p className="mt-1 text-zinc-600">{dateTime(item.createdAt)}</p></div><Link href={`/admin/posts/${item.postId}/edit#editorial-corrections`} className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-orange-400 hover:text-orange-300">Review <ArrowRight className="h-3.5 w-3.5" /></Link></div>
               </article>)}
             </div>}

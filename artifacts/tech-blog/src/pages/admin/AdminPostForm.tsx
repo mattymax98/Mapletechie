@@ -127,7 +127,8 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
   const historyProtected =
     isEditing &&
     (["published", "scheduled"].includes((existingPost as any)?.status) ||
-      !!(existingPost as any)?.publishedOnceAt);
+      !!(existingPost as any)?.publishedOnceAt ||
+      (existingPost as any)?.editorialHistoryLocked === true);
 
   const [coverImageStatus, setCoverImageStatus] = useState<ImagePreviewStatus>("idle");
   const [ogImageStatus, setOgImageStatus] = useState<ImagePreviewStatus>("idle");
@@ -796,17 +797,32 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
         </main>
       ) : (
       <main className="max-w-4xl mx-auto px-4 py-8">
-        {isEditing && postId && token && ["published", "scheduled"].includes((existingPost as any)?.status) && (
-          <ArticleRevisions postId={postId} token={token} canApprove={canChooseStatus} />
+        {isEditing && postId && token && historyProtected && (
+          <ArticleRevisions postId={postId} token={token} canApprove={canChooseStatus} onApproved={(updated) => {
+            queryClient.setQueryData(getGetPostQueryKey(postId), (current: any) =>
+              current ? { ...current, ...updated } : current,
+            );
+            setForm((current) => {
+              const baseline = JSON.parse(baselineRef.current);
+              const next = { ...current };
+              for (const field of ["title", "excerpt", "content", "coverImage", "coverImageAlt", "ogImage", "seoTitle", "seoDescription"] as const) {
+                const saved = updated[field] ?? "";
+                if (current[field] === baseline[field]) next[field] = saved;
+                baseline[field] = saved;
+              }
+              baselineRef.current = JSON.stringify(baseline);
+              return next;
+            });
+          }} />
         )}
         {publishedReviewOnly && (
           <p className="mb-6 rounded border border-amber-800 bg-amber-950/40 p-4 text-sm text-amber-200">
-            This article is {((existingPost as any)?.status === "scheduled") ? "scheduled" : "live"}. Submit corrections in the revision proposal above; editorial changes cannot be saved directly.
+            This article is {((existingPost as any)?.status === "scheduled") ? "scheduled" : ((existingPost as any)?.status === "draft") ? "temporarily unpublished" : "live"}. Submit corrections in the revision proposal above; editorial changes cannot be saved directly.
           </p>
         )}
         {historyProtected && !publishedReviewOnly && (
           <p className="mb-6 rounded border border-amber-800 bg-amber-950/40 p-4 text-sm text-amber-200">
-            This article has published history. Changes to its title, excerpt, body, images, and primary SEO fields require an approved revision, even while the post is unpublished. Metadata can still be saved here. Revision proposals are currently available while the post is live or scheduled.
+            This article has published history. Changes to its title, excerpt, body, images, and primary SEO fields require an approved revision, even while the post is unpublished. Metadata can still be saved here. Approving a correction to an unpublished article keeps it unpublished.
           </p>
         )}
         <form onSubmit={(e) => submit(e)} className="space-y-6">

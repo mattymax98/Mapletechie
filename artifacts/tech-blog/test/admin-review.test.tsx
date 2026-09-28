@@ -79,4 +79,20 @@ describe("admin review queue", () => {
     expect(screen.getByText("0")).toBeTruthy();
     expect(screen.getByText("pending")).toBeTruthy();
   });
+
+  it("labels a temporarily unpublished article by its original publication date", async () => {
+    adminJsonMock.mockResolvedValue({
+      items: [{
+        id: 703, postId: 94, title: "Unpublished article", postStatus: "draft",
+        publishedAt: "2025-01-01T00:00:00Z", scheduledFor: null,
+        source: "editor", createdAt: "2025-01-02T00:00:00Z",
+        fields: ["title"], stale: false,
+      }],
+      total: 1, pendingCount: 1, page: 1, pageSize: 20,
+    });
+    const { findByText, queryByText } = renderReview();
+    expect(await findByText("Unpublished article")).toBeTruthy();
+    expect(await findByText("Previously published")).toBeTruthy();
+    expect(queryByText("Scheduled for")).toBeNull();
+  });
 });

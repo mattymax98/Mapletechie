@@ -58,6 +58,10 @@ router.post("/admin/topics", adminAuth, requireRole("admin"), async (req, res): 
     res.status(400).json({ error: "Provide a name, lowercase hyphenated slug, introduction, and isPublic boolean." });
     return;
   }
+  if (input.isPublic) {
+    res.status(409).json({ error: "A topic needs at least three published articles before it can be made public." });
+    return;
+  }
   const [duplicate] = await db.select({ id: topicClustersTable.id }).from(topicClustersTable)
     .where(eq(topicClustersTable.slug, input.slug)).limit(1);
   if (duplicate) {
@@ -84,6 +88,14 @@ router.put("/admin/topics/:id", adminAuth, requireRole("admin"), async (req, res
   if (input.slug !== existing.slug) {
     res.status(400).json({ error: "Topic slugs are permanent once created, so existing links keep working." });
     return;
+  }
+  if (input.isPublic) {
+    const [published] = await db.select({ value: sql<number>`count(*)::integer` }).from(postsTable)
+      .where(and(eq(postsTable.clusterId, id), eq(postsTable.status, "published")));
+    if ((published?.value ?? 0) < 3) {
+      res.status(409).json({ error: "A topic needs at least three published articles before it can be made public." });
+      return;
+    }
   }
   const [duplicate] = await db.select({ id: topicClustersTable.id }).from(topicClustersTable)
     .where(eq(topicClustersTable.slug, input.slug)).limit(1);

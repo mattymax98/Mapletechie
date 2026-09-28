@@ -246,6 +246,7 @@ function startMockApi(
     resourceFailure?: boolean;
     emptyTopics?: boolean;
     topicPostCount?: number;
+    articleTopicContext?: boolean;
   } = {},
 ): Promise<{
   server: ReturnType<typeof express>;
@@ -288,7 +289,11 @@ function startMockApi(
   });
   api.get("/api/posts/slug/:slug", (req, res) => {
     if (opts.resourceFailure) return res.status(503).json({ error: "temporary" });
-    if (req.params.slug === ARTICLE.slug) return res.json(ARTICLE);
+    if (req.params.slug === ARTICLE.slug) {
+      return res.json(opts.articleTopicContext === false
+        ? { ...ARTICLE, topicCluster: null }
+        : ARTICLE);
+    }
     if (req.params.slug === EMBED_ARTICLE.slug) return res.json(EMBED_ARTICLE);
     if (req.params.slug === LONG_TITLE_ARTICLE.slug) return res.json(LONG_TITLE_ARTICLE);
     if (req.params.slug === NO_ALT_IMG_ARTICLE.slug) return res.json(NO_ALT_IMG_ARTICLE);
@@ -548,6 +553,23 @@ afterAll(async () => {
 });
 
 describe("crawler prerendering — content for bots, shell for browsers", () => {
+  it("installs one GA4 tag in public heads, never in admin or signed-preview shells", async () => {
+    for (const pathname of ["/", `/blog/${ARTICLE.slug}`]) {
+      const { status, body } = await get(pathname, BROWSER_UA);
+      expect(status).toBe(200);
+      const head = body.split("</head>", 1)[0];
+      expect(head.match(/googletagmanager\.com\/gtag\/js\?id=G-8BSZZN1V93/g)).toHaveLength(1);
+      expect(head).toContain("gtag('config', 'G-8BSZZN1V93', { send_page_view: false })");
+      expect(body.slice(head.length)).not.toContain("googletagmanager.com/gtag/js");
+    }
+    for (const pathname of ["/admin", "/admin/posts/42/edit", "/preview/posts/42"]) {
+      const { status, body } = await get(pathname, BROWSER_UA);
+      expect(status).toBe(200);
+      expect(body).not.toContain("googletagmanager.com/gtag/js");
+      expect(body).not.toContain("G-8BSZZN1V93");
+    }
+  });
+
   describe("hostname redirect ownership", () => {
     it("does not redirect alternate hosts in the application layer", async () => {
       const instance = await startPrerenderServer(
@@ -973,6 +995,24 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).toContain(ARTICLE.author);
       expect(body).toContain(`${SITE_URL}/topics/${TOPIC.slug}`);
       expect(body).not.toContain('<div id="root"></div>');
+    });
+
+    it("does not prerender a topic link when the API withholds private or thin-cluster context", async () => {
+      const contextlessApi = await startMockApi({ articleTopicContext: false });
+      const instance = await startPrerenderServer(`http://127.0.0.1:${contextlessApi.port}`);
+      try {
+        const { status, body } = await getFrom(
+          instance.baseUrl,
+          `/blog/${ARTICLE.slug}`,
+          GOOGLEBOT_UA,
+        );
+        expect(status).toBe(200);
+        expect(body).not.toContain(`${SITE_URL}/topics/${TOPIC.slug}`);
+        expect(body).not.toContain("Part of a topic guide");
+      } finally {
+        instance.close();
+        await contextlessApi.close();
+      }
     });
 
     it("keeps the article's author and publish date in crawler-visible JSON-LD", async () => {

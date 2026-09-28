@@ -3,8 +3,8 @@ import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { db, categoriesTable, postsTable, topicsTable } from "@workspace/db";
-import { and, asc, desc, eq, getTableColumns } from "drizzle-orm";
+import { db, auditLogsTable, categoriesTable, postsTable, topicsTable } from "@workspace/db";
+import { and, asc, desc, eq, getTableColumns, inArray } from "drizzle-orm";
 import { writeAuditLogForUser } from "../lib/audit";
 import { persistImageBuffer } from "../lib/persistExternalImage";
 import { logger } from "../lib/logger";
@@ -228,6 +228,196 @@ function buildMcpServer(req: Request): McpServer {
       return {
         content: [{ type: "text", text: JSON.stringify({ ...cluster, posts }, null, 2) }],
       };
+    },
+  );
+
+  server.registerTool(
+    "create_mapletechie_topic_cluster",
+    {
+      title: "Create a private Mapletechie topic cluster",
+      description:
+        "Create a private topic cluster for organizing existing coverage. MCP-created clusters are always private; public visibility can only be enabled by an authorized human in the admin interface. Inspect the full archive and existing clusters before proposing a meaningful, non-duplicative cluster.",
+      inputSchema: z.object({
+        name: z.string().trim().min(1).max(160),
+        slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use a stable lowercase hyphenated slug"),
+        introduction: z.string().trim().max(3000).default(""),
+      }).strict(),
+    },
+    async (args) => {
+      const input = args as { name: string; slug: string; introduction: string };
+      try {
+        const cluster = await db.transaction(async (tx) => {
+          const [created] = await tx.insert(topicsTable)
+            .values({
+              name: input.name.trim(),
+              slug: input.slug,
+              introduction: input.introduction.trim(),
+              isPublic: false,
+            })
+            .returning();
+          if (!created) throw new Error("Topic cluster creation returned no row");
+          const occurredAt = new Date().toISOString();
+          await tx.insert(auditLogsTable).values(mcpAuditLogValues(req, {
+            action: "mcp.topic_cluster.created",
+            entityType: "topic_cluster",
+            entityId: created.id,
+            summary: `MCP created private topic cluster "${created.name}"`,
+            details: {
+              source: "mcp",
+              occurredAt,
+              before: null,
+              after: { id: created.id, name: created.name, slug: created.slug, introduction: created.introduction, isPublic: false },
+            },
+          }));
+          return created;
+        });
+        if (!cluster) throw new Error("Topic cluster creation returned no row");
+        return { content: [{ type: "text", text: JSON.stringify(cluster, null, 2) }] };
+      } catch (error) {
+        if (isUniqueConstraintViolation(error)) {
+          return {
+            content: [{ type: "text", text: JSON.stringify({ error: "A topic cluster with this slug already exists." }) }],
+            isError: true,
+          };
+        }
+        throw error;
+      }
+    },
+  );
+
+  server.registerTool(
+    "manage_mapletechie_post_cluster",
+    {
+      title: "Manage an existing post's private topic-cluster membership",
+      description:
+        "Assign, move, remove, or change the pillar/supporting role of an existing draft, scheduled, or published post, but only while both its current cluster and destination cluster are private. To remove membership, pass cluster_id=null and omit cluster_role. Public-cluster membership changes require an authorized human in the admin interface. This changes cluster metadata only; it does not edit article content or publication identity.",
+      inputSchema: z.object({
+        post_id: z.number().int().positive(),
+        cluster_id: z.number().int().positive().nullable(),
+        cluster_role: z.enum(["pillar", "supporting"]).nullable().optional(),
+      }).strict(),
+    },
+    async (args) => {
+      const input = args as {
+        post_id: number;
+        cluster_id: number | null;
+        cluster_role?: "pillar" | "supporting" | null;
+      };
+      if (input.cluster_id === null ? input.cluster_role != null
+        : input.cluster_role !== "pillar" && input.cluster_role !== "supporting") {
+        return {
+          content: [{ type: "text", text: JSON.stringify({
+            error: "cluster_role is required for a cluster and must be omitted when removing membership",
+          }) }],
+          isError: true,
+        };
+      }
+      try {
+        const change = await db.transaction(async (tx) => {
+          const [post] = await tx.select({
+            id: postsTable.id,
+            title: postsTable.title,
+            slug: postsTable.slug,
+            status: postsTable.status,
+            clusterId: postsTable.clusterId,
+            clusterRole: postsTable.clusterRole,
+          }).from(postsTable).where(eq(postsTable.id, input.post_id)).for("update");
+          if (!post) return { error: "Post not found." as const };
+
+          const clusterIds = [...new Set([
+            ...(post.clusterId == null ? [] : [post.clusterId]),
+            ...(input.cluster_id == null ? [] : [input.cluster_id]),
+          ])].sort((a, b) => a - b);
+          const clusters = clusterIds.length
+            ? await tx.select({
+                id: topicsTable.id,
+                name: topicsTable.name,
+                slug: topicsTable.slug,
+                isPublic: topicsTable.isPublic,
+              }).from(topicsTable)
+                .where(inArray(topicsTable.id, clusterIds))
+                .orderBy(asc(topicsTable.id))
+                .for("update")
+            : [];
+          if (clusters.length !== clusterIds.length) return { error: "Destination topic cluster not found." as const };
+
+          const sourceCluster = post.clusterId == null
+            ? null
+            : clusters.find((cluster) => cluster.id === post.clusterId) ?? null;
+          const destinationCluster = input.cluster_id == null
+            ? null
+            : clusters.find((cluster) => cluster.id === input.cluster_id) ?? null;
+          const nextRole = input.cluster_id == null ? null : input.cluster_role!;
+          if (post.clusterId === input.cluster_id && post.clusterRole === nextRole) {
+            return { post, unchanged: true as const };
+          }
+          if (sourceCluster?.isPublic) {
+            return { error: "Posts assigned to a public topic cluster can only be changed by an authorized human in the admin interface." as const };
+          }
+          if (destinationCluster?.isPublic) {
+            return { error: "MCP can only assign posts to private topic clusters; public-cluster membership requires an authorized human." as const };
+          }
+
+          if (input.cluster_id != null && nextRole === "pillar") {
+            const [existingPillar] = await tx.select({ id: postsTable.id })
+              .from(postsTable)
+              .where(and(
+                eq(postsTable.clusterId, input.cluster_id),
+                eq(postsTable.clusterRole, "pillar"),
+              ));
+            if (existingPillar && existingPillar.id !== post.id) {
+              return { error: `Topic cluster ${input.cluster_id} already has a pillar post.` as const };
+            }
+          }
+
+          const [updated] = await tx.update(postsTable)
+            .set({ clusterId: input.cluster_id, clusterRole: nextRole })
+            .where(eq(postsTable.id, input.post_id))
+            .returning({
+              id: postsTable.id,
+              title: postsTable.title,
+              slug: postsTable.slug,
+              status: postsTable.status,
+              clusterId: postsTable.clusterId,
+              clusterRole: postsTable.clusterRole,
+            });
+          if (!updated) return { error: "Post could not be updated." as const };
+          const before = { clusterId: post.clusterId, clusterRole: post.clusterRole };
+          const after = { clusterId: updated.clusterId, clusterRole: updated.clusterRole };
+          const occurredAt = new Date().toISOString();
+          await tx.insert(auditLogsTable).values(mcpAuditLogValues(req, {
+            action: "mcp.topic_cluster.membership.updated",
+            entityType: "post",
+            entityId: updated.id,
+            summary: `MCP updated topic-cluster membership for post ${updated.id}`,
+            details: {
+              source: "mcp",
+              occurredAt,
+              post: { id: updated.id, title: updated.title, slug: updated.slug },
+              before,
+              after,
+            },
+          }));
+          return {
+            post: updated,
+            before,
+            after,
+          };
+        });
+
+        if ("error" in change) {
+          return { content: [{ type: "text", text: JSON.stringify({ error: change.error }) }], isError: true };
+        }
+        return { content: [{ type: "text", text: JSON.stringify(change.post, null, 2) }] };
+      } catch (error) {
+        if (isUniqueConstraintViolation(error)) {
+          return {
+            content: [{ type: "text", text: JSON.stringify({ error: "That topic cluster already has a pillar post." }) }],
+            isError: true,
+          };
+        }
+        throw error;
+      }
     },
   );
 
@@ -502,7 +692,7 @@ function buildMcpServer(req: Request): McpServer {
     {
       title: "Create Mapletechie draft",
       description:
-        `Submit one completed item from the canonical daily editorial workflow as a blog post DRAFT for human review. The run is daily at ${DAILY_EDITORIAL_AUTOMATION_SCHEDULE.executionWindow}; aim for five strong, non-cannibalizing items, and submit fewer if quality gates fail, with a flexible maximum and Canadian relevance where supported by evidence. The server forces draft status and the 'Mapletechie AI' byline; it can never publish. Do not send status, author, author_id, author_avatar, published_at, scheduled_for, or is_featured. For every cover or inline image, use a rights-safe source and meaningful alt text; upload images first when possible. A draft can belong to MULTIPLE categories: pass categories (first entry = primary unless primary_category is set), or legacy single category_id. Optionally provide cluster_id and cluster_role together to assign it to an existing topic cluster (role: pillar or supporting). Returns the complete canonical stored post. Next inspect it with get_mapletechie_post, then call preview_mapletechie_post and capture both recommended desktop and mobile views after data-preview-ready is true.`,
+        `Submit one completed item from the canonical daily editorial workflow as a blog post DRAFT for human review. The run is daily at ${DAILY_EDITORIAL_AUTOMATION_SCHEDULE.executionWindow}; aim for five strong, non-cannibalizing items, and submit fewer if quality gates fail, with a flexible maximum and Canadian relevance where supported by evidence. The server forces draft status and the 'Mapletechie AI' byline; it can never publish. Do not send status, author, author_id, author_avatar, published_at, scheduled_for, or is_featured. For every cover or inline image, use a rights-safe source and meaningful alt text; upload images first when possible. A draft can belong to MULTIPLE categories: pass categories (first entry = primary unless primary_category is set), or legacy single category_id. Optionally provide cluster_id and cluster_role together to assign it to an existing PRIVATE topic cluster (role: pillar or supporting); public cluster membership is human-only. Returns the complete canonical stored post. Next inspect it with get_mapletechie_post, then call preview_mapletechie_post and capture both recommended desktop and mobile views after data-preview-ready is true.`,
       inputSchema: DRAFT_INPUT_SHAPE,
     },
     async (args) => {
@@ -525,6 +715,39 @@ function buildMcpServer(req: Request): McpServer {
   );
 
   return server;
+}
+
+function isUniqueConstraintViolation(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "23505";
+}
+
+function mcpAuditLogValues(
+  req: Request,
+  input: {
+    action: string;
+    entityType: string;
+    entityId: number;
+    summary: string;
+    details: Record<string, unknown>;
+  },
+) {
+  const forwardedFor = req.headers["x-forwarded-for"];
+  const ip = typeof forwardedFor === "string" && forwardedFor.length > 0
+    ? forwardedFor.split(",")[0]!.trim()
+    : Array.isArray(forwardedFor) && forwardedFor.length > 0
+      ? forwardedFor[0]!.split(",")[0]!.trim()
+      : req.ip ?? req.socket?.remoteAddress ?? null;
+  return {
+    userId: null,
+    username: null,
+    action: input.action,
+    entityType: input.entityType,
+    entityId: String(input.entityId),
+    summary: input.summary,
+    details: input.details,
+    ip,
+    userAgent: (req.headers["user-agent"] as string | undefined) ?? null,
+  };
 }
 
 // Body parser mounted AFTER mcpAuth: only key-holders can make the server

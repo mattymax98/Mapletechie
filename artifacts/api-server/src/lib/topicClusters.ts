@@ -45,7 +45,9 @@ export async function attachPublicTopicContext<T extends {
     .map((cluster) => [cluster.id, cluster]));
 
   return posts.map((post) => {
-    const cluster = post.clusterId == null ? undefined : publicClusters.get(post.clusterId);
+    const cluster = post.status !== "published" || post.clusterId == null
+      ? undefined
+      : publicClusters.get(post.clusterId);
     return {
       ...post,
       topicCluster: cluster ? {
