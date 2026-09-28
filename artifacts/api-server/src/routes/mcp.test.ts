@@ -558,7 +558,7 @@ describe("POST /mcp — tools", () => {
     const payload = JSON.parse(res.body.result.content[0].text);
     expect(payload.schedule).toMatchObject({
       cadence: "daily",
-      cron: "0 9 * * *",
+      cron: "0 7 * * *",
       timezone: "America/Toronto",
     });
     expect(payload.schedule.days).toHaveLength(7);

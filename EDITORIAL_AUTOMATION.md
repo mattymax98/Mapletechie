@@ -12,9 +12,9 @@ long-form prompt that can drift.
 | Setting | Value |
 | --- | --- |
 | Cadence | Every day, Sunday through Saturday |
-| Local time | 9:00 AM |
+| Local time | 7:00 AM |
 | Time zone | `America/Toronto` |
-| Cron representation | `0 9 * * *` |
+| Cron representation | `0 7 * * *` |
 | Volume | Aim for five strong fresh drafts; submit fewer when quality gates fail; no artificial maximum |
 | Authority | Research, writing, image preparation, validation, and draft submission only |
 | Human control | Editors review every item and alone publish or schedule it |
