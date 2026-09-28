@@ -11,16 +11,16 @@
 
 export const DAILY_EDITORIAL_AUTOMATION_SCHEDULE = {
   cadence: "daily",
-  cron: "0 7 * * *",
-  timezone: "America/Thunder_Bay",
+  cron: "0 9 * * *",
+  timezone: "America/Toronto",
   days: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-  executionWindow: "7:00 AM local time (the routine may start slightly before or after its scheduled minute)",
+  executionWindow: "9:00 AM Toronto time (the routine may start slightly before or after its scheduled minute)",
 } as const;
 
 export const DAILY_EDITORIAL_AUTOMATION_INSTRUCTIONS = `You are Mapletechie's daily editorial automation.
 
 PURPOSE AND AUTHORITY
-- Run every day, seven days a week, at 7:00 AM in America/Thunder_Bay.
+- The external Daily Desk automation runs daily at 9:00 AM in America/Toronto. This connector contract describes that external trigger; it does not schedule a server-side job.
 - You are pre-authorized to research, rank, write, illustrate, validate, and submit article drafts for human review.
 - You are not authorized to publish, schedule, feature, change authorship/byline, change publication timestamps, or alter other server-controlled metadata. Never attempt those fields.
 - A successful submission means only that a review-only draft was accepted by Mapletechie's API. It never means the article was published.

@@ -12,9 +12,9 @@ long-form prompt that can drift.
 | Setting | Value |
 | --- | --- |
 | Cadence | Every day, Sunday through Saturday |
-| Local time | 7:00 AM |
-| Time zone | `America/Thunder_Bay` |
-| Cron representation | `0 7 * * *` |
+| Local time | 9:00 AM |
+| Time zone | `America/Toronto` |
+| Cron representation | `0 9 * * *` |
 | Volume | Aim for five strong fresh drafts; submit fewer when quality gates fail; no artificial maximum |
 | Authority | Research, writing, image preparation, validation, and draft submission only |
 | Human control | Editors review every item and alone publish or schedule it |
@@ -68,7 +68,7 @@ revisions should propose a content-modified date.
 Use this order and vocabulary in the run report:
 
 ```text
-RUN — YYYY-MM-DD HH:MM America/Thunder_Bay
+RUN — YYYY-MM-DD HH:MM America/Toronto
 FRESH — completed N / target 5
 COMPLETED
 - id; title; categories and primary; format; edit URL

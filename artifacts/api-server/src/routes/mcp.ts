@@ -236,7 +236,7 @@ function buildMcpServer(req: Request): McpServer {
     {
       title: "Get Mapletechie editorial automation contract",
       description:
-        "Read-only source of truth for the daily Mapletechie editorial run: schedule, review-only authority, discovery workflow, minimum five fresh drafts, editorial mix, Canadian relevance, research, SEO, image rights, QA, failure handling, and completion reporting.",
+        "Read-only source of truth for the daily Mapletechie editorial run: schedule, review-only authority, discovery workflow, five-draft quality target, editorial mix, Canadian relevance, research, SEO, image rights, QA, failure handling, and completion reporting.",
       inputSchema: {},
     },
     async () => ({
@@ -502,7 +502,7 @@ function buildMcpServer(req: Request): McpServer {
     {
       title: "Create Mapletechie draft",
       description:
-        `Submit one completed item from the canonical daily editorial workflow as a blog post DRAFT for human review. The run is daily at ${DAILY_EDITORIAL_AUTOMATION_SCHEDULE.executionWindow}; aim for at least five fresh, non-cannibalizing items, with a flexible maximum and Canadian relevance where supported by evidence. The server forces draft status and the 'Mapletechie AI' byline; it can never publish. Do not send status, author, author_id, author_avatar, published_at, scheduled_for, or is_featured. For every cover or inline image, use a rights-safe source and meaningful alt text; upload images first when possible. A draft can belong to MULTIPLE categories: pass categories (first entry = primary unless primary_category is set), or legacy single category_id. Optionally provide cluster_id and cluster_role together to assign it to an existing topic cluster (role: pillar or supporting). Returns the complete canonical stored post. Next inspect it with get_mapletechie_post, then call preview_mapletechie_post and capture both recommended desktop and mobile views after data-preview-ready is true.`,
+        `Submit one completed item from the canonical daily editorial workflow as a blog post DRAFT for human review. The run is daily at ${DAILY_EDITORIAL_AUTOMATION_SCHEDULE.executionWindow}; aim for five strong, non-cannibalizing items, and submit fewer if quality gates fail, with a flexible maximum and Canadian relevance where supported by evidence. The server forces draft status and the 'Mapletechie AI' byline; it can never publish. Do not send status, author, author_id, author_avatar, published_at, scheduled_for, or is_featured. For every cover or inline image, use a rights-safe source and meaningful alt text; upload images first when possible. A draft can belong to MULTIPLE categories: pass categories (first entry = primary unless primary_category is set), or legacy single category_id. Optionally provide cluster_id and cluster_role together to assign it to an existing topic cluster (role: pillar or supporting). Returns the complete canonical stored post. Next inspect it with get_mapletechie_post, then call preview_mapletechie_post and capture both recommended desktop and mobile views after data-preview-ready is true.`,
       inputSchema: DRAFT_INPUT_SHAPE,
     },
     async (args) => {
