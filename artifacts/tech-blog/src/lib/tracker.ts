@@ -1,7 +1,8 @@
+import { GA4_MEASUREMENT_ID } from "./ga4";
+
 const SESSION_KEY = "mt_session_id";
 const ADMIN_TOKEN_KEY = "mapletechie_admin_token";
 const RETURNING_KEY = "mt_returning";
-const GA4_MEASUREMENT_ID = import.meta.env.VITE_GA4_MEASUREMENT_ID?.trim();
 
 type Gtag = (...args: unknown[]) => void;
 
@@ -12,8 +13,6 @@ declare global {
   }
 }
 
-let ga4Initialized = false;
-let ga4ScriptRequested = false;
 let lastGa4Path: string | null = null;
 
 function getSessionId(): string {
@@ -101,31 +100,13 @@ function shouldSkipTracking(path: string): boolean {
 }
 
 function trackGa4PageView(path: string): void {
-  if (!import.meta.env.PROD || !GA4_MEASUREMENT_ID || lastGa4Path === path) return;
+  if (!import.meta.env.PROD || lastGa4Path === path) return;
   if (typeof window === "undefined" || typeof document === "undefined") return;
+  // The server installs gtag once in the public document head, never in admin
+  // or signed-preview shells. Do not inject a second copy from the SPA.
+  if (!window.gtag) return;
 
   lastGa4Path = path;
-  const dataLayer = (window.dataLayer ??= []);
-  window.gtag ??= (...args: unknown[]) => {
-    dataLayer.push(args);
-  };
-
-  if (!ga4Initialized) {
-    window.gtag("js", new Date());
-    // Page views are sent explicitly below so SPA route changes do not get
-    // double-counted by gtag's default config behavior.
-    window.gtag("config", GA4_MEASUREMENT_ID, { send_page_view: false });
-    ga4Initialized = true;
-  }
-
-  if (!ga4ScriptRequested) {
-    const script = document.createElement("script");
-    script.async = true;
-    script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(GA4_MEASUREMENT_ID)}`;
-    document.head.appendChild(script);
-    ga4ScriptRequested = true;
-  }
-
   // Use only the public pathname supplied by the router. Do not forward query
   // strings or any application/user fields to Google Analytics.
   const pagePath = path.split(/[?#]/, 1)[0] || "/";

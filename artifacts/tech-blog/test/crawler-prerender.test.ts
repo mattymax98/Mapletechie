@@ -553,6 +553,23 @@ afterAll(async () => {
 });
 
 describe("crawler prerendering — content for bots, shell for browsers", () => {
+  it("installs one GA4 tag in public heads, never in admin or signed-preview shells", async () => {
+    for (const pathname of ["/", `/blog/${ARTICLE.slug}`]) {
+      const { status, body } = await get(pathname, BROWSER_UA);
+      expect(status).toBe(200);
+      const head = body.split("</head>", 1)[0];
+      expect(head.match(/googletagmanager\.com\/gtag\/js\?id=G-8BSZZN1V93/g)).toHaveLength(1);
+      expect(head).toContain("gtag('config', 'G-8BSZZN1V93', { send_page_view: false })");
+      expect(body.slice(head.length)).not.toContain("googletagmanager.com/gtag/js");
+    }
+    for (const pathname of ["/admin", "/admin/posts/42/edit", "/preview/posts/42"]) {
+      const { status, body } = await get(pathname, BROWSER_UA);
+      expect(status).toBe(200);
+      expect(body).not.toContain("googletagmanager.com/gtag/js");
+      expect(body).not.toContain("G-8BSZZN1V93");
+    }
+  });
+
   describe("hostname redirect ownership", () => {
     it("does not redirect alternate hosts in the application layer", async () => {
       const instance = await startPrerenderServer(
