@@ -15,8 +15,9 @@ vi.mock("@/components/ErrorBanner", () => ({ default: ({ message }: { message: s
 
 function renderAt(path: string, page: React.ReactNode) {
   window.history.replaceState({}, "", path);
-  const { hook } = memoryLocation({ path });
-  return render(<Router hook={hook}>{page}</Router>);
+  const [pathname, search = ""] = path.split("?");
+  const location = memoryLocation({ path: pathname, searchPath: search, record: true });
+  return { ...render(<Router hook={location.hook} searchHook={location.searchHook}>{page}</Router>), location };
 }
 const historyList = (items = [{
   id: 501, postId: 27, title: "A precise correction", currentStatus: "published", source: "editor",
@@ -44,6 +45,78 @@ describe("revision history workspace", () => {
     await waitFor(() => expect(adminJsonMock).toHaveBeenLastCalledWith(expect.stringContaining("status=rejected")));
     expect(adminJsonMock).toHaveBeenLastCalledWith(expect.stringContaining("search=27"));
     expect(screen.getByTestId("filter-rejected").getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByTestId("filter-superseded"));
+    await waitFor(() => expect(adminJsonMock).toHaveBeenLastCalledWith(expect.stringContaining("status=superseded")));
+  });
+
+  it("navigates Pending → History → detail → Pending without reload, including Back/Forward", async () => {
+    adminJsonMock.mockImplementation((url: string) => {
+      if (url.endsWith("/history/501")) return Promise.resolve({
+        ...historyList().items[0], before: { title: "Old" }, proposed: { title: "New" },
+        final: { title: "New" }, applied: { title: "New" }, reviewerEdits: [],
+        completeness: { before: true, proposed: true, final: true },
+      });
+      return Promise.resolve(url.includes("/history?") ? historyList() : {
+        items: [], total: 0, pendingCount: 0, page: 1, pageSize: 20,
+      });
+    });
+    const { location } = renderAt("/admin/review", <AdminReview />);
+    expect(await screen.findByText("No articles are waiting for review.")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("tab-history"));
+    expect(location.history.at(-1)).toBe("/admin/review?tab=history");
+    expect(await screen.findByTestId("view-changes-501")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("view-changes-501"));
+    expect(location.history.at(-1)).toBe("/admin/review?tab=history&revision=501");
+    expect(await screen.findByTestId("revision-detail")).toBeTruthy();
+    // Simulate history restoration through the router's external navigation hook.
+    location.navigate("/admin/review?tab=history");
+    expect(await screen.findByTestId("view-changes-501")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("tab-pending"));
+    expect(location.history.at(-1)).toBe("/admin/review");
+    expect(await screen.findByText("No articles are waiting for review.")).toBeTruthy();
+    location.navigate("/admin/review?tab=history");
+    expect(await screen.findByTestId("view-changes-501")).toBeTruthy();
+  });
+
+  it("restores the selected tab and detail on browser Back and Forward", async () => {
+    adminJsonMock.mockImplementation((url: string) => Promise.resolve(
+      url.includes("/history/501")
+        ? { ...historyList().items[0], before: { title: "Old" }, proposed: { title: "New" },
+          final: { title: "New" }, applied: null, reviewerEdits: [],
+          completeness: { before: true, proposed: true, final: true } }
+        : url.includes("/history?") ? historyList()
+          : { items: [], total: 0, pendingCount: 0, page: 1, pageSize: 20 },
+    ));
+    window.history.replaceState({}, "", "/admin/review");
+    render(<Router><AdminReview /></Router>);
+    expect(await screen.findByText("No articles are waiting for review.")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("tab-history"));
+    const detailLink = await screen.findByTestId("view-changes-501");
+    fireEvent.click(detailLink);
+    expect(await screen.findByTestId("revision-detail")).toBeTruthy();
+    window.history.back();
+    await waitFor(() => expect(screen.getByTestId("view-changes-501")).toBeTruthy());
+    window.history.back();
+    await waitFor(() => expect(screen.getByTestId("tab-pending").getAttribute("aria-current")).toBe("page"));
+    window.history.forward();
+    await waitFor(() => expect(screen.getByTestId("tab-history").getAttribute("aria-current")).toBe("page"));
+  });
+
+  it("does not present a supersession as a human review decision", async () => {
+    const superseded = { ...historyList().items[0], id: 502, status: "superseded", reviewedByName: null,
+      supersededByRevisionId: 501, supersededByName: "Noah Reid" };
+    adminJsonMock.mockImplementation((url: string) => url.includes("/history/502")
+      ? Promise.resolve({ ...superseded, before: { title: "Old" }, proposed: { title: "Alternative" },
+        final: null, applied: null, reviewerEdits: [], completeness: { before: true, proposed: true, final: false } })
+      : Promise.resolve(historyList([superseded])));
+    renderAt("/admin/review?tab=history", <AdminReview />);
+    const row = await screen.findByTestId("history-row-502");
+    expect(within(row).getByText(/Automatically superseded after Revision #501/)).toBeTruthy();
+    expect(within(row).queryByText(/Unknown reviewer/)).toBeNull();
+    fireEvent.click(screen.getByTestId("view-changes-502"));
+    expect(await screen.findByTestId("revision-detail")).toBeTruthy();
+    expect(screen.getByText(/Automatically superseded after Revision #501 was approved by Noah Reid/)).toBeTruthy();
+    expect(screen.queryByText(/Reviewed .* by Noah Reid/)).toBeNull();
   });
 
   it("links a history row to detail and safely displays before, proposed, and approved values", async () => {

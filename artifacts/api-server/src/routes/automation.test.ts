@@ -346,7 +346,7 @@ describe("POST /automation/posts/drafts — contract", () => {
   });
 
   it("accepts a validated topic-cluster assignment on a draft", async () => {
-    selectQueue = [[BOT_USER], [CATEGORY], [], [{ id: 6 }]];
+    selectQueue = [[BOT_USER], [CATEGORY], [], [{ id: 6 }], [{ id: 6, isPublic: false }]];
     insertReturn = [{ id: 44, title: "Test story", slug: "test-story", status: "draft" }];
     const res = await post({ ...validBody(), cluster_id: 6, cluster_role: "pillar" });
     expect(res.status).toBe(201);
@@ -372,7 +372,10 @@ describe("POST /automation/posts/drafts — contract", () => {
   });
 
   it("rejects a second pillar regardless of its existing status", async () => {
-    selectQueue = [[BOT_USER], [CATEGORY], [], [{ id: 6 }], [{ id: 15, status: "published" }]];
+    selectQueue = [
+      [BOT_USER], [CATEGORY], [], [{ id: 6 }],
+      [{ id: 6, isPublic: false }], [{ id: 15, status: "published" }],
+    ];
     const res = await post({ ...validBody(), cluster_id: 6, cluster_role: "pillar" });
     expect(res.status).toBe(409);
     expect(res.json.error).toMatch(/already has a pillar post \(published\)/);

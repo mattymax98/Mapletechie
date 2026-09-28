@@ -951,9 +951,9 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
   }
   const persistCtx = { uploaderId: user?.id ?? null, uploaderName: user?.displayName ?? null };
 
-  if ((existing.status === "published" || existing.publishedOnceAt) &&
+  if ((existing.status === "published" || existing.publishedOnceAt || legacyPublishedHistory) &&
       (("slug" in body && body.slug !== existing.slug) ||
-       ("publishedAt" in body && new Date(body.publishedAt).getTime() !== existing.publishedAt.getTime()))) {
+       ("publishedAt" in body && new Date(body.publishedAt).getTime() !== existing.publishedAt?.getTime()))) {
     res.status(422).json({ error: "A published article's URL and original publication date cannot be changed." });
     return;
   }
@@ -1173,6 +1173,17 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
       locked.status === "scheduled" ||
       !!locked.publishedOnceAt ||
       legacyPublishedHistory;
+    const lockedIdentityProtected =
+      locked.status === "published" || !!locked.publishedOnceAt || legacyPublishedHistory;
+    if (lockedIdentityProtected &&
+        (("slug" in submittedBody && submittedBody.slug !== locked.slug) ||
+         ("publishedAt" in submittedBody &&
+          new Date(submittedBody.publishedAt).getTime() !== locked.publishedAt?.getTime()))) {
+      return {
+        error: { status: 422, error: "A published article's URL and original publication date cannot be changed." },
+        before: locked,
+      };
+    }
     const changedProtectedFields = lockedHistoryProtected
       ? protectedFields.filter(
           (field) =>
@@ -1209,6 +1220,13 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     }
 
     const lockedUpdate = { ...update };
+    if (lockedIdentityProtected) {
+      // Do not re-apply values read before another update, even when the
+      // submitted URL/date matched that earlier snapshot. A legacy row with
+      // no publication date may still need its marker restored on republish.
+      delete lockedUpdate.slug;
+      if (locked.publishedAt || "publishedAt" in submittedBody) delete lockedUpdate.publishedAt;
+    }
     if (lockedHistoryProtected) {
       for (const field of [...protectedFields, ...authorFields]) delete lockedUpdate[field];
       // A request that began as a draft may have staged a new publication
@@ -1574,7 +1592,19 @@ router.get("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     return;
   }
   const [withCats] = await attachCategories([post]);
-  res.json(withCats);
+  const legacyPublishedHistory =
+    post.status === "draft" &&
+    !post.publishedOnceAt &&
+    !!post.createdAt &&
+    (await hasPublishedAuditHistory(post.id));
+  res.json({
+    ...withCats,
+    editorialHistoryLocked:
+      post.status === "published" ||
+      post.status === "scheduled" ||
+      !!post.publishedOnceAt ||
+      legacyPublishedHistory,
+  });
 });
 
 

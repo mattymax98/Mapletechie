@@ -29,6 +29,8 @@ const captured: {
   insertValues?: Record<string, unknown>[];
   updateValues?: Record<string, unknown>[];
 } = { insertValues: [], updateValues: [] };
+const rowLockModes: unknown[] = [];
+let failMcpAuditInsert = false;
 
 let lastSelectedPost: Record<string, unknown> | null = null;
 
@@ -42,6 +44,12 @@ function makeSelectChain(queue: unknown[][]) {
             lastSelectedPost = result[0] as Record<string, unknown>;
           }
           return Promise.resolve(result).then(resolve, reject);
+        };
+      }
+      if (prop === "for") {
+        return (mode: unknown) => {
+          rowLockModes.push(mode);
+          return proxy;
         };
       }
       return () => proxy;
@@ -87,6 +95,9 @@ const db = {
       insert: vi.fn(() => ({
         values: vi.fn((v: Record<string, unknown>) => {
           captured.insertValues!.push(v);
+          if (failMcpAuditInsert && typeof v.action === "string" && v.action.startsWith("mcp.topic_cluster.")) {
+            throw new Error("Simulated audit insert failure");
+          }
           return {
             returning: vi.fn(async () => insertReturn),
             onConflictDoNothing: vi.fn(() => ({
@@ -313,6 +324,8 @@ beforeEach(() => {
   captured.insertValues = [];
   captured.updateValues = [];
   auditCalls.length = 0;
+  rowLockModes.length = 0;
+  failMcpAuditInsert = false;
   vi.clearAllMocks();
   imageStorage.getObjectEntityFile.mockImplementation(async () => ({
     getMetadata: async () => [{ contentType: "image/webp" }],
@@ -375,6 +388,8 @@ describe("POST /mcp — tools", () => {
     expect(names).toContain("search_mapletechie_archive");
     expect(names).toContain("list_mapletechie_topic_clusters");
     expect(names).toContain("get_mapletechie_topic_cluster");
+    expect(names).toContain("create_mapletechie_topic_cluster");
+    expect(names).toContain("manage_mapletechie_post_cluster");
     expect(names).toContain("create_mapletechie_draft");
     expect(names).toContain("get_mapletechie_post");
     expect(names).toContain("propose_mapletechie_revision");
@@ -384,6 +399,12 @@ describe("POST /mcp — tools", () => {
     const tools = res.body.result.tools;
     const draft = tools.find((t: any) => t.name === "create_mapletechie_draft");
     expect(Object.keys(draft.inputSchema.properties)).toEqual(expect.arrayContaining(["cluster_id", "cluster_role"]));
+    const createCluster = tools.find((t: any) => t.name === "create_mapletechie_topic_cluster");
+    expect(Object.keys(createCluster.inputSchema.properties)).not.toContain("is_public");
+    expect(createCluster.description).toMatch(/always private/i);
+    const manageCluster = tools.find((t: any) => t.name === "manage_mapletechie_post_cluster");
+    expect(manageCluster.description).toMatch(/both.*private/i);
+    expect(manageCluster.description).toMatch(/public-cluster membership.*human/i);
     expect(draft.inputSchema.properties.content.description).toMatch(/reddit\|twitter\|youtube|youtube\|twitter\|reddit/i);
     const backfill = tools.find((t: any) => t.name === "backfill_mapletechie_images");
     expect(backfill.description).toMatch(/draft only/i);
@@ -565,6 +586,9 @@ describe("POST /mcp — tools", () => {
     expect(payload.instructions).toMatch(/at least five fresh/i);
     expect(payload.instructions).toMatch(/never.*publish/i);
     expect(payload.instructions).toMatch(/cannibalization/i);
+    expect(payload.instructions).toMatch(/full archive/i);
+    expect(payload.instructions).toMatch(/not keyword similarity/i);
+    expect(payload.instructions).toMatch(/both the current and destination clusters are private/i);
     expect(payload.reportFormat.blocked).toMatch(/exact blocker/i);
   });
 
@@ -689,6 +713,132 @@ describe("POST /mcp — tools", () => {
     });
   });
 
+  it("creates a private cluster and audits its before/after state", async () => {
+    insertReturn = [{
+      id: 21, name: "Canadian AI infrastructure", slug: "canadian-ai-infrastructure",
+      introduction: "Coverage of Canadian AI infrastructure.", isPublic: false,
+    }];
+    const result = await authed(callTool("create_mapletechie_topic_cluster", {
+      name: "Canadian AI infrastructure",
+      slug: "canadian-ai-infrastructure",
+      introduction: "Coverage of Canadian AI infrastructure.",
+    }));
+    expect(result.body.result.isError).toBeFalsy();
+    expect(captured.insertValues).toContainEqual(expect.objectContaining({
+      name: "Canadian AI infrastructure",
+      slug: "canadian-ai-infrastructure",
+      isPublic: false,
+    }));
+    expect(captured.insertValues).toContainEqual(expect.objectContaining({
+      action: "mcp.topic_cluster.created",
+      entityId: "21",
+      details: expect.objectContaining({
+        source: "mcp",
+        occurredAt: expect.any(String),
+        before: null,
+        after: expect.objectContaining({ id: 21, isPublic: false }),
+      }),
+    }));
+  });
+
+  it("rejects unstable cluster slugs before attempting creation", async () => {
+    const result = await authed(callTool("create_mapletechie_topic_cluster", {
+      name: "AI coverage", slug: "AI_coverage",
+    }));
+    expect(result.body.result.isError).toBe(true);
+    expect(captured.insertValues).toHaveLength(0);
+  });
+
+  it("fails the cluster mutation when its transactional audit insert fails", async () => {
+    failMcpAuditInsert = true;
+    insertReturn = [{
+      id: 22, name: "Audit failure", slug: "audit-failure",
+      introduction: "", isPublic: false,
+    }];
+    const result = await authed(callTool("create_mapletechie_topic_cluster", {
+      name: "Audit failure", slug: "audit-failure",
+    }));
+    expect(result.body.result.isError).toBe(true);
+    expect(captured.insertValues).toContainEqual(expect.objectContaining({
+      action: "mcp.topic_cluster.created",
+      entityId: "22",
+    }));
+    expect(db.transaction).toHaveBeenCalled();
+  });
+
+  it("moves an existing post between private clusters without changing article fields and records audit evidence", async () => {
+    const post = {
+      id: 42, title: "Existing published story", slug: "existing-story", status: "published",
+      clusterId: 6, clusterRole: "supporting", content: "<p>Keep this</p>",
+      author: "Editor", publishedAt: new Date("2024-01-01T00:00:00Z"),
+    };
+    selectQueue = [
+      [post],
+      [
+        { id: 6, name: "Old private", isPublic: false },
+        { id: 8, name: "New private", isPublic: false },
+      ],
+    ];
+    const result = await authed(callTool("manage_mapletechie_post_cluster", {
+      post_id: 42, cluster_id: 8, cluster_role: "pillar",
+    }));
+    expect(result.body.result.isError).toBeFalsy();
+    expect(captured.updateValues).toEqual([{ clusterId: 8, clusterRole: "pillar" }]);
+    expect(rowLockModes).toEqual(["update", "update"]);
+    expect(captured.insertValues).toContainEqual(expect.objectContaining({
+      action: "mcp.topic_cluster.membership.updated",
+      entityId: "42",
+      details: expect.objectContaining({
+        source: "mcp",
+        occurredAt: expect.any(String),
+        before: { clusterId: 6, clusterRole: "supporting" },
+        after: { clusterId: 8, clusterRole: "pillar" },
+      }),
+    }));
+  });
+
+  it("rejects membership changes across the public-cluster boundary", async () => {
+    selectQueue = [
+      [{ id: 42, title: "Live", slug: "live", status: "published", clusterId: 6, clusterRole: "supporting" }],
+      [
+        { id: 6, name: "Public source", isPublic: true },
+        { id: 8, name: "Private destination", isPublic: false },
+      ],
+    ];
+    const moved = await authed(callTool("manage_mapletechie_post_cluster", {
+      post_id: 42, cluster_id: 8, cluster_role: "supporting",
+    }));
+    expect(moved.body.result.isError).toBe(true);
+    expect(JSON.parse(moved.body.result.content[0].text).error).toMatch(/public topic cluster/i);
+    expect(captured.updateValues).toHaveLength(0);
+
+    selectQueue = [
+      [{ id: 43, title: "Draft", slug: "draft", status: "draft", clusterId: null, clusterRole: null }],
+      [{ id: 9, name: "Public destination", isPublic: true }],
+    ];
+    const assigned = await authed(callTool("manage_mapletechie_post_cluster", {
+      post_id: 43, cluster_id: 9, cluster_role: "supporting",
+    }));
+    expect(assigned.body.result.isError).toBe(true);
+    expect(JSON.parse(assigned.body.result.content[0].text).error).toMatch(/only assign posts to private/i);
+    expect(captured.updateValues).toHaveLength(0);
+  });
+
+  it("rejects a second pillar and protects concurrent membership decisions with row locks", async () => {
+    selectQueue = [
+      [{ id: 42, title: "Post", slug: "post", status: "draft", clusterId: null, clusterRole: null }],
+      [{ id: 6, name: "Private", isPublic: false }],
+      [{ id: 99 }],
+    ];
+    const result = await authed(callTool("manage_mapletechie_post_cluster", {
+      post_id: 42, cluster_id: 6, cluster_role: "pillar",
+    }));
+    expect(result.body.result.isError).toBe(true);
+    expect(JSON.parse(result.body.result.content[0].text).error).toMatch(/already has a pillar/i);
+    expect(rowLockModes).toEqual(["update", "update"]);
+    expect(captured.updateValues).toHaveLength(0);
+  });
+
   it("create_mapletechie_draft creates a draft with bot authorship", async () => {
     selectQueue = [[BOT_USER], [CATEGORY], []]; // bot, category, slug-clash
     insertReturn = [{ id: 42, title: "Test story", slug: "test-story", status: "draft" }];
@@ -721,7 +871,7 @@ describe("POST /mcp — tools", () => {
   });
 
   it("create_mapletechie_draft accepts validated cluster assignments", async () => {
-    selectQueue = [[BOT_USER], [CATEGORY], [], [{ id: 6 }]];
+    selectQueue = [[BOT_USER], [CATEGORY], [], [{ id: 6 }], [{ id: 6, isPublic: false }]];
     insertReturn = [{ id: 43, title: "Test story", slug: "test-story", status: "draft" }];
     const res = await authed(callTool("create_mapletechie_draft", {
       ...draftArgs(), cluster_id: 6, cluster_role: "supporting",
@@ -730,6 +880,19 @@ describe("POST /mcp — tools", () => {
     expect(captured.insertValues!.find((v) => v.title === "Test story")).toMatchObject({
       clusterId: 6, clusterRole: "supporting", status: "draft",
     });
+  });
+
+  it("create_mapletechie_draft rejects assignment to a public cluster", async () => {
+    // The preliminary existence read sees a private cluster, but the locked
+    // transaction re-read sees it became public before the insert.
+    selectQueue = [[BOT_USER], [CATEGORY], [], [{ id: 6, isPublic: false }], [{ id: 6, isPublic: true }]];
+    const res = await authed(callTool("create_mapletechie_draft", {
+      ...draftArgs(), cluster_id: 6, cluster_role: "supporting",
+    }));
+    expect(res.body.result.isError).toBe(true);
+    expect(JSON.parse(res.body.result.content[0].text).error).toMatch(/only assign drafts to private/i);
+    expect(rowLockModes).toContain("update");
+    expect(captured.insertValues).toHaveLength(0);
   });
 
   it("create_mapletechie_draft rejects forbidden fields loudly (isError, 422 message)", async () => {

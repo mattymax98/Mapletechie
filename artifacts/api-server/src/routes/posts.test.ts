@@ -346,6 +346,28 @@ describe("optional post fields — validation before writes", () => {
   });
 });
 
+describe("authenticated post detail editorial history signal", () => {
+  it("marks a legacy draft as editorial-history locked from published audit snapshots", async () => {
+    const legacyDraft = {
+      id: 42,
+      authorId: 1,
+      categoryId: null,
+      status: "draft",
+      title: "Previously published",
+      publishedOnceAt: null,
+      createdAt: new Date("2025-01-01T00:00:00.000Z"),
+    };
+    selectQueue = [
+      [legacyDraft],
+      [],
+      [{ details: { before: { status: "published" }, after: { status: "draft" } } }],
+    ];
+    const { status, json } = await request(makeApp(), "GET", "/posts/42");
+    expect(status).toBe(200);
+    expect(json.editorialHistoryLocked).toBe(true);
+  });
+});
+
 describe("POST /posts — external image persistence", () => {
   it("rewrites an external coverImage and ogImage to a storage path", async () => {
     // resolveCategory -> [category]; tx postCount recompute -> [{count}];
@@ -758,6 +780,24 @@ describe("PUT /posts/:id — published editorial history protection", () => {
     expect(db.transaction).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { slug: "changed-historical-url" },
+    { publishedAt: "2026-02-01T00:00:00.000Z" },
+  ])("blocks historical URL/date changes on audit-only drafts: %j", async (change) => {
+    const existing = {
+      ...livePost, status: "draft", publishedOnceAt: null,
+      createdAt: new Date("2025-01-01T00:00:00.000Z"),
+    };
+    selectQueue = [
+      [existing],
+      [{ details: { before: { status: "published" }, after: { status: "draft" } } }],
+    ];
+    const { status, json } = await request(makeApp(), "PUT", "/posts/42", change);
+    expect(status).toBe(422);
+    expect(json.error).toMatch(/original publication date cannot be changed/i);
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
   it("rechecks protected fields against the locked row after a concurrent draft-to-published transition", async () => {
     const draft = {
       id: 42,
@@ -1020,5 +1060,42 @@ describe("public topic cluster context", () => {
     const { status, json } = await request(makeApp(), "GET", "/posts/slug/supporting");
     expect(status).toBe(200);
     expect(json.topicCluster).toMatchObject({ id: 9, name: "Topic", role: "supporting" });
+  });
+
+  it.each([
+    {
+      label: "private clusters",
+      isPublic: false,
+      publishedCount: 4,
+    },
+    {
+      label: "public clusters with fewer than three published articles",
+      isPublic: true,
+      publishedCount: 2,
+    },
+  ])("does not attach article context for $label", async ({ isPublic, publishedCount }) => {
+    selectQueue = [
+      [{
+        id: 42, title: "Supporting article", slug: "supporting", excerpt: "", content: "",
+        categoryId: 7, status: "published", clusterId: 9, clusterRole: "supporting",
+      }],
+      [],
+      [{ id: 9, name: "Hidden topic", slug: "hidden-topic", introduction: "Not public yet", isPublic }],
+      [{ clusterId: 9, count: publishedCount }],
+    ];
+
+    const { status, json } = await request(makeApp(), "GET", "/posts/slug/supporting");
+
+    expect(status).toBe(200);
+    expect(json.topicCluster).toBeNull();
+  });
+
+  it("does not return draft posts from the public slug API", async () => {
+    selectQueue = [];
+
+    const { status, json } = await request(makeApp(), "GET", "/posts/slug/unpublished-draft");
+
+    expect(status).toBe(404);
+    expect(json).toMatchObject({ error: "Post not found" });
   });
 });

@@ -663,18 +663,6 @@ export async function createAutomationDraft(
     if (!cluster) {
       return fail(400, `Unknown cluster_id: ${body.clusterId}`);
     }
-    if (body.clusterRole === "pillar") {
-      const [existingPillar] = await db
-        .select({ id: postsTable.id, status: postsTable.status })
-        .from(postsTable)
-        .where(and(
-          eq(postsTable.clusterId, body.clusterId),
-          eq(postsTable.clusterRole, "pillar"),
-        ));
-      if (existingPillar) {
-        return fail(409, `Topic cluster ${body.clusterId} already has a pillar post (${existingPillar.status})`);
-      }
-    }
     clusterId = body.clusterId;
     clusterRole = body.clusterRole;
   }
@@ -783,11 +771,38 @@ export async function createAutomationDraft(
   // concurrent requests race on the same key, the unique index on the ledger
   // makes exactly one commit; the loser rolls back its post and replays the
   // winner's draft. Without this, both could create drafts before either
-  // recorded the key.
+  // recorded the key. Cluster membership is also checked under a cluster-row
+  // lock here, so a concurrent admin visibility change cannot make a draft
+  // assignment pass on stale public/private state.
   const IDEMPOTENCY_LOST = Symbol("idempotency-lost");
+  const PUBLIC_CLUSTER_ASSIGNMENT = Symbol("public-cluster-assignment");
+  const UNKNOWN_CLUSTER = Symbol("unknown-cluster");
+  const PILLAR_CONFLICT = Symbol("pillar-conflict");
+  let existingPillarStatus: string | null = null;
   let inserted;
   try {
     inserted = await db.transaction(async (tx) => {
+      if (clusterId !== null) {
+        const [cluster] = await tx.select({
+          id: topicsTable.id,
+          isPublic: topicsTable.isPublic,
+        }).from(topicsTable).where(eq(topicsTable.id, clusterId)).for("update");
+        if (!cluster) throw UNKNOWN_CLUSTER;
+        if (cluster.isPublic) throw PUBLIC_CLUSTER_ASSIGNMENT;
+        if (clusterRole === "pillar") {
+          const [existingPillar] = await tx.select({
+            id: postsTable.id,
+            status: postsTable.status,
+          }).from(postsTable).where(and(
+            eq(postsTable.clusterId, clusterId),
+            eq(postsTable.clusterRole, "pillar"),
+          ));
+          if (existingPillar) {
+            existingPillarStatus = existingPillar.status;
+            throw PILLAR_CONFLICT;
+          }
+        }
+      }
       const [post] = await tx.insert(postsTable).values(values).returning();
       await syncPostCategories(tx, post.id, resolvedCats.all.map((c) => c.id), resolvedCats.primary.id);
       await refreshCategoryPostCounts(tx, resolvedCats.all.map((c) => c.id));
@@ -802,6 +817,16 @@ export async function createAutomationDraft(
       return post;
     });
   } catch (err) {
+    if (err === PUBLIC_CLUSTER_ASSIGNMENT) {
+      return fail(409, "Automation can only assign drafts to private topic clusters; public-cluster membership requires an authorized human.");
+    }
+    if (err === UNKNOWN_CLUSTER) {
+      return fail(400, `Unknown cluster_id: ${clusterId}`);
+    }
+    if (err === PILLAR_CONFLICT) {
+      const statusSuffix = existingPillarStatus ? ` (${existingPillarStatus})` : "";
+      return fail(409, `Topic cluster ${clusterId} already has a pillar post${statusSuffix}`);
+    }
     if (err === IDEMPOTENCY_LOST && idempotencyKey) {
       const [prior] = await db
         .select()

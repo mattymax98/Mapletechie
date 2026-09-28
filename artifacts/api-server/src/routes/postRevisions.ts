@@ -33,7 +33,7 @@ const queueQuery = z.object({
   pageSize: z.coerce.number().int().min(1).max(50).default(20),
 }).strict();
 const historyQuery = z.object({
-  status: z.enum(["all", "approved", "rejected"]).default("all"),
+  status: z.enum(["all", "approved", "rejected", "superseded"]).default("all"),
   page: z.coerce.number().int().min(1).max(100_000).default(1),
   pageSize: z.coerce.number().int().min(1).max(50).default(20),
   search: z.string().trim().max(120).optional(),
@@ -44,7 +44,7 @@ type HistoryValues = Partial<Record<HistoryFields, unknown>>;
 const historyFields: HistoryFields[] = [
   "title", "excerpt", "content", "coverImage", "coverImageAlt", "ogImage", "seoTitle", "seoDescription",
 ];
-const decisionActions = ["post.revision.approved", "post.revision.rejected"] as const;
+const decisionActions = ["post.revision.approved", "post.revision.rejected", "post.revision.superseded"] as const;
 const proposalActions = ["post.revision.proposed", "automation.post.revision.proposed"] as const;
 
 function ownedImagePath(image: string): string | null {
@@ -179,6 +179,35 @@ function isoDate(value: Date | string | null | undefined): string | null {
   if (typeof value === "string" && value.length) return value;
   return null;
 }
+/** Matches posts.ts legacy-history protection: only authored post lifecycle snapshots count. */
+function revisablePostPredicate() {
+  return sql`(
+    ${postsTable.status} IN ('published', 'scheduled')
+    OR (
+      ${postsTable.status} = 'draft'
+      AND (
+        ${postsTable.publishedOnceAt} IS NOT NULL
+        OR EXISTS (
+          SELECT 1 FROM audit_logs
+          WHERE audit_logs.entity_type = 'post'
+            AND audit_logs.entity_id = ${postsTable.id}::text
+            AND audit_logs.action IN ('post.create', 'post.update', 'post.delete', 'post.restore')
+            AND (
+              audit_logs.details->'snapshot'->>'status' = 'published'
+              OR NULLIF(audit_logs.details->'snapshot'->>'publishedOnceAt', '') IS NOT NULL
+              OR audit_logs.details->'before'->>'status' = 'published'
+              OR NULLIF(audit_logs.details->'before'->>'publishedOnceAt', '') IS NOT NULL
+              OR audit_logs.details->'after'->>'status' = 'published'
+              OR NULLIF(audit_logs.details->'after'->>'publishedOnceAt', '') IS NOT NULL
+            )
+        )
+      )
+    )
+  )`;
+}
+function revisableStatus(post: Pick<Post, "status">): boolean {
+  return post.status === "published" || post.status === "scheduled" || post.status === "draft";
+}
 function auditPostIdExpression() {
   const value = sql`COALESCE(${auditLogsTable.details}->>'postId', ${auditLogsTable.entityId})`;
   return sql<number | null>`CASE WHEN ${value} ~ '^[0-9]+$' THEN ${value}::integer ELSE NULL END`;
@@ -187,8 +216,10 @@ function auditRevisionIdExpression() {
   const value = sql`${auditLogsTable.details}->>'revisionId'`;
   return sql<number | null>`CASE WHEN ${value} ~ '^[0-9]+$' THEN ${value}::integer ELSE NULL END`;
 }
-function decisionStatus(action: string): "approved" | "rejected" | null {
-  return action === "post.revision.approved" ? "approved" : action === "post.revision.rejected" ? "rejected" : null;
+function decisionStatus(action: string): "approved" | "rejected" | "superseded" | null {
+  return action === "post.revision.approved" ? "approved"
+    : action === "post.revision.rejected" ? "rejected"
+    : action === "post.revision.superseded" ? "superseded" : null;
 }
 function historyItem(row: any, proposalAudit?: any, relatedAudits: any[] = []) {
   const details = detailsOf(row.audit.details);
@@ -240,7 +271,9 @@ function historyItem(row: any, proposalAudit?: any, relatedAudits: any[] = []) {
       ?? proposalAudit?.createdAt
       ?? row.revision?.createdAt
       ?? null,
-    reviewedByName: row.audit.username ?? null,
+    reviewedByName: status === "superseded" ? null : row.audit.username ?? null,
+    supersededByRevisionId: status === "superseded" ? numericValue(details.supersededByRevisionId) : null,
+    supersededByName: status === "superseded" ? row.audit.username ?? null : null,
     reviewedAt: (typeof details.reviewedAt === "string" ? details.reviewedAt : null)
       ?? row.audit.createdAt,
     status,
@@ -330,7 +363,7 @@ async function verifyReplacementImages(changes: Changes, post: Post): Promise<{ 
 
 async function findRevisable(id: number) {
   if (!Number.isSafeInteger(id) || id < 1) return null;
-  const [post] = await db.select().from(postsTable).where(and(eq(postsTable.id, id), sql`${postsTable.status} IN ('published', 'scheduled')`));
+  const [post] = await db.select().from(postsTable).where(and(eq(postsTable.id, id), revisablePostPredicate()));
   return post ?? null;
 }
 
@@ -342,8 +375,12 @@ export async function proposePostRevision(
   const outcome = await db.transaction(async (tx) => {
     await tx.execute(sql`SELECT id FROM posts WHERE id = ${postId} FOR UPDATE`);
     const [post] = await tx.select().from(postsTable)
-      .where(and(eq(postsTable.id, postId), sql`${postsTable.status} IN ('published', 'scheduled')`));
-    if (!post) return { status: 404, error: "Published or scheduled post not found" };
+      // The new offline-correction path is for editors; connector proposals
+      // keep their existing published/scheduled-only contract.
+      .where(and(eq(postsTable.id, postId), source === "editor"
+        ? revisablePostPredicate()
+        : sql`${postsTable.status} IN ('published', 'scheduled')`));
+    if (!post) return { status: 404, error: "Revisable post not found" };
     if (source === "editor" && !canEdit(req.user, post)) return { status: 403, error: "Forbidden" };
     const validated = validateChanges(input, post);
     if ("error" in validated) return { status: 422, error: validated.error };
@@ -419,7 +456,7 @@ router.get("/admin/revisions", adminAuth, async (req, res): Promise<void> => {
   // returned row with canApprove before serializing any article metadata.
   const predicate = and(
     eq(postRevisionsTable.status, "pending"),
-    sql`${postsTable.status} IN ('published', 'scheduled')`,
+    revisablePostPredicate(),
     scope.all ? undefined : eq(postsTable.authorId, scope.authorId),
   );
   const [totalRow] = await db.select({ value: count() })
@@ -436,7 +473,7 @@ router.get("/admin/revisions", adminAuth, async (req, res): Promise<void> => {
     .offset((page - 1) * pageSize);
   const items = rows.filter(({ post, revision }) =>
     revision.status === "pending" &&
-    (post.status === "published" || post.status === "scheduled") &&
+    revisableStatus(post) &&
     canApprove(req.user, post))
     .map(({ post, revision }) => ({
       id: revision.id,
@@ -653,8 +690,8 @@ router.put("/admin/posts/:id/revisions/:revisionId", adminAuth, async (req, res)
   const outcome = await db.transaction(async (tx) => {
     await tx.execute(sql`SELECT id FROM posts WHERE id = ${postId} FOR UPDATE`);
     const [post] = await tx.select().from(postsTable)
-      .where(and(eq(postsTable.id, postId), sql`${postsTable.status} IN ('published', 'scheduled')`));
-    if (!post) return { status: 404, error: "Published or scheduled post not found" };
+      .where(and(eq(postsTable.id, postId), revisablePostPredicate()));
+    if (!post) return { status: 404, error: "Revisable post not found" };
     if (!canApprove(req.user, post)) return { status: 403, error: "Approval permission required" };
     const [revision] = await tx.select().from(postRevisionsTable)
       .where(and(eq(postRevisionsTable.id, revisionId), eq(postRevisionsTable.postId, post.id)))
@@ -707,8 +744,9 @@ router.post("/admin/posts/:id/revisions/:revisionId/:action", adminAuth, async (
   const outcome = await db.transaction(async (tx) => {
     // Lock the post before reading the revision; concurrent edits/approvals serialize here.
     await tx.execute(sql`SELECT id FROM posts WHERE id = ${postId} FOR UPDATE`);
-    const [post] = await tx.select().from(postsTable).where(eq(postsTable.id, postId));
-    if (!post || !["published", "scheduled"].includes(post.status)) return { status: 404, error: "Published or scheduled post not found" };
+    const [post] = await tx.select().from(postsTable)
+      .where(and(eq(postsTable.id, postId), revisablePostPredicate()));
+    if (!post) return { status: 404, error: "Revisable post not found" };
     if (!canApprove(req.user, post)) return { status: 403, error: "Approval permission required" };
     const [revision] = await tx.select().from(postRevisionsTable).where(and(
       eq(postRevisionsTable.id, revisionId), eq(postRevisionsTable.postId, postId),
@@ -817,6 +855,38 @@ router.post("/admin/posts/:id/revisions/:revisionId/:action", adminAuth, async (
         updateNote: action === "approve" ? validatedNote : revision.updateNote,
       },
     ));
+    if (action === "approve") {
+      // The post lock serializes approvals and proposals for this article. A
+      // sibling that was already stale before this decision stays pending for
+      // manual review; only this approval's newly invalidated bases are closed.
+      const previousHash = editorialFingerprint(post);
+      const nextHash = editorialFingerprint(resultingPost);
+      if (nextHash !== previousHash) {
+        const siblings = await tx.select().from(postRevisionsTable).where(and(
+          eq(postRevisionsTable.postId, postId),
+          eq(postRevisionsTable.status, "pending"),
+        )).for("update");
+        for (const sibling of siblings) {
+          if (sibling.postId !== postId || sibling.id === revisionId ||
+              sibling.baseHash !== previousHash || sibling.baseHash === nextHash) continue;
+          const [superseded] = await tx.update(postRevisionsTable).set({
+            status: "superseded", reviewedAt, reviewedBy: null,
+          }).where(and(eq(postRevisionsTable.id, sibling.id), eq(postRevisionsTable.status, "pending"))).returning();
+          if (!superseded) continue;
+          await tx.insert(auditLogsTable).values(auditEvent(
+            req, actor, "post.revision.superseded", postId,
+            `Automatically superseded revision for "${post.title}"`,
+            {
+              eventVersion: 1, revisionId: sibling.id, supersededByRevisionId: revisionId,
+              postId, postTitle: post.title, source: sibling.source,
+              proposedAt: isoDate(sibling.createdAt), reviewedAt: reviewedAt.toISOString(),
+              fields: Object.keys(sibling.changes), changes: sibling.changes,
+              updateNote: sibling.updateNote,
+            },
+          ));
+        }
+      }
+    }
     return { status: 200, post: resultingPost };
   });
   if ("error" in outcome) { res.status(outcome.status).json({ error: outcome.error }); return; }

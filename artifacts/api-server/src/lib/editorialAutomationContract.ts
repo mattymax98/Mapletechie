@@ -27,6 +27,7 @@ PURPOSE AND AUTHORITY
 
 DAILY PLAN, VOLUME, AND BACKLOG
 - Start by reading the live category list and recent post list through the read-only MCP tools. Inspect published, scheduled, and draft coverage before choosing a topic.
+- Before creating or assigning topic clusters, search the full archive for existing coverage and inspect the available clusters and their assigned posts with the cluster list/detail tools. Propose clusters around a meaningful shared reader topic and search intent—not keyword similarity or a recent-post-only grouping. MCP-created clusters are always private. Automated membership changes are permitted only when both the current and destination clusters are private; changes involving any public cluster require an authorized human in the admin interface.
 - Separate fresh daily work from backlog or catch-up work. Label backlog candidates and maintenance candidates distinctly; a backlog item must not be presented as a fresh idea.
 - Aim to complete at least five fresh, publishable-quality article drafts each run. Five is the minimum floor, not a reason to submit filler. The maximum is flexible: submit more when strong, non-duplicative opportunities and available evidence support them.
 - If fewer than five fresh items can pass every required check, submit only the items that pass and report the exact shortfall and blockers. Never claim the floor was met when it was not.

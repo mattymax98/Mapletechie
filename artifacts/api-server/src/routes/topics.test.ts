@@ -97,6 +97,20 @@ describe("topic cluster routes", () => {
     expect(db.insert).not.toHaveBeenCalled();
   });
 
+  it("requires three published members before even an admin can make a topic public", async () => {
+    const create = await request("POST", "/admin/topics", {
+      name: "AI", slug: "ai", introduction: "Guide", isPublic: true,
+    });
+    expect(create.status).toBe(409);
+    expect(db.insert).not.toHaveBeenCalled();
+    selectQueue.push([{ id: 9, slug: "ai" }], [{ value: 2 }]);
+    const update = await request("PUT", "/admin/topics/9", {
+      name: "AI", slug: "ai", introduction: "Guide", isPublic: true,
+    });
+    expect(update.status).toBe(409);
+    expect(db.update).not.toHaveBeenCalled();
+  });
+
   it("keeps a created topic slug stable to protect existing article links", async () => {
     selectQueue.push([{ id: 9, slug: "original-topic" }]);
     const response = await request("PUT", "/admin/topics/9", {
@@ -111,17 +125,45 @@ describe("topic cluster routes", () => {
     selectQueue.push([
       { id: 1, name: "Ready", slug: "ready", introduction: "Intro", isPublic: true },
       { id: 2, name: "Not ready", slug: "not-ready", introduction: "", isPublic: true },
+      { id: 3, name: "Private", slug: "private", introduction: "Private intro", isPublic: false },
     ], [
       { clusterId: 1 },
       { clusterId: 1 },
       { clusterId: 1 },
       { clusterId: 2 },
       { clusterId: 2 },
+      { clusterId: 3 },
+      { clusterId: 3 },
+      { clusterId: 3 },
     ]);
     const response = await request("GET", "/topics");
     expect(response.status).toBe(200);
     expect(response.json).toHaveLength(1);
     expect(response.json[0].slug).toBe("ready");
+  });
+
+  it("does not return a private topic detail even when it has enough published posts", async () => {
+    selectQueue.push(
+      [{ id: 4, name: "Private", slug: "private", introduction: "Private intro", isPublic: false }],
+      [{ id: 1 }, { id: 2 }, { id: 3 }],
+    );
+
+    const response = await request("GET", "/topics/private");
+
+    expect(response.status).toBe(404);
+    expect(response.json.error).toBe("Topic not found.");
+  });
+
+  it("returns 404 for a public topic with fewer than three published posts", async () => {
+    selectQueue.push(
+      [{ id: 5, name: "Thin", slug: "thin", introduction: "Intro", isPublic: true }],
+      [{ id: 10, status: "published" }, { id: 11, status: "published" }],
+    );
+
+    const response = await request("GET", "/topics/thin");
+
+    expect(response.status).toBe(404);
+    expect(response.json.error).toBe("Topic not found.");
   });
 
   it("exposes admin readiness and published counts", async () => {

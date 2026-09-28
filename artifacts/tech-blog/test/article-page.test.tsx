@@ -193,4 +193,33 @@ describe("BlogPost Article JSON-LD", () => {
       post.title,
     ]);
   });
+
+  it("links to topic guides only when the public API provides eligible topic context", async () => {
+    const publiclyClustered = {
+      ...post,
+      topicCluster: {
+        id: 9,
+        name: "Artificial Intelligence",
+        slug: "artificial-intelligence",
+        introduction: "Reporting and analysis about AI.",
+        role: "supporting",
+      },
+    };
+    mockApi(publiclyClustered);
+    const { findByRole } = renderArticlePage(publiclyClustered.slug);
+
+    const guideLink = await findByRole("link", { name: /Artificial Intelligence.*View topic/s });
+    expect((guideLink as HTMLAnchorElement).getAttribute("href")).toBe(
+      "/topics/artificial-intelligence",
+    );
+
+    // The public API represents private and thin clusters as null. Such article
+    // pages must not render a crawlable link to an inaccessible topic page.
+    const unclustered = { ...post, topicCluster: null };
+    mockApi(unclustered);
+    cleanup();
+    const noTopicPage = renderArticlePage(unclustered.slug);
+    await noTopicPage.findByRole("heading", { name: unclustered.title });
+    expect(noTopicPage.queryByRole("link", { name: /View topic/ })).toBeNull();
+  });
 });

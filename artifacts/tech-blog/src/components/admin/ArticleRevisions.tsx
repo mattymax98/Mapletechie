@@ -21,8 +21,8 @@ type Revision = {
 };
 type Live = Record<Field, string | null> & { slug: string; status: string; publishedAt: string; scheduledFor?: string | null; contentModifiedAt?: string | null };
 
-export function ArticleRevisions({ postId, token, canApprove }: {
-  postId: number; token: string; canApprove: boolean;
+export function ArticleRevisions({ postId, token, canApprove, onApproved }: {
+  postId: number; token: string; canApprove: boolean; onApproved?: (post: Live) => void;
 }) {
   const [live, setLive] = useState<Live | null>(null);
   const [revisions, setRevisions] = useState<Revision[]>([]);
@@ -44,6 +44,7 @@ export function ArticleRevisions({ postId, token, canApprove }: {
     setRevisions(data.revisions);
     setEdits(Object.fromEntries(data.revisions.map((r) => [r.id, r.changes])));
     setNotes(Object.fromEntries(data.revisions.map((r) => [r.id, r.updateNote ?? ""])));
+    return data.live;
   }
   useEffect(() => {
     let active = true;
@@ -82,7 +83,8 @@ export function ArticleRevisions({ postId, token, canApprove }: {
         const data = await response.json().catch(() => ({}));
         throw new Error(data.error || `Request failed (${response.status})`);
       }
-      await load();
+      const currentPost = await load();
+      if (path.endsWith("/approve")) onApproved?.(currentPost);
       if (!path || path.endsWith("/approve") || path.endsWith("/reject")) {
         window.dispatchEvent(new Event("admin:revisions-changed"));
       }
@@ -102,7 +104,9 @@ export function ArticleRevisions({ postId, token, canApprove }: {
           The URL ({live.slug}) and author stay unchanged.
           {live.status === "published"
             ? ` Original publication: ${new Date(live.publishedAt).toLocaleDateString()}. Only substantive article changes can update its editorial freshness date.`
-            : ` Scheduled publication remains ${live.scheduledFor ? new Date(live.scheduledFor).toLocaleString() : "unchanged"}. Corrections before publication do not set an editorial freshness date.`}
+            : live.status === "scheduled"
+              ? ` Scheduled publication remains ${live.scheduledFor ? new Date(live.scheduledFor).toLocaleString() : "unchanged"}. Corrections before publication do not set an editorial freshness date.`
+              : " This article is temporarily unpublished. Approval updates the private draft without republishing it, changing its original publication date, or setting a new editorial freshness date."}
         </p>
       </div>
       {error && <p role="alert" className="text-red-400 text-sm">{error}</p>}
@@ -131,14 +135,14 @@ export function ArticleRevisions({ postId, token, canApprove }: {
       {revisions.map((r) => (
         <div key={r.id} className="border border-zinc-700 p-4 space-y-4">
           <h3 className="font-semibold text-white">Proposal #{r.id} · {r.source} · {r.status}
-            {r.stale && r.status === "pending" && <span className="text-amber-400"> · Live article changed — re-review required</span>}
+            {r.stale && r.status === "pending" && <span className="text-amber-400"> · Article changed — re-review required</span>}
           </h3>
           <p className="text-xs text-zinc-400">{new Date(r.createdAt).toLocaleString()}</p>
           {fields.filter((field) => field in r.changes).map((field) => (
             <div key={field}>
               <h4 className="text-sm font-semibold text-zinc-200">{labels[field]} · changed</h4>
               <div className="grid gap-3 md:grid-cols-2 text-sm">
-                 <div className="bg-zinc-950 p-3 min-w-0"><b>Live</b><pre className="whitespace-pre-wrap break-words mt-2 max-h-48 overflow-y-auto">{live[field] ?? ""}</pre>
+                  <div className="bg-zinc-950 p-3 min-w-0"><b>{live.status === "draft" ? "Current draft" : "Live"}</b><pre className="whitespace-pre-wrap break-words mt-2 max-h-48 overflow-y-auto">{live[field] ?? ""}</pre>
                    {imageFields.has(field) && <ImagePreview src={live[field]} alt={`Current ${labels[field].toLowerCase()}`} />}
                  </div>
                 <div className="bg-zinc-950 p-3 min-w-0"><b>Proposed</b>

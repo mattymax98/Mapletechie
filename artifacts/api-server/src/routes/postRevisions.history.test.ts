@@ -10,6 +10,7 @@ const state = vi.hoisted(() => ({
   committedAudit: [] as Record<string, unknown>[],
   committedRevision: null as Record<string, unknown> | null,
   updateValues: [] as Record<string, unknown>[],
+  wherePredicates: [] as unknown[],
   revisionResult: null as Record<string, unknown> | null,
   failAudit: false,
 }));
@@ -24,6 +25,12 @@ function selectChain(queue: unknown[][]) {
             state.selectedPost = result[0] as Record<string, unknown>;
           }
           return Promise.resolve(result).then(resolve, reject);
+        };
+      }
+      if (property === "where") {
+        return (predicate: unknown) => {
+          state.wherePredicates.push(predicate);
+          return chain;
         };
       }
       return () => chain;
@@ -83,9 +90,9 @@ const db = {
 
 vi.mock("@workspace/db", () => ({
   db,
-  postsTable: { id: {}, status: {}, authorId: {}, title: {} },
+  postsTable: { id: {}, status: {}, authorId: {}, title: {}, publishedOnceAt: {} },
   postRevisionsTable: { id: {}, postId: {}, status: {}, createdAt: {} },
-  auditLogsTable: { action: {}, details: {}, entityId: {}, createdAt: {}, id: {}, summary: {} },
+  auditLogsTable: { action: {}, details: {}, entityId: {}, entityType: {}, createdAt: {}, id: {}, summary: {} },
 }));
 vi.mock("drizzle-orm", () => ({
   and: () => ({}),
@@ -197,6 +204,7 @@ beforeEach(() => {
   state.committedAudit = [];
   state.committedRevision = null;
   state.updateValues = [];
+  state.wherePredicates = [];
   state.revisionResult = {
     id: 15,
     postId: article.id,
@@ -208,6 +216,121 @@ beforeEach(() => {
 });
 
 describe("durable editorial revision history", () => {
+  it("does not invalidate older proposals when only the publication-history marker is backfilled", () => {
+    expect(editorialFingerprint({ ...article, publishedOnceAt: null } as any)).toBe(
+      editorialFingerprint({ ...article, publishedOnceAt: article.publishedAt } as any),
+    );
+  });
+
+  it("allows proposing a correction for a previously published draft", async () => {
+    const draft = { ...article, status: "draft", publishedOnceAt: new Date("2024-04-01T00:00:00Z") };
+    state.transactionQueue = [[draft]];
+    const response = await request("POST", "/admin/posts/7/revisions", editor, {
+      changes: { title: "Corrected draft headline" },
+    });
+    expect(response.status).toBe(201);
+    expect(state.committedRevision).toMatchObject({ postId: 7, changes: { title: "Corrected draft headline" } });
+    expect(state.committedAudit[0]).toMatchObject({
+      action: "post.revision.proposed",
+      details: { postStatus: "draft", postSnapshot: { status: "draft" } },
+    });
+  });
+
+  it("does not allow proposing a revision for a never-published draft", async () => {
+    state.transactionQueue = [[]];
+    const response = await request("POST", "/admin/posts/7/revisions", editor, {
+      changes: { title: "Not eligible" },
+    });
+    expect(response.status).toBe(404);
+    expect(state.committedRevision).toBeNull();
+  });
+
+  it("allows legacy drafts when their lifecycle audit has published evidence", async () => {
+    const legacyDraft = { ...article, status: "draft", publishedOnceAt: null };
+    // The correlated audit EXISTS predicate in the transaction query admits
+    // this row when a post lifecycle snapshot has published evidence.
+    state.transactionQueue = [[legacyDraft]];
+    const response = await request("POST", "/admin/posts/7/revisions", editor, {
+      changes: { excerpt: "Corrected excerpt" },
+    });
+    expect(response.status).toBe(201);
+    expect(state.committedAudit[0]).toMatchObject({ details: { postStatus: "draft" } });
+  });
+
+  it("uses one eligibility and permission predicate for queue count and rows", async () => {
+    const draft = { ...article, status: "draft", publishedOnceAt: new Date("2024-04-01T00:00:00Z") };
+    state.selectQueue = [
+      [{ value: 1 }],
+      [{ post: draft, revision: { id: 18, status: "pending", baseHash: editorialFingerprint(draft as any), changes: { title: "Correction" }, source: "editor", createdAt: new Date() } }],
+    ];
+    const response = await request("GET", "/admin/revisions", admin);
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      total: 1,
+      pendingCount: 1,
+      items: [{ id: 18, postId: 7, postStatus: "draft", publishedAt: article.publishedAt.toISOString() }],
+    });
+    expect(state.wherePredicates).toHaveLength(2);
+    expect(state.wherePredicates[0]).toBe(state.wherePredicates[1]);
+  });
+
+  it("approves draft corrections without changing publication or authorship metadata", async () => {
+    const draft = {
+      ...article,
+      status: "draft",
+      publishedAt: new Date("2024-04-01T00:00:00Z"),
+      publishedOnceAt: new Date("2024-04-01T00:00:00Z"),
+      scheduledFor: null,
+      contentModifiedAt: new Date("2024-04-02T00:00:00Z"),
+    };
+    const revision = {
+      id: 19, postId: 7, status: "pending", baseHash: editorialFingerprint(draft as any),
+      changes: { title: "Corrected title" }, updateNote: "Offline fix", source: "editor",
+      createdAt: new Date("2026-02-10T12:00:00Z"),
+    };
+    state.transactionQueue = [[draft], [revision], []];
+    const response = await request("POST", "/admin/posts/7/revisions/19/approve", admin);
+    expect(response.status).toBe(200);
+    expect(state.updateValues[0]).toEqual({ title: "Corrected title" });
+    const decision = state.committedAudit[0]!.details as Record<string, any>;
+    expect(decision.postAfterSnapshot).toMatchObject({
+      status: "draft",
+      publishedAt: draft.publishedAt.toISOString(),
+      publishedOnceAt: draft.publishedOnceAt.toISOString(),
+      scheduledFor: null,
+      authorId: draft.authorId,
+      author: draft.author,
+      slug: draft.slug,
+      contentModifiedAt: draft.contentModifiedAt.toISOString(),
+    });
+  });
+
+  it("rejects stale proposals without applying post changes", async () => {
+    const revision = {
+      id: 20, postId: 7, status: "pending", baseHash: "stale",
+      changes: { title: "Correction" }, updateNote: null, source: "editor",
+    };
+    state.transactionQueue = [[article], [revision]];
+    const response = await request("POST", "/admin/posts/7/revisions/20/approve", admin);
+    expect(response.status).toBe(409);
+    expect(state.updateValues).toHaveLength(0);
+    expect(state.committedAudit).toHaveLength(0);
+  });
+
+  it("rejects a pending draft revision without changing the article", async () => {
+    const draft = { ...article, status: "draft", publishedOnceAt: article.publishedAt };
+    const revision = {
+      id: 21, postId: 7, status: "pending", baseHash: editorialFingerprint(draft as any),
+      changes: { title: "Correction" }, updateNote: null, source: "editor",
+    };
+    state.transactionQueue = [[draft], [revision], []];
+    const response = await request("POST", "/admin/posts/7/revisions/21/reject", admin);
+    expect(response.status).toBe(200);
+    expect(state.updateValues).toHaveLength(1);
+    expect(state.updateValues[0]).toMatchObject({ status: "rejected" });
+    expect(state.committedAudit[0]).toMatchObject({ action: "post.revision.rejected" });
+  });
+
   it("stores the immutable proposal snapshot and revision in one transaction", async () => {
     const scheduledPost = {
       ...article,
@@ -347,6 +470,33 @@ describe("durable editorial revision history", () => {
         postAfterSnapshot: { status: "published", slug: "durable-story", authorId: 5 },
       },
     });
+  });
+
+  it("supersedes only siblings made stale by approval, without assigning their reviewer", async () => {
+    const baseHash = editorialFingerprint(article as any);
+    const revision = {
+      id: 15, postId: 7, status: "pending", baseHash,
+      changes: { title: "Corrected title" }, updateNote: null, source: "editor",
+      createdAt: new Date("2026-02-10T12:00:00Z"),
+    };
+    const sibling = { ...revision, id: 16, changes: { excerpt: "Alternative summary" } };
+    const oldStale = { ...sibling, id: 17, baseHash: "already-stale" };
+    const otherArticle = { ...sibling, id: 18, postId: 8 };
+    const resulting = { ...article, title: "Corrected title" };
+    const newerValid = { ...sibling, id: 19, baseHash: editorialFingerprint(resulting as any) };
+    state.transactionQueue = [[article], [revision], [], [sibling, oldStale, otherArticle, newerValid]];
+    const response = await request("POST", "/admin/posts/7/revisions/15/approve", admin);
+    expect(response.status).toBe(200);
+    const supersessions = state.committedAudit.filter((entry) => entry.action === "post.revision.superseded");
+    expect(supersessions).toHaveLength(1);
+    expect(supersessions[0]).toMatchObject({
+      username: "admin",
+      details: { revisionId: 16, supersededByRevisionId: 15, postId: 7 },
+    });
+    expect(state.updateValues.filter((value) => value.status === "superseded")).toEqual([
+      { status: "superseded", reviewedAt: expect.any(Date), reviewedBy: null },
+    ]);
+    expect(state.updateValues.filter((value) => value.status === "rejected")).toHaveLength(0);
   });
 
   it("unions fields across proposal, reviewer edits, and approval, retaining unchanged values", async () => {
