@@ -426,7 +426,7 @@ function buildMcpServer(req: Request): McpServer {
     {
       title: "Get Mapletechie editorial automation contract",
       description:
-        "Read-only source of truth for the daily Mapletechie editorial run: schedule, review-only authority, discovery workflow, five-draft quality target, editorial mix, Canadian relevance, research, SEO, image rights, QA, failure handling, and completion reporting.",
+        "Read-only source of truth for the daily Mapletechie editorial run: schedule, review-only authority, discovery workflow, five-draft minimum success floor, editorial mix, Canadian relevance, research, SEO, image rights, QA, failure handling, and completion reporting.",
       inputSchema: {},
     },
     async () => ({
