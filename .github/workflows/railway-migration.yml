@@ -1,0 +1,60 @@
+name: Guarded Railway migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      migration:
+        description: Numbered SQL filename from scripts/migrations, or repair-railway-schema.sql
+        required: true
+        type: string
+      confirm:
+        description: Explicit production-write confirmation
+        required: true
+        default: "NO"
+        type: choice
+        options:
+          - "NO"
+          - "APPLY"
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    name: Apply reviewed production migration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RAILWAY_DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_URL }}
+
+    steps:
+      - name: Require owner confirmation
+        shell: bash
+        run: |
+          if [ "${{ inputs.confirm }}" != "APPLY" ]; then
+            echo "Production migration was not explicitly approved."
+            exit 1
+          fi
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify pinned Railway production database
+        run: pnpm --filter @workspace/scripts run migrate:railway --check
+
+      - name: Apply reviewed migration
+        run: pnpm --filter @workspace/scripts run migrate:railway --apply "${{ inputs.migration }}" --confirm-railway-production

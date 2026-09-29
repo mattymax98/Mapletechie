@@ -591,7 +591,7 @@ describe("POST /mcp — tools", () => {
       timezone: "America/Toronto",
     });
     expect(payload.schedule.days).toHaveLength(7);
-    expect(payload.instructions).toMatch(/five is a target/i);
+    expect(payload.instructions).toMatch(/five is the minimum floor/i);
     expect(payload.instructions).toMatch(/meaningful original value/i);
     expect(payload.instructions).toMatch(/full published archive/i);
     expect(payload.instructions).toMatch(/review-only revision proposal/i);

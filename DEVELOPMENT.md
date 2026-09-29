@@ -1,5 +1,8 @@
 # Development guide
 
+For production ownership and the connected ChatGPT/GitHub/Railway delivery
+model, see [OPERATIONS_HANDOVER.md](./OPERATIONS_HANDOVER.md).
+
 Mapletechie is a pnpm workspace running Node.js 24.
 
 ## Prerequisites

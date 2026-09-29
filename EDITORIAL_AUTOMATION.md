@@ -15,7 +15,7 @@ long-form prompt that can drift.
 | Local time | 7:00 AM |
 | Time zone | `America/Toronto` |
 | Cron representation | `0 7 * * *` |
-| Volume | Aim for five strong fresh drafts; submit fewer when quality gates fail; no artificial maximum |
+| Volume | Minimum five strong fresh drafts for a normal successful run; if quality gates prevent five, submit only passing drafts and report the run short; no artificial maximum |
 | Authority | Research, writing, image preparation, validation, and draft submission only |
 | Human control | Editors review every item and alone publish or schedule it |
 
@@ -98,7 +98,7 @@ NEXT MANUAL ACTION — editor review, rights check, metadata refresh, or other a
 passed. `BLOCKED` means no draft was accepted. `PARTIAL` means a draft may have
 been accepted but a required verification remains unresolved; it is never
 counted toward five. If the run cannot reach five fresh items, report the
-actual count and exact blockers plainly rather than submitting filler or claiming success. Five is a quality-first target, not a mandatory quota.
+actual count and exact blockers plainly rather than submitting filler or claiming success. Five is the minimum success floor, but no quality gate may be relaxed to reach it.
 
 ## Connector/MCP recovery
 

@@ -1,5 +1,11 @@
 # Deploying Mapletechie to Railway
 
+> Current production ownership and the post-workspace operating model are
+> documented in [OPERATIONS_HANDOVER.md](./OPERATIONS_HANDOVER.md). Railway
+> currently builds from `Dockerfile.api` and `Dockerfile.blog`; those Dockerfiles
+> are the canonical build definitions. The setup phases below are retained as
+> recovery/reference material.
+
 Step-by-step guide. Everything marked 🧑 needs you to click something;
 everything marked 🤖 is handled automatically or by the agent.
 

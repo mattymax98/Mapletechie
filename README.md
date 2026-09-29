@@ -14,6 +14,12 @@ careers and advertising pages, and on-site analytics.
 - Email: Resend
 - Hosted on Railway
 
+## Operations
+
+Production ownership, deployment, migration, editorial automation, incident
+response, and the retired-workspace cutover are documented in
+[OPERATIONS_HANDOVER.md](./OPERATIONS_HANDOVER.md).
+
 ## Project layout
 
 ```

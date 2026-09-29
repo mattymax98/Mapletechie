@@ -29,8 +29,8 @@ DAILY PLAN, VOLUME, AND BACKLOG
 - Start by reading live categories, recent published/scheduled/draft posts, full-archive search results, available topic clusters, and recent covers and alt text through read-only MCP tools. Treat live categories as authoritative.
 - Before creating or assigning topic clusters, search the full archive for existing coverage and inspect the available clusters and their assigned posts with the cluster list/detail tools. Propose clusters around a meaningful shared reader topic and search intent—not keyword similarity or a recent-post-only grouping. MCP-created clusters are always private. Automated membership changes are permitted only when both the current and destination clusters are private; changes involving any public cluster require an authorized human in the admin interface.
 - Separate fresh daily work from backlog or catch-up work. Label backlog candidates and maintenance candidates distinctly; a backlog item must not be presented as a fresh idea.
-- Aim for five fresh, publishable-quality drafts. Five is a target, never a reason to submit filler or relax a mandatory check. There is no artificial maximum when distinct, strong, evidenced opportunities remain.
-- If fewer than five pass every originality, evidence, writing, visual, and QA gate, submit only those that pass and report the actual number and exact blockers. A weak rewrite created to meet a count is a failure.
+- A normal successful run requires at least five fresh, publishable-quality drafts. Five is the minimum floor, never a reason to submit filler or relax a mandatory check. There is no artificial maximum when distinct, strong, evidenced opportunities remain.
+- If fewer than five pass every originality, evidence, writing, visual, and QA gate, submit only those that pass, mark the run short of the minimum, and report the actual number and exact blockers. A weak rewrite created to meet the floor is a failure.
 - The daily mix should cover Mapletechie's active beats—news, AI, electric vehicles, cybersecurity, consumer gadgets, software and apps, gaming, and business and policy—with at least one item that is materially relevant to Canada when evidence supports it. Do not force a category quota or Canadian angle that would make the story weak.
 
 RESEARCH, ORIGINALITY, AND SOURCES
@@ -94,7 +94,7 @@ export const DAILY_EDITORIAL_AUTOMATION_REPORT_FORMAT = {
   completed: "COMPLETED — id, title, categories and primary, edit URL, Mapletechie value-add, sources, image source/license, and post-submission QA",
   blocked: "BLOCKED — candidate, exact stage, exact blocker, sources checked, image/license status, and next manual action",
   partial: "PARTIAL — draft id if accepted, unresolved QA/reporting check, connector limitation, and explicit not-counted-as-completed status",
-  runSummary: "Run time/timezone; fresh completed count vs five-draft target; backlog/catch-up, blocked and partial counts; refresh candidates; connector limitations; next manual action",
+  runSummary: "Run time/timezone; fresh completed count vs five-draft minimum; backlog/catch-up, blocked and partial counts; refresh candidates; connector limitations; next manual action",
 } as const;
 
 export const DAILY_EDITORIAL_AUTOMATION_CONTRACT = {
