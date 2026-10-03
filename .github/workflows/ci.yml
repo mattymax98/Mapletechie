@@ -60,11 +60,5 @@ jobs:
       - name: Test
         run: pnpm run test
 
-      - name: Pass 2 production semantic tag audit
-        if: github.event_name == 'push' && github.ref_name == 'seo/tag-normalization-pass2-audit'
-        env:
-          RAILWAY_DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_URL }}
-        run: pnpm --filter @workspace/scripts run tags:semantic-audit
-
       - name: Build workspaces
         run: pnpm -r --if-present run build
