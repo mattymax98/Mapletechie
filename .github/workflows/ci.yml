@@ -60,5 +60,11 @@ jobs:
       - name: Test
         run: pnpm run test
 
+      - name: Tag normalization production dry run
+        if: github.event_name == 'push' && github.ref_name == 'seo/tag-normalization-pass1'
+        env:
+          RAILWAY_DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_URL }}
+        run: pnpm --filter @workspace/scripts run tags:dry-run
+
       - name: Build workspaces
         run: pnpm -r --if-present run build
