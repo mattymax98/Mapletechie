@@ -177,6 +177,23 @@ describe("GET /sitemap.xml — SITE_DOMAIN protocol normalisation", () => {
     expect(body).not.toContain("<loc>https://www.mapletechie.com/topics</loc>");
   });
 
+  it("only advertises tag archives with at least three published posts", async () => {
+    process.env.SITE_DOMAIN = "https://www.mapletechie.com";
+    db.execute.mockResolvedValue({
+      rows: [
+        { tag: "mississauga", published_count: 1 },
+        { tag: "canada", published_count: 3 },
+        { tag: "artificial intelligence", published_count: 12 },
+      ],
+    });
+
+    const { body } = await get("/sitemap.xml");
+
+    expect(body).not.toContain("/tag/mississauga");
+    expect(body).toContain("/tag/canada");
+    expect(body).toContain("/tag/artificial%20intelligence");
+  });
+
   it("does not emit malformed legacy route segments", async () => {
     process.env.SITE_DOMAIN = "https://www.mapletechie.com";
     let callCount = 0;
