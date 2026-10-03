@@ -331,9 +331,16 @@ function startMockApi(
     if (postsMode === "invalid-structure") {
       return res.json([{ slug: "missing-title" }]);
     }
-    const limit = Math.max(1, Number(req.query.limit) || POST_LIST.length);
+    const source = opts.postCount && opts.postCount > 1
+      ? Array.from({ length: opts.postCount }, (_, index) => ({
+          ...POST_LIST[0],
+          slug: `archive-story-${index + 1}`,
+          title: `Archive Story ${index + 1}`,
+        }))
+      : POST_LIST;
+    const limit = Math.max(1, Number(req.query.limit) || source.length);
     const offset = Math.max(0, Number(req.query.offset) || 0);
-    res.json(POST_LIST.slice(offset, offset + limit));
+    res.json(source.slice(offset, offset + limit));
   });
   api.get("/api/authors/by-username/:username", (req, res) => {
     if (opts.resourceFailure) return res.status(503).json({ error: "temporary" });
