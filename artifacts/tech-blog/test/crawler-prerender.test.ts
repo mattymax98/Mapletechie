@@ -225,6 +225,7 @@ const BIO_ONLY_AUTHOR = {
 };
 
 const TAG = "ai";
+const THIN_TAG = "mississauga";
 const ENCODED_TAG = "120 hz";
 
 const SERIES = {
