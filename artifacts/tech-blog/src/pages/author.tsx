@@ -116,7 +116,7 @@ export default function AuthorPage() {
     { url: normalizeHttpUrl(author.websiteUrl), Icon: Globe, title: "Website" },
   ].filter((l): l is typeof l & { url: string } => l.url !== null);
 
-  const personJsonLd = buildProfilePageJsonLd(author);
+  const personJsonLd = buildPersonJsonLd(author);
   const profileLinks = visibleProfileLinks(author);
 
   return (
