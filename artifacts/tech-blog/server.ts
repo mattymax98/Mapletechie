@@ -107,6 +107,16 @@ try {
 
 const SEO_BLOCK_RE = /<!-- SEO_HEAD_START -->[\s\S]*?<!-- SEO_HEAD_END -->/;
 const ROOT_RE = /<div id="root"><\/div>/;
+// Server-prerendered crawler pages already contain the complete indexable
+// article/listing body. Leaving the SPA bootstrap in those responses makes
+// Google's Web Rendering Service boot React anyway, which in turn re-fetches
+// post, author and comment JSON plus application chunks. Preserve JSON-LD,
+// stylesheets and ordinary links, but omit executable scripts/module preloads
+// from responses that already have a prerendered body.
+const EXECUTABLE_SCRIPT_RE =
+  /<script\b(?![^>]*\btype=["']application\/ld\+json["'])[^>]*>[\s\S]*?<\/script>\s*/gi;
+const MODULE_PRELOAD_RE =
+  /<link\b[^>]*\brel=["']modulepreload["'][^>]*>\s*/gi;
 
 const CRAWLER_RE =
   /facebookexternalhit|Facebot|LinkedInBot|Twitterbot|Slackbot|WhatsApp|TelegramBot|Discordbot|Pinterest|redditbot|Applebot|Googlebot|Google-InspectionTool|bingbot|DuckDuckBot|YandexBot|Baiduspider|SkypeUriPreview|vkShare|W3C_Validator|Embedly|Iframely|outbrain|quora link preview|showyoubot|Tumblr|XING-contenttabreceiver|Mediapartners-Google|AhrefsBot|AhrefsSiteAudit|SemrushBot|Sogou|GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-Web|anthropic-ai|PerplexityBot|Perplexity|cohere-ai|YouBot|Meta-ExternalAgent|Meta-ExternalFetcher|Diffbot|Bytespider|ia_archiver|CCBot|DataForSeoBot|PetalBot/i;
@@ -207,7 +217,10 @@ function buildSeoBlock(data: SeoData): string {
 function renderHtml(seoBlock: string, bodyHtml?: string): string {
   let html = publicIndexHtml.replace(SEO_BLOCK_RE, seoBlock);
   if (bodyHtml) {
-    html = html.replace(ROOT_RE, `<div id="root">${bodyHtml}</div>`);
+    html = html
+      .replace(ROOT_RE, `<div id="root">${bodyHtml}</div>`)
+      .replace(EXECUTABLE_SCRIPT_RE, "")
+      .replace(MODULE_PRELOAD_RE, "");
   }
   return html;
 }
