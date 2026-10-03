@@ -130,6 +130,29 @@ function htmlEscape(s: unknown): string {
   );
 }
 
+function normalizeTagRouteText(value: string): string {
+  return value
+    .replace(/&(#x[0-9a-f]+|#\d+|amp|quot|apos|nbsp|lt|gt);/gi, (match, entity: string) => {
+      const lower = entity.toLowerCase();
+      if (lower.startsWith("#x")) {
+        const codePoint = Number.parseInt(lower.slice(2), 16);
+        return Number.isSafeInteger(codePoint) ? String.fromCodePoint(codePoint) : match;
+      }
+      if (lower.startsWith("#")) {
+        const codePoint = Number.parseInt(lower.slice(1), 10);
+        return Number.isSafeInteger(codePoint) ? String.fromCodePoint(codePoint) : match;
+      }
+      return ({ amp: "&", quot: '"', apos: "'", nbsp: " ", lt: "<", gt: ">" } as Record<string, string>)[lower] ?? match;
+    })
+    .normalize("NFKC")
+    .replace(/[\u00a0\s]+/g, " ")
+    .trim();
+}
+
+function canonicalTagRoute(tag: string): string {
+  return `/tag/${encodeURIComponent(normalizeTagRouteText(tag).toLocaleLowerCase("en-CA"))}`;
+}
+
 function absUrl(maybeRelative: string | null | undefined, fallback: string): string {
   if (!maybeRelative) return fallback;
   if (/^https?:\/\//i.test(maybeRelative)) return maybeRelative;
@@ -1776,6 +1799,14 @@ app.get(/^\/tag\/([^/]+)\/?$/, async (req, res, next) => {
   } catch {
     tag = rawTag;
   }
+
+  const canonicalTag = normalizeTagRouteText(tag);
+  const canonicalPath = canonicalTagRoute(canonicalTag);
+  if (req.path !== canonicalPath) {
+    res.redirect(301, canonicalPath);
+    return;
+  }
+  tag = canonicalTag;
 
   const postsResult = await fetchJsonResult<PostSummary[]>(
     `${API_BASE}/api/tags/${encodeURIComponent(tag)}/posts`,

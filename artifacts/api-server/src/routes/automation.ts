@@ -30,6 +30,7 @@ import { logger } from "../lib/logger";
 import { notifyEditorsOfAutomationDraft } from "../lib/automationDraftNotification";
 import { getSiteUrl } from "../lib/siteUrl";
 import { canonicalPostAuthor } from "../lib/postAuthor";
+import { canonicalizeTagsForWrite } from "../lib/tagNormalization";
 
 /**
  * Private automation draft API — lets an external AI client (run and
@@ -751,6 +752,8 @@ export async function createAutomationDraft(
     return fail(502, "Could not persist one or more inline draft images; no draft was created");
   }
 
+  const canonicalTags = await canonicalizeTagsForWrite(normalizedTags);
+
   const values = {
     title: String(body.title).trim().slice(0, 300),
     slug,
@@ -760,7 +763,7 @@ export async function createAutomationDraft(
     coverImage,
     coverImageAlt,
     categoryId: resolvedCategory.id,
-    tags: normalizedTags,
+    tags: canonicalTags,
     author: botUser.displayName,
     authorAvatar: botUser.avatarUrl ?? null,
     authorId: botUser.id,

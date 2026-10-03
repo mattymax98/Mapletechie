@@ -48,6 +48,7 @@ let selectQueue: unknown[][] = [];
 let insertReturn: unknown[] = [];
 
 const db = {
+  execute: vi.fn(async () => ({ rows: [] })),
   select: vi.fn(() =>
     makeSelectChain(selectQueue, undefined, (rows) => {
       const row = rows[0] as Record<string, unknown> | undefined;
