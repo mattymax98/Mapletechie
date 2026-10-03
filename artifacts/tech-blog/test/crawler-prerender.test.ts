@@ -74,6 +74,7 @@ const ARTICLE = {
   author: "Matthew Mbaka",
   authorId: 7,
   authorUsername: "matthew",
+  seriesId: 5,
   topicCluster: {
     id: 9,
     name: "Artificial Intelligence",
@@ -229,6 +230,7 @@ const THIN_TAG = "mississauga";
 const ENCODED_TAG = "120 hz";
 
 const SERIES = {
+  id: 5,
   slug: "ai-revolution",
   title: "The AI Revolution",
   description: "A multi-part deep dive into the AI boom.",
@@ -372,6 +374,10 @@ function startMockApi(
     }
     if (req.params.tag === THIN_TAG) return res.json([POST_LIST[0]]);
     res.json([]);
+  });
+  api.get("/api/series", (_req, res) => {
+    if (opts.resourceFailure) return res.status(503).json({ error: "temporary" });
+    res.json([SERIES]);
   });
   api.get("/api/series/:slug", (req, res) => {
     if (opts.resourceFailure) return res.status(503).json({ error: "temporary" });
@@ -1047,6 +1053,7 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).toContain(`${SITE_URL}/topics/${TOPIC.slug}`);
       expect(body).toContain(`${SITE_URL}/tag/ai`);
       expect(body).toContain(`${SITE_URL}/tag/machine-learning`);
+      expect(body).toContain(`${SITE_URL}/series/${SERIES.slug}`);
       expect(body).toContain(`${SITE_URL}/careers`);
       expect(body).toContain(`${SITE_URL}/about`);
       expect(body).not.toContain('<div id="root"></div>');
