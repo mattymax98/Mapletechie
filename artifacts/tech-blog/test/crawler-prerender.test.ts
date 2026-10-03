@@ -225,6 +225,7 @@ const BIO_ONLY_AUTHOR = {
 };
 
 const TAG = "ai";
+const THIN_TAG = "mississauga";
 const ENCODED_TAG = "120 hz";
 
 const SERIES = {
@@ -255,6 +256,7 @@ function startMockApi(
     emptyTopics?: boolean;
     topicPostCount?: number;
     articleTopicContext?: boolean;
+    postCount?: number;
   } = {},
 ): Promise<{
   server: ReturnType<typeof express>;
@@ -312,7 +314,7 @@ function startMockApi(
     if (opts.resourceFailure) return res.status(503).json({ error: "temporary" });
     res.json([CATEGORY]);
   });
-  api.get("/api/posts", (_req, res) => {
+  api.get("/api/posts", (req, res) => {
     if (postsMode === "empty") return res.json([]);
     if (postsMode === "server-error") {
       return res.status(500).json({ error: "temporary" });
@@ -329,7 +331,16 @@ function startMockApi(
     if (postsMode === "invalid-structure") {
       return res.json([{ slug: "missing-title" }]);
     }
-    res.json(POST_LIST);
+    const source = opts.postCount && opts.postCount > 1
+      ? Array.from({ length: opts.postCount }, (_, index) => ({
+          ...POST_LIST[0],
+          slug: `archive-story-${index + 1}`,
+          title: `Archive Story ${index + 1}`,
+        }))
+      : POST_LIST;
+    const limit = Math.max(1, Number(req.query.limit) || source.length);
+    const offset = Math.max(0, Number(req.query.offset) || 0);
+    res.json(source.slice(offset, offset + limit));
   });
   api.get("/api/authors/by-username/:username", (req, res) => {
     if (opts.resourceFailure) return res.status(503).json({ error: "temporary" });
@@ -357,8 +368,9 @@ function startMockApi(
   api.get("/api/tags/:tag/posts", (req, res) => {
     if (opts.resourceFailure) return res.status(503).json({ error: "temporary" });
     if (req.params.tag === TAG || req.params.tag === ENCODED_TAG) {
-      return res.json(POST_LIST);
+      return res.json(TOPIC_POSTS);
     }
+    if (req.params.tag === THIN_TAG) return res.json([POST_LIST[0]]);
     res.json([]);
   });
   api.get("/api/series/:slug", (req, res) => {
@@ -1229,6 +1241,27 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
   });
 
   describe("blog index /blog", () => {
+    it("links crawler-visible archive pages so older articles are not orphaned", async () => {
+      const pagedApi = await startMockApi({ postCount: 25 });
+      const instance = await startPrerenderServer(`http://127.0.0.1:${pagedApi.port}`);
+      try {
+        const first = await getFrom(instance.baseUrl, "/blog", GOOGLEBOT_UA);
+        expect(first.status).toBe(200);
+        expect(first.body).toContain(`${SITE_URL}/blog?page=2`);
+        expect(first.body).toContain("Archive Story 20");
+        expect(first.body).not.toContain("Archive Story 21");
+
+        const second = await getFrom(instance.baseUrl, "/blog?page=2", GOOGLEBOT_UA);
+        expect(second.status).toBe(200);
+        expectIndexableHead(second.body, second.headers, `${SITE_URL}/blog?page=2`);
+        expect(second.body).toContain("Archive Story 21");
+        expect(second.body).toContain(`${SITE_URL}/blog`);
+      } finally {
+        instance.close();
+        await pagedApi.close();
+      }
+    });
+
     it("serves a prerendered listing to Googlebot", async () => {
       const { status, body } = await get("/blog", GOOGLEBOT_UA);
       expect(status).toBe(200);
@@ -1561,6 +1594,14 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(status).toBe(200);
       expect(body).toContain(`<h1>#${ENCODED_TAG}</h1>`);
       expect(body).toContain(`${SITE_URL}/blog/${FEATURED_POST.slug}`);
+    });
+
+    it("noindexes a populated tag archive until it has three articles", async () => {
+      const { status, body } = await get(`/tag/${THIN_TAG}`, GOOGLEBOT_UA);
+      expect(status).toBe(200);
+      expect(body).toContain(`<h1>#${THIN_TAG}</h1>`);
+      expect(body).toContain('content="noindex, follow"');
+      expect(canonicalUrls(body)).toEqual([`${SITE_URL}/tag/${THIN_TAG}`]);
     });
 
     it("emits the BreadcrumbList JSON-LD (Home > Blog > #tag) in the prerendered HTML", async () => {

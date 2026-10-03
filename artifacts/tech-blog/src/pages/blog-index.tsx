@@ -16,10 +16,13 @@ export default function BlogIndex() {
   const searchString = useSearch();
   const searchParams = new URLSearchParams(searchString);
   const categoryParam = searchParams.get('category') || undefined;
+  const rawPage = Number(searchParams.get("page") || "1");
+  const pageNumber = Number.isSafeInteger(rawPage) && rawPage > 0 ? rawPage : 1;
   
   const [searchQuery, setSearchQuery] = useState("");
 
-  const PAGE_SIZE = 12;
+  const PAGE_SIZE = 20;
+  const initialOffset = (pageNumber - 1) * PAGE_SIZE;
   const {
     data: pages,
     isLoading: loadingPosts,
@@ -28,14 +31,14 @@ export default function BlogIndex() {
     isFetchingNextPage,
     isFetchNextPageError,
   } = useInfiniteQuery({
-    queryKey: [...getListPostsQueryKey({ category: categoryParam }), "infinite"],
+    queryKey: [...getListPostsQueryKey({ category: categoryParam }), "infinite", initialOffset],
     queryFn: ({ pageParam, signal }) =>
-      listPosts({ category: categoryParam, limit: PAGE_SIZE, offset: pageParam }, { signal }),
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) =>
-      lastPage.length === PAGE_SIZE ? allPages.length * PAGE_SIZE : undefined,
+      listPosts({ category: categoryParam, limit: PAGE_SIZE + 1, offset: pageParam }, { signal }),
+    initialPageParam: initialOffset,
+    getNextPageParam: (lastPage, _allPages, lastPageParam) =>
+      lastPage.length > PAGE_SIZE ? lastPageParam + PAGE_SIZE : undefined,
   });
-  const posts = pages?.pages.flat();
+  const posts = pages?.pages.flatMap((page) => page.slice(0, PAGE_SIZE));
   
   const { data: categories } = useListCategories();
 
@@ -47,9 +50,9 @@ export default function BlogIndex() {
   return (
     <div className="container mx-auto px-4 md:px-6 py-10">
       <SEO
-        title="Blog"
+        title={pageNumber > 1 ? `Blog — Page ${pageNumber}` : "Blog"}
         description="Latest tech news, gadget reviews, AI breakthroughs, and cybersecurity coverage from the Mapletechie team."
-        url="/blog"
+        url={pageNumber > 1 ? `/blog?page=${pageNumber}` : "/blog"}
       />
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 border-b border-border pb-6">
         <div>
@@ -88,6 +91,14 @@ export default function BlogIndex() {
           </Button>
         ))}
       </div>
+
+      {pageNumber > 1 && (
+        <div className="mb-8">
+          <Link href={pageNumber === 2 ? "/blog" : `/blog?page=${pageNumber - 1}`} className="font-bold underline">
+            Newer articles
+          </Link>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {loadingPosts ? (

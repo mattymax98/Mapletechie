@@ -1288,13 +1288,20 @@ app.get(/^\/blog\/?$/, (req, res, next) => {
 });
 
 app.get(/^\/blog\/?$/, async (req, res, next) => {
+  const rawPage = typeof req.query.page === "string" ? Number(req.query.page) : 1;
+  const page = Number.isSafeInteger(rawPage) && rawPage > 0 ? rawPage : 1;
+  const pageSize = 20;
+  const offset = (page - 1) * pageSize;
+  const pageUrl = page > 1 ? `${SITE_URL}/blog?page=${page}` : `${SITE_URL}/blog`;
   const description =
-    "The latest tech news, gadget reviews, AI coverage, and software deep dives from the Mapletechie team.";
+    page > 1
+      ? `Page ${page} of Mapletechie's technology news, reviews, AI coverage, and software reporting.`
+      : "The latest tech news, gadget reviews, AI coverage, and software deep dives from the Mapletechie team.";
   const seo = buildSeoBlock({
-    title: buildSeoTitle("Blog — Tech News & Reviews"),
+    title: buildSeoTitle(page > 1 ? `Blog — Page ${page}` : "Blog — Tech News & Reviews"),
     description,
     image: DEFAULT_OG_IMAGE,
-    url: `${SITE_URL}/blog`,
+    url: pageUrl,
     type: "website",
   });
   if (!isCrawler(req)) {
@@ -1302,17 +1309,30 @@ app.get(/^\/blog\/?$/, async (req, res, next) => {
     return;
   }
   const postsResult = await fetchJsonResult<unknown>(
-    `${API_BASE}/api/posts?limit=20`,
+    `${API_BASE}/api/posts?limit=${pageSize + 1}&offset=${offset}`,
   );
   if (postsResult.kind !== "ok" || !isPostSummaryArray(postsResult.value)) {
-    return sendTemporaryFailure(res, `${SITE_URL}/blog`);
+    return sendTemporaryFailure(res, pageUrl);
   }
-  const posts = postsResult.value;
+  if (page > 1 && postsResult.value.length === 0) {
+    return send404(res, "Blog Page Not Found");
+  }
+  const posts = postsResult.value.slice(0, pageSize);
+  const hasNextPage = postsResult.value.length > pageSize;
+  const previousHref = page > 2 ? `${SITE_URL}/blog?page=${page - 1}` : `${SITE_URL}/blog`;
+  const nextHref = `${SITE_URL}/blog?page=${page + 1}`;
+  const pagination = page > 1 || hasNextPage
+    ? `<nav aria-label="Blog pagination" style="display:flex;justify-content:space-between;margin-top:2em">
+        ${page > 1 ? `<a href="${htmlEscape(previousHref)}">← Newer articles</a>` : "<span></span>"}
+        ${hasNextPage ? `<a href="${htmlEscape(nextHref)}">Older articles →</a>` : ""}
+      </nav>`
+    : "";
   const body = `
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
-  <h1>Blog — Tech News &amp; Reviews</h1>
+  <h1>Blog — Tech News &amp; Reviews${page > 1 ? ` — Page ${page}` : ""}</h1>
   <p>${htmlEscape(description)}</p>
   ${renderPostList(posts, SITE_URL)}
+  ${pagination}
 </main>`;
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Vary", "User-Agent");
@@ -1735,13 +1755,22 @@ app.get(/^\/tag\/([^/]+)\/?$/, async (req, res, next) => {
   const ogImage = `${SITE_URL}/api/og/tag/${encodeURIComponent(tag)}.png`;
   const description = `Every Mapletechie story tagged "${tag}" — tech news, reviews, and analysis.`;
 
-  const seo = buildSeoBlock({
+  let seo = buildSeoBlock({
     title: buildSeoTitle(`#${tag} — Tag archive`),
     description,
     image: ogImage,
     url: `${SITE_URL}/tag/${encodeURIComponent(tag)}`,
     type: "website",
   });
+  // Keep thin one- and two-article tag archives available to readers, but do
+  // not ask Google to index them. The same threshold drives sitemap inclusion,
+  // so the page automatically becomes indexable once the tag has real depth.
+  if (posts.length < 3) {
+    seo = seo.replace(
+      '<meta name="robots" content="max-image-preview:large" />',
+      '<meta name="robots" content="noindex, follow" />',
+    );
+  }
   if (!isCrawler(req)) {
     sendSpaShell(res, 200, seo);
     return;
