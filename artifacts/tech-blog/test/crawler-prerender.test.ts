@@ -1747,6 +1747,8 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(status).toBe(200);
       expect(body).toContain("User-agent");
       expect(body).not.toContain("Disallow: /blog?");
+      expect(body).toContain(`Sitemap: ${SITE_URL}/sitemap.xml`);
+      expect(body).not.toContain(`Sitemap: ${SITE_URL}/api/sitemap.xml`);
       expect(body).not.toContain('<div id="root">');
     });
 
