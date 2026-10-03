@@ -67,7 +67,7 @@ let updateReturn: unknown[] = [];
 
 const db = {
   select: vi.fn(() => makeSelectChain(selectQueue)),
-  execute: vi.fn(async () => ({ rows: [] })),
+  execute: vi.fn(async (): Promise<{ rows: any[] }> => ({ rows: [] })),
   insert: vi.fn(() => ({
     values: vi.fn((v: Record<string, unknown>) => {
       captured.insertValues!.push(v);
