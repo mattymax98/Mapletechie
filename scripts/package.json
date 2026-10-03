@@ -11,7 +11,8 @@
     "migrate:railway": "tsx ./src/migrate-railway.ts",
     "schema:railway": "tsx ./src/railwaySchemaCompatibility.ts",
     "smoke:production": "tsx ./src/productionSmoke.ts",
-    "test": "tsx --test ./src/railwayMigrationGuard.test.ts ./src/railwaySchemaCompatibility.test.ts ./src/productionSmoke.test.ts ./no-direct-ai-generation.test.mjs",
+    "tags:dry-run": "tsx ./src/tag-normalization-dry-run.ts",
+    "test": "tsx --test ./src/railwayMigrationGuard.test.ts ./src/railwaySchemaCompatibility.test.ts ./src/productionSmoke.test.ts ./src/tagNormalizationRules.test.ts ./no-direct-ai-generation.test.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
