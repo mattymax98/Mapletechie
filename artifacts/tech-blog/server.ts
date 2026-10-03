@@ -215,11 +215,33 @@ function buildSeoBlock(data: SeoData): string {
   return lines.join("\n");
 }
 
+function crawlerSiteFooter(): string {
+  const links = [
+    ["Home", "/"],
+    ["Latest News", "/blog"],
+    ["AI", "/category/ai"],
+    ["Gadgets", "/category/gadgets"],
+    ["Reviews", "/category/reviews"],
+    ["Gaming", "/category/gaming"],
+    ["About Us", "/about"],
+    ["Contact", "/contact"],
+    ["Partner with us", "/advertise"],
+    ["Careers", "/careers"],
+    ["Privacy Policy", "/privacy"],
+    ["Terms of Service", "/terms"],
+  ];
+  return `<footer style="max-width:800px;margin:2em auto 0;padding:1em;border-top:1px solid #ccc;font-family:system-ui,sans-serif">
+    <nav aria-label="Mapletechie site links">
+      ${links.map(([label, href]) => `<a href="${htmlEscape(`${SITE_URL}${href}`)}" style="margin-right:1em">${htmlEscape(label)}</a>`).join(" ")}
+    </nav>
+  </footer>`;
+}
+
 function renderHtml(seoBlock: string, bodyHtml?: string): string {
   let html = publicIndexHtml.replace(SEO_BLOCK_RE, seoBlock);
   if (bodyHtml) {
     html = html
-      .replace(ROOT_RE, `<div id="root">${bodyHtml}</div>`)
+      .replace(ROOT_RE, `<div id="root">${bodyHtml}${crawlerSiteFooter()}</div>`)
       .replace(EXECUTABLE_SCRIPT_RE, "")
       .replace(MODULE_PRELOAD_RE, "");
   }
@@ -935,6 +957,7 @@ interface PostRecord {
   authorUsername?: string | null;
   author: string | null;
   authorId?: number | null;
+  seriesId?: number | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
   topicCluster?: {
@@ -1080,7 +1103,9 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
     .join(" · ");
   const tagsHtml =
     post.tags?.length
-      ? `<p style="color:#666;font-size:.85em">Tags: ${post.tags.map(htmlEscape).join(", ")}</p>`
+      ? `<p style="color:#666;font-size:.85em">Tags: ${post.tags
+          .map((tag) => `<a href="${htmlEscape(`${SITE_URL}/tag/${encodeURIComponent(tag.toLowerCase())}`)}">${htmlEscape(tag)}</a>`)
+          .join(", ")}</p>`
       : "";
 
   const coverImgHtml = post.coverImage
@@ -1089,11 +1114,24 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
   const topicContextHtml = post.topicCluster?.slug
     ? `<aside style="border:1px solid #888;padding:1em;margin:1em 0"><small>Part of a topic guide</small><br><a href="${htmlEscape(`${SITE_URL}/topics/${encodeURIComponent(post.topicCluster.slug)}`)}">${htmlEscape(post.topicCluster.name)}</a></aside>`
     : "";
+  let seriesContextHtml = "";
+  if (post.seriesId) {
+    const seriesList = await fetchJsonResult<Array<{ id: number; slug: string; title: string }>>(
+      `${API_BASE}/api/series`,
+    );
+    if (seriesList.kind === "ok") {
+      const series = seriesList.value.find((item) => item.id === post.seriesId);
+      if (series) {
+        seriesContextHtml = `<aside style="border:1px solid #888;padding:1em;margin:1em 0"><small>Part of a series</small><br><a href="${htmlEscape(`${SITE_URL}/series/${encodeURIComponent(series.slug)}`)}">${htmlEscape(series.title)}</a></aside>`;
+      }
+    }
+  }
   const articleBody = `
 <article style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>${htmlEscape(post.title)}</h1>
   ${metaParts.length ? `<p style="color:#666;font-size:.9em">${metaHtml}</p>` : ""}
   ${topicContextHtml}
+  ${seriesContextHtml}
   ${coverImgHtml}
   ${safeContent}
   ${tagsHtml}
@@ -1802,6 +1840,7 @@ app.get(/^\/tag\/([^/]+)\/?$/, async (req, res, next) => {
 });
 
 interface SeriesRecord {
+  id?: number;
   slug: string;
   title: string;
   description: string | null;
