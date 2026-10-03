@@ -92,6 +92,14 @@ export default function BlogIndex() {
         ))}
       </div>
 
+      {pageNumber > 1 && (
+        <div className="mb-8">
+          <Link href={pageNumber === 2 ? "/blog" : `/blog?page=${pageNumber - 1}`} className="font-bold underline">
+            Newer articles
+          </Link>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {loadingPosts ? (
           Array.from({ length: 6 }).map((_, i) => (
