@@ -16,10 +16,13 @@ export default function BlogIndex() {
   const searchString = useSearch();
   const searchParams = new URLSearchParams(searchString);
   const categoryParam = searchParams.get('category') || undefined;
+  const rawPage = Number(searchParams.get("page") || "1");
+  const pageNumber = Number.isSafeInteger(rawPage) && rawPage > 0 ? rawPage : 1;
   
   const [searchQuery, setSearchQuery] = useState("");
 
-  const PAGE_SIZE = 12;
+  const PAGE_SIZE = 20;
+  const initialOffset = (pageNumber - 1) * PAGE_SIZE;
   const {
     data: pages,
     isLoading: loadingPosts,
