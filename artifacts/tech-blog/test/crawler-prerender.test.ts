@@ -1589,6 +1589,20 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
   });
 
   describe("tag /tag/:tag", () => {
+    it("redirects safe historical tag aliases to one canonical lowercase URL", async () => {
+      for (const [path, expected] of [
+        ["/tag/Cybersecurity", "/tag/cybersecurity"],
+        ["/tag/Business%20%26amp%3B%20Policy", "/tag/business%20%26%20policy"],
+      ] as const) {
+        const response = await fetch(`${baseUrl}${path}`, {
+          redirect: "manual",
+          headers: { "user-agent": GOOGLEBOT_UA },
+        });
+        expect(response.status).toBe(301);
+        expect(response.headers.get("location")).toBe(expected);
+      }
+    });
+
     it("serves a prerendered tag archive + listing to Googlebot", async () => {
       const { status, body } = await get(`/tag/${TAG}`, GOOGLEBOT_UA);
       expect(status).toBe(200);
