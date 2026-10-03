@@ -313,7 +313,7 @@ function startMockApi(
     if (opts.resourceFailure) return res.status(503).json({ error: "temporary" });
     res.json([CATEGORY]);
   });
-  api.get("/api/posts", (_req, res) => {
+  api.get("/api/posts", (req, res) => {
     if (postsMode === "empty") return res.json([]);
     if (postsMode === "server-error") {
       return res.status(500).json({ error: "temporary" });
@@ -330,7 +330,9 @@ function startMockApi(
     if (postsMode === "invalid-structure") {
       return res.json([{ slug: "missing-title" }]);
     }
-    res.json(POST_LIST);
+    const limit = Math.max(1, Number(req.query.limit) || POST_LIST.length);
+    const offset = Math.max(0, Number(req.query.offset) || 0);
+    res.json(POST_LIST.slice(offset, offset + limit));
   });
   api.get("/api/authors/by-username/:username", (req, res) => {
     if (opts.resourceFailure) return res.status(503).json({ error: "temporary" });
