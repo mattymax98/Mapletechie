@@ -1735,13 +1735,22 @@ app.get(/^\/tag\/([^/]+)\/?$/, async (req, res, next) => {
   const ogImage = `${SITE_URL}/api/og/tag/${encodeURIComponent(tag)}.png`;
   const description = `Every Mapletechie story tagged "${tag}" — tech news, reviews, and analysis.`;
 
-  const seo = buildSeoBlock({
+  let seo = buildSeoBlock({
     title: buildSeoTitle(`#${tag} — Tag archive`),
     description,
     image: ogImage,
     url: `${SITE_URL}/tag/${encodeURIComponent(tag)}`,
     type: "website",
   });
+  // Keep thin one- and two-article tag archives available to readers, but do
+  // not ask Google to index them. The same threshold drives sitemap inclusion,
+  // so the page automatically becomes indexable once the tag has real depth.
+  if (posts.length < 3) {
+    seo = seo.replace(
+      '<meta name="robots" content="max-image-preview:large" />',
+      '<meta name="robots" content="noindex, follow" />',
+    );
+  }
   if (!isCrawler(req)) {
     sendSpaShell(res, 200, seo);
     return;
