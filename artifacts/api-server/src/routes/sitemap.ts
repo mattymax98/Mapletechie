@@ -64,11 +64,11 @@ router.get("/sitemap.xml", async (req, res): Promise<void> => {
       .where(eq(jobsTable.isActive, true)),
 
     db.execute(sql`
-      SELECT lower(tag) AS tag, COUNT(*)::int AS published_count
+      SELECT lower(tag) AS tag, COUNT(DISTINCT ${postsTable.id})::int AS published_count
       FROM ${postsTable}, unnest(${postsTable.tags}) AS tag
       WHERE ${postsTable.status} = 'published'
       GROUP BY lower(tag)
-      HAVING COUNT(*) >= ${MIN_TAG_POSTS_FOR_SITEMAP}
+      HAVING COUNT(DISTINCT ${postsTable.id}) >= ${MIN_TAG_POSTS_FOR_SITEMAP}
       ORDER BY tag
     `),
 
