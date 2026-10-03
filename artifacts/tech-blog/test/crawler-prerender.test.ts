@@ -1045,6 +1045,10 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).toContain('"@type":"BlogPosting"');
       expect(body).toContain(ARTICLE.author);
       expect(body).toContain(`${SITE_URL}/topics/${TOPIC.slug}`);
+      expect(body).toContain(`${SITE_URL}/tag/ai`);
+      expect(body).toContain(`${SITE_URL}/tag/machine-learning`);
+      expect(body).toContain(`${SITE_URL}/careers`);
+      expect(body).toContain(`${SITE_URL}/about`);
       expect(body).not.toContain('<div id="root"></div>');
     });
 
