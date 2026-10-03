@@ -215,11 +215,33 @@ function buildSeoBlock(data: SeoData): string {
   return lines.join("\n");
 }
 
+function crawlerSiteFooter(): string {
+  const links = [
+    ["Home", "/"],
+    ["Latest News", "/blog"],
+    ["AI", "/category/ai"],
+    ["Gadgets", "/category/gadgets"],
+    ["Reviews", "/category/reviews"],
+    ["Gaming", "/category/gaming"],
+    ["About Us", "/about"],
+    ["Contact", "/contact"],
+    ["Partner with us", "/advertise"],
+    ["Careers", "/careers"],
+    ["Privacy Policy", "/privacy"],
+    ["Terms of Service", "/terms"],
+  ];
+  return `<footer style="max-width:800px;margin:2em auto 0;padding:1em;border-top:1px solid #ccc;font-family:system-ui,sans-serif">
+    <nav aria-label="Mapletechie site links">
+      ${links.map(([label, href]) => `<a href="${htmlEscape(`${SITE_URL}${href}`)}" style="margin-right:1em">${htmlEscape(label)}</a>`).join(" ")}
+    </nav>
+  </footer>`;
+}
+
 function renderHtml(seoBlock: string, bodyHtml?: string): string {
   let html = publicIndexHtml.replace(SEO_BLOCK_RE, seoBlock);
   if (bodyHtml) {
     html = html
-      .replace(ROOT_RE, `<div id="root">${bodyHtml}</div>`)
+      .replace(ROOT_RE, `<div id="root">${bodyHtml}${crawlerSiteFooter()}</div>`)
       .replace(EXECUTABLE_SCRIPT_RE, "")
       .replace(MODULE_PRELOAD_RE, "");
   }
@@ -1080,7 +1102,9 @@ app.get(/^\/blog\/([^\/]+)\/?$/, async (req, res, next) => {
     .join(" · ");
   const tagsHtml =
     post.tags?.length
-      ? `<p style="color:#666;font-size:.85em">Tags: ${post.tags.map(htmlEscape).join(", ")}</p>`
+      ? `<p style="color:#666;font-size:.85em">Tags: ${post.tags
+          .map((tag) => `<a href="${htmlEscape(`${SITE_URL}/tag/${encodeURIComponent(tag.toLowerCase())}`)}">${htmlEscape(tag)}</a>`)
+          .join(", ")}</p>`
       : "";
 
   const coverImgHtml = post.coverImage
