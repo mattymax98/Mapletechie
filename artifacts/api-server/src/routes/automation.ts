@@ -562,6 +562,28 @@ export async function createAutomationDraft(
 
   const body = normalizeBody(rawBody);
 
+  // Automation tags are public navigation taxonomy, not an unlimited keyword
+  // bucket. Normalize harmless case-insensitive duplicates here and reject
+  // tag sprawl even when a client bypasses MCP schema validation.
+  const normalizedTags: string[] = [];
+  if (body.tags !== undefined) {
+    if (!Array.isArray(body.tags)) {
+      return fail(400, "Invalid tags: expected an array of strings");
+    }
+    const seenTags = new Set<string>();
+    for (const rawTag of body.tags) {
+      const tag = cleanText(rawTag);
+      if (!tag) continue;
+      const key = tag.toLocaleLowerCase();
+      if (seenTags.has(key)) continue;
+      seenTags.add(key);
+      normalizedTags.push(tag);
+    }
+    if (normalizedTags.length > 5) {
+      return fail(400, "Too many tags: automation drafts may use at most 5 durable tags");
+    }
+  }
+
   // Reject server-controlled fields loudly (422), per the agreed contract.
   const forbidden = Object.keys(body).filter((k) => FORBIDDEN_FIELDS.has(k));
   if (forbidden.length > 0) {
@@ -738,7 +760,7 @@ export async function createAutomationDraft(
     coverImage,
     coverImageAlt,
     categoryId: resolvedCategory.id,
-    tags: toStringArray(body.tags),
+    tags: normalizedTags,
     author: botUser.displayName,
     authorAvatar: botUser.avatarUrl ?? null,
     authorId: botUser.id,

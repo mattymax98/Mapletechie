@@ -311,6 +311,28 @@ describe("POST /automation/posts/drafts — contract", () => {
     expect(auditCalls.some((c) => c.input.action === "automation.draft.rejected")).toBe(true);
   });
 
+  it("rejects automation tag sprawl above five distinct tags", async () => {
+    selectQueue = [[BOT_USER]];
+    const res = await post({
+      ...validBody(),
+      tags: ["AI", "Canada", "OpenAI", "Privacy", "Policy", "Enterprise"],
+    });
+    expect(res.status).toBe(400);
+    expect(res.json.error).toMatch(/at most 5 durable tags/i);
+  });
+
+  it("deduplicates harmless tag casing before storing a draft", async () => {
+    selectQueue = [[BOT_USER], [CATEGORY], []];
+    insertReturn = [{ id: 46, title: "Test story", slug: "test-story", status: "draft" }];
+    const res = await post({
+      ...validBody(),
+      tags: ["AI", "ai", "Canada", "CANADA"],
+    });
+    expect(res.status).toBe(201);
+    const values = captured.insertValues!.find((v) => v.title === "Test story")!;
+    expect(values.tags).toEqual(["AI", "Canada"]);
+  });
+
   it("400 when series_id references a series that does not exist", async () => {
     // bot, category, slug-clash check, then series lookup returns nothing
     selectQueue = [[BOT_USER], [CATEGORY], [], []];

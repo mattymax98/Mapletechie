@@ -67,6 +67,7 @@ let updateReturn: unknown[] = [];
 
 const db = {
   select: vi.fn(() => makeSelectChain(selectQueue)),
+  execute: vi.fn(async (): Promise<{ rows: any[] }> => ({ rows: [] })),
   insert: vi.fn(() => ({
     values: vi.fn((v: Record<string, unknown>) => {
       captured.insertValues!.push(v);
@@ -385,6 +386,7 @@ describe("POST /mcp — tools", () => {
     const names = res.body.result.tools.map((t: any) => t.name);
     expect(names).toContain("get_mapletechie_editorial_contract");
     expect(names).toContain("list_mapletechie_categories");
+    expect(names).toContain("list_mapletechie_tags");
     expect(names).toContain("list_mapletechie_posts");
     expect(names).toContain("search_mapletechie_archive");
     expect(names).toContain("list_mapletechie_topic_clusters");
@@ -420,6 +422,39 @@ describe("POST /mcp — tools", () => {
     expect(Object.keys(revision.inputSchema.properties.changes.properties)).toEqual(expect.arrayContaining(["coverImage", "coverImageAlt", "ogImage"]));
     const archive = tools.find((t: any) => t.name === "search_mapletechie_archive");
     expect(Object.keys(archive.inputSchema.properties)).toEqual(expect.arrayContaining(["publishedFrom", "publishedTo"]));
+  });
+
+  it("returns reusable tag taxonomy with sitemap eligibility counts", async () => {
+    db.execute.mockResolvedValue({
+      rows: [
+        { tag: "AI", normalized_tag: "ai", published_count: 12, pipeline_count: 2, total_count: 14 },
+        { tag: "Mississauga", normalized_tag: "mississauga", published_count: 1, pipeline_count: 0, total_count: 1 },
+      ],
+    });
+    const res = await authed(callTool("list_mapletechie_tags", {
+      min_published: 1,
+      limit: 20,
+    }));
+    expect(res.status).toBe(200);
+    const payload = JSON.parse(res.body.result.content[0].text);
+    expect(payload).toEqual([
+      {
+        tag: "AI",
+        normalized_tag: "ai",
+        published_count: 12,
+        pipeline_count: 2,
+        total_count: 14,
+        sitemap_eligible_now: true,
+      },
+      {
+        tag: "Mississauga",
+        normalized_tag: "mississauga",
+        published_count: 1,
+        pipeline_count: 0,
+        total_count: 1,
+        sitemap_eligible_now: false,
+      },
+    ]);
   });
 
   it("requires exactly one post_id or slug for get_mapletechie_post", async () => {

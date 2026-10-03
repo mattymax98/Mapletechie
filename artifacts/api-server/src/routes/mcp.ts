@@ -4,7 +4,7 @@ import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { db, auditLogsTable, categoriesTable, postsTable, topicsTable } from "@workspace/db";
-import { and, asc, desc, eq, getTableColumns, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, inArray, sql } from "drizzle-orm";
 import { writeAuditLogForUser } from "../lib/audit";
 import { persistImageBuffer } from "../lib/persistExternalImage";
 import { logger } from "../lib/logger";
@@ -88,7 +88,7 @@ const DRAFT_INPUT_SHAPE = {
     .optional()
     .describe("Required when cover_image is provided: meaningful accessibility description of the cover"),
   og_image: z.string().optional().describe("Social share image URL"),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string().trim().min(1).max(80)).max(5).optional().describe("2–5 durable reader-facing tags. Reuse exact established tags from list_mapletechie_tags when relevant; do not use tags as free-form SEO keywords."),
   read_time: z.number().optional().describe("Estimated read time in minutes"),
   category_id: z
     .union([z.number(), z.string()])
@@ -440,11 +440,102 @@ function buildMcpServer(req: Request): McpServer {
   );
 
   server.registerTool(
+    "list_mapletechie_tags",
+    {
+      title: "List Mapletechie tag taxonomy",
+      description:
+        "Read-only tag-taxonomy helper for the Daily Desk. Returns established tag spellings with normalized form and published/pipeline/total article counts so the automation can reuse durable tags instead of creating thin near-duplicates. Use q to narrow by entity or concept. This is navigation taxonomy, not SEO keyword research.",
+      inputSchema: z.object({
+        q: z.string().trim().max(100).optional().describe("Optional case-insensitive substring filter for an entity or concept"),
+        min_published: z.number().int().min(0).max(100000).default(0).describe("Minimum number of published articles using the tag"),
+        limit: z.number().int().min(1).max(500).default(200).describe("Maximum tags to return"),
+      }).strict(),
+    },
+    async (args) => {
+      const { q, min_published, limit } = args as {
+        q?: string;
+        min_published: number;
+        limit: number;
+      };
+      const result = await db.execute(sql`
+        WITH expanded AS (
+          SELECT
+            ${postsTable.id} AS post_id,
+            ${postsTable.status} AS post_status,
+            tag,
+            lower(tag) AS normalized_tag
+          FROM ${postsTable}, unnest(${postsTable.tags}) AS tag
+          WHERE btrim(tag) <> ''
+        ),
+        variant_counts AS (
+          SELECT
+            normalized_tag,
+            tag,
+            COUNT(DISTINCT post_id) FILTER (WHERE post_status = 'published')::int AS published_count,
+            COUNT(DISTINCT post_id)::int AS total_count
+          FROM expanded
+          GROUP BY normalized_tag, tag
+        ),
+        ranked_variants AS (
+          SELECT
+            normalized_tag,
+            tag,
+            ROW_NUMBER() OVER (
+              PARTITION BY normalized_tag
+              ORDER BY published_count DESC, total_count DESC, length(tag), tag
+            ) AS variant_rank
+          FROM variant_counts
+        ),
+        totals AS (
+          SELECT
+            normalized_tag,
+            COUNT(DISTINCT post_id) FILTER (WHERE post_status = 'published')::int AS published_count,
+            COUNT(DISTINCT post_id) FILTER (WHERE post_status IN ('draft', 'scheduled'))::int AS pipeline_count,
+            COUNT(DISTINCT post_id)::int AS total_count
+          FROM expanded
+          GROUP BY normalized_tag
+        )
+        SELECT
+          ranked_variants.tag,
+          totals.normalized_tag,
+          totals.published_count,
+          totals.pipeline_count,
+          totals.total_count
+        FROM totals
+        JOIN ranked_variants USING (normalized_tag)
+        WHERE ranked_variants.variant_rank = 1
+        ORDER BY totals.published_count DESC, totals.total_count DESC, totals.normalized_tag
+      `);
+      const needle = q?.toLowerCase();
+      const rows = ((result as any).rows ?? result) as Array<{
+        tag: string;
+        normalized_tag: string;
+        published_count: number | string;
+        pipeline_count: number | string;
+        total_count: number | string;
+      }>;
+      const filtered = rows
+        .filter((row) => Number(row.published_count) >= min_published)
+        .filter((row) => !needle || row.normalized_tag.includes(needle))
+        .slice(0, limit)
+        .map((row) => ({
+          tag: row.tag,
+          normalized_tag: row.normalized_tag,
+          published_count: Number(row.published_count),
+          pipeline_count: Number(row.pipeline_count),
+          total_count: Number(row.total_count),
+          sitemap_eligible_now: Number(row.published_count) >= 3,
+        }));
+      return { content: [{ type: "text", text: JSON.stringify(filtered, null, 2) }] };
+    },
+  );
+
+  server.registerTool(
     "list_mapletechie_categories",
     {
       title: "List Mapletechie categories",
       description:
-        "Read-only first step of the canonical daily editorial workflow. Returns the blog's live category list (id, name, slug) for use with create_mapletechie_draft.",
+        "Read-only category helper for the canonical daily editorial workflow. Returns the blog's live category list (id, name, slug) for use with create_mapletechie_draft. Also inspect list_mapletechie_tags before drafting.",
       inputSchema: {},
     },
     async () => {
@@ -692,7 +783,7 @@ function buildMcpServer(req: Request): McpServer {
     {
       title: "Create Mapletechie draft",
       description:
-        `Submit one completed item from the canonical daily editorial workflow as a blog post DRAFT for human review. The run is daily at ${DAILY_EDITORIAL_AUTOMATION_SCHEDULE.executionWindow}; a normal successful run requires at least five strong, non-cannibalizing items; if quality gates prevent five, submit only the passing drafts and report the run short of the minimum, with a flexible maximum and Canadian relevance where supported by evidence. The server forces draft status and the 'Mapletechie AI' byline; it can never publish. Do not send status, author, author_id, author_avatar, published_at, scheduled_for, or is_featured. For every cover or inline image, use a rights-safe source and meaningful alt text; upload images first when possible. A draft can belong to MULTIPLE categories: pass categories (first entry = primary unless primary_category is set), or legacy single category_id. Optionally provide cluster_id and cluster_role together to assign it to an existing PRIVATE topic cluster (role: pillar or supporting); public cluster membership is human-only. Returns the complete canonical stored post. Next inspect it with get_mapletechie_post, then call preview_mapletechie_post and capture both recommended desktop and mobile views after data-preview-ready is true.`,
+        `Submit one completed item from the canonical daily editorial workflow as a blog post DRAFT for human review. The run is daily at ${DAILY_EDITORIAL_AUTOMATION_SCHEDULE.executionWindow}; a normal successful run requires at least five strong, non-cannibalizing items; if quality gates prevent five, submit only the passing drafts and report the run short of the minimum, with a flexible maximum and Canadian relevance where supported by evidence. The server forces draft status and the 'Mapletechie AI' byline; it can never publish. Do not send status, author, author_id, author_avatar, published_at, scheduled_for, or is_featured. For every cover or inline image, use a rights-safe source and meaningful alt text; upload images first when possible. A draft can belong to MULTIPLE categories: pass categories (first entry = primary unless primary_category is set), or legacy single category_id. Before choosing tags, inspect list_mapletechie_tags and reuse established durable tags where accurate; tags are navigation taxonomy, not free-form SEO keywords, and automation drafts accept at most five. Optionally provide cluster_id and cluster_role together to assign it to an existing PRIVATE topic cluster (role: pillar or supporting); public cluster membership is human-only. Returns the complete canonical stored post. Next inspect it with get_mapletechie_post, then call preview_mapletechie_post and capture both recommended desktop and mobile views after data-preview-ready is true.`,
       inputSchema: DRAFT_INPUT_SHAPE,
     },
     async (args) => {
