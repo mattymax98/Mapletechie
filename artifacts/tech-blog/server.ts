@@ -11,6 +11,7 @@ import { ensureImgAlt } from "./src/lib/ensureImgAlt";
 import { GA4_MEASUREMENT_ID } from "./src/lib/ga4";
 import {
   buildPersonJsonLd,
+  buildProfilePageJsonLd,
   visibleProfileLinks,
   type AuthorRichProfile,
 } from "./src/lib/personSchema";
