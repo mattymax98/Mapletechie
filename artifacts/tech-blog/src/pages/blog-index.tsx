@@ -50,9 +50,9 @@ export default function BlogIndex() {
   return (
     <div className="container mx-auto px-4 md:px-6 py-10">
       <SEO
-        title="Blog"
+        title={pageNumber > 1 ? `Blog — Page ${pageNumber}` : "Blog"}
         description="Latest tech news, gadget reviews, AI breakthroughs, and cybersecurity coverage from the Mapletechie team."
-        url="/blog"
+        url={pageNumber > 1 ? `/blog?page=${pageNumber}` : "/blog"}
       />
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 border-b border-border pb-6">
         <div>
