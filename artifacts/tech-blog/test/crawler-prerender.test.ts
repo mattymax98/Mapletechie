@@ -1241,6 +1241,27 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
   });
 
   describe("blog index /blog", () => {
+    it("links crawler-visible archive pages so older articles are not orphaned", async () => {
+      const pagedApi = await startMockApi({ postCount: 25 });
+      const instance = await startPrerenderServer(`http://127.0.0.1:${pagedApi.port}`);
+      try {
+        const first = await getFrom(instance.baseUrl, "/blog", GOOGLEBOT_UA);
+        expect(first.status).toBe(200);
+        expect(first.body).toContain(`${SITE_URL}/blog?page=2`);
+        expect(first.body).toContain("Archive Story 20");
+        expect(first.body).not.toContain("Archive Story 21");
+
+        const second = await getFrom(instance.baseUrl, "/blog?page=2", GOOGLEBOT_UA);
+        expect(second.status).toBe(200);
+        expectIndexableHead(second.body, second.headers, `${SITE_URL}/blog?page=2`);
+        expect(second.body).toContain("Archive Story 21");
+        expect(second.body).toContain(`${SITE_URL}/blog`);
+      } finally {
+        instance.close();
+        await pagedApi.close();
+      }
+    });
+
     it("serves a prerendered listing to Googlebot", async () => {
       const { status, body } = await get("/blog", GOOGLEBOT_UA);
       expect(status).toBe(200);
