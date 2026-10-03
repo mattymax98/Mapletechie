@@ -1018,6 +1018,15 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).not.toContain('<div id="root"></div>');
     });
 
+    it("does not boot the SPA on already-prerendered crawler HTML", async () => {
+      const { status, body } = await get(`/blog/${ARTICLE.slug}`, GOOGLEBOT_UA);
+      expect(status).toBe(200);
+      expect(body).toContain('type="application/ld+json"');
+      expect(body).not.toContain('type="module"');
+      expect(body).not.toContain('rel="modulepreload"');
+      expect(body).not.toContain("googletagmanager.com/gtag/js");
+    });
+
     it("does not prerender a topic link when the API withholds private or thin-cluster context", async () => {
       const contextlessApi = await startMockApi({ articleTopicContext: false });
       const instance = await startPrerenderServer(`http://127.0.0.1:${contextlessApi.port}`);
