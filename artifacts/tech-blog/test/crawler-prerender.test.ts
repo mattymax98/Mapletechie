@@ -256,6 +256,7 @@ function startMockApi(
     emptyTopics?: boolean;
     topicPostCount?: number;
     articleTopicContext?: boolean;
+    postCount?: number;
   } = {},
 ): Promise<{
   server: ReturnType<typeof express>;
