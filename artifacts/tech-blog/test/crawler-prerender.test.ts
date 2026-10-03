@@ -1315,6 +1315,15 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
   });
 
   describe("reported legacy Search Console paths", () => {
+    it("lets crawlers reach old category query URLs and see the canonical 301", async () => {
+      const r = await fetch(`${baseUrl}/blog?category=gaming`, {
+        headers: { "user-agent": GOOGLEBOT_UA },
+        redirect: "manual",
+      });
+      expect(r.status).toBe(301);
+      expect(r.headers.get("location")).toBe("/category/gaming");
+    });
+
     it("redirects the old 2025 laptop guide URL to the current 2026 article", async () => {
       const r = await fetch(
         `${baseUrl}/blog/best-laptops-2025-definitive-rankings?utm_source=legacy`,
@@ -1733,10 +1742,13 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
   });
 
   describe("static asset fallthrough", () => {
-    it("serves /robots.txt from sirv (not the SPA shell)", async () => {
+    it("serves /robots.txt without blocking legacy category redirects", async () => {
       const { status, body } = await get("/robots.txt", GOOGLEBOT_UA);
       expect(status).toBe(200);
       expect(body).toContain("User-agent");
+      expect(body).not.toContain("Disallow: /blog?");
+      expect(body).toContain(`Sitemap: ${SITE_URL}/sitemap.xml`);
+      expect(body).not.toContain(`Sitemap: ${SITE_URL}/api/sitemap.xml`);
       expect(body).not.toContain('<div id="root">');
     });
 

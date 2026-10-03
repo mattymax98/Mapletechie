@@ -620,15 +620,13 @@ Disallow: /admin/products
 # Internal search results pages aren't useful to index either
 Disallow: /search?
 
-# /blog?category= now 301-redirects to /category/:slug; block the query-param
-# variants so crawlers never follow them in the first place
-Disallow: /blog?
+# Legacy /blog?category= URLs remain crawlable so search engines can see
+# their permanent redirects to the canonical /category/:slug pages.
 
 # Be nice to crawlers
 Crawl-delay: 1
 
-Sitemap: ${ROBOTS_DOMAIN}/api/sitemap.xml
-Sitemap: ${ROBOTS_DOMAIN}/api/news-sitemap.xml
+Sitemap: ${ROBOTS_DOMAIN}/sitemap.xml
 `;
 app.get("/robots.txt", (_req, res) => {
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
