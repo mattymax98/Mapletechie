@@ -31,14 +31,14 @@ export default function BlogIndex() {
     isFetchingNextPage,
     isFetchNextPageError,
   } = useInfiniteQuery({
-    queryKey: [...getListPostsQueryKey({ category: categoryParam }), "infinite"],
+    queryKey: [...getListPostsQueryKey({ category: categoryParam }), "infinite", initialOffset],
     queryFn: ({ pageParam, signal }) =>
-      listPosts({ category: categoryParam, limit: PAGE_SIZE, offset: pageParam }, { signal }),
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) =>
-      lastPage.length === PAGE_SIZE ? allPages.length * PAGE_SIZE : undefined,
+      listPosts({ category: categoryParam, limit: PAGE_SIZE + 1, offset: pageParam }, { signal }),
+    initialPageParam: initialOffset,
+    getNextPageParam: (lastPage, _allPages, lastPageParam) =>
+      lastPage.length > PAGE_SIZE ? lastPageParam + PAGE_SIZE : undefined,
   });
-  const posts = pages?.pages.flat();
+  const posts = pages?.pages.flatMap((page) => page.slice(0, PAGE_SIZE));
   
   const { data: categories } = useListCategories();
 
