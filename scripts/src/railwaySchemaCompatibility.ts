@@ -150,6 +150,8 @@ export const RAILWAY_MIGRATION_SCHEMA: Readonly<Record<string, SchemaCheck>> = {
       functionBody: publishedIdentityBody,
     }],
   },
+  // 0009 is a data-only tag normalization; it creates no schema objects.
+  "0009_normalize_safe_tag_aliases.sql": {},
 };
 
 export type CompatibilityCommand = { base: string; head: string; requires?: "none" | string[] };
