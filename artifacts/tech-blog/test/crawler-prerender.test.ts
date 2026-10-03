@@ -497,6 +497,19 @@ function ogUrls(body: string): string[] {
     (match) => match[1],
   );
 }
+function metaDescriptions(body: string): string[] {
+  return [...body.matchAll(/<meta name="description" content="([^"]*)" \/>/g)].map(
+    (match) => match[1],
+  );
+}
+
+function titleTags(body: string): string[] {
+  return [...body.matchAll(/<title>([^<]+)<\/title>/g)].map((match) => match[1]);
+}
+
+function h1Count(body: string): number {
+  return [...body.matchAll(/<h1\b/gi)].length;
+}
 
 function expectIndexableHead(
   body: string,
@@ -505,6 +518,9 @@ function expectIndexableHead(
 ): void {
   expect(canonicalUrls(body)).toEqual([expectedUrl]);
   expect(ogUrls(body)).toEqual([expectedUrl]);
+  expect(titleTags(body)).toHaveLength(1);
+  expect(metaDescriptions(body)).toHaveLength(1);
+  expect(metaDescriptions(body)[0].trim().length).toBeGreaterThan(20);
   expect(body).not.toMatch(
     /<meta[^>]+name="robots"[^>]+content="[^"]*noindex/i,
   );
@@ -666,6 +682,7 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
           } else {
             expect(body, identity).not.toContain('<div id="root"></div>');
             expect(body, identity).toContain(route.crawlerMarker);
+            expect(h1Count(body), identity).toBe(1);
           }
         }
       });
@@ -758,6 +775,7 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
           expect(status).toBe(200);
           expectIndexableHead(body, headers, route.canonical);
           expect(headers.get("vary")).toContain("User-Agent");
+          if (ua === GOOGLEBOT_UA) expect(h1Count(body)).toBe(1);
         }
       });
     }
