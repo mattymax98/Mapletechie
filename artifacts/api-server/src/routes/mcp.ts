@@ -552,7 +552,7 @@ function buildMcpServer(req: Request): McpServer {
     {
       title: "List Mapletechie posts",
       description:
-        "Read-only second step of the canonical daily editorial workflow. Returns recent Mapletechie posts for search-intent, duplicate, and cannibalization checks. Optionally filter by status (draft, scheduled, or published). Returns id, title, slug, status, cover_image, and cover_image_alt, newest first.",
+        "Read-only second step of the canonical daily editorial workflow. Returns recent Mapletechie posts for search-intent, duplicate, cannibalization, visual-duplication, and tag-taxonomy checks. Optionally filter by status (draft, scheduled, or published). Returns id, title, slug, status, tags, cover_image, and cover_image_alt, newest first.",
       inputSchema: z
         .object({
           status: z
@@ -580,6 +580,7 @@ function buildMcpServer(req: Request): McpServer {
           title: postsTable.title,
           slug: postsTable.slug,
           status: postsTable.status,
+          tags: postsTable.tags,
           cover_image: postsTable.coverImage,
           cover_image_alt: postsTable.coverImageAlt,
         })
