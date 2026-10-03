@@ -793,6 +793,34 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
     }
   });
 
+  describe("blog archive pagination", () => {
+    it("gives crawlers stable linked archive pages beyond the newest posts", async () => {
+      const pagedApi = await startMockApi({ postCount: 45 });
+      const instance = await startPrerenderServer(`http://127.0.0.1:${pagedApi.port}`);
+      try {
+        const page1 = await getFrom(instance.baseUrl, "/blog", GOOGLEBOT_UA);
+        expect(page1.status).toBe(200);
+        expect(page1.body).toContain(`${SITE_URL}/blog/archive-story-1`);
+        expect(page1.body).toContain(`${SITE_URL}/blog?page=2`);
+        expectIndexableHead(page1.body, page1.headers, `${SITE_URL}/blog`);
+
+        const page2 = await getFrom(instance.baseUrl, "/blog?page=2", GOOGLEBOT_UA);
+        expect(page2.status).toBe(200);
+        expect(page2.body).toContain(`${SITE_URL}/blog/archive-story-21`);
+        expect(page2.body).not.toContain(`${SITE_URL}/blog/archive-story-1"`);
+        expect(page2.body).toContain(`${SITE_URL}/blog?page=3`);
+        expectIndexableHead(page2.body, page2.headers, `${SITE_URL}/blog?page=2`);
+
+        const page4 = await getFrom(instance.baseUrl, "/blog?page=4", GOOGLEBOT_UA);
+        expect(page4.status).toBe(404);
+        expect(page4.body).toContain("noindex");
+      } finally {
+        instance.close();
+        await pagedApi.close();
+      }
+    });
+  });
+
   describe("homepage /", () => {
     it("serves a prerendered body with real content to Googlebot", async () => {
       const { status, body } = await get("/", GOOGLEBOT_UA);
