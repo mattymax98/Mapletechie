@@ -94,9 +94,13 @@ router.get("/sitemap.xml", async (req, res): Promise<void> => {
     lastmod?: string;
   };
 
+  const latestPublishedLastmod = posts[0]?.publishedAt
+    ? new Date(posts[0].publishedAt).toISOString()
+    : undefined;
+
   const staticPages: SitemapEntry[] = [
-    { loc: `${domain}/`, priority: "1.0", changefreq: "daily" },
-    { loc: `${domain}/blog`, priority: "0.9", changefreq: "daily" },
+    { loc: `${domain}/`, priority: "1.0", changefreq: "daily", lastmod: latestPublishedLastmod },
+    { loc: `${domain}/blog`, priority: "0.9", changefreq: "daily", lastmod: latestPublishedLastmod },
     { loc: `${domain}/about`, priority: "0.6", changefreq: "monthly" },
     { loc: `${domain}/contact`, priority: "0.5", changefreq: "monthly" },
     { loc: `${domain}/advertise`, priority: "0.5", changefreq: "monthly" },
@@ -119,9 +123,9 @@ router.get("/sitemap.xml", async (req, res): Promise<void> => {
       loc: `${domain}/blog/${p.slug}`,
       priority: "0.8",
       changefreq: "monthly",
-       lastmod: p.contentModifiedAt || p.publishedAt
-         ? new Date(p.contentModifiedAt ?? p.publishedAt).toISOString().split("T")[0]
-         : undefined,
+      lastmod: p.contentModifiedAt || p.publishedAt
+        ? new Date(p.contentModifiedAt ?? p.publishedAt).toISOString()
+        : undefined,
     }));
 
   const authorUrls: SitemapEntry[] = authors
