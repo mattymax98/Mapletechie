@@ -362,6 +362,7 @@ function startMockApi(
     if (req.params.tag === TAG || req.params.tag === ENCODED_TAG) {
       return res.json(POST_LIST);
     }
+    if (req.params.tag === THIN_TAG) return res.json([POST_LIST[0]]);
     res.json([]);
   });
   api.get("/api/series/:slug", (req, res) => {
