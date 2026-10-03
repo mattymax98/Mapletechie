@@ -132,6 +132,17 @@ describe("GET /sitemap.xml — SITE_DOMAIN protocol normalisation", () => {
     expect(body).toContain("<loc>https://www.mapletechie.com/blog/test-post</loc>");
   });
 
+  it("marks the homepage and blog index with the newest publication time", async () => {
+    let callCount = 0;
+    db.select.mockImplementation(() => makeChain(++callCount === 1 ? [
+      { slug: "newest", publishedAt: "2026-10-02T23:54:09.479Z", contentModifiedAt: null },
+      { slug: "older", publishedAt: "2026-10-01T10:00:00.000Z", contentModifiedAt: null },
+    ] : []));
+    const { body } = await get("/sitemap.xml");
+    expect(body).toMatch(/<loc>https:\/\/www\.mapletechie\.com\/<\/loc>[\s\S]*?<lastmod>2026-10-02T23:54:09\.479Z<\/lastmod>/);
+    expect(body).toMatch(/<loc>https:\/\/www\.mapletechie\.com\/blog<\/loc>[\s\S]*?<lastmod>2026-10-02T23:54:09\.479Z<\/lastmod>/);
+  });
+
   it("uses an approved editorial update, never a routine write, as article lastmod", async () => {
     let callCount = 0;
     db.select.mockImplementation(() => makeChain(++callCount === 1 ? [
@@ -139,8 +150,8 @@ describe("GET /sitemap.xml — SITE_DOMAIN protocol normalisation", () => {
       { slug: "approved-refresh", publishedAt: "2024-01-01T00:00:00Z", updatedAt: "2026-09-25T00:00:00Z", contentModifiedAt: "2026-09-10T00:00:00Z" },
     ] : []));
     const { body } = await get("/sitemap.xml");
-    expect(body).toMatch(/blog\/ordinary-write<\/loc>[\s\S]*?<lastmod>2024-01-01<\/lastmod>/);
-    expect(body).toMatch(/blog\/approved-refresh<\/loc>[\s\S]*?<lastmod>2026-09-10<\/lastmod>/);
+    expect(body).toMatch(/blog\/ordinary-write<\/loc>[\s\S]*?<lastmod>2024-01-01T00:00:00\.000Z<\/lastmod>/);
+    expect(body).toMatch(/blog\/approved-refresh<\/loc>[\s\S]*?<lastmod>2026-09-10T00:00:00\.000Z<\/lastmod>/);
   });
 
   it("includes eligible public topic URLs and rejects malformed topic slugs", async () => {
