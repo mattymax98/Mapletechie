@@ -9,6 +9,10 @@ const SLUG_SEGMENT_RE = /^[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?$/;
 // Usernames support dots and underscores in the admin API, so they need their
 // own sitemap guard instead of inheriting the stricter content-slug rule.
 const USERNAME_SEGMENT_RE = /^[a-z0-9]+(?:[a-z0-9._-]*[a-z0-9])?$/i;
+// Thin one- and two-post tag archives add crawl inventory without acting as
+// useful discovery hubs. Keep them usable on-site, but only advertise a tag
+// in the sitemap once it has enough published depth to justify crawling.
+const MIN_TAG_POSTS_FOR_SITEMAP = 3;
 
 /**
  * The sitemap must never be the source of malformed paths. Slugs are normally
@@ -60,9 +64,11 @@ router.get("/sitemap.xml", async (req, res): Promise<void> => {
       .where(eq(jobsTable.isActive, true)),
 
     db.execute(sql`
-      SELECT DISTINCT lower(tag) AS tag
+      SELECT lower(tag) AS tag, COUNT(*)::int AS published_count
       FROM ${postsTable}, unnest(${postsTable.tags}) AS tag
       WHERE ${postsTable.status} = 'published'
+      GROUP BY lower(tag)
+      HAVING COUNT(*) >= ${MIN_TAG_POSTS_FOR_SITEMAP}
       ORDER BY tag
     `),
 
@@ -153,12 +159,17 @@ router.get("/sitemap.xml", async (req, res): Promise<void> => {
       changefreq: "weekly",
     }));
 
-  const tags = (tagRows.rows ?? (tagRows as unknown as { tag: string }[])) as { tag: string }[];
-  const tagUrls: SitemapEntry[] = tags.map((r) => ({
-    loc: `${domain}/tag/${encodeURIComponent(r.tag)}`,
-    priority: "0.5",
-    changefreq: "weekly",
-  }));
+  type SitemapTagRow = { tag: string; published_count: number | string };
+  const tags = (tagRows.rows ?? (tagRows as unknown as SitemapTagRow[])) as SitemapTagRow[];
+  const tagUrls: SitemapEntry[] = tags
+    // Defensive application-side guard in addition to SQL HAVING. This keeps
+    // the sitemap policy explicit even if the query is later refactored.
+    .filter((r) => Number(r.published_count) >= MIN_TAG_POSTS_FOR_SITEMAP)
+    .map((r) => ({
+      loc: `${domain}/tag/${encodeURIComponent(r.tag)}`,
+      priority: "0.5",
+      changefreq: "weekly",
+    }));
 
   const allUrls: SitemapEntry[] = [
     ...staticPages,
