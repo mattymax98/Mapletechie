@@ -1661,7 +1661,7 @@ app.get(/^\/author\/([^/]+)\/?$/, async (req, res, next) => {
   // structured profile fields the editor filled in (if any).
   let seoFinal = seo;
   let profileLinksHtml = "";
-  const jsonLd = buildPersonJsonLd(author, { siteUrl: SITE_URL });
+  const jsonLd = buildProfilePageJsonLd(author, { siteUrl: SITE_URL });
   if (jsonLd) {
     // JSON.stringify escapes quotes; additionally escape `<` so the JSON body
     // cannot prematurely close the surrounding <script> tag.
