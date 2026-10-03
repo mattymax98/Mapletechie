@@ -12,6 +12,7 @@ export interface AuthorRichProfile {
   username: string;
   displayName?: string | null;
   bio?: string | null;
+  avatarUrl?: string | null;
   alternateName?: string | null;
   jobTitle?: string | null;
   locationCity?: string | null;
