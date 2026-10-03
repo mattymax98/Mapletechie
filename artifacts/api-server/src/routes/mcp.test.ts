@@ -396,6 +396,34 @@ describe("POST /mcp — tools", () => {
     expect(names).toContain("create_mapletechie_draft");
     expect(names).toContain("get_mapletechie_post");
     expect(names).toContain("propose_mapletechie_revision");
+    const revisionTool = res.body.result.tools.find((t: any) => t.name === "propose_mapletechie_revision");
+    expect(revisionTool.description).toMatch(/reader-facing update_note.*Update history/i);
+    expect(revisionTool.inputSchema.properties.update_note.description).toMatch(/plain-text reader-facing summary/i);
+    expect(names).toContain("preview_mapletechie_post");
+    expect(names).toContain("upload_mapletechie_image");
+    expect(names).toContain("backfill_mapletechie_images");
+    const tools = res.body.result.tools;
+    const draft = tools.find((t: any) => t.name === "create_mapletechie_draft");
+    expect(Object.keys(draft.inputSchema.properties)).toEqual(expect.arrayContaining(["cluster_id", "cluster_role"]));
+    const createCluster = tools.find((t: any) => t.name === "create_mapletechie_topic_cluster");
+    expect(Object.keys(createCluster.inputSchema.properties)).not.toContain("is_public");
+    expect(createCluster.description).toMatch(/always private/i);
+    const manageCluster = tools.find((t: any) => t.name === "manage_mapletechie_post_cluster");
+    expect(manageCluster.description).toMatch(/both.*private/i);
+    expect(manageCluster.description).toMatch(/public-cluster membership.*human/i);
+    expect(Object.keys(manageCluster.inputSchema.properties)).toEqual(
+      expect.arrayContaining(["post_id", "cluster_id", "cluster_role"]),
+    );
+    expect(manageCluster.inputSchema.required).toEqual(expect.arrayContaining(["post_id", "cluster_id"]));
+    expect(draft.inputSchema.properties.content.description).toMatch(/reddit\|twitter\|youtube|youtube\|twitter\|reddit/i);
+    const backfill = tools.find((t: any) => t.name === "backfill_mapletechie_images");
+    expect(backfill.description).toMatch(/draft only/i);
+    const revision = tools.find((t: any) => t.name === "propose_mapletechie_revision");
+    expect(Object.keys(revision.inputSchema.properties.changes.properties)).toEqual(expect.arrayContaining(["coverImage", "coverImageAlt", "ogImage"]));
+    const archive = tools.find((t: any) => t.name === "search_mapletechie_archive");
+    expect(Object.keys(archive.inputSchema.properties)).toEqual(expect.arrayContaining(["publishedFrom", "publishedTo"]));
+  });
+
   it("returns reusable tag taxonomy with sitemap eligibility counts", async () => {
     db.execute.mockResolvedValue({
       rows: [
@@ -427,34 +455,6 @@ describe("POST /mcp — tools", () => {
         sitemap_eligible_now: false,
       },
     ]);
-  });
-
-    const revisionTool = res.body.result.tools.find((t: any) => t.name === "propose_mapletechie_revision");
-    expect(revisionTool.description).toMatch(/reader-facing update_note.*Update history/i);
-    expect(revisionTool.inputSchema.properties.update_note.description).toMatch(/plain-text reader-facing summary/i);
-    expect(names).toContain("preview_mapletechie_post");
-    expect(names).toContain("upload_mapletechie_image");
-    expect(names).toContain("backfill_mapletechie_images");
-    const tools = res.body.result.tools;
-    const draft = tools.find((t: any) => t.name === "create_mapletechie_draft");
-    expect(Object.keys(draft.inputSchema.properties)).toEqual(expect.arrayContaining(["cluster_id", "cluster_role"]));
-    const createCluster = tools.find((t: any) => t.name === "create_mapletechie_topic_cluster");
-    expect(Object.keys(createCluster.inputSchema.properties)).not.toContain("is_public");
-    expect(createCluster.description).toMatch(/always private/i);
-    const manageCluster = tools.find((t: any) => t.name === "manage_mapletechie_post_cluster");
-    expect(manageCluster.description).toMatch(/both.*private/i);
-    expect(manageCluster.description).toMatch(/public-cluster membership.*human/i);
-    expect(Object.keys(manageCluster.inputSchema.properties)).toEqual(
-      expect.arrayContaining(["post_id", "cluster_id", "cluster_role"]),
-    );
-    expect(manageCluster.inputSchema.required).toEqual(expect.arrayContaining(["post_id", "cluster_id"]));
-    expect(draft.inputSchema.properties.content.description).toMatch(/reddit\|twitter\|youtube|youtube\|twitter\|reddit/i);
-    const backfill = tools.find((t: any) => t.name === "backfill_mapletechie_images");
-    expect(backfill.description).toMatch(/draft only/i);
-    const revision = tools.find((t: any) => t.name === "propose_mapletechie_revision");
-    expect(Object.keys(revision.inputSchema.properties.changes.properties)).toEqual(expect.arrayContaining(["coverImage", "coverImageAlt", "ogImage"]));
-    const archive = tools.find((t: any) => t.name === "search_mapletechie_archive");
-    expect(Object.keys(archive.inputSchema.properties)).toEqual(expect.arrayContaining(["publishedFrom", "publishedTo"]));
   });
 
   it("requires exactly one post_id or slug for get_mapletechie_post", async () => {
