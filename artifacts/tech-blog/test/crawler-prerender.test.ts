@@ -368,7 +368,7 @@ function startMockApi(
   api.get("/api/tags/:tag/posts", (req, res) => {
     if (opts.resourceFailure) return res.status(503).json({ error: "temporary" });
     if (req.params.tag === TAG || req.params.tag === ENCODED_TAG) {
-      return res.json(POST_LIST);
+      return res.json(TOPIC_POSTS);
     }
     if (req.params.tag === THIN_TAG) return res.json([POST_LIST[0]]);
     res.json([]);
