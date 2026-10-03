@@ -26,6 +26,7 @@ import { submitToIndexNow, buildPostUrls } from "../lib/indexNow";
 import { canonicalPostAuthor } from "../lib/postAuthor";
 import { attachPublicTopicContext } from "../lib/topicClusters";
 import { buildPublicUpdateHistory } from "../lib/publicUpdateHistory";
+import { canonicalizeTagsForWrite } from "../lib/tagNormalization";
 
 // Re-exported for automation.ts (historical import location).
 export { resolveCategory };
@@ -632,6 +633,7 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
   }
 
   const normalizedContent = normalizeSocialEmbeds(body.content);
+  const normalizedTags = await canonicalizeTagsForWrite(body.tags);
   const initialPublishedAt = body.publishedAt ? new Date(body.publishedAt) : new Date();
   const values = {
     title: String(body.title).trim(),
@@ -644,7 +646,7 @@ router.post("/posts", adminAuth, async (req, res): Promise<void> => {
     coverImage: body.coverImage ?? null,
     coverImageAlt: typeof body.coverImageAlt === "string" ? body.coverImageAlt.trim() || null : null,
     categoryId: resolvedCategory.id,
-    tags: Array.isArray(body.tags) ? body.tags : [],
+    tags: normalizedTags,
     author: assignedAuthorName,
     authorAvatar: assignedAuthorAvatar,
     authorId: assignedAuthorId,
@@ -1012,6 +1014,10 @@ router.put("/posts/:id", adminAuth, async (req, res): Promise<void> => {
     res.status(400).json({ error: "Scheduled time must be a valid future date and time." });
     return;
   }
+  if ("tags" in body && Array.isArray(body.tags)) {
+    body.tags = await canonicalizeTagsForWrite(body.tags);
+  }
+
   const allowed = [
     "title",
     "slug",
