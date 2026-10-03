@@ -30,6 +30,7 @@ let insertReturn: unknown[] = [];
 let updateReturn: unknown[] = [];
 
 const db = {
+  execute: vi.fn(async () => ({ rows: [] })),
   select: vi.fn(() => makeSelectChain(selectQueue)),
   insert: vi.fn(() => {
     const chain = {
