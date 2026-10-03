@@ -1567,6 +1567,14 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).toContain(`${SITE_URL}/blog/${FEATURED_POST.slug}`);
     });
 
+    it("noindexes a populated tag archive until it has three articles", async () => {
+      const { status, body } = await get(`/tag/${THIN_TAG}`, GOOGLEBOT_UA);
+      expect(status).toBe(200);
+      expect(body).toContain(`<h1>#${THIN_TAG}</h1>`);
+      expect(body).toContain('content="noindex, follow"');
+      expect(canonicalUrls(body)).toEqual([`${SITE_URL}/tag/${THIN_TAG}`]);
+    });
+
     it("emits the BreadcrumbList JSON-LD (Home > Blog > #tag) in the prerendered HTML", async () => {
       const { body } = await get(`/tag/${TAG}`, GOOGLEBOT_UA);
       const scripts = [
