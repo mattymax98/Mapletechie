@@ -497,6 +497,19 @@ function ogUrls(body: string): string[] {
     (match) => match[1],
   );
 }
+function metaDescriptions(body: string): string[] {
+  return [...body.matchAll(/<meta name="description" content="([^"]*)" \/>/g)].map(
+    (match) => match[1],
+  );
+}
+
+function titleTags(body: string): string[] {
+  return [...body.matchAll(/<title>([^<]+)<\/title>/g)].map((match) => match[1]);
+}
+
+function h1Count(body: string): number {
+  return [...body.matchAll(/<h1\b/gi)].length;
+}
 
 function expectIndexableHead(
   body: string,
@@ -505,6 +518,9 @@ function expectIndexableHead(
 ): void {
   expect(canonicalUrls(body)).toEqual([expectedUrl]);
   expect(ogUrls(body)).toEqual([expectedUrl]);
+  expect(titleTags(body)).toHaveLength(1);
+  expect(metaDescriptions(body)).toHaveLength(1);
+  expect(metaDescriptions(body)[0].trim().length).toBeGreaterThan(20);
   expect(body).not.toMatch(
     /<meta[^>]+name="robots"[^>]+content="[^"]*noindex/i,
   );
@@ -666,6 +682,7 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
           } else {
             expect(body, identity).not.toContain('<div id="root"></div>');
             expect(body, identity).toContain(route.crawlerMarker);
+            expect(h1Count(body), identity).toBe(1);
           }
         }
       });
@@ -758,6 +775,7 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
           expect(status).toBe(200);
           expectIndexableHead(body, headers, route.canonical);
           expect(headers.get("vary")).toContain("User-Agent");
+          if (ua === GOOGLEBOT_UA) expect(h1Count(body)).toBe(1);
         }
       });
     }
@@ -1446,40 +1464,43 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
       expect(body).not.toContain(`<h1>${AUTHOR.displayName}</h1>`);
     });
 
-    it("emits no Person JSON-LD for an author without structured profile fields", async () => {
+    it("emits a minimal ProfilePage for an author without optional profile fields", async () => {
       const { status, body } = await get(`/author/${PLAIN_AUTHOR.username}`, GOOGLEBOT_UA);
       expect(status).toBe(200);
       expect(body).toContain(`<h1>${PLAIN_AUTHOR.displayName}</h1>`);
-      const scripts = [...body.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/gs)];
-      for (const [, json] of scripts) {
-        expect(JSON.parse(json)["@type"]).not.toBe("Person");
-      }
+      const scripts = [...body.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/gs)]
+        .map(([, json]) => JSON.parse(json));
+      const profile = scripts.find((d) => d["@type"] === "ProfilePage");
+      expect(profile).toBeDefined();
+      expect(profile.mainEntity["@type"]).toBe("Person");
+      expect(profile.mainEntity.name).toBe(PLAIN_AUTHOR.displayName);
     });
 
-    it("emits Person JSON-LD with the bio for an author with only a bio", async () => {
+    it("emits ProfilePage JSON-LD with the bio for an author with only a bio", async () => {
       const { status, body } = await get(`/author/${BIO_ONLY_AUTHOR.username}`, GOOGLEBOT_UA);
       expect(status).toBe(200);
-      const scripts = [...body.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/gs)];
-      const person = scripts
-        .map(([, json]) => JSON.parse(json))
-        .find((d) => d["@type"] === "Person");
-      expect(person).toBeDefined();
-      expect(person!.name).toBe(BIO_ONLY_AUTHOR.displayName);
-      expect(person!.description).toBe(BIO_ONLY_AUTHOR.bio);
+      const scripts = [...body.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/gs)]
+        .map(([, json]) => JSON.parse(json));
+      const profile = scripts.find((d) => d["@type"] === "ProfilePage");
+      expect(profile).toBeDefined();
+      expect(profile.mainEntity.name).toBe(BIO_ONLY_AUTHOR.displayName);
+      expect(profile.mainEntity.description).toBe(BIO_ONLY_AUTHOR.bio);
     });
 
-    it("emits Person JSON-LD with alternateName and profile links for the founder", async () => {
+    it("emits ProfilePage JSON-LD with rich Person data for the founder", async () => {
       const { status, body } = await get(`/author/${AUTHOR.username}`, GOOGLEBOT_UA);
       expect(status).toBe(200);
-      const m = /<script type="application\/ld\+json">(.*?)<\/script>/s.exec(body);
-      expect(m).toBeTruthy();
-      const jsonLd = JSON.parse(m![1]);
-      expect(jsonLd["@type"]).toBe("Person");
-      expect(jsonLd.name).toBe("Matthew Mbaka");
-      expect(jsonLd.alternateName).toBe("Matthew Mbaka Ogbu");
-      expect(jsonLd.address.addressLocality).toBe("Thunder Bay");
-      expect(jsonLd.memberOf.name).toBe("Canadian Youth Road Safety Council");
-      expect(jsonLd.sameAs).toContain("https://townzest.ca");
+      const scripts = [...body.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/gs)]
+        .map(([, json]) => JSON.parse(json));
+      const profile = scripts.find((d) => d["@type"] === "ProfilePage");
+      expect(profile).toBeDefined();
+      const person = profile.mainEntity;
+      expect(person["@type"]).toBe("Person");
+      expect(person.name).toBe("Matthew Mbaka");
+      expect(person.alternateName).toBe("Matthew Mbaka Ogbu");
+      expect(person.address.addressLocality).toBe("Thunder Bay");
+      expect(person.memberOf.name).toBe("Canadian Youth Road Safety Council");
+      expect(person.sameAs).toContain("https://townzest.ca");
       // Visible links back up the sameAs claims.
       expect(body).toContain('href="https://townzest.ca"');
       expect(body).toContain("Canadian Youth Road Safety Council");

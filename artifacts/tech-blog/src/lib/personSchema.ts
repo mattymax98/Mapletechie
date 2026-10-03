@@ -12,6 +12,7 @@ export interface AuthorRichProfile {
   username: string;
   displayName?: string | null;
   bio?: string | null;
+  avatarUrl?: string | null;
   alternateName?: string | null;
   jobTitle?: string | null;
   locationCity?: string | null;
@@ -76,6 +77,34 @@ export function socialProfileUrls(a: AuthorRichProfile): string[] {
   return [a.twitterUrl, a.instagramUrl, a.linkedinUrl, a.githubUrl, a.websiteUrl]
     .map(normalizeHttpUrl)
     .filter((u): u is string => u !== null);
+}
+
+/**
+ * Build a Google-supported ProfilePage wrapper for a public author page.
+ * Author pages on news sites are an explicit ProfilePage use case, and
+ * Article.author.url already points to these pages.
+ */
+export function buildProfilePageJsonLd(
+  author: AuthorRichProfile,
+  opts: { siteUrl?: string } = {},
+): Record<string, unknown> {
+  const siteUrl = (opts.siteUrl || "https://www.mapletechie.com").replace(/\/+$/, "");
+  const profileUrl = `${siteUrl}/author/${encodeURIComponent(author.username)}`;
+  const richPerson = buildPersonJsonLd(author, { siteUrl });
+  const person = richPerson
+    ? Object.fromEntries(Object.entries(richPerson).filter(([key]) => key !== "@context"))
+    : {
+        "@type": "Person",
+        name: author.displayName || author.username,
+        url: profileUrl,
+      };
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "ProfilePage",
+    url: profileUrl,
+    mainEntity: person,
+  };
 }
 
 /** Public reference links to render visibly on the author page. */
