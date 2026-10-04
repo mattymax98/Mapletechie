@@ -39,7 +39,21 @@ async function main() {
       WHERE p.status='published'
       ORDER BY p.id
     `)).rows;
+    const categoryRows=(await client.query<{post_id:number; slug:string}>(`
+      SELECT pc.post_id, c.slug
+      FROM post_categories pc
+      INNER JOIN categories c ON c.id=pc.category_id
+      INNER JOIN posts p ON p.id=pc.post_id
+      WHERE p.status='published'
+    `)).rows;
     await client.query("COMMIT");
+
+    const categoriesByPost=new Map<number,Set<string>>();
+    for(const row of categoryRows){
+      const set=categoriesByPost.get(row.post_id)??new Set<string>();
+      set.add(row.slug);
+      categoriesByPost.set(row.post_id,set);
+    }
 
     const map=new Map<string,TagInfo>();
     for(const post of posts){
@@ -69,6 +83,14 @@ async function main() {
         decision.action==="RETIRE_CATEGORY" ? decision.destination :
         decision.action==="RETIRE" ? "410 Gone" :
         tagPath(info.tag);
+      const destinationCategorySlug =
+        decision.action==="RETIRE_CATEGORY" && decision.destination?.startsWith("/category/")
+          ? decision.destination.slice("/category/".length)
+          : null;
+      const missingCategoryPostIds = destinationCategorySlug
+        ? [...info.postIds].filter((postId)=>!(categoriesByPost.get(postId)?.has(destinationCategorySlug)))
+        : [];
+      const missingCategorySet=new Set(missingCategoryPostIds);
       return {
         tag:info.tag,
         publishedCount:info.count,
@@ -77,6 +99,8 @@ async function main() {
         redirect,
         reason:decision.reason,
         keywordOverlap:info.keywordNormalized,
+        categoryBackfillsNeeded:missingCategoryPostIds.length,
+        categoryBackfillExamples:info.examples.filter((example)=>missingCategorySet.has(example.id)),
         categories:[...info.categories.entries()].sort((a,b)=>b[1]-a[1]).map(([name,count])=>({name,count})),
         examples:info.examples,
       };
@@ -137,6 +161,9 @@ async function main() {
         affectedPosts:affectedPosts.length,
         removedAssignments,
         mergedAssignments,
+        categoryMembershipBackfillsNeeded:rows
+          .filter((x)=>x.action==="RETIRE_CATEGORY")
+          .reduce((sum,x)=>sum+x.categoryBackfillsNeeded,0),
       },
       classifications:rows,
       affectedPosts,
