@@ -21,6 +21,16 @@ test("multi-article subject archives survive unless they are formats/categories"
   assert.equal(classifyTaxonomyTag({ tag:"Analysis", count:15, keywordNormalized:0 }).action,"KEEP");
 });
 
+test("two-post subjects count as demonstrated recurrence even when wording mentions pricing", () => {
+  assert.equal(classifyTaxonomyTag({ tag:"AI pricing", count:2, keywordNormalized:0 }).action,"KEEP");
+  assert.equal(classifyTaxonomyTag({ tag:"algorithmic pricing", count:2, keywordNormalized:0 }).action,"KEEP");
+});
+
+test("core beat singletons can be preserved before a second story arrives", () => {
+  assert.equal(classifyTaxonomyTag({ tag:"network security", count:1, keywordNormalized:0 }).action,"KEEP");
+  assert.equal(classifyTaxonomyTag({ tag:"Bell Canada", count:1, keywordNormalized:0 }).action,"KEEP");
+});
+
 test("singletons default to retirement, with strategic exceptions", () => {
   assert.equal(classifyTaxonomyTag({ tag:"wildfire smoke air purifier", count:1, keywordNormalized:1 }).action,"RETIRE");
   assert.equal(classifyTaxonomyTag({ tag:"VPN", count:1, keywordNormalized:0 }).action,"KEEP");
