@@ -40,7 +40,6 @@ const EXPLICIT_MERGES = new Map<string, string>([
 ]);
 
 const FORMAT_TAGS = new Set([
-  "analysis",
   "explainer",
   "opinion",
   "buying guide",
