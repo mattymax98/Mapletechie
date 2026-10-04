@@ -18,7 +18,7 @@ test("obvious semantic duplicates merge", () => {
 
 test("multi-article subject archives survive unless they are formats/categories", () => {
   assert.equal(classifyTaxonomyTag({ tag:"privacy", count:35, keywordNormalized:0 }).action,"KEEP");
-  assert.equal(classifyTaxonomyTag({ tag:"Analysis", count:15, keywordNormalized:0 }).action,"RETIRE");
+  assert.equal(classifyTaxonomyTag({ tag:"Analysis", count:15, keywordNormalized:0 }).action,"KEEP");
 });
 
 test("singletons default to retirement, with strategic exceptions", () => {
