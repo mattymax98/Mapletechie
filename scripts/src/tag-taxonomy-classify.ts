@@ -48,6 +48,8 @@ async function main() {
     `)).rows;
     await client.query("COMMIT");
 
+    const postById=new Map(posts.map((post)=>[post.id,post]));
+
     const categoriesByPost=new Map<number,Set<string>>();
     for(const row of categoryRows){
       const set=categoriesByPost.get(row.post_id)??new Set<string>();
@@ -90,7 +92,10 @@ async function main() {
       const missingCategoryPostIds = destinationCategorySlug
         ? [...info.postIds].filter((postId)=>!(categoriesByPost.get(postId)?.has(destinationCategorySlug)))
         : [];
-      const missingCategorySet=new Set(missingCategoryPostIds);
+      const missingCategoryPosts=missingCategoryPostIds.map((postId)=>{
+        const post=postById.get(postId)!;
+        return { id:post.id, slug:post.slug, title:post.title, currentPrimaryCategory:post.category_name };
+      });
       return {
         tag:info.tag,
         publishedCount:info.count,
@@ -100,7 +105,7 @@ async function main() {
         reason:decision.reason,
         keywordOverlap:info.keywordNormalized,
         categoryBackfillsNeeded:missingCategoryPostIds.length,
-        categoryBackfillExamples:info.examples.filter((example)=>missingCategorySet.has(example.id)),
+        categoryBackfillPosts:missingCategoryPosts,
         categories:[...info.categories.entries()].sort((a,b)=>b[1]-a[1]).map(([name,count])=>({name,count})),
         examples:info.examples,
       };
