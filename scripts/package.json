@@ -13,6 +13,7 @@
     "smoke:production": "tsx ./src/productionSmoke.ts",
     "tags:dry-run": "tsx ./src/tag-normalization-dry-run.ts",
     "tags:semantic-audit": "tsx ./src/tag-semantic-audit.ts",
+    "tags:taxonomy-inventory": "tsx ./src/tag-taxonomy-inventory.ts",
     "test": "tsx --test ./src/railwayMigrationGuard.test.ts ./src/railwaySchemaCompatibility.test.ts ./src/productionSmoke.test.ts ./src/tagNormalizationRules.test.ts ./src/tagSemanticAuditRules.test.ts ./no-direct-ai-generation.test.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
