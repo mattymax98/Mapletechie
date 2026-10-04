@@ -60,11 +60,11 @@ jobs:
       - name: Test
         run: pnpm run test
 
-      - name: Pass 2B production taxonomy inventory
+      - name: Pass 2B production taxonomy classification dry run
         if: github.event_name == 'push' && github.ref_name == 'seo/tag-normalization-pass2b'
         env:
           RAILWAY_DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_URL }}
-        run: pnpm --filter @workspace/scripts run tags:taxonomy-inventory
+        run: pnpm --filter @workspace/scripts run tags:taxonomy-classify
 
       - name: Build workspaces
         run: pnpm -r --if-present run build
