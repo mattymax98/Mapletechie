@@ -13,16 +13,16 @@ import { useAdmin } from "@/context/AdminContext";
  * just any signed-in editor. Use it for pages that bypass per-editor
  * permission checks.
  */
-export function AdminGuard({ children, adminOnly = false }: { children: ReactNode; adminOnly?: boolean }) {
+export function AdminGuard({ children, adminOnly = false, ownerOnly = false }: { children: ReactNode; adminOnly?: boolean; ownerOnly?: boolean }) {
   const { isAdmin, user } = useAdmin();
-  const allowed = adminOnly ? user?.role === "admin" : isAdmin;
+  const allowed = isAdmin && (!adminOnly || user?.role === "admin") && (!ownerOnly || user?.isOwner === true);
   return (
     <>
       <Helmet>
         <meta name="robots" content="noindex, nofollow" />
         <meta name="googlebot" content="noindex, nofollow" />
       </Helmet>
-      {allowed ? <>{children}</> : <Redirect to="/admin/login" />}
+      {allowed ? <>{children}</> : <Redirect to={isAdmin ? "/admin" : "/admin/login"} />}
     </>
   );
 }

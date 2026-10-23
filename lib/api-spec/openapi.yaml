@@ -1821,6 +1821,10 @@ components:
           type: string
         role:
           type: string
+        isOwner:
+          type: boolean
+          readOnly: true
+          description: Derived from the founding account identity; cannot be granted through editor permissions.
         canPublishDirectly:
           type: boolean
         canManageShop:

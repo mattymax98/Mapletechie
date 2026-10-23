@@ -54,7 +54,21 @@ vi.mock("drizzle-orm", () => ({
   isNull: () => ({}),
 }));
 
-const { bootstrapAdmin, getUserBySession, deleteSession } = await import("./auth");
+const { bootstrapAdmin, getUserBySession, deleteSession, sanitizeUser } = await import("./auth");
+
+describe("owner identity in session responses", () => {
+  it("derives ownership from the account ID even after a rename", () => {
+    const user = { id: 1, role: "admin", username: "renamed", displayName: "New name", passwordHash: "secret" };
+    const result = sanitizeUser(user as Parameters<typeof sanitizeUser>[0]);
+    expect(result.isOwner).toBe(true);
+    expect(result).not.toHaveProperty("passwordHash");
+  });
+
+  it("cannot inherit ownership through role, display name, or a supplied flag", () => {
+    const user = { id: 9, role: "admin", username: "matthew", displayName: "Matthew Leo", isOwner: true, passwordHash: "secret" };
+    expect(sanitizeUser(user as unknown as Parameters<typeof sanitizeUser>[0]).isOwner).toBe(false);
+  });
+});
 
 beforeEach(() => {
   vi.clearAllMocks();

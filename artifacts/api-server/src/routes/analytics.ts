@@ -2,10 +2,15 @@ import { Router } from "express";
 import { db, pageViewsTable, postsTable, searchQueriesTable, linkClicksTable } from "@workspace/db";
 import { sql, gte, and, isNotNull, desc, eq } from "drizzle-orm";
 import { adminAuth, requireRole } from "../middlewares/adminAuth";
+import { requireOwner } from "../middlewares/ownerAuth";
 import { logger } from "../lib/logger";
 import { extractIp, lookupCountry } from "../lib/geoip";
 
 const router = Router();
+
+// Protect every reporting route, including CSV exports and personal post views.
+// Public tracking endpoints below remain available to collect visitor events.
+router.use("/admin/analytics", adminAuth, requireOwner);
 
 // Strict input patterns — prevent metric pollution via spoofed payloads
 const PATH_RE = /^\/[A-Za-z0-9/_\-.~%]{0,499}$/;
@@ -347,7 +352,7 @@ router.get("/admin/analytics/top-referrers", adminAuth, requireRole("admin"), as
 
 /**
  * Per-post analytics for the authenticated user's own posts only.
- * Available to all authenticated admin users (editors included) — no requireRole guard.
+ * Like all analytics reports, available only to the site owner.
  */
 router.get("/admin/analytics/my-post-views", adminAuth, async (req, res): Promise<void> => {
   const since = rangeToDate(req.query.range as string);

@@ -68,7 +68,7 @@ const NAV: NavSection[] = [
         icon: Mail,
         permission: (u) => u?.role === "admin",
       },
-      { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+      { href: "/admin/analytics", label: "Analytics", icon: BarChart3, permission: (u) => u?.isOwner === true },
     ],
   },
   {
@@ -90,7 +90,7 @@ const NAV: NavSection[] = [
         href: "/admin/audit",
         label: "Activity",
         icon: ClipboardList,
-        permission: (u) => u?.role === "admin",
+        permission: (u) => u?.isOwner === true,
       },
     ],
   },
