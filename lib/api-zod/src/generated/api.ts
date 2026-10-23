@@ -804,6 +804,12 @@ export const AdminLoginResponse = zod.object({
     githubUrl: zod.string().optional(),
     websiteUrl: zod.string().optional(),
     role: zod.string(),
+    isOwner: zod
+      .boolean()
+      .optional()
+      .describe(
+        "Derived from the founding account identity; cannot be granted through editor permissions.",
+      ),
     canPublishDirectly: zod.boolean(),
     canManageShop: zod.boolean().optional(),
     canManageJobs: zod.boolean().optional(),
@@ -840,6 +846,12 @@ export const GetCurrentUserResponse = zod.object({
   githubUrl: zod.string().optional(),
   websiteUrl: zod.string().optional(),
   role: zod.string(),
+  isOwner: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Derived from the founding account identity; cannot be granted through editor permissions.",
+    ),
   canPublishDirectly: zod.boolean(),
   canManageShop: zod.boolean().optional(),
   canManageJobs: zod.boolean().optional(),
@@ -917,6 +929,12 @@ export const UpdateCurrentUserResponse = zod.object({
   githubUrl: zod.string().optional(),
   websiteUrl: zod.string().optional(),
   role: zod.string(),
+  isOwner: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Derived from the founding account identity; cannot be granted through editor permissions.",
+    ),
   canPublishDirectly: zod.boolean(),
   canManageShop: zod.boolean().optional(),
   canManageJobs: zod.boolean().optional(),
@@ -945,6 +963,12 @@ export const ListUsersResponseItem = zod.object({
   githubUrl: zod.string().optional(),
   websiteUrl: zod.string().optional(),
   role: zod.string(),
+  isOwner: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Derived from the founding account identity; cannot be granted through editor permissions.",
+    ),
   canPublishDirectly: zod.boolean(),
   canManageShop: zod.boolean().optional(),
   canManageJobs: zod.boolean().optional(),
@@ -998,6 +1022,12 @@ export const CreateUserResponse = zod.object({
   githubUrl: zod.string().optional(),
   websiteUrl: zod.string().optional(),
   role: zod.string(),
+  isOwner: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Derived from the founding account identity; cannot be granted through editor permissions.",
+    ),
   canPublishDirectly: zod.boolean(),
   canManageShop: zod.boolean().optional(),
   canManageJobs: zod.boolean().optional(),
@@ -1101,6 +1131,12 @@ export const UpdateUserResponse = zod.object({
   githubUrl: zod.string().optional(),
   websiteUrl: zod.string().optional(),
   role: zod.string(),
+  isOwner: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Derived from the founding account identity; cannot be granted through editor permissions.",
+    ),
   canPublishDirectly: zod.boolean(),
   canManageShop: zod.boolean().optional(),
   canManageJobs: zod.boolean().optional(),

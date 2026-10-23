@@ -121,10 +121,10 @@ function Router() {
         <AdminGuard><AdminTools legacy="jobs" /></AdminGuard>
       </Route>
       <Route path="/admin/audit">
-        <AdminGuard><AdminAudit /></AdminGuard>
+        <AdminGuard ownerOnly><AdminAudit /></AdminGuard>
       </Route>
       <Route path="/admin/analytics">
-        <AdminGuard><AdminAnalytics /></AdminGuard>
+        <AdminGuard ownerOnly><AdminAnalytics /></AdminGuard>
       </Route>
       <Route path="/admin/send-email">
         <AdminGuard><AdminTools legacy="email" /></AdminGuard>

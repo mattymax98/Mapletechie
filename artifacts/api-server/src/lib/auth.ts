@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import { db, usersTable, sessionsTable, postsTable, type User } from "@workspace/db";
 import { eq, and, gt, isNull } from "drizzle-orm";
+import { isSiteOwner } from "./siteOwner";
 
 const SESSION_DAYS = 30;
 
@@ -99,5 +100,5 @@ export async function bootstrapAdmin(): Promise<void> {
 export function sanitizeUser(user: User) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { passwordHash, ...rest } = user;
-  return rest;
+  return { ...rest, isOwner: isSiteOwner(user) };
 }

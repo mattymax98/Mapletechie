@@ -37,6 +37,7 @@ const db = {
 
 vi.mock("@workspace/db", () => ({
   db,
+  auditLogsTable: { createdAt: "created_at" },
   searchQueriesTable: { query: "query", path: "path", sessionId: "session_id", createdAt: "created_at" },
   linkClicksTable: {
     linkType: "link_type",
@@ -108,11 +109,13 @@ vi.mock("../middlewares/adminAuth", () => ({
 }));
 
 const analyticsRouter = (await import("./analytics")).default;
+const auditRouter = (await import("./audit")).default;
 
 function makeApp() {
   const app = express();
   app.use(express.json());
   app.use(analyticsRouter);
+  app.use(auditRouter);
   return app;
 }
 
@@ -169,6 +172,9 @@ async function post(
 }
 
 const ANALYTICS_ROUTES = [
+  "/admin/audit-logs",
+  "/admin/analytics/my-post-views",
+  "/admin/analytics/export.csv",
   "/admin/analytics/summary",
   "/admin/analytics/top-posts",
   "/admin/analytics/post-views",
@@ -206,9 +212,39 @@ describe("Analytics endpoints — editor (non-admin) caller", () => {
   }
 });
 
+describe("Private reports — another admin", () => {
+  beforeEach(() => {
+    currentUser = { id: 9, role: "admin" };
+  });
+
+  for (const route of ANALYTICS_ROUTES) {
+    it(`denies ${route} even with the admin role`, async () => {
+      const { status } = await get(makeApp(), route, "other-admin-token");
+      expect(status).toBe(403);
+      expect(db.select).not.toHaveBeenCalled();
+    });
+  }
+
+  it("also protects future reports under the analytics prefix", async () => {
+    expect((await get(makeApp(), "/admin/analytics/future-report")).status).toBe(403);
+  });
+});
+
 describe("Analytics endpoints — admin caller", () => {
   beforeEach(() => {
     currentUser = { id: 1, role: "admin" };
+  });
+
+  it("allows the owner to read the activity log", async () => {
+    selectQueue = [[{ id: 1, action: "auth.login" }]];
+    const result = await get(makeApp(), "/admin/audit-logs");
+    expect(result.status).toBe(200);
+    expect(result.json).toEqual([{ id: 1, action: "auth.login" }]);
+  });
+
+  it("allows the owner's personal post report", async () => {
+    selectQueue = [[]];
+    expect((await get(makeApp(), "/admin/analytics/my-post-views")).status).toBe(200);
   });
 
   it("GET /admin/analytics/summary returns 200 with totals", async () => {

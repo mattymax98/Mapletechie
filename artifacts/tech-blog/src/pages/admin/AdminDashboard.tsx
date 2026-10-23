@@ -50,6 +50,7 @@ export default function AdminDashboard() {
   const { data: categories } = useListCategories();
   const queryClient = useQueryClient();
   const isAdmin = user?.role === "admin";
+  const isOwner = user?.isOwner === true;
   const u = user as any;
   const seesAllPosts = isAdmin || !!u?.canEditOthersPosts;
 
@@ -217,7 +218,9 @@ export default function AdminDashboard() {
   >(null);
 
   useEffect(() => {
-    if (!token) {
+    if (!token || !isOwner) {
+      setAnalytics30d(null);
+      setTopPosts7d(null);
       setAnalyticsLoading(false);
       return;
     }
@@ -254,7 +257,7 @@ export default function AdminDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, isOwner]);
 
   /** Last 7 days of daily views from the 30d summary for the sparkline */
   const sparklineData = useMemo(() => {
@@ -302,7 +305,7 @@ export default function AdminDashboard() {
         ) : null}
 
         {/* ── Analytics overview ─────────────────────────────────────── */}
-        {(analyticsLoading || analytics30d) && (
+        {isOwner && (analyticsLoading || analytics30d) && (
           <div className="mb-6 space-y-3">
             {/* Analytics stat tiles */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
