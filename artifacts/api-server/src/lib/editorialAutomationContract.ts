@@ -63,7 +63,7 @@ IMAGES AND RIGHTS
 VALIDATION AND SUBMISSION
 - Before submission, run a final factual, originality, prose, SEO, links, tag-taxonomy, image-rights, alt-text, HTML, and visual pass. Confirm the article is in the correct live category or categories, uses 2–5 accurate durable tags without avoidable taxonomy duplication, and that its intent does not cannibalize recent coverage.
 - Use a stable Idempotency-Key for each article so retries cannot create duplicates.
-- Submit each completed item only through create_mapletechie_draft (or the equivalent private draft endpoint). The server must return status=draft and the Mapletechie AI review byline. Never send status, author, author_id, author_avatar, published_at, scheduled_for, or is_featured.
+- Submit each completed item only through create_mapletechie_draft (or the equivalent private draft endpoint). The server must return status=draft and the Mapletechie Editorial review byline. Never send status, author, author_id, author_avatar, published_at, scheduled_for, or is_featured.
 - Do not call backfill_mapletechie_images as a substitute for a complete new article. It is only for identified image repairs on drafts. Published and scheduled posts may receive review-only revision proposals where supported, never direct automated changes; preserve author, status, URL, original publication time, and scheduling until human approval.
 
 FAILURE HANDLING AND REPORTING

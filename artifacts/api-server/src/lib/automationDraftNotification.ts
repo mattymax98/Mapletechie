@@ -19,12 +19,12 @@ function emailHtml(args: { title: string; editLink: string; excerpt: string | nu
 <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;margin:0 auto;background:#171717;border:1px solid #27272a;">
 <tr><td style="padding:28px 32px;border-bottom:1px solid #27272a;">
 <span style="color:#f97316;font-weight:900;font-size:22px;letter-spacing:-0.02em;">MAPLE<span style="color:#fafafa;">TECHIE</span></span>
-<p style="margin:6px 0 0;color:#71717a;font-size:12px;text-transform:uppercase;letter-spacing:0.2em;font-weight:700;">New AI Draft</p>
+<p style="margin:6px 0 0;color:#71717a;font-size:12px;text-transform:uppercase;letter-spacing:0.2em;font-weight:700;">New Editorial Draft</p>
 </td></tr>
 <tr><td style="padding:28px 32px;">
 <h1 style="margin:0 0 12px;color:#fafafa;font-size:20px;">${escapeHtml(args.title)}</h1>
 ${excerptHtml}
-<p style="margin:0 0 24px;color:#d4d4d8;line-height:1.6;font-size:15px;">The Mapletechie AI pipeline just submitted a new draft. It won't go live until a human editor reviews and publishes it.</p>
+<p style="margin:0 0 24px;color:#d4d4d8;line-height:1.6;font-size:15px;">The Mapletechie Editorial pipeline just submitted a new draft. It won't go live until a human editor reviews and publishes it.</p>
 <a href="${args.editLink}" style="display:inline-block;background:#f97316;color:#0a0a0a;font-weight:700;font-size:14px;padding:12px 20px;text-decoration:none;">Review &amp; edit draft</a>
 </td></tr>
 <tr><td style="padding:20px 32px;border-top:1px solid #27272a;color:#71717a;font-size:12px;">
@@ -56,12 +56,12 @@ export async function notifyEditorsOfAutomationDraft(args: {
       return;
     }
     const html = emailHtml({ title: args.title, editLink: args.editUrl, excerpt: args.excerpt ?? null });
-    const text = `The Mapletechie AI pipeline submitted a new draft: "${args.title}". Review and edit it at ${args.editUrl}. It won't go live until a human publishes it.`;
+    const text = `The Mapletechie Editorial pipeline submitted a new draft: "${args.title}". Review and edit it at ${args.editUrl}. It won't go live until a human publishes it.`;
     const results = await Promise.allSettled(
       recipients.map((u) =>
         sendEmail({
           to: u.email as string,
-          subject: `New AI draft: ${args.title}`,
+          subject: `New editorial draft: ${args.title}`,
           html,
           text,
         }),

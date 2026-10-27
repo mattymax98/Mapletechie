@@ -6,6 +6,7 @@ import { seedCuratedCategories } from "./lib/seedCategories";
 import { auditPostCoverImages } from "./lib/coverImageValidation";
 import { seedSiteSettings } from "./lib/siteSettings";
 import { backfillPostCategories } from "./lib/postCategoryHelpers";
+import { syncAutomationAuthorIdentity } from "./lib/automationAuthorIdentity";
 
 const rawPort = process.env["PORT"];
 
@@ -32,6 +33,7 @@ logger.info({
 // FK is installed before any route can run. If it fails we MUST crash so a
 // process supervisor restarts us instead of serving with a broken schema.
 bootstrapAdmin()
+  .then(() => syncAutomationAuthorIdentity())
   .then(() => seedCuratedCategories())
   .then(() => seedSiteSettings())
   // Self-heals a freshly-migrated DB: every post gets a primary row in
