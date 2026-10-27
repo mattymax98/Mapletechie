@@ -113,7 +113,7 @@ function makeApp() {
 import { createServer } from "node:http";
 async function request(
   app: express.Express,
-  method: "POST" | "PUT",
+  method: "POST" | "PUT" | "DELETE",
   path: string,
   body: unknown,
 ): Promise<{ status: number; json: any }> {
@@ -153,6 +153,26 @@ beforeEach(() => {
   captured.postSet = undefined;
   captured.postWhere = undefined;
   captured.insertValues = undefined;
+});
+
+describe("Owner account protection", () => {
+  it("prevents another admin resetting the owner's password or permissions", async () => {
+    currentUser = { id: 9, role: "admin" };
+    selectQueue = [[ADMIN_USER]];
+    const result = await request(makeApp(), "PUT", "/admin/users/1", {
+      password: "replacement-password", isActive: false, role: "editor", isOwner: true,
+    });
+    expect(result.status).toBe(403);
+    expect(db.update).not.toHaveBeenCalled();
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
+  it("prevents another admin deleting the owner", async () => {
+    currentUser = { id: 9, role: "admin" };
+    selectQueue = [[ADMIN_USER]];
+    expect((await request(makeApp(), "DELETE", "/admin/users/1", {})).status).toBe(403);
+    expect(db.delete).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /admin/users — email derivation on creation", () => {

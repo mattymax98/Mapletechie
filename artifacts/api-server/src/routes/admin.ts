@@ -12,6 +12,7 @@ import { adminAuth, requirePermission } from "../middlewares/adminAuth";
 import { writeAuditLog, writeAuditLogForUser } from "../lib/audit";
 import { loginLimiter } from "../middlewares/rateLimit";
 import { sanitizeRichProfile, RichProfileError } from "../lib/richProfile";
+import { isSiteOwner, SITE_OWNER_USER_ID } from "../lib/siteOwner";
 
 const router = Router();
 
@@ -242,6 +243,10 @@ router.put("/admin/users/:id", adminAuth, requirePermission("editors"), async (r
     res.status(404).json({ error: "User not found" });
     return;
   }
+  if (target.id === SITE_OWNER_USER_ID && !isSiteOwner(req.user)) {
+    res.status(403).json({ error: "Only the site owner can modify the owner account." });
+    return;
+  }
   if (!callerIsAdmin && target.role === "admin") {
     res.status(403).json({ error: "Only the founding admin can modify the admin account." });
     return;
@@ -385,6 +390,10 @@ router.delete("/admin/users/:id", adminAuth, requirePermission("editors"), async
   }
   if (target.role === "admin" && req.user?.role !== "admin") {
     res.status(403).json({ error: "Only the founding admin can remove the admin account." });
+    return;
+  }
+  if (target.id === SITE_OWNER_USER_ID && !isSiteOwner(req.user)) {
+    res.status(403).json({ error: "Only the site owner can remove the owner account." });
     return;
   }
   await db.delete(usersTable).where(eq(usersTable.id, id));

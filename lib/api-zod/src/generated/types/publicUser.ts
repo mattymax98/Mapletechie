@@ -19,6 +19,8 @@ export interface PublicUser {
   githubUrl?: string;
   websiteUrl?: string;
   role: string;
+  /** Derived from the founding account identity; cannot be granted through editor permissions. */
+  readonly isOwner?: boolean;
   canPublishDirectly: boolean;
   canManageShop?: boolean;
   canManageJobs?: boolean;

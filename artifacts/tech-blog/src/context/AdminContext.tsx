@@ -14,6 +14,8 @@ export interface AdminUser {
   githubUrl?: string;
   websiteUrl?: string;
   role: string;
+  /** Derived by the server from the founding account, never an editable permission. */
+  isOwner?: boolean;
   canPublishDirectly: boolean;
   canManageShop?: boolean;
   canManageJobs?: boolean;

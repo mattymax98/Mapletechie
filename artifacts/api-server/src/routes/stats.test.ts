@@ -39,13 +39,15 @@ vi.mock("drizzle-orm", () => ({
 
 // adminAuth mock — controllable: call next() or reject with 401
 let authShouldPass = true;
+let userId = 1;
+let userRole = "admin";
 vi.mock("../middlewares/adminAuth", () => ({
   adminAuth: (req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (!authShouldPass) {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
-    req.user = { id: 1, role: "admin" } as express.Request["user"];
+    req.user = { id: userId, role: userRole } as express.Request["user"];
     next();
   },
   requireRole: () => (_req: unknown, _res: unknown, next: () => void) => next(),
@@ -85,9 +87,17 @@ beforeEach(() => {
   vi.clearAllMocks();
   selectQueue = [];
   authShouldPass = true;
+  userId = 1;
+  userRole = "admin";
 });
 
 describe("GET /stats/summary — authorization", () => {
+  it.each(["admin", "editor"])("denies the legacy aggregate report to another %s", async (role) => {
+    userId = 9;
+    userRole = role;
+    expect((await get(makeApp(), "/stats/summary")).status).toBe(403);
+    expect(db.select).not.toHaveBeenCalled();
+  });
   it("returns 401 when no session token is provided", async () => {
     authShouldPass = false;
     const { status, json } = await get(makeApp(), "/stats/summary");
