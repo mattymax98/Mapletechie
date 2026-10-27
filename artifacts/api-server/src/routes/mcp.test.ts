@@ -216,7 +216,7 @@ const persistExternalImageMock = vi.mocked(imagePersistence.persistExternalImage
 const persistImageBufferMock = vi.mocked(imagePersistence.persistImageBuffer);
 
 const KEY = "test-mcp-connector-key-1234567890";
-const BOT_USER = { id: 77, username: "mapletechie-ai", displayName: "Mapletechie AI", avatarUrl: null };
+const BOT_USER = { id: 77, username: "mapletechie-ai", displayName: "Mapletechie Editorial", avatarUrl: null };
 const CATEGORY = { id: 10, name: "News", slug: "news" };
 
 function makeApp() {
@@ -468,7 +468,7 @@ describe("POST /mcp — tools", () => {
   it("returns the complete canonical post, including ordered category identity", async () => {
     selectQueue = [[{
       id: 42, title: "Current story", slug: "current-story", excerpt: "Summary",
-      content: "<p>Stored</p>", categoryId: 10, tags: ["ai"], author: "Mapletechie AI",
+      content: "<p>Stored</p>", categoryId: 10, tags: ["ai"], author: "Mapletechie Editorial",
       authorId: 77, status: "draft", createdAt: new Date("2026-01-01T00:00:00Z"),
       updatedAt: new Date("2026-01-02T00:00:00Z"), seoKeywords: [],
     }], [

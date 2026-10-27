@@ -159,7 +159,7 @@ const persistExternalImageMock = vi.mocked(imagePersistence.persistExternalImage
 const persistExternalImagesInHtmlMock = vi.mocked(imagePersistence.persistExternalImagesInHtml);
 
 const TOKEN = "test-automation-token-1234567890";
-const BOT_USER = { id: 77, username: "mapletechie-ai", displayName: "Mapletechie AI", avatarUrl: null };
+const BOT_USER = { id: 77, username: "mapletechie-ai", displayName: "Mapletechie Editorial", avatarUrl: null };
 const CATEGORY = { id: 10, name: "News", slug: "news" };
 
 function makeApp() {
@@ -415,7 +415,7 @@ describe("POST /automation/posts/drafts — contract", () => {
       content: "<p>Safe</p>",
       categoryId: 10,
       tags: [],
-      author: "Mapletechie AI",
+      author: "Mapletechie Editorial",
       authorId: 77,
       status: "draft",
       createdAt: new Date("2026-01-03T00:00:00Z"),
@@ -442,7 +442,7 @@ describe("POST /automation/posts/drafts — contract", () => {
       slug: "embed-story",
       content: '<div class="social-embed" data-social-embed="" data-provider="youtube" data-url="https://www.youtube.com/watch?v=vcID0OafOts"></div>',
       categoryId: 10,
-      author: "Mapletechie AI",
+      author: "Mapletechie Editorial",
       authorId: 77,
       status: "draft",
       tags: [],
@@ -568,7 +568,7 @@ describe("POST /automation/posts/drafts — contract", () => {
     const values = captured.insertValues!.find((v) => v.title === "Test story")!;
     expect(values.status).toBe("draft");
     expect(values.authorId).toBe(77);
-    expect(values.author).toBe("Mapletechie AI");
+    expect(values.author).toBe("Mapletechie Editorial");
     expect(values.isFeatured).toBe(false);
     // external cover was re-hosted
     expect(values.coverImage).toBe("/api/storage/objects/persisted-cover");
@@ -599,7 +599,7 @@ describe("POST /automation/posts/drafts — contract", () => {
     expect(values.content).toContain('alt="A technician installing an AI accelerator"');
     expect(persistExternalImagesInHtmlMock).toHaveBeenCalledWith(
       expect.stringContaining('alt="A technician installing an AI accelerator"'),
-      expect.objectContaining({ uploaderId: 77, uploaderName: "Mapletechie AI" }),
+      expect.objectContaining({ uploaderId: 77, uploaderName: "Mapletechie Editorial" }),
     );
   });
 

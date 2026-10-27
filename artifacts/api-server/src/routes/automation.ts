@@ -31,6 +31,8 @@ import { notifyEditorsOfAutomationDraft } from "../lib/automationDraftNotificati
 import { getSiteUrl } from "../lib/siteUrl";
 import { canonicalPostAuthor } from "../lib/postAuthor";
 import { canonicalizeTagsForWrite } from "../lib/tagNormalization";
+import { BOT_USERNAME, BOT_DISPLAY_NAME } from "../lib/automationAuthorIdentity";
+export { BOT_USERNAME } from "../lib/automationAuthorIdentity";
 
 /**
  * Private automation draft API — lets an external AI client (run and
@@ -50,8 +52,6 @@ import { canonicalizeTagsForWrite } from "../lib/tagNormalization";
 
 const router = Router();
 
-export const BOT_USERNAME = "mapletechie-ai";
-const BOT_DISPLAY_NAME = "Mapletechie AI";
 
 // Fields the client may send (camelCase, after normalization).
 const ALLOWED_FIELDS = new Set([
