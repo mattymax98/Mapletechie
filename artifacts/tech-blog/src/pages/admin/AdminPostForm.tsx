@@ -41,6 +41,7 @@ import { ImageUploadField, type ImagePreviewStatus } from "@/components/ImageUpl
 import { countImagesMissingAltText } from "@/lib/ensureImgAlt";
 import { formatLocalDateTime } from "@/lib/localDateTime";
 import { ArticleRevisions } from "@/components/admin/ArticleRevisions";
+import { restorePostDraft } from "@/lib/restorePostDraft";
 
 interface AdminPostFormProps {
   postId?: number;
@@ -325,7 +326,7 @@ export default function AdminPostForm({ postId }: AdminPostFormProps) {
         `You have an unsaved local draft from ${when}.\n\nClick OK to restore it, or Cancel to discard it and use the saved version.`,
       );
       if (ok) {
-        setForm(savedForm);
+        setForm((current) => restorePostDraft(savedForm, current));
         setAutoSlug(false);
         setAutosavedAt(savedAt || Date.now());
       } else {
