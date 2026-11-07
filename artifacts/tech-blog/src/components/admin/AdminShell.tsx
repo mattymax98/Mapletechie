@@ -66,7 +66,7 @@ const NAV: NavSection[] = [
         href: "/admin/newsletter",
         label: "Newsletter",
         icon: Mail,
-        permission: (u) => u?.role === "admin",
+        permission: (u) => u?.isOwner === true,
       },
       { href: "/admin/analytics", label: "Analytics", icon: BarChart3, permission: (u) => u?.isOwner === true },
     ],

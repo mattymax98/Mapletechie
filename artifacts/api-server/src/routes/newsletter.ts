@@ -8,7 +8,8 @@ import {
   welcomeEmailHtml,
   digestEmailHtml,
 } from "../lib/newsletterTemplates";
-import { adminAuth, requireRole } from "../middlewares/adminAuth";
+import { requireOwner } from "../middlewares/ownerAuth";
+import { adminAuth } from "../middlewares/adminAuth";
 import { writeAuditLog } from "../lib/audit";
 import { logger } from "../lib/logger";
 import { newsletterLimiter } from "../middlewares/rateLimit";
@@ -17,6 +18,7 @@ import { getSiteSettings } from "../lib/siteSettings";
 import { canonicalPostAuthor } from "../lib/postAuthor";
 
 const router = Router();
+router.use(["/admin/newsletter", "/admin/subscribers"], adminAuth, requireOwner);
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -155,8 +157,6 @@ router.get("/newsletter/unsubscribe", async (req, res): Promise<void> => {
 
 router.get(
   "/admin/subscribers",
-  adminAuth,
-  requireRole("admin"),
   async (_req, res): Promise<void> => {
     const subs = await db.select().from(subscribersTable).orderBy(desc(subscribersTable.createdAt));
     res.json(
@@ -176,8 +176,6 @@ router.get(
 
 router.delete(
   "/admin/subscribers/:id",
-  adminAuth,
-  requireRole("admin"),
   async (req, res): Promise<void> => {
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) {
@@ -196,8 +194,6 @@ router.delete(
  */
 router.get(
   "/admin/newsletter/posts",
-  adminAuth,
-  requireRole("admin"),
   async (_req, res): Promise<void> => {
     const posts = await fetchRecentPosts(30);
     res.json(
@@ -221,8 +217,6 @@ router.get(
  */
 router.post(
   "/admin/newsletter/test",
-  adminAuth,
-  requireRole("admin"),
   async (req, res): Promise<void> => {
     const to = String(req.body?.to || req.body?.email || "").trim().toLowerCase();
     const subject = String(req.body?.subject || "").trim();
@@ -284,8 +278,6 @@ router.post(
  */
 router.post(
   "/admin/newsletter/send-now",
-  adminAuth,
-  requireRole("admin"),
   async (req, res): Promise<void> => {
     const subject = String(req.body?.subject || "").trim();
     const editorNote = String(req.body?.editorNote || "").trim();
@@ -373,8 +365,6 @@ router.post(
  */
 router.post(
   "/admin/newsletter/preview",
-  adminAuth,
-  requireRole("admin"),
   async (req, res): Promise<void> => {
     const editorNote = String(req.body?.editorNote || "").trim();
     const rawIds = req.body?.postIds;
@@ -405,8 +395,6 @@ router.post(
  */
 router.post(
   "/admin/newsletter/send-editor-digest",
-  adminAuth,
-  requireRole("admin"),
   async (req, res): Promise<void> => {
     try {
       await runEditorWeeklyDigestNow();

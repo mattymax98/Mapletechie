@@ -195,9 +195,11 @@ export default function AdminSettings() {
           maintenanceStartsAt: startsAtIso,
           maintenanceEndsAt: endsAtIso,
           notificationEmail: notificationEmail.trim() || null,
-          newsletterFromName: newsletterFromName.trim() || null,
-          newsletterFromAddress: newsletterFromAddress.trim() || null,
-          newsletterReplyTo: newsletterReplyTo.trim() || null,
+          ...(user?.isOwner === true ? {
+            newsletterFromName: newsletterFromName.trim() || null,
+            newsletterFromAddress: newsletterFromAddress.trim() || null,
+            newsletterReplyTo: newsletterReplyTo.trim() || null,
+          } : {}),
         },
       },
       {
@@ -496,7 +498,7 @@ export default function AdminSettings() {
                 )}
               </div>
 
-              <div className="border-t border-zinc-800/60 pt-4 space-y-5">
+              {user?.isOwner === true && <div className="border-t border-zinc-800/60 pt-4 space-y-5">
                 <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">
                   Newsletter sender
                 </p>
@@ -578,7 +580,7 @@ export default function AdminSettings() {
                     </p>
                   )}
                 </div>
-              </div>
+              </div>}
             </div>
 
             {/* ── Search Indexing ─────────────────────────────────────── */}
