@@ -12,7 +12,6 @@ import {
   Eye,
   MessageCircle,
   Share2,
-  Linkedin,
   Facebook,
   Link2,
   ArrowUp,
@@ -334,6 +333,14 @@ function XMark({ className }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.64 7.584H.47l8.6-9.835L0 1.154h7.594l5.243 6.932 6.064-6.933Zm-1.29 19.49h2.039L6.487 3.24H4.299l13.312 17.403Z" /></svg>;
 }
 
+function RedditMark({ className }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m12 9 1.6-6 4.5 1"/><circle cx="20" cy="4.4" r="1.7"/>
+    <path d="M4.2 14a2.5 2.5 0 1 1 2-4.3m13.6 4.3a2.5 2.5 0 1 0-2-4.3"/>
+    <ellipse cx="12" cy="14" rx="8.7" ry="5.8"/><g fill="currentColor" stroke="none"><circle cx="8.8" cy="13.4" r="1.2"/><circle cx="15.2" cy="13.4" r="1.2"/></g><path d="M8.7 16.4q3.3 2.1 6.6 0"/>
+  </svg>;
+}
+
 function ShareButtons({ title, url }: { title: string; url: string }) {
   const enc = encodeURIComponent;
   const links = [
@@ -343,9 +350,9 @@ function ShareButtons({ title, url }: { title: string; url: string }) {
       href: `https://x.com/intent/tweet?text=${enc(title)}&url=${enc(url)}`,
     },
     {
-      title: "Share on LinkedIn",
-      Icon: Linkedin,
-      href: `https://www.linkedin.com/sharing/share-offsite/?url=${enc(url)}`,
+      title: "Share on Reddit",
+      Icon: RedditMark,
+      href: `https://www.reddit.com/submit?url=${enc(url)}&title=${enc(title)}`,
     },
     {
       title: "Share on Facebook",
@@ -355,7 +362,7 @@ function ShareButtons({ title, url }: { title: string; url: string }) {
   ];
 
   const moreLinks = [
-    { name: "Reddit", href: `https://www.reddit.com/submit?url=${enc(url)}&title=${enc(title)}` },
+    { name: "LinkedIn", href: `https://www.linkedin.com/sharing/share-offsite/?url=${enc(url)}` },
     { name: "WhatsApp", href: `https://wa.me/?text=${enc(title + " " + url)}` },
     { name: "Bluesky", href: `https://bsky.app/intent/compose?text=${enc(title + " " + url)}` },
     { name: "Email", href: `mailto:?subject=${enc(title)}&body=${enc(url)}` },
