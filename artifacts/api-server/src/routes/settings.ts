@@ -7,6 +7,8 @@ import {
   updateSiteSettings,
 } from "../lib/siteSettings";
 
+import { isSiteOwner } from "../lib/siteOwner";
+
 const router = Router();
 
 /**
@@ -26,7 +28,7 @@ router.get("/settings/status", async (_req, res): Promise<void> => {
   });
 });
 
-function settingsPayload(row: Awaited<ReturnType<typeof getSiteSettings>>, state: { envForced: boolean; active: boolean; startsAt: string | null; endsAt: string | null; severity: string }) {
+function settingsPayload(row: Awaited<ReturnType<typeof getSiteSettings>>, state: { envForced: boolean; active: boolean; startsAt: string | null; endsAt: string | null; severity: string }, owner: boolean) {
   return {
     maintenanceMode: row.maintenanceMode,
     maintenanceMessage: row.maintenanceMessage,
@@ -39,21 +41,27 @@ function settingsPayload(row: Awaited<ReturnType<typeof getSiteSettings>>, state
     envForced: state.envForced,
     effectiveMaintenance: state.active,
     notificationEmail: row.notificationEmail ?? null,
-    newsletterFromName: row.newsletterFromName ?? null,
-    newsletterFromAddress: row.newsletterFromAddress ?? null,
-    newsletterReplyTo: row.newsletterReplyTo ?? null,
+    ...(owner ? {
+      newsletterFromName: row.newsletterFromName ?? null,
+      newsletterFromAddress: row.newsletterFromAddress ?? null,
+      newsletterReplyTo: row.newsletterReplyTo ?? null,
+    } : {}),
   };
 }
 
 /** Admin: read the full settings row + effective state (incl. env override). */
-router.get("/admin/settings", adminAuth, requireRole("admin"), async (_req, res): Promise<void> => {
+router.get("/admin/settings", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
   const [row, state] = await Promise.all([getSiteSettings(), getMaintenanceState()]);
-  res.json(settingsPayload(row, state));
+  res.json(settingsPayload(row, state, isSiteOwner(req.user)));
 });
 
 /** Admin: update settings (maintenance + email). Audit-logged. */
 router.put("/admin/settings", adminAuth, requireRole("admin"), async (req, res): Promise<void> => {
   const body = req.body ?? {};
+  if (!isSiteOwner(req.user) && ["newsletterFromName", "newsletterFromAddress", "newsletterReplyTo"].some((key) => Object.hasOwn(body, key))) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
   const {
     maintenanceMode,
     maintenanceMessage,
@@ -129,7 +137,7 @@ router.put("/admin/settings", adminAuth, requireRole("admin"), async (req, res):
     },
   });
 
-  res.json(settingsPayload(row, state));
+  res.json(settingsPayload(row, state, isSiteOwner(req.user)));
 });
 
 export default router;

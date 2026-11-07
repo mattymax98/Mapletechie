@@ -115,7 +115,7 @@ function Router() {
         <AdminGuard><AdminTools legacy="inbox" /></AdminGuard>
       </Route>
       <Route path="/admin/newsletter">
-        <AdminGuard><AdminNewsletter /></AdminGuard>
+        <AdminGuard ownerOnly><AdminNewsletter /></AdminGuard>
       </Route>
       <Route path="/admin/jobs">
         <AdminGuard><AdminTools legacy="jobs" /></AdminGuard>

@@ -154,23 +154,37 @@ vi.mock("../lib/logger", () => ({
 
 const newsletterRouter = (await import("./newsletter")).default;
 
-function makeApp() {
+function makeApp(id = 1, role = "admin") {
   const app = express();
   app.use(express.json());
+  app.use((req, _res, next) => { Object.assign(req, { user: { id, role } }); next(); });
   app.use(newsletterRouter);
   return app;
 }
 
-async function post(app: express.Express, path: string, body: unknown) {
+it.each([[9, "admin"], [2, "editor"]] as const)("blocks newsletter management for non-owner %i", async (id, role) => {
+  const app = makeApp(id, role);
+  for (const [method, path] of [
+    ["GET", "/admin/subscribers"], ["DELETE", "/admin/subscribers/42"],
+    ["GET", "/admin/newsletter/posts"], ["POST", "/admin/newsletter/test"],
+    ["POST", "/admin/newsletter/send-now"], ["POST", "/admin/newsletter/preview"],
+    ["POST", "/admin/newsletter/send-editor-digest"],
+  ]) {
+    expect((await post(app, path, {}, method)).status).toBe(403);
+  }
+  expect(capturedEmails).toHaveLength(0);
+});
+
+async function post(app: express.Express, path: string, body: unknown, method = "POST") {
   const server = createServer(app);
   await new Promise<void>((r) => server.listen(0, r));
   const addr = server.address();
   const port = typeof addr === "object" && addr ? addr.port : 0;
   try {
     const resp = await fetch(`http://127.0.0.1:${port}${path}`, {
-      method: "POST",
+      method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: method === "GET" ? undefined : JSON.stringify(body),
     });
     const json = (await resp.json().catch(() => null)) as Record<string, unknown>;
     return { status: resp.status, json };

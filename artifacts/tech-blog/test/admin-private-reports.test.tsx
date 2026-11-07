@@ -27,6 +27,7 @@ describe("Private report navigation and direct page access", () => {
         <AdminShell title="Posts"><main>Posts</main></AdminShell>
         <AdminGuard ownerOnly><div>Private report content</div></AdminGuard>
       </Router></HelmetProvider>);
+      expect(!!screen.queryByRole("link", { name: "Newsletter", exact: true })).toBe(user.isOwner === true);
       expect(!!screen.queryByRole("link", { name: "Analytics", exact: true })).toBe(user.isOwner === true);
       expect(!!screen.queryByRole("link", { name: "Activity", exact: true })).toBe(user.isOwner === true);
       expect(!!screen.queryByText("Private report content")).toBe(user.isOwner === true);
