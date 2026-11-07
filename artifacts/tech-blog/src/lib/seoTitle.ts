@@ -15,7 +15,7 @@
 
 export const SEO_TITLE_MAX = 65;
 export const BRAND_SUFFIX = " | Mapletechie";
-export const DEFAULT_SITE_TITLE = "Mapletechie — Canadian Tech News, Gadget Reviews & AI";
+export const DEFAULT_SITE_TITLE = "Mapletechie | Technology, Business and World News";
 
 export function buildSeoTitle(
   pageTitle?: string | null,

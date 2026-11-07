@@ -197,7 +197,7 @@ describe("BlogPost Article JSON-LD", () => {
     );
     expect(emitted.headline).toBe("Bare Bones");
     expect(emitted.description).toBe(post.excerpt);
-    expect(emitted.image).toEqual(["https://www.mapletechie.com/opengraph-v2.jpg"]);
+    expect(emitted.image).toEqual(["https://www.mapletechie.com/mapletechie-share-v3.jpg"]);
     // Optional fields must be absent, not null/empty — Google flags those.
     expect(emitted).not.toHaveProperty("keywords");
   });

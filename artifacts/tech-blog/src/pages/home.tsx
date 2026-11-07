@@ -27,7 +27,7 @@ const PRINCIPLES = [
   { n: "01", t: "Independent.",   d: "No press junkets, no sponsored takes dressed up as reviews. We pay for our own gear and tell you what's actually true." },
   { n: "02", t: "Opinionated.",   d: "We have a point of view. If a product is overpriced, we'll say it. If a launch is forgettable, we won't pretend." },
   { n: "03", t: "Plain-spoken.",  d: "No buzzword soup. Tech should be explained in language a smart person can actually use, not jargon nobody verifies." },
-  { n: "04", t: "Built in Canada.", d: "We write from Toronto with a global lens — covering the tech that matters, with prices and context that include you." },
+  { n: "04", t: "Built in Canada.", d: "We cover technology, business and world news from Canada, with local context when it matters." },
 ];
 
 export default function Home() {

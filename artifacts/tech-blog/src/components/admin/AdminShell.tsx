@@ -176,10 +176,10 @@ export function AdminShell({ title, children, actions, embedded = false }: Admin
         >
           <Link href="/admin" className="flex items-center gap-1.5">
             {collapsed ? (
-              <img src="/logo-favicon-v2.svg" alt="" className="w-7 h-7 rounded" />
+              <img src="/press-leaf.svg" alt="" className="w-7 h-7 rounded" />
             ) : (
               <>
-                <img src="/mapletechie-wordmark-inverse.svg" alt="" className="h-7 w-auto" />
+                <img src="/masthead-dark.svg" alt="" className="h-7 w-auto" />
                 <span className="text-zinc-500 font-light text-xs">/</span>
                 <span className="text-zinc-400 font-normal text-xs">Admin</span>
               </>

@@ -51,9 +51,9 @@ const SITE_URL = canonicalProductionUrl(
   process.env.SITE_URL || "https://www.mapletechie.com",
 );
 const API_BASE = canonicalProductionUrl(process.env.API_BASE || "http://localhost");
-const DEFAULT_OG_IMAGE = `${SITE_URL}/opengraph-v2.jpg`;
+const DEFAULT_OG_IMAGE = `${SITE_URL}/mapletechie-share-v3.jpg`;
 const DEFAULT_DESCRIPTION =
-  "Mapletechie — Your go-to source for tech news, gadget reviews, software deep dives, and the latest in AI, EVs, and cybersecurity.";
+  "Mapletechie — Technology, business and world news from a Canadian publication.";
 
 const distDir = path.resolve(__dirname, "public");
 const indexHtmlPath = path.join(distDir, "index.html");
@@ -791,9 +791,9 @@ app.get(/^\/?$/, async (req, res, next) => {
   const featured = await getFeaturedPosts();
   const heroPost = featured?.[0];
   const description =
-    "Mapletechie — Your go-to source for tech news, gadget reviews, software deep dives, and the latest in AI, EVs, and cybersecurity.";
+    "Mapletechie — Technology, business and world news from a Canadian publication.";
   let seo = buildSeoBlock({
-    title: "Mapletechie — Tech News & Reviews",
+    title: "Mapletechie | Technology, Business and World News",
     description,
     image: DEFAULT_OG_IMAGE,
     url: `${SITE_URL}/`,
@@ -1249,9 +1249,9 @@ app.get(/^\/category\/([^\/]+)\/?$/, async (req, res, next) => {
 app.get(/^\/?$/, async (req, res, next) => {
   if (!isCrawler(req)) return next();
   const description =
-    "Mapletechie — Your go-to source for tech news, gadget reviews, software deep dives, and the latest in AI, EVs, and cybersecurity.";
+    "Mapletechie — Technology, business and world news from a Canadian publication.";
   const seo = buildSeoBlock({
-    title: "Mapletechie — Tech News & Reviews",
+    title: "Mapletechie | Technology, Business and World News",
     description,
     image: DEFAULT_OG_IMAGE,
     url: `${SITE_URL}/`,
@@ -1277,7 +1277,7 @@ app.get(/^\/?$/, async (req, res, next) => {
         url: `${SITE_URL}/`,
         logo: {
           "@type": "ImageObject",
-          url: `${SITE_URL}/logo-favicon-v2.png`,
+          url: `${SITE_URL}/press-leaf.png`,
           width: 512,
           height: 512,
         },
@@ -1320,11 +1320,11 @@ app.get(/^\/?$/, async (req, res, next) => {
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>Mapletechie — Tech, told straight.</h1>
   <p>${htmlEscape(description)}</p>
-  <p>No press junkets. No hype cycles. Sharp opinion, real reviews, and the context the spec sheets leave out. Independent tech journalism built in Canada.</p>
+  <p>No press junkets. No hype cycles. Sharp opinion, real reviews, and the context the spec sheets leave out. Technology, business and world news from a Canadian publication.</p>
 ${categorySectionHtml}  <h2>Latest Articles</h2>
   ${renderPostList(posts, SITE_URL)}
   <h2>About Us</h2>
-  <p>Mapletechie is an independent tech publication covering artificial intelligence, gadgets, cybersecurity, electric vehicles, and software. We write from Toronto with a global lens. <a href="${htmlEscape(`${SITE_URL}/about`)}">Learn more about Mapletechie</a>.</p>
+  <p>Technology, business and world news from a Canadian publication. <a href="${htmlEscape(`${SITE_URL}/about`)}">Learn more about Mapletechie</a>.</p>
   <p><a href="${htmlEscape(`${SITE_URL}/blog`)}">Read all articles</a> &middot; <a href="${htmlEscape(`${SITE_URL}/contact`)}">Contact us</a></p>
 </main>`;
 

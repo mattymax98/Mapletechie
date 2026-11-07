@@ -9,7 +9,7 @@
 
 export const DEFAULT_SITE_URL = "https://www.mapletechie.com";
 export const DEFAULT_DESCRIPTION =
-  "Mapletechie — Your go-to source for tech news, gadget reviews, software deep dives, and the latest in AI, EVs, and cybersecurity.";
+  "Mapletechie — Technology, business and world news from a Canadian publication.";
 
 export interface ArticleSchemaPost {
   slug: string;
@@ -51,7 +51,7 @@ function articleImageUrls(
         ? ogImage.slice(siteUrl.length) : "";
     add(absUrl(siteUrl, ogStoragePath
       ? ogStoragePath.replace("/api/storage/objects/", "/api/storage/img-social/objects/")
-      : ogImage, `${siteUrl}/opengraph-v2.jpg`));
+      : ogImage, `${siteUrl}/mapletechie-share-v3.jpg`));
   }
   if (coverImage) {
     const storagePath = /^https?:\/\//i.test(coverImage)
@@ -65,9 +65,9 @@ function articleImageUrls(
     }
     // Keep the full source/legacy image as fallback for existing clients and
     // sources that cannot provide all three crops.
-    add(absUrl(siteUrl, coverImage, `${siteUrl}/opengraph-v2.jpg`));
+    add(absUrl(siteUrl, coverImage, `${siteUrl}/mapletechie-share-v3.jpg`));
   } else if (!ogImage) {
-    add(`${siteUrl}/opengraph-v2.jpg`);
+    add(`${siteUrl}/mapletechie-share-v3.jpg`);
   }
   return images;
 }
@@ -105,7 +105,7 @@ export function buildArticleJsonLd(
     publisher: {
       "@type": "Organization",
       name: "Mapletechie",
-      logo: { "@type": "ImageObject", url: `${siteUrl}/logo-favicon-v2.png` },
+      logo: { "@type": "ImageObject", url: `${siteUrl}/press-leaf.png` },
     },
     mainEntityOfPage: { "@type": "WebPage", "@id": url },
     articleSection: post.category ?? undefined,

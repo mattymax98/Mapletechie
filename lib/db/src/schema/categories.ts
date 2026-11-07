@@ -12,7 +12,7 @@ export const categoriesTable = pgTable("categories", {
 });
 
 export const defaultCategories = [
-  { name: "News", slug: "news", description: "Breaking industry news, launches, funding, and acquisitions", color: "#e0533f" },
+  { name: "World News", slug: "news", description: "Canadian, North American and international news, with context on what changed and who is affected.", color: "#e0533f" },
   { name: "Reviews", slug: "reviews", description: "Hands-on reviews of phones, laptops, wearables, and accessories", color: "#f97316" },
   { name: "AI", slug: "ai", description: "LLMs, generative AI, model releases, and AI policy", color: "#e0992e" },
   { name: "Gadgets", slug: "gadgets", description: "Consumer hardware first looks, leaks, and comparisons", color: "#3a9b95" },
