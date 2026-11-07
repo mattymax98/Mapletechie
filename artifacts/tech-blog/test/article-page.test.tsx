@@ -251,3 +251,17 @@ describe("BlogPost Article JSON-LD", () => {
     expect(noTopicPage.queryByRole("link", { name: /View topic/ })).toBeNull();
   });
 });
+
+it("opens additional sharing destinations by keyboard and encodes the canonical URL and title", async () => {
+  const article = { ...post, title: "AI & news: who decides?" };
+  mockApi(article);
+  const { findByRole } = renderArticlePage(post.slug);
+  fireEvent.keyDown(await findByRole("button", { name: "More sharing options" }), { key: "ArrowDown" });
+  const menu = await findByRole("menu");
+  const url = "https://www.mapletechie.com/blog/" + post.slug;
+  const destination = (name: string) => new URL(within(menu).getByRole("menuitem", { name }).getAttribute("href")!);
+  expect(destination("Reddit").searchParams.get("url")).toBe(url);
+  expect(destination("Reddit").searchParams.get("title")).toBe(article.title);
+  for (const name of ["Bluesky", "WhatsApp"]) expect(destination(name).searchParams.get("text")).toBe(article.title + " " + url);
+  expect(destination("Email").searchParams.get("body")).toBe(url);
+});
