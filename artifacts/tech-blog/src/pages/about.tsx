@@ -6,10 +6,10 @@ import { useGetFeaturedEditor } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const BELIEFS = [
-  { n: "01", t: "Reviews from use, not from press kits.", d: "Every product we cover gets actual time in our hands. If we haven't used it, we don't review it." },
-  { n: "02", t: "An opinion is the point.", d: "If a product is overpriced, we say so. If a launch is forgettable, we won't pretend otherwise to keep access." },
-  { n: "03", t: "Plain language, every time.", d: "Tech writing has a jargon problem. We translate, we explain, and we never assume you'll Google a buzzword to follow along." },
-  { n: "04", t: "Independence, on principle.", d: "No paid placements dressed up as articles. Affiliate links are disclosed. Editorial decisions are not for sale." },
+  { n: "01", t: "Credit the source", d: "Link the original document or reporting behind an important claim." },
+  { n: "02", t: "Distinguish news from opinion", d: "Make clear when a writer is reporting a finding and when they are offering an interpretation." },
+  { n: "03", t: "Explain the terms", d: "Readers should be able to follow a story without already knowing the industry or its shorthand." },
+  { n: "04", t: "Keep editorial decisions independent", d: "Disclose affiliate links and keep advertising separate from coverage." },
 ];
 
 export default function About() {
@@ -18,7 +18,7 @@ export default function About() {
     <div className="w-full">
       <SEO
         title="About Mapletechie"
-        description="Mapletechie is an independent tech publication founded by Matthew Mbaka — covering AI, EVs, cybersecurity, and gadgets without the press-release filter."
+        description="Founded by Matthew Mbaka, Mapletechie is an independent Canadian publication covering world news, business and technology."
         url="/about"
       />
 
@@ -30,10 +30,10 @@ export default function About() {
             <span className="text-[11px] uppercase tracking-[0.25em] font-bold text-primary">About the publication</span>
           </div>
           <h1 className="font-serif font-black tracking-tight leading-[0.95] text-5xl sm:text-6xl md:text-7xl max-w-4xl">
-            We started this because the internet didn't need <span className="italic text-primary">another</span> tech blog.
+            About Mapletechie
           </h1>
           <p className="mt-6 max-w-3xl text-lg md:text-xl text-muted-foreground leading-relaxed">
-            It needed one that <span className="text-foreground font-medium">actually had a point of view</span>.
+            An independent Canadian publication covering world news, business and technology.
           </p>
         </div>
       </section>
@@ -42,21 +42,11 @@ export default function About() {
       <section className="container mx-auto px-4 md:px-6 py-14 md:py-20 max-w-4xl">
         <p className="text-xs uppercase tracking-[0.25em] font-bold text-primary mb-3">The story</p>
         <h2 className="font-serif text-3xl md:text-4xl font-black tracking-tight leading-[1.1] mb-8">
-          Most tech coverage is the same article, written a hundred times.
+          How our coverage grew
         </h2>
         <div className="space-y-6 text-lg leading-relaxed text-muted-foreground">
-          <p>
-            A company holds a launch event. Outlets receive a press kit, a briefing, and an embargo. Within hours, a hundred articles appear — all hitting the same talking points, all praising the same features, all using the same adjectives the marketing team handed them. It's not journalism. It's coordinated repetition.
-          </p>
-          <p className="text-foreground">
-            <span className="font-serif italic text-2xl text-primary">Mapletechie</span> exists to do something different.
-          </p>
-          <p>
-            We cover the technology shaping our daily lives — AI, electric vehicles, cybersecurity, gadgets, and the software underneath it all — but we cover it like readers, not like a wire service. We test things ourselves. We say when something is overpriced. We point out when an "innovation" is mostly marketing. And when something is genuinely good, we explain <span className="text-foreground italic">why</span>, not just <span className="text-foreground italic">that</span>.
-          </p>
-          <p>
-            We're new. The archive is small. But the standard is high, and we're not in any rush to grow it by lowering it.
-          </p>
+          <p>Mapletechie began with technology: the products people buy, the tools they use and the decisions that shape those industries. That coverage continues in Canada Tech, Guides and Reviews.</p>
+          <p>Our <Link href="/category/news" className="underline">World News</Link> section gives us room to cover elections, trade, public policy and other developments in their own right. We pay particular attention to North America, and we cover stories elsewhere when they warrant a closer look.</p>
         </div>
       </section>
 
@@ -67,7 +57,7 @@ export default function About() {
             <div className="lg:col-span-4">
               <p className="text-xs uppercase tracking-[0.25em] font-bold text-primary mb-3">What we believe</p>
               <h2 className="font-serif text-4xl md:text-5xl font-black leading-[1.05] tracking-tight">
-                Four rules. <span className="italic text-primary">No exceptions.</span>
+                Our editorial standards
               </h2>
             </div>
             <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10">
@@ -89,7 +79,7 @@ export default function About() {
       <section className="container mx-auto px-4 md:px-6 py-16 md:py-20 max-w-5xl">
         <p className="text-xs uppercase tracking-[0.25em] font-bold text-primary mb-3">The editor</p>
         <h2 className="font-serif text-4xl md:text-5xl font-black leading-[1.05] tracking-tight mb-12">
-          Run by <span className="italic text-primary">one person</span>, with help.
+          Meet the founding editor
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-14">
@@ -124,15 +114,15 @@ export default function About() {
             ) : (
               <>
                 <p>
-                  I'm Matthew. I built Mapletechie because I'd spent years reading tech coverage that felt increasingly hollow — review scores you couldn't trace back to actual testing, "exclusives" that were just press releases with the embargo lifted, and writing that read like it was generated by committee. I wanted to read something sharper. So I started writing it.
+                  I'm Matthew, Mapletechie's founding editor. I started the site in Canada and wanted its coverage to reach beyond our borders.
                 </p>
                 <p>
-                  I cover the things I actually use and care about: AI tools and the hype around them, the EV transition, security failures that should never have happened, and the gadgets worth your money (which is most of them — you just have to know which ones).
+                  If there’s a story we’ve overlooked, send a tip and tell us what you think we should look into.
                 </p>
               </>
             )}
             <p className="text-foreground">
-              If you read something here you disagree with, write back. The site is small enough that I'll see it.
+              You can also contact the editorial desk with a correction or a question about a story.
             </p>
 
             <div className="border-t border-border pt-8 mt-10 flex flex-wrap gap-3">

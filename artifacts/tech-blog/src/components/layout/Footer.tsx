@@ -76,7 +76,7 @@ export function Footer() {
           
           <div id="newsletter" className="scroll-mt-24">
             <h2 className="font-bold uppercase tracking-wider mb-4 text-sm">Newsletter</h2>
-            <p className="text-muted-foreground text-sm mb-4">Get the latest tech news delivered to your inbox daily. No spam, just signal.</p>
+            <p className="text-muted-foreground text-sm mb-4">Get the editor’s selection of world news, business and technology stories.</p>
             <form className="flex gap-2" onSubmit={handleSubscribe}>
               <Input
                 type="email"

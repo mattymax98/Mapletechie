@@ -50,15 +50,15 @@ export default function BlogIndex() {
   return (
     <div className="container mx-auto px-4 md:px-6 py-10">
       <SEO
-        title={pageNumber > 1 ? `Blog — Page ${pageNumber}` : "Blog"}
-        description="Latest tech news, gadget reviews, AI breakthroughs, and cybersecurity coverage from the Mapletechie team."
+        title={pageNumber > 1 ? `Latest stories — Page ${pageNumber}` : "Latest stories"}
+        description="The latest world news, business and technology stories from Mapletechie."
         url={pageNumber > 1 ? `/blog?page=${pageNumber}` : "/blog"}
       />
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 border-b border-border pb-6">
         <div>
           <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight mb-4">Latest News</h1>
           <p className="text-muted-foreground text-lg max-w-2xl">
-            The stories that matter in technology, science, and digital culture.
+            Browse our latest world news, business coverage, technology stories and guides.
           </p>
         </div>
         <div className="w-full md:w-auto relative">

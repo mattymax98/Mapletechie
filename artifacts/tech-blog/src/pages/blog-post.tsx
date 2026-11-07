@@ -647,9 +647,9 @@ export default function BlogPost() {
         {/* Inline newsletter CTA */}
         <div className="mt-12 p-6 md:p-8 border-2 border-primary bg-primary/5">
           <p className="text-xs uppercase tracking-widest font-bold text-primary mb-2">Don't miss the next one</p>
-          <h3 className="text-2xl md:text-3xl font-black mb-3">Get our weekly tech digest.</h3>
+          <h3 className="text-2xl md:text-3xl font-black mb-3">Get the Mapletechie Brief</h3>
           <p className="text-muted-foreground mb-4 font-serif">
-            One email, every Sunday. The week's biggest stories, sharpest takes, and what to read next.
+            The editor’s picks from our world news, business and technology coverage, sent to your inbox.
           </p>
           <Button asChild className="rounded-none uppercase font-bold tracking-wider">
             <a href="/#newsletter">Subscribe free</a>

@@ -81,7 +81,7 @@ export default function Contact() {
             Let's <br/><span className="text-primary">Talk</span>
           </h1>
           <p className="text-xl text-muted-foreground font-serif leading-relaxed mb-10 border-l-4 border-primary pl-6">
-            Have a tip about a new startup? Want to submit a guest editorial? 
+            Have a story tip or a correction? Want to submit a guest editorial?
             Or maybe you're interested in advertising with Mapletechie. Drop us a line.
           </p>
 
@@ -104,7 +104,7 @@ export default function Contact() {
               <div>
                 <h3 className="font-bold uppercase tracking-wider text-sm mb-1">Advertising</h3>
                 <p className="text-muted-foreground">ads@mapletechie.com</p>
-                <p className="text-muted-foreground text-sm mt-1">Partner with us to reach tech enthusiasts.</p>
+                <p className="text-muted-foreground text-sm mt-1">Ask about advertising with Mapletechie.</p>
               </div>
             </div>
 

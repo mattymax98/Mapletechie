@@ -23,7 +23,7 @@ export default function Terms() {
 
           <h2>1. Who we are</h2>
           <p>
-            Mapletechie is an independent tech publication. The Site is operated by an independent editor and is not a registered company. References to "we," "us," and "our" refer to the editorial team behind the Site.
+            Mapletechie is an independent Canadian publication. The Site is operated by an independent editor and is not a registered company. References to "we," "us," and "our" refer to the editorial team behind the Site.
           </p>
 
           <h2>2. Use of the Site</h2>

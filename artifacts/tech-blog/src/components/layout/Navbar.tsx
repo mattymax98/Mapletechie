@@ -1,5 +1,4 @@
 import { Link, useLocation } from "wouter";
-import { useListCategories } from "@workspace/api-client-react";
 import { Moon, Sun, Menu, X, Search, Monitor, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +9,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
+
+const sections = [
+  { href: "/", label: "Home" },
+  { href: "/category/news", label: "World News" },
+  { href: "/blog", label: "Latest" },
+  { href: "/category/canada-tech", label: "Canada Tech" },
+];
 
 export function Navbar() {
   const { theme, setTheme, resolvedTheme } = useTheme();
@@ -23,7 +29,6 @@ export function Navbar() {
     setIsMobileMenuOpen(false);
   }, [location]);
 
-  const { data: categories } = useListCategories();
   const [, navigate] = useLocation();
 
   const scrollToNewsletter = () => {
@@ -50,14 +55,12 @@ export function Navbar() {
           </Link>
           
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
-            <Link href="/" className={`hover:text-primary transition-colors ${location === '/' ? 'text-primary' : 'text-foreground'}`}>Home</Link>
-            <Link href="/blog" className={`hover:text-primary transition-colors ${location.startsWith('/blog') ? 'text-primary' : 'text-foreground'}`}>Latest</Link>
-            {categories?.slice().sort((a,b) => Number(b.slug === "news") - Number(a.slug === "news")).slice(0, 3).map(cat => (
-              <Link key={cat.id} href={`/category/${cat.slug}`} className={`hover:text-primary transition-colors ${location === `/category/${cat.slug}` ? 'text-primary' : 'text-foreground'}`}>
-                {cat.name}
+            {sections.map(({ href, label }) => (
+              <Link key={href} href={href} aria-current={location === href ? "page" : undefined}
+                className={`hover:text-primary transition-colors ${location === href ? "text-primary" : "text-foreground"}`}>
+                {label}
               </Link>
             ))}
-            <Link href="/about" className={`hover:text-primary transition-colors ${location === '/about' ? 'text-primary' : 'text-foreground'}`}>About</Link>
           </nav>
         </div>
 
@@ -134,10 +137,9 @@ export function Navbar() {
       >
         <div className="overflow-hidden min-h-0">
           <nav className="flex flex-col p-4 gap-4 text-sm font-bold uppercase tracking-wider">
-            <Link href="/" className="py-2 border-b border-border/50">Home</Link>
-            <Link href="/blog" className="py-2 border-b border-border/50">Latest Posts</Link>
-            <Link href="/about" className="py-2 border-b border-border/50">About</Link>
-            <Link href="/contact" className="py-2 border-b border-border/50">Contact Us</Link>
+            {sections.map(({ href, label }) => (
+              <Link key={href} href={href} aria-current={location === href ? "page" : undefined} className="py-2 border-b border-border/50">{label}</Link>
+            ))}
             <Button className="w-full mt-4 rounded-none" onClick={scrollToNewsletter}>Subscribe Now</Button>
           </nav>
         </div>

@@ -88,7 +88,7 @@ function TopicsIndex() {
     <main className="container mx-auto max-w-5xl px-4 md:px-6 py-12 md:py-16">
       <SEO
         title="Explore Topics"
-        description="Explore Mapletechie topic guides and follow connected articles across technology, gadgets, AI, software, and more."
+        description="Explore our topic guides for background and related articles on the stories we cover."
         url="/topics"
         noindex={!loading && !error && topics.length === 0}
       />

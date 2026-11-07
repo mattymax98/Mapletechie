@@ -51,7 +51,7 @@ export default function Advertise() {
     <div className="container mx-auto px-4 md:px-6 py-12 md:py-20">
       <SEO
         title="Partner with us"
-        description="Sponsored posts and newsletter sponsorships on Mapletechie. Reach engaged tech readers through clearly labeled editorial partnerships."
+        description="Sponsored posts and newsletter sponsorships on Mapletechie. Explore clearly labelled placements on our site and in the Mapletechie Brief."
         url="/advertise"
       />
 
