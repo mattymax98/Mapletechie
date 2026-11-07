@@ -11,7 +11,7 @@ import {
   Clock,
   Eye,
   MessageCircle,
-  Twitter,
+  Share2,
   Linkedin,
   Facebook,
   Link2,
@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Helmet } from "react-helmet-async";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -329,13 +330,17 @@ function TableOfContents({ headings }: { headings: { id: string; text: string }[
   );
 }
 
+function XMark({ className }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.64 7.584H.47l8.6-9.835L0 1.154h7.594l5.243 6.932 6.064-6.933Zm-1.29 19.49h2.039L6.487 3.24H4.299l13.312 17.403Z" /></svg>;
+}
+
 function ShareButtons({ title, url }: { title: string; url: string }) {
   const enc = encodeURIComponent;
   const links = [
     {
       title: "Share on X (Twitter)",
-      Icon: Twitter,
-      href: `https://twitter.com/intent/tweet?text=${enc(title)}&url=${enc(url)}`,
+      Icon: XMark,
+      href: `https://x.com/intent/tweet?text=${enc(title)}&url=${enc(url)}`,
     },
     {
       title: "Share on LinkedIn",
@@ -349,6 +354,13 @@ function ShareButtons({ title, url }: { title: string; url: string }) {
     },
   ];
 
+  const moreLinks = [
+    { name: "Reddit", href: `https://www.reddit.com/submit?url=${enc(url)}&title=${enc(title)}` },
+    { name: "WhatsApp", href: `https://wa.me/?text=${enc(title + " " + url)}` },
+    { name: "Bluesky", href: `https://bsky.app/intent/compose?text=${enc(title + " " + url)}` },
+    { name: "Email", href: `mailto:?subject=${enc(title)}&body=${enc(url)}` },
+  ];
+
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url);
@@ -359,7 +371,7 @@ function ShareButtons({ title, url }: { title: string; url: string }) {
   };
 
   return (
-    <div className="flex gap-2">
+    <div role="group" aria-label="Share this article" className="flex flex-wrap gap-2">
       {links.map(({ title: t, Icon, href }) => (
         <Button
           key={t}
@@ -389,6 +401,21 @@ function ShareButtons({ title, url }: { title: string; url: string }) {
       >
         <Link2 className="h-4 w-4" />
       </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" className="rounded-none" aria-label="More sharing options" title="More sharing options">
+            <Share2 className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" aria-label="More sharing options">
+          {moreLinks.map(({ name, href }) => (
+            <DropdownMenuItem key={name} asChild>
+              <a href={href} target={name === "Email" ? undefined : "_blank"} rel="noopener noreferrer"
+                onClick={() => trackEvent("social", { href })}>{name}</a>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
@@ -580,7 +607,7 @@ export default function BlogPost() {
             </a>
           </div>
 
-          <div className="shrink-0">
+          <div className="max-w-full">
             <ShareButtons title={post.title} url={canonicalUrl} />
           </div>
         </div>
