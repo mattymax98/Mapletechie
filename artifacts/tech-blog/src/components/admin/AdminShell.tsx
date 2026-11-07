@@ -174,14 +174,14 @@ export function AdminShell({ title, children, actions, embedded = false }: Admin
             collapsed ? "justify-center" : "px-4"
           }`}
         >
-          <Link href="/admin" className="flex items-center gap-1.5">
+          <Link href="/admin" aria-label="Mapletechie admin" className="flex min-w-0 max-w-full items-center gap-1.5">
             {collapsed ? (
               <img src="/press-leaf.svg" alt="" className="w-7 h-7 rounded" />
             ) : (
               <>
-                <img src="/masthead-dark.svg" alt="" className="h-7 w-auto" />
-                <span className="text-zinc-500 font-light text-xs">/</span>
-                <span className="text-zinc-400 font-normal text-xs">Admin</span>
+                <img src="/masthead-dark.svg" alt="" className="h-auto w-32 min-w-0" />
+                <span aria-hidden="true" className="shrink-0 text-zinc-500 font-light text-xs">/</span>
+                <span className="shrink-0 text-zinc-400 font-normal text-xs">Admin</span>
               </>
             )}
           </Link>
