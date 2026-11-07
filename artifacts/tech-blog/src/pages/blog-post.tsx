@@ -11,8 +11,7 @@ import {
   Clock,
   Eye,
   MessageCircle,
-  Twitter,
-  Linkedin,
+  Share2,
   Facebook,
   Link2,
   ArrowUp,
@@ -20,6 +19,7 @@ import {
 } from "lucide-react";
 import { Helmet } from "react-helmet-async";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -329,24 +329,43 @@ function TableOfContents({ headings }: { headings: { id: string; text: string }[
   );
 }
 
+function XMark({ className }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.64 7.584H.47l8.6-9.835L0 1.154h7.594l5.243 6.932 6.064-6.933Zm-1.29 19.49h2.039L6.487 3.24H4.299l13.312 17.403Z" /></svg>;
+}
+
+function RedditMark({ className }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m12 9 1.6-6 4.5 1"/><circle cx="20" cy="4.4" r="1.7"/>
+    <path d="M4.2 14a2.5 2.5 0 1 1 2-4.3m13.6 4.3a2.5 2.5 0 1 0-2-4.3"/>
+    <ellipse cx="12" cy="14" rx="8.7" ry="5.8"/><g fill="currentColor" stroke="none"><circle cx="8.8" cy="13.4" r="1.2"/><circle cx="15.2" cy="13.4" r="1.2"/></g><path d="M8.7 16.4q3.3 2.1 6.6 0"/>
+  </svg>;
+}
+
 function ShareButtons({ title, url }: { title: string; url: string }) {
   const enc = encodeURIComponent;
   const links = [
     {
       title: "Share on X (Twitter)",
-      Icon: Twitter,
-      href: `https://twitter.com/intent/tweet?text=${enc(title)}&url=${enc(url)}`,
+      Icon: XMark,
+      href: `https://x.com/intent/tweet?text=${enc(title)}&url=${enc(url)}`,
     },
     {
-      title: "Share on LinkedIn",
-      Icon: Linkedin,
-      href: `https://www.linkedin.com/sharing/share-offsite/?url=${enc(url)}`,
+      title: "Share on Reddit",
+      Icon: RedditMark,
+      href: `https://www.reddit.com/submit?url=${enc(url)}&title=${enc(title)}`,
     },
     {
       title: "Share on Facebook",
       Icon: Facebook,
       href: `https://www.facebook.com/sharer/sharer.php?u=${enc(url)}`,
     },
+  ];
+
+  const moreLinks = [
+    { name: "LinkedIn", href: `https://www.linkedin.com/sharing/share-offsite/?url=${enc(url)}` },
+    { name: "WhatsApp", href: `https://wa.me/?text=${enc(title + " " + url)}` },
+    { name: "Bluesky", href: `https://bsky.app/intent/compose?text=${enc(title + " " + url)}` },
+    { name: "Email", href: `mailto:?subject=${enc(title)}&body=${enc(url)}` },
   ];
 
   const copy = async () => {
@@ -359,7 +378,7 @@ function ShareButtons({ title, url }: { title: string; url: string }) {
   };
 
   return (
-    <div className="flex gap-2">
+    <div role="group" aria-label="Share this article" className="flex flex-wrap gap-2">
       {links.map(({ title: t, Icon, href }) => (
         <Button
           key={t}
@@ -389,6 +408,21 @@ function ShareButtons({ title, url }: { title: string; url: string }) {
       >
         <Link2 className="h-4 w-4" />
       </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" className="rounded-none" aria-label="More sharing options" title="More sharing options">
+            <Share2 className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" aria-label="More sharing options">
+          {moreLinks.map(({ name, href }) => (
+            <DropdownMenuItem key={name} asChild>
+              <a href={href} target={name === "Email" ? undefined : "_blank"} rel="noopener noreferrer"
+                onClick={() => trackEvent("social", { href })}>{name}</a>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
@@ -580,7 +614,7 @@ export default function BlogPost() {
             </a>
           </div>
 
-          <div className="shrink-0">
+          <div className="max-w-full">
             <ShareButtons title={post.title} url={canonicalUrl} />
           </div>
         </div>

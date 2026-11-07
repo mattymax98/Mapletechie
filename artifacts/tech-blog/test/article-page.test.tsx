@@ -251,3 +251,21 @@ describe("BlogPost Article JSON-LD", () => {
     expect(noTopicPage.queryByRole("link", { name: /View topic/ })).toBeNull();
   });
 });
+
+it("opens additional sharing destinations by keyboard and encodes the canonical URL and title", async () => {
+  const article = { ...post, title: "AI & news: who decides?" };
+  mockApi(article);
+  const { findByRole } = renderArticlePage(post.slug);
+  const row = within(await findByRole("group", { name: "Share this article" }));
+  expect(row.getAllByRole("link").map(a => a.getAttribute("aria-label"))).toEqual(["Share on X (Twitter)", "Share on Reddit", "Share on Facebook"]);
+  const reddit = new URL(row.getByRole("link", { name: "Share on Reddit" }).getAttribute("href")!);
+  fireEvent.keyDown(await findByRole("button", { name: "More sharing options" }), { key: "ArrowDown" });
+  const menu = await findByRole("menu");
+  const url = "https://www.mapletechie.com/blog/" + post.slug;
+  const destination = (name: string) => new URL(within(menu).getByRole("menuitem", { name }).getAttribute("href")!);
+  expect(reddit.searchParams.get("url")).toBe(url);
+  expect(reddit.searchParams.get("title")).toBe(article.title);
+  expect(destination("LinkedIn").searchParams.get("url")).toBe(url);
+  for (const name of ["Bluesky", "WhatsApp"]) expect(destination(name).searchParams.get("text")).toBe(article.title + " " + url);
+  expect(destination("Email").searchParams.get("body")).toBe(url);
+});
