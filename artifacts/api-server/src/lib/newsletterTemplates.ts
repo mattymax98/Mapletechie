@@ -30,7 +30,7 @@ ${footer}
 export function confirmEmailHtml(confirmUrl: string): string {
   const inner = `<tr><td style="padding:32px;">
 <h1 style="margin:0 0 16px;font-size:24px;color:#fafafa;font-weight:800;">Confirm your subscription</h1>
-<p style="margin:0 0 16px;line-height:1.6;color:#d4d4d8;">Thanks for signing up for the ${BRAND} weekly newsletter. Click the button below to confirm your email address — after that, you'll start getting the Friday recap of everything we published that week.</p>
+<p style="margin:0 0 16px;line-height:1.6;color:#d4d4d8;">Thanks for signing up for the ${BRAND} Brief. Confirm your email address below to receive the editor’s selection of stories.</p>
 <p style="margin:24px 0;"><a href="${confirmUrl}" style="display:inline-block;background:${ORANGE};color:#0a0a0a;padding:14px 28px;text-decoration:none;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;font-size:14px;">Confirm subscription</a></p>
 <p style="margin:0;line-height:1.6;color:#71717a;font-size:13px;">Or paste this link into your browser:<br><a href="${confirmUrl}" style="color:${ORANGE};word-break:break-all;">${confirmUrl}</a></p>
 </td></tr>`;
@@ -41,7 +41,7 @@ export function confirmEmailHtml(confirmUrl: string): string {
 export function welcomeEmailHtml(unsubUrl: string): string {
   const inner = `<tr><td style="padding:32px;">
 <h1 style="margin:0 0 16px;font-size:24px;color:#fafafa;font-weight:800;">You're in.</h1>
-<p style="margin:0 0 16px;line-height:1.6;color:#d4d4d8;">Welcome to the ${BRAND} weekly. Every Friday evening, you'll get a short note from the editor and a recap of every story we published that week — opinionated, plain-spoken coverage of the technology shaping our lives.</p>
+<p style="margin:0 0 16px;line-height:1.6;color:#d4d4d8;">Welcome to the ${BRAND} Brief. We’ll send you a selection of our coverage of world events, business and technology.</p>
 <p style="margin:0;line-height:1.6;color:#d4d4d8;">No spam. Unsubscribe any time with one click.</p>
 </td></tr>`;
   const footer = `You're receiving this because you confirmed a subscription at ${SITE_URL}. <a href="${unsubUrl}" style="color:#a1a1aa;">Unsubscribe</a>.`;
@@ -79,7 +79,7 @@ ${cover}
     .join("");
 
   const inner = `<tr><td style="padding:28px 32px 0;">
-<p style="margin:0;font-size:12px;letter-spacing:0.25em;text-transform:uppercase;color:#71717a;font-weight:700;">The Mapletechie Weekly · ${escapeHtml(weekLabel)}</p>
+<p style="margin:0;font-size:12px;letter-spacing:0.25em;text-transform:uppercase;color:#71717a;font-weight:700;">The Mapletechie Brief · ${escapeHtml(weekLabel)}</p>
 </td></tr>
 ${editorBlock}
 ${postRows}`;

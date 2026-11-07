@@ -12,7 +12,7 @@ export default function Careers() {
     <div className="container mx-auto px-4 md:px-6 py-12 md:py-20">
       <SEO
         title="Careers"
-        description="Join Mapletechie. Help us build a tech publication readers actually trust."
+        description="Explore editorial opportunities at Mapletechie, a Canadian publication covering world news, business and technology."
         url="/careers"
       />
 
@@ -24,12 +24,10 @@ export default function Careers() {
         >
           <p className="font-bold uppercase tracking-widest text-sm text-primary mb-4">Careers at Mapletechie</p>
           <h1 className="font-serif text-5xl md:text-7xl font-bold leading-[0.95] mb-8 tracking-tight">
-            Build a tech publication people actually trust.
+            Work with Mapletechie
           </h1>
           <p className="text-xl text-muted-foreground font-serif leading-relaxed mb-12 border-l-4 border-primary pl-6 max-w-3xl">
-            We're a small, opinionated team. We don't chase pageviews. We don't recycle press releases.
-            We write what we mean and we mean what we write. If that sounds like the kind of place you want
-            to work, take a look below.
+            Browse current openings for people interested in covering world events, business and technology.
           </p>
         </motion.div>
 

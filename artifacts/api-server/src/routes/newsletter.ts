@@ -128,7 +128,7 @@ router.get("/newsletter/confirm", async (req, res): Promise<void> => {
         to: sub.email,
         subject: "You're in — welcome to Mapletechie",
         html: welcomeEmailHtml(unsubUrl),
-        text: `Welcome to the Mapletechie weekly. Unsubscribe any time: ${unsubUrl}`,
+        text: `Welcome to the Mapletechie Brief. Unsubscribe any time: ${unsubUrl}`,
       });
     } catch (err) {
       logger.error({ err }, "Failed to send welcome email");

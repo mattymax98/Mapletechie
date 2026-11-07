@@ -24,10 +24,10 @@ import { DEFAULT_CATEGORY_COLOR } from "@/lib/categoryColors";
 import { AdSlot } from "@/components/AdSlot";
 
 const PRINCIPLES = [
-  { n: "01", t: "Independent.",   d: "No press junkets, no sponsored takes dressed up as reviews. We pay for our own gear and tell you what's actually true." },
-  { n: "02", t: "Opinionated.",   d: "We have a point of view. If a product is overpriced, we'll say it. If a launch is forgettable, we won't pretend." },
-  { n: "03", t: "Plain-spoken.",  d: "No buzzword soup. Tech should be explained in language a smart person can actually use, not jargon nobody verifies." },
-  { n: "04", t: "Built in Canada.", d: "We cover technology, business and world news from Canada, with local context when it matters." },
+  { n: "01", t: "Sources", d: "When a story turns on a ruling, a budget or a study, we link to it so you can read it yourself." },
+  { n: "02", t: "Timing", d: "A proposal can make headlines months before it becomes law. We tell you which stage it has reached." },
+  { n: "03", t: "Unanswered questions", d: "If a company announces a Canadian launch without a price or date, we say what is still unknown." },
+  { n: "04", t: "Geography", d: "A decision in Washington can change what a business pays in Windsor. We follow those connections where the evidence leads." },
 ];
 
 export default function Home() {
@@ -65,17 +65,17 @@ export default function Home() {
           <div className="flex items-center gap-3 mb-4">
             <span className="inline-block w-8 h-px bg-primary" />
             <span className="text-[11px] uppercase tracking-[0.25em] font-bold text-primary">
-              Independent Tech Publication
+              Independent Canadian publication
             </span>
           </div>
 
           <h1 className="font-serif font-black tracking-tight leading-[0.95] text-4xl sm:text-5xl md:text-6xl max-w-4xl">
-            Tech, <span className="italic text-primary">told straight</span>.
+            News from Canada and <span className="italic text-primary">around the world.</span>
           </h1>
 
           <div className="mt-5 flex flex-col md:flex-row md:items-end md:justify-between gap-5">
             <p className="max-w-2xl text-base md:text-lg text-muted-foreground leading-relaxed">
-              No press junkets. No hype cycles. <span className="text-foreground font-medium">Sharp opinion, real reviews,</span> and the context the spec sheets leave out.
+              Follow world events, business and technology, or browse our reviews and practical guides.
             </p>
             <div className="flex flex-wrap items-center gap-3 shrink-0">
               <Button asChild className="rounded-none font-bold uppercase tracking-wider">
@@ -306,12 +306,12 @@ export default function Home() {
         <div className="container mx-auto px-4 md:px-6 py-16 md:py-20">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
             <div className="lg:col-span-4">
-              <p className="text-xs uppercase tracking-[0.25em] font-bold text-primary mb-3">The Manifesto</p>
+              <p className="text-xs uppercase tracking-[0.25em] font-bold text-primary mb-3">Editorial standards</p>
               <h2 className="text-4xl md:text-5xl font-serif font-black leading-[1.05] tracking-tight mb-4">
-                What we <span className="italic text-primary">stand for</span>.
+                How we cover a story
               </h2>
               <p className="text-muted-foreground text-base leading-relaxed">
-                Most tech coverage today is recycled press releases with adjectives. We're trying to be the opposite of that.
+                These are the questions we ask before a story goes to the editor.
               </p>
             </div>
             <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10">
@@ -453,13 +453,13 @@ export default function Home() {
               <div className="flex-1">
                 <p className="text-xs uppercase tracking-[0.25em] font-bold text-primary mb-2">A note from the editor</p>
                 <h2 className="font-serif text-3xl md:text-4xl font-black leading-[1.1] mb-4">
-                  I started Mapletechie because I was tired of reading the same review, twice.
+                  Why we added World News
                 </h2>
                 <p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-3">
-                  Every product launch produces a hundred articles that all sound exactly alike — because most of them were written from the same press kit. That's not journalism. That's stenography.
+                  I started Mapletechie with technology. After a while, some of the stories I most wanted to cover had very little to do with tech. I wanted room for those stories here, too.
                 </p>
                 <p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-6">
-                  We're building something different here: opinionated, plain-spoken coverage of the technology shaping our lives, written by people who actually use the things they write about. If that sounds like a publication you'd want to read, you're in the right place.
+                  World News is where you’ll find our coverage of Canada, the US and events farther afield. If you came for technology, you can still go straight to Canada Tech, our guides or our reviews.
                 </p>
                 <div className="flex items-center gap-4 flex-wrap">
                   <span className="font-serif italic text-lg">— {editor?.displayName || "Matthew Mbaka"}, Founding Editor</span>
@@ -627,10 +627,10 @@ function HomeNewsletter() {
             <span className="text-xs uppercase tracking-[0.3em] font-bold">The Mapletechie Brief</span>
           </div>
           <h2 className="font-serif font-black tracking-tight text-3xl md:text-5xl leading-[1.05] mb-4">
-            The week in tech, told straight.
+            From the editor’s desk
           </h2>
           <p className="text-primary-foreground/80 text-base md:text-lg leading-relaxed mb-8 max-w-2xl mx-auto">
-            One email. The stories that actually matter, the reviews worth reading, and the context the headlines skip. No spam — just signal.
+            Get a selection of our world news, business and technology stories in your inbox.
           </p>
           <form className="flex flex-col sm:flex-row gap-3 max-w-lg mx-auto" onSubmit={handleSubscribe}>
             <Input

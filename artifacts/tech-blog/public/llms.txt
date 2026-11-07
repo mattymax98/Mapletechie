@@ -1,22 +1,22 @@
 # Mapletechie
 
-> Mapletechie (mapletechie.com) is a Canadian tech publication covering news, reviews, AI, gadgets, software, gaming, and business & policy — with a focus on the Canadian tech landscape.
+> Mapletechie is an independent Canadian publication covering world news, business and technology.
 
 ## About
 
-Mapletechie is an independent editorial outlet publishing original reporting and analysis on technology topics. Content is written and edited by human journalists and editors. Articles are fact-checked before publication.
+Coverage includes developments in Canada, across North America and around the world, alongside technology reviews and practical guides.
 
 ## Main Sections
 
 - [Home](https://www.mapletechie.com/)
 - [Blog / All Articles](https://www.mapletechie.com/blog)
-- [News](https://www.mapletechie.com/category/news)
+- [World News](https://www.mapletechie.com/category/news)
 - [Reviews](https://www.mapletechie.com/category/reviews)
 - [AI](https://www.mapletechie.com/category/ai)
 - [Gadgets](https://www.mapletechie.com/category/gadgets)
 - [Software & Apps](https://www.mapletechie.com/category/software)
 - [Gaming](https://www.mapletechie.com/category/gaming)
-- [Business & Policy](https://www.mapletechie.com/category/business-policy)
+- [Business & Policy](https://www.mapletechie.com/category/business)
 - [Canada Tech](https://www.mapletechie.com/category/canada-tech)
 
 ## Trust & Legal

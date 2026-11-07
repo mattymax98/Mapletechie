@@ -803,7 +803,7 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
     it("serves a prerendered body with real content to Googlebot", async () => {
       const { status, body } = await get("/", GOOGLEBOT_UA);
       expect(status).toBe(200);
-      expect(body).toContain("Mapletechie — Tech, told straight.");
+      expect(body).toContain("News from Canada and around the world.");
       expect(body).toContain("Latest Articles");
       // JSON-LD entity signal must land in the initial HTML for crawlers.
       expect(body).toContain('"@type":"WebSite"');
@@ -1276,7 +1276,7 @@ describe("crawler prerendering — content for bots, shell for browsers", () => 
     it("serves a prerendered listing to Googlebot", async () => {
       const { status, body } = await get("/blog", GOOGLEBOT_UA);
       expect(status).toBe(200);
-      expect(body).toContain("Blog — Tech News");
+      expect(body).toContain("Latest stories");
       expect(body).not.toContain('<div id="root"></div>');
     });
   });

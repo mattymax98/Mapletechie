@@ -241,7 +241,9 @@ function buildSeoBlock(data: SeoData): string {
 function crawlerSiteFooter(): string {
   const links = [
     ["Home", "/"],
-    ["Latest News", "/blog"],
+    ["World News", "/category/news"],
+    ["Latest", "/blog"],
+    ["Canada Tech", "/category/canada-tech"],
     ["AI", "/category/ai"],
     ["Gadgets", "/category/gadgets"],
     ["Reviews", "/category/reviews"],
@@ -1318,9 +1320,9 @@ app.get(/^\/?$/, async (req, res, next) => {
 
   const body = `
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
-  <h1>Mapletechie — Tech, told straight.</h1>
+  <h1>News from Canada and around the world.</h1>
   <p>${htmlEscape(description)}</p>
-  <p>No press junkets. No hype cycles. Sharp opinion, real reviews, and the context the spec sheets leave out. Technology, business and world news from a Canadian publication.</p>
+  <p>Follow world events, business and technology, or browse our reviews and practical guides.</p>
 ${categorySectionHtml}  <h2>Latest Articles</h2>
   ${renderPostList(posts, SITE_URL)}
   <h2>About Us</h2>
@@ -1356,10 +1358,10 @@ app.get(/^\/blog\/?$/, async (req, res, next) => {
   const pageUrl = page > 1 ? `${SITE_URL}/blog?page=${page}` : `${SITE_URL}/blog`;
   const description =
     page > 1
-      ? `Page ${page} of Mapletechie's technology news, reviews, AI coverage, and software reporting.`
-      : "The latest tech news, gadget reviews, AI coverage, and software deep dives from the Mapletechie team.";
+      ? `Page ${page} of Mapletechie's world news, business coverage, technology stories and guides.`
+      : "The latest world news, business and technology stories from Mapletechie.";
   const seo = buildSeoBlock({
-    title: buildSeoTitle(page > 1 ? `Blog — Page ${page}` : "Blog — Tech News & Reviews"),
+    title: buildSeoTitle(page > 1 ? `Latest stories — Page ${page}` : "Latest stories"),
     description,
     image: DEFAULT_OG_IMAGE,
     url: pageUrl,
@@ -1390,7 +1392,7 @@ app.get(/^\/blog\/?$/, async (req, res, next) => {
     : "";
   const body = `
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
-  <h1>Blog — Tech News &amp; Reviews${page > 1 ? ` — Page ${page}` : ""}</h1>
+  <h1>Latest stories${page > 1 ? ` — Page ${page}` : ""}</h1>
   <p>${htmlEscape(description)}</p>
   ${renderPostList(posts, SITE_URL)}
   ${pagination}
@@ -1403,7 +1405,7 @@ app.get(/^\/blog\/?$/, async (req, res, next) => {
 
 app.get(/^\/about\/?$/, (req, res, next) => {
   const description =
-    "Mapletechie is an independent tech publication founded by Matthew Mbaka — covering AI, EVs, cybersecurity, and gadgets without the press-release filter.";
+    "Founded by Matthew Mbaka, Mapletechie is an independent Canadian publication covering world news, business and technology.";
   const seo = buildSeoBlock({
     title: buildSeoTitle("About Mapletechie"),
     description,
@@ -1419,7 +1421,7 @@ app.get(/^\/about\/?$/, (req, res, next) => {
 <main style="max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;padding:1em">
   <h1>About Mapletechie</h1>
   <p>${htmlEscape(description)}</p>
-  <p>Mapletechie covers artificial intelligence, electric vehicles, cybersecurity, gadgets, and software — with opinionated, deeply reported journalism built on four principles: cover the story, not the press release; be clear about what we know and what we don't; explain the tech, not just the hype; and put readers first.</p>
+  <p>Mapletechie began with technology and now covers elections, trade, public policy and other world events, with particular attention to North America.</p>
   <p>Founded by Matthew Mbaka. Independent. Canadian.</p>
   <p><a href="${htmlEscape(SITE_URL)}">mapletechie.com</a></p>
 </main>`;
@@ -1461,7 +1463,7 @@ app.get(/^\/contact\/?$/, (req, res, next) => {
 
 app.get(/^\/advertise\/?$/, (req, res, next) => {
   const description =
-    "Sponsored posts and newsletter sponsorships on Mapletechie. Reach engaged tech readers through clearly labeled editorial partnerships.";
+    "Sponsored posts and newsletter sponsorships on Mapletechie. Explore clearly labelled placements on our site and in the Mapletechie Brief.";
   const seo = buildSeoBlock({
     title: buildSeoTitle("Partner with Us"),
     description,
@@ -1546,7 +1548,7 @@ app.get(/^\/terms\/?$/, (req, res, next) => {
 
 app.get(/^\/careers\/?$/, async (req, res, next) => {
   const description =
-    "Join Mapletechie. Help us build a tech publication readers actually trust. See our open roles and apply today.";
+    "Explore editorial opportunities at Mapletechie, a Canadian publication covering world news, business and technology. See our open roles and apply today.";
   const seo = buildSeoBlock({
     title: buildSeoTitle("Careers"),
     description,
@@ -1716,7 +1718,7 @@ app.get(/^\/author\/([^/]+)\/?$/, async (req, res, next) => {
   const displayName = author.displayName || author.username;
   const description =
     author.bio?.trim() ||
-    `Articles by ${displayName} on Mapletechie — tech news, reviews, and analysis.`;
+    `Articles by ${displayName} on Mapletechie — news, reviews and analysis.`;
   const ogImage = `${SITE_URL}/api/og/author/${encodeURIComponent(author.username)}.png`;
 
   const seo = buildSeoBlock({
@@ -1822,7 +1824,7 @@ app.get(/^\/tag\/([^/]+)\/?$/, async (req, res, next) => {
   const posts = postsResult.value;
 
   const ogImage = `${SITE_URL}/api/og/tag/${encodeURIComponent(tag)}.png`;
-  const description = `Every Mapletechie story tagged "${tag}" — tech news, reviews, and analysis.`;
+  const description = `Every Mapletechie story tagged "${tag}" — news, reviews and analysis.`;
 
   let seo = buildSeoBlock({
     title: buildSeoTitle(`#${tag} — Tag archive`),
@@ -1899,7 +1901,7 @@ app.get(/^\/topics\/?$/, async (req, res) => {
   const topics = topicsResult.value;
   const seo = buildSeoBlock({
     title: buildSeoTitle("Explore Topics"),
-    description: "Explore Mapletechie topic guides and follow connected articles across technology, gadgets, AI, software, and more.",
+    description: "Explore our topic guides for background and related articles on the stories we cover.",
     image: DEFAULT_OG_IMAGE,
     url: `${SITE_URL}/topics`,
     type: "website",

@@ -5,10 +5,6 @@ import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import { Navbar } from "../src/components/layout/Navbar";
 
-vi.mock("@workspace/api-client-react", () => ({
-  useListCategories: () => ({ data: [] }),
-}));
-
 vi.mock("next-themes", () => ({
   useTheme: () => ({
     theme: "dark",
@@ -32,6 +28,14 @@ describe("public navbar search", () => {
     expect(search.className).not.toContain("hidden");
     expect(screen.getByRole("button", { name: "Open menu" })).toBeTruthy();
 
+    fireEvent.click(screen.getByRole("button", { name: "Open menu" }));
+    const menus = screen.getAllByRole("navigation");
+    expect(menus).toHaveLength(2);
+    for (const menu of menus) {
+      expect(Array.from(menu.querySelectorAll("a"), a => [a.textContent, a.getAttribute("href")])).toEqual([
+        ["Home", "/"], ["World News", "/category/news"], ["Latest", "/blog"], ["Canada Tech", "/category/canada-tech"],
+      ]);
+    }
     fireEvent.click(search);
     expect(location.history.at(-1)).toBe("/search");
   });

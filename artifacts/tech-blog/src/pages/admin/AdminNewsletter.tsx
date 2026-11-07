@@ -248,7 +248,7 @@ export default function AdminNewsletter() {
             <Input
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              placeholder="The week in tech: Apple's quiet pivot, Tesla's loud one"
+              placeholder="This week: trade talks, energy prices and a new phone launch"
               maxLength={120}
               className="bg-zinc-900 border-zinc-700"
               data-testid="input-newsletter-subject"

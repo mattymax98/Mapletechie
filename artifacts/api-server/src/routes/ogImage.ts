@@ -199,9 +199,9 @@ router.get("/og/site.png", async (req, res) => {
 
     const buf = await renderOgImage({
       kicker: "Independent Canadian Tech",
-      title: "Canadian Tech News, Gadget Reviews & AI",
+      title: "Technology, business and world news",
       subtitle:
-        "No press junkets. No hype cycles. Sharp opinion, real reviews, and the context the spec sheets leave out.",
+        "From an independent Canadian publication.",
       coverImage: featured?.coverImage ?? null,
     });
     sendPng(res, buf, { sMaxAge: 3600 });
