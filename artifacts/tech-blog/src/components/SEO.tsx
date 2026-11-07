@@ -83,9 +83,9 @@ interface SEOProps {
 
 const SITE_NAME = "Mapletechie";
 const SITE_URL = "https://www.mapletechie.com";
-const DEFAULT_IMAGE = `${SITE_URL}/api/og/site.png`;
+const DEFAULT_IMAGE = `${SITE_URL}/mapletechie-share-v3.jpg`;
 const DEFAULT_DESCRIPTION =
-  "Mapletechie — Your go-to source for tech news, gadget reviews, software deep dives, and the latest in AI, EVs, and cybersecurity.";
+  "Mapletechie — Technology, business and world news from a Canadian publication.";
 
 export function SEO({
   title,

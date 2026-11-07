@@ -43,7 +43,7 @@ export function Navbar() {
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center group" aria-label="Mapletechie — home">
             <img
-              src={themeReady && resolvedTheme === 'dark' ? '/mapletechie-wordmark-inverse.svg' : '/mapletechie-wordmark.svg'}
+              src={themeReady && resolvedTheme === 'dark' ? '/masthead-dark.svg' : '/masthead.svg'}
               alt="Mapletechie"
               className="h-9 w-auto transition-opacity group-hover:opacity-80"
             />
@@ -52,7 +52,7 @@ export function Navbar() {
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
             <Link href="/" className={`hover:text-primary transition-colors ${location === '/' ? 'text-primary' : 'text-foreground'}`}>Home</Link>
             <Link href="/blog" className={`hover:text-primary transition-colors ${location.startsWith('/blog') ? 'text-primary' : 'text-foreground'}`}>Latest</Link>
-            {categories?.slice(0, 3).map(cat => (
+            {categories?.slice().sort((a,b) => Number(b.slug === "news") - Number(a.slug === "news")).slice(0, 3).map(cat => (
               <Link key={cat.id} href={`/category/${cat.slug}`} className={`hover:text-primary transition-colors ${location === `/category/${cat.slug}` ? 'text-primary' : 'text-foreground'}`}>
                 {cat.name}
               </Link>

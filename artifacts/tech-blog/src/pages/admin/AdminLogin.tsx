@@ -58,7 +58,7 @@ export default function AdminLogin() {
             </div>
           </div>
           <CardTitle className="flex flex-col items-center gap-1">
-            <img src="/mapletechie-wordmark-inverse.svg" alt="Mapletechie" className="h-8 w-auto" />
+            <img src="/masthead-dark.svg" alt="Mapletechie" className="h-8 w-auto" />
             <span className="text-base font-normal text-zinc-400">Admin Portal</span>
           </CardTitle>
           <CardDescription className="text-zinc-400">

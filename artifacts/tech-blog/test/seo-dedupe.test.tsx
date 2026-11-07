@@ -21,7 +21,7 @@ function seedServerHead() {
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Server OG title" />
     <meta property="og:description" content="Server OG description" />
-    <meta property="og:image" content="https://www.mapletechie.com/opengraph-v2.jpg" />
+    <meta property="og:image" content="https://www.mapletechie.com/mapletechie-share-v3.jpg" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Server twitter title" />
     <script type="application/ld+json">{"@context":"https://schema.org"}</script>
